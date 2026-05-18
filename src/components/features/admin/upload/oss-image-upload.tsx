@@ -1,0 +1,206 @@
+"use client";
+
+import { useState } from "react";
+import { ImagePlus, LoaderCircle } from "lucide-react";
+import { toast } from "sonner";
+
+import { OSS_IMAGE_CONTENT_TYPES, OSS_MAX_IMAGE_BYTES, formatOssFileSize } from "@/lib/oss/shared";
+
+type OssImageUploadProps = {
+  defaultCharacter: string;
+  onUploaded: (urls: string[]) => void;
+};
+
+type OssUploadResult = {
+  ok?: boolean;
+  error?: string;
+  maxFileSize?: number;
+  publicUrl?: string;
+  uploadFields?: Record<string, string>;
+  uploadUrl?: string;
+  debug?: unknown;
+  method?: string;
+};
+
+export function OssImageUpload({ defaultCharacter, onUploaded }: OssImageUploadProps) {
+  const [uploadSeed, setUploadSeed] = useState(() => crypto.randomUUID());
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
+  const [uploadError, setUploadError] = useState("");
+
+  const uploadSingleImage = async (file: File, character: string, index: number, total: number) => {
+    const contentType = file.type || "image/webp";
+    const signResponse = await fetch("/api/oss/sign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        character,
+        contentType,
+        fileSize: file.size,
+        filename: file.name,
+        modId: `${uploadSeed}-${index + 1}`,
+      }),
+    });
+
+    const responseText = await signResponse.text();
+    const signResult = responseText ? (JSON.parse(responseText) as OssUploadResult) : {};
+
+    if (!signResponse.ok || !signResult.ok || !signResult.uploadUrl || !signResult.publicUrl) {
+      const debugMessage = signResult.error === "missing_oss_env"
+        ? `OSS 环境变量未配置完整：${JSON.stringify(signResult.debug ?? {})}`
+        : signResult.error || "获取 OSS 图片上传签名失败。";
+
+      throw new Error(debugMessage);
+    }
+
+    if ((signResult.method ?? "POST") !== "POST") {
+      throw new Error("当前图片上传仅支持 OSS POST 表单直传。请检查签名接口返回。");
+    }
+
+    const uploadUrl = signResult.uploadUrl;
+
+    if (!uploadUrl) {
+      throw new Error("缺少 OSS 图片上传地址。");
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", uploadUrl);
+
+      const formData = new FormData();
+      Object.entries(signResult.uploadFields ?? {}).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+      formData.append("file", file);
+
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) {
+          return;
+        }
+
+        const currentFileProgress = event.loaded / event.total;
+        const overallProgress = ((index + currentFileProgress) / total) * 100;
+        setUploadProgress(Math.max(1, Math.round(overallProgress)));
+      };
+
+      xhr.onerror = () => {
+        reject(new Error(`图片上传到 OSS 失败，请检查 CORS、Bucket 权限或网络连接。当前状态：${xhr.status || 0}`));
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+          return;
+        }
+
+        reject(new Error(`图片上传失败，OSS 返回状态码 ${xhr.status}：${xhr.responseText || "无响应体"}`));
+      };
+
+      xhr.send(formData);
+    });
+
+    return signResult.publicUrl;
+  };
+
+  const uploadImagesToOss = async (files: FileList) => {
+    if (uploadStatus === "uploading") {
+      return;
+    }
+
+    setUploadStatus("uploading");
+    setUploadProgress(0);
+    setUploadError("");
+
+    try {
+      const selectedCharacter = (document.querySelector('select[name="character"]') as HTMLSelectElement | null)?.value;
+      const character = selectedCharacter || defaultCharacter || "unknown";
+      const fileList = Array.from(files);
+      const uploadedUrls: string[] = [];
+
+      for (const [index, file] of fileList.entries()) {
+        const uploadedUrl = await uploadSingleImage(file, character, index, fileList.length);
+        uploadedUrls.push(uploadedUrl);
+      }
+
+      onUploaded(uploadedUrls);
+      setUploadProgress(100);
+      setUploadStatus("success");
+      setUploadSeed(crypto.randomUUID());
+      toast.success("预览图已上传到 OSS，图片地址已自动追加到文本框。");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "图片上传失败，请稍后再试。";
+      setUploadStatus("error");
+      setUploadError(message);
+      toast.error("预览图上传失败", {
+        description: message,
+      });
+    }
+  };
+
+  return (
+    <div className="border-4 border-black bg-white p-4 shadow-[6px_6px_0px_0px_#000]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.14em] text-black">预览图上传到 OSS</p>
+          <p className="mt-1 text-xs font-bold leading-6 text-black/70">
+            支持多图上传，单张最大 {formatOssFileSize(OSS_MAX_IMAGE_BYTES)}，成功后会自动追加到预览图地址输入框。
+          </p>
+        </div>
+        <div className="relative inline-flex items-center gap-2 border-4 border-black bg-white px-4 py-3 text-sm font-black uppercase tracking-[0.14em] shadow-[6px_6px_0px_0px_#000]">
+          {uploadStatus === "uploading" ? <LoaderCircle className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+          <span>{uploadStatus === "uploading" ? "上传中" : "选择图片"}</span>
+          <input
+            type="file"
+            accept={OSS_IMAGE_CONTENT_TYPES.join(",")}
+            multiple
+            disabled={uploadStatus === "uploading"}
+            className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+            onChange={(event) => {
+              const fileList = event.target.files ? Array.from(event.target.files) : [];
+              event.currentTarget.value = "";
+
+              if (fileList.length === 0 || uploadStatus === "uploading") {
+                return;
+              }
+
+              const oversizeFile = fileList.find((file) => file.size > OSS_MAX_IMAGE_BYTES);
+              if (oversizeFile) {
+                const message = `图片 ${oversizeFile.name} 超过 ${formatOssFileSize(OSS_MAX_IMAGE_BYTES)} 限制。`;
+                setUploadStatus("error");
+                setUploadError(message);
+                toast.error("预览图上传失败", { description: message });
+                return;
+              }
+
+              const invalidFile = fileList.find((file) => file.type && !OSS_IMAGE_CONTENT_TYPES.includes(file.type as (typeof OSS_IMAGE_CONTENT_TYPES)[number]));
+              if (invalidFile) {
+                const message = `图片 ${invalidFile.name} 类型不受支持，请上传 PNG/JPEG/WebP/GIF。`;
+                setUploadStatus("error");
+                setUploadError(message);
+                toast.error("预览图上传失败", { description: message });
+                return;
+              }
+
+              const dataTransfer = new DataTransfer();
+              fileList.forEach((file) => dataTransfer.items.add(file));
+              uploadImagesToOss(dataTransfer.files);
+            }}
+          />
+        </div>
+      </div>
+      <div className="mt-4 h-4 overflow-hidden border-4 border-black bg-[#fff8ef]">
+        <div className="h-full bg-[#7de2d1] transition-[width] duration-200" style={{ width: `${uploadProgress}%` }} />
+      </div>
+      <div className="mt-3 text-xs font-black uppercase tracking-[0.14em] text-black/75">
+        {uploadStatus === "idle"
+          ? "等待上传"
+          : uploadStatus === "uploading"
+            ? `上传进度 ${uploadProgress}%`
+            : uploadStatus === "success"
+              ? "上传完成，已追加图片地址"
+              : "上传失败"}
+      </div>
+      {uploadError ? <p className="mt-3 text-sm font-black text-[#c1121f]">{uploadError}</p> : null}
+    </div>
+  );
+}
