@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { Bug, Clock3, Mail, Send, ShieldEllipsis, Sparkles } from "lucide-react";
+import { Bug, Clock3, Mail, MessageCircle, Send, ShieldEllipsis, Smartphone, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-import { signInWithMagicLink } from "@/actions/auth/auth-actions";
+import { sendPhoneOtp, signInWithMagicLink, signInWithWechat, verifyPhoneOtp } from "@/actions/auth/auth-actions";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,22 @@ const initialState = {
   success: "",
 };
 
+const phoneInitialState = {
+  debug: "",
+  error: "",
+  phone: "",
+  success: "",
+};
+
 const EMAIL_PROVIDER_LABELS = ["QQ 邮箱", "163", "126", "Outlook", "Gmail", "企业邮箱"] as const;
 const RESEND_COOLDOWN_SECONDS = 60;
 
 export function LoginForm({ next, pageError, mode }: { next: string; pageError: string; mode: "admin" | "user" }) {
   const [state, formAction, pending] = useActionState(signInWithMagicLink, initialState);
+  const [phoneState, phoneAction, phonePending] = useActionState(sendPhoneOtp, phoneInitialState);
+  const [verifyPhoneState, verifyPhoneAction, verifyPhonePending] = useActionState(verifyPhoneOtp, initialState);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [phoneCooldownSeconds, setPhoneCooldownSeconds] = useState(0);
   const isAdminMode = mode === "admin";
   const sendButtonLabel = useMemo(() => {
     if (pending) {
@@ -36,6 +46,17 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
 
     return "发送邮箱验证码";
   }, [cooldownSeconds, pending]);
+  const phoneButtonLabel = useMemo(() => {
+    if (phonePending) {
+      return "发送中...";
+    }
+
+    if (phoneCooldownSeconds > 0) {
+      return `${phoneCooldownSeconds}s 后可重新发送`;
+    }
+
+    return "发送短信验证码";
+  }, [phoneCooldownSeconds, phonePending]);
 
   useEffect(() => {
     if (state.error) {
@@ -49,6 +70,29 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
       }, 0);
     }
   }, [state.error, state.success]);
+
+  useEffect(() => {
+    if (phoneState.error) {
+      toast.error(phoneState.error);
+    }
+
+    if (phoneState.success) {
+      toast.success(phoneState.success);
+      window.setTimeout(() => {
+        setPhoneCooldownSeconds(RESEND_COOLDOWN_SECONDS);
+      }, 0);
+    }
+  }, [phoneState.error, phoneState.success]);
+
+  useEffect(() => {
+    if (verifyPhoneState.error) {
+      toast.error(verifyPhoneState.error);
+    }
+
+    if (verifyPhoneState.success) {
+      toast.success(verifyPhoneState.success);
+    }
+  }, [verifyPhoneState.error, verifyPhoneState.success]);
 
   useEffect(() => {
     if (pageError) {
@@ -67,6 +111,18 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
 
     return () => window.clearTimeout(timer);
   }, [cooldownSeconds]);
+
+  useEffect(() => {
+    if (phoneCooldownSeconds <= 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setPhoneCooldownSeconds((current) => current - 1);
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [phoneCooldownSeconds]);
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center px-4 py-10 sm:px-6 lg:px-8">
@@ -132,6 +188,58 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
                   </p>
                   <p className="break-all">{state.debug}</p>
                 </div>
+              ) : null}
+
+              {!isAdminMode ? (
+                <>
+                  <form action={signInWithWechat} className="space-y-3">
+                    <input type="hidden" name="next" value={next} />
+                    <input type="hidden" name="mode" value={mode} />
+                    <Button type="submit" className="w-full bg-[#07c160] text-black hover:bg-[#07c160]/85">
+                      <MessageCircle className="size-4" />
+                      微信快捷登录
+                    </Button>
+                    <p className="text-xs font-black leading-5 text-black/65">
+                      微信登录需要先配置微信开放平台网站应用和认证桥接地址；未配置时会返回当前页面并显示配置提示。
+                    </p>
+                  </form>
+
+                  <div className="border-4 border-black bg-white p-4 shadow-[6px_6px_0px_0px_#000]">
+                    <div className="mb-3 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]">
+                      <Smartphone className="size-4" />
+                      手机号验证码登录
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                      <form action={phoneAction} className="space-y-3">
+                        <Input name="phone" type="tel" placeholder="输入 11 位手机号，例如 13800138000" autoComplete="tel" required />
+                        <Button type="submit" className="w-full" disabled={phonePending || phoneCooldownSeconds > 0}>
+                          {phoneCooldownSeconds > 0 ? <Clock3 className="size-4" /> : <Send className="size-4" />}
+                          {phoneButtonLabel}
+                        </Button>
+                      </form>
+                      <form action={verifyPhoneAction} className="space-y-3">
+                        <input type="hidden" name="phone" value={phoneState.phone} />
+                        <Input name="token" inputMode="numeric" maxLength={6} placeholder="6 位短信验证码" required />
+                        <Button type="submit" className="w-full" disabled={verifyPhonePending || !phoneState.phone}>
+                          验证并登录
+                        </Button>
+                      </form>
+                    </div>
+                    <p className="mt-3 text-xs font-black leading-5 text-black/65">
+                      手机号登录默认关闭。启用前需要配置 Supabase Phone OTP、短信服务商、短信模板和防刷策略；当前未配置时会显示明确提示。
+                    </p>
+                    {phoneState.error || verifyPhoneState.error ? (
+                      <p className="mt-3 text-xs font-black leading-5 text-[#c1121f]">{phoneState.error || verifyPhoneState.error}</p>
+                    ) : null}
+                    {phoneState.success ? <p className="mt-3 text-xs font-black leading-5 text-black/80">{phoneState.success}</p> : null}
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.14em] text-black/50">
+                    <span className="h-1 flex-1 bg-black/20" />
+                    <span>或使用邮箱验证码</span>
+                    <span className="h-1 flex-1 bg-black/20" />
+                  </div>
+                </>
               ) : null}
 
               <form action={formAction} className="space-y-4">

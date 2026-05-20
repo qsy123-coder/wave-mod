@@ -15,6 +15,7 @@ const errorMessageMap: Record<string, string> = {
   missing_code: "登录回调缺少验证码授权码，请重新发送邮箱验证码。",
   exchange_failed: "登录会话创建失败，请重新尝试。",
   unauthorized: "当前账号不是管理员，无权进入后台。",
+  wechat_not_configured: "微信登录尚未配置：请先准备微信开放平台网站应用、回调域名和认证桥接地址。",
 };
 
 async function LoginPageContent({ searchParams }: LoginPageProps) {
