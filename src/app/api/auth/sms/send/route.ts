@@ -17,6 +17,13 @@ function getSmsHookSecret() {
   return process.env.SUPABASE_SEND_SMS_HOOK_SECRET?.trim() || "";
 }
 
+function hasAliyunAccessKey() {
+  return Boolean(
+    (process.env.ALIBABA_CLOUD_ACCESS_KEY_ID && process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET) ||
+      (process.env.ALIYUN_OSS_ACCESS_KEY_ID && process.env.ALIYUN_OSS_ACCESS_KEY_SECRET),
+  );
+}
+
 async function verifySupabaseSendSmsWebhook(request: Request, payloadText: string) {
   const secret = getSmsHookSecret();
 
@@ -29,6 +36,20 @@ async function verifySupabaseSendSmsWebhook(request: Request, payloadText: strin
   const headers = Object.fromEntries(request.headers.entries());
 
   return webhook.verify(payloadText, headers) as SupabaseSendSmsPayload;
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    checks: {
+      hookSecret: Boolean(getSmsHookSecret()),
+      aliyunAccessKey: hasAliyunAccessKey(),
+      dysmsEndpoint: Boolean(process.env.ALIYUN_DYSMS_ENDPOINT || "dysmsapi.aliyuncs.com"),
+      dysmsSignName: Boolean(process.env.ALIYUN_DYSMS_SIGN_NAME || process.env.ALIYUN_SMS_SIGN_NAME),
+      dysmsTemplateCode: Boolean(process.env.ALIYUN_DYSMS_TEMPLATE_CODE || process.env.ALIYUN_SMS_TEMPLATE_CODE),
+      phoneOtpEnabled: process.env.ENABLE_SUPABASE_PHONE_OTP === "true",
+    },
+  });
 }
 
 export async function POST(request: Request) {
