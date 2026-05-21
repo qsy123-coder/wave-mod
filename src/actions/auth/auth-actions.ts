@@ -27,6 +27,40 @@ function isPhoneOtpEnabled() {
   return process.env.ENABLE_SUPABASE_PHONE_OTP === "true";
 }
 
+function getPhoneOtpSetupError() {
+  if (!isPhoneOtpEnabled()) {
+    return "手机号验证码登录尚未启用：请先配置 Supabase Phone OTP、Send SMS Hook、阿里云普通短信模板和防刷策略。";
+  }
+
+  const missing: string[] = [];
+  const hasAliyunAccessKey = Boolean(
+    (process.env.ALIBABA_CLOUD_ACCESS_KEY_ID && process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET) ||
+      (process.env.ALIYUN_OSS_ACCESS_KEY_ID && process.env.ALIYUN_OSS_ACCESS_KEY_SECRET),
+  );
+
+  if (!process.env.SUPABASE_SEND_SMS_HOOK_SECRET) {
+    missing.push("SUPABASE_SEND_SMS_HOOK_SECRET");
+  }
+
+  if (!hasAliyunAccessKey) {
+    missing.push("ALIBABA_CLOUD_ACCESS_KEY_ID / ALIBABA_CLOUD_ACCESS_KEY_SECRET");
+  }
+
+  if (!(process.env.ALIYUN_DYSMS_SIGN_NAME || process.env.ALIYUN_SMS_SIGN_NAME)) {
+    missing.push("ALIYUN_DYSMS_SIGN_NAME");
+  }
+
+  if (!(process.env.ALIYUN_DYSMS_TEMPLATE_CODE || process.env.ALIYUN_SMS_TEMPLATE_CODE)) {
+    missing.push("ALIYUN_DYSMS_TEMPLATE_CODE");
+  }
+
+  if (missing.length > 0) {
+    return `手机号验证码登录配置未完整：缺少 ${missing.join("、")}。`;
+  }
+
+  return "";
+}
+
 function normalizeChinaPhone(rawPhone: string) {
   const compact = rawPhone.replace(/[\s-]/g, "").trim();
 
@@ -159,10 +193,12 @@ export async function sendPhoneOtp(_prevState: PhoneAuthActionState, formData: F
     };
   }
 
-  if (!isPhoneOtpEnabled()) {
+  const phoneOtpSetupError = getPhoneOtpSetupError();
+
+  if (phoneOtpSetupError) {
     return {
-      debug: "phone_otp_disabled",
-      error: "手机号验证码登录尚未启用：请先配置 Supabase Phone OTP、短信服务商、短信模板和防刷策略。",
+      debug: isPhoneOtpEnabled() ? "phone_otp_config_missing" : "phone_otp_disabled",
+      error: phoneOtpSetupError,
       phone,
       success: "",
     };
@@ -226,10 +262,12 @@ export async function verifyPhoneOtp(_prevState: AuthActionState, formData: Form
     };
   }
 
-  if (!isPhoneOtpEnabled()) {
+  const phoneOtpSetupError = getPhoneOtpSetupError();
+
+  if (phoneOtpSetupError) {
     return {
-      debug: "phone_otp_disabled",
-      error: "手机号验证码登录尚未启用：请先配置 Supabase Phone OTP、短信服务商、短信模板和防刷策略。",
+      debug: isPhoneOtpEnabled() ? "phone_otp_config_missing" : "phone_otp_disabled",
+      error: phoneOtpSetupError,
       success: "",
     };
   }
