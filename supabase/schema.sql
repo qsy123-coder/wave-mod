@@ -28,6 +28,7 @@ $$;
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text unique,
+  phone text unique,
   role text not null default 'user' check (role in ('user', 'admin', 'vip')),
   display_name text,
   avatar_url text,
@@ -115,17 +116,19 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, role)
+  insert into public.profiles (id, email, phone, role)
   values (
     new.id,
     new.email,
+    new.phone,
     case
       when lower(coalesce(new.email, '')) = lower(coalesce(current_setting('app.admin_email', true), '')) then 'admin'
       else 'user'
     end
   )
   on conflict (id) do update
-    set email = excluded.email;
+    set email = excluded.email,
+        phone = excluded.phone;
 
   return new;
 end;

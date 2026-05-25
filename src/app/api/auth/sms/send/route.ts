@@ -24,6 +24,34 @@ function hasAliyunAccessKey() {
   );
 }
 
+function getDysmsTemplateCode() {
+  return process.env.ALIYUN_DYSMS_TEMPLATE_CODE || process.env.ALIYUN_SMS_TEMPLATE_CODE || "";
+}
+
+function getDysmsTemplateSource() {
+  if (process.env.ALIYUN_DYSMS_TEMPLATE_CODE) {
+    return "ALIYUN_DYSMS_TEMPLATE_CODE";
+  }
+
+  if (process.env.ALIYUN_SMS_TEMPLATE_CODE) {
+    return "ALIYUN_SMS_TEMPLATE_CODE";
+  }
+
+  return "missing";
+}
+
+function maskConfigValue(value: string) {
+  if (!value) {
+    return "";
+  }
+
+  if (value.length <= 6) {
+    return `${value.slice(0, 2)}***`;
+  }
+
+  return `${value.slice(0, 4)}***${value.slice(-2)}`;
+}
+
 async function verifySupabaseSendSmsWebhook(request: Request, payloadText: string) {
   const secret = getSmsHookSecret();
 
@@ -46,7 +74,10 @@ export async function GET() {
       aliyunAccessKey: hasAliyunAccessKey(),
       dysmsEndpoint: Boolean(process.env.ALIYUN_DYSMS_ENDPOINT || "dysmsapi.aliyuncs.com"),
       dysmsSignName: Boolean(process.env.ALIYUN_DYSMS_SIGN_NAME || process.env.ALIYUN_SMS_SIGN_NAME),
-      dysmsTemplateCode: Boolean(process.env.ALIYUN_DYSMS_TEMPLATE_CODE || process.env.ALIYUN_SMS_TEMPLATE_CODE),
+      dysmsTemplateCode: Boolean(getDysmsTemplateCode()),
+      dysmsTemplateSource: getDysmsTemplateSource(),
+      dysmsTemplatePreview: maskConfigValue(getDysmsTemplateCode()),
+      dysmsTemplateLooksStandard: /^SMS_/.test(getDysmsTemplateCode()),
       phoneOtpEnabled: process.env.ENABLE_SUPABASE_PHONE_OTP === "true",
     },
   });

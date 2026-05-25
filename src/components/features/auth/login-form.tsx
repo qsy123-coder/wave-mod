@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { Bug, Clock3, Mail, MessageCircle, Send, ShieldEllipsis, Smartphone, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-import { sendPhoneOtp, signInWithMagicLink, signInWithWechat, verifyPhoneOtp } from "@/actions/auth/auth-actions";
+import { sendPhoneOtp, signInWithMagicLink, signInWithWechat, verifyEmailOtp, verifyPhoneOtp } from "@/actions/auth/auth-actions";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,13 @@ import { Label } from "@/components/ui/label";
 
 const initialState = {
   debug: "",
+  error: "",
+  success: "",
+};
+
+const emailInitialState = {
+  debug: "",
+  email: "",
   error: "",
   success: "",
 };
@@ -29,7 +36,8 @@ const EMAIL_PROVIDER_LABELS = ["QQ 邮箱", "163", "126", "Outlook", "Gmail", "�
 const RESEND_COOLDOWN_SECONDS = 60;
 
 export function LoginForm({ next, pageError, mode }: { next: string; pageError: string; mode: "admin" | "user" }) {
-  const [state, formAction, pending] = useActionState(signInWithMagicLink, initialState);
+  const [state, formAction, pending] = useActionState(signInWithMagicLink, emailInitialState);
+  const [verifyEmailState, verifyEmailAction, verifyEmailPending] = useActionState(verifyEmailOtp, initialState);
   const [phoneState, phoneAction, phonePending] = useActionState(sendPhoneOtp, phoneInitialState);
   const [verifyPhoneState, verifyPhoneAction, verifyPhonePending] = useActionState(verifyPhoneOtp, initialState);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
@@ -70,6 +78,16 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
       }, 0);
     }
   }, [state.error, state.success]);
+
+  useEffect(() => {
+    if (verifyEmailState.error) {
+      toast.error(verifyEmailState.error);
+    }
+
+    if (verifyEmailState.success) {
+      toast.success(verifyEmailState.success);
+    }
+  }, [verifyEmailState.error, verifyEmailState.success]);
 
   useEffect(() => {
     if (phoneState.error) {
@@ -190,9 +208,96 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
                 </div>
               ) : null}
 
+              <div className="space-y-4 border-4 border-black bg-white p-4 shadow-[6px_6px_0px_0px_#000]">
+                <div className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]">
+                  <Mail className="size-4" />
+                  邮箱验证码登录
+                </div>
+                <form action={formAction} className="space-y-4">
+                  <input type="hidden" name="next" value={next} />
+                  <input type="hidden" name="mode" value={mode} />
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-black uppercase tracking-[0.14em] text-black">
+                      {isAdminMode ? "管理员邮箱" : "登录邮箱"}
+                    </Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="例如：yourname@qq.com / 163.com / outlook.com"
+                      autoComplete="email"
+                      required
+                    />
+                    <p className="text-xs font-black leading-5 text-black/65">
+                      推荐顺序：163、126、Outlook、Gmail、企业邮箱；QQ 邮箱可使用邮件中的 6 位回执验证码登录。
+                    </p>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={pending || cooldownSeconds > 0}>
+                    {cooldownSeconds > 0 ? <Clock3 className="size-4" /> : <Send className="size-4" />}
+                    {sendButtonLabel}
+                  </Button>
+                </form>
+
+                <form action={verifyEmailAction} className="space-y-3 border-4 border-black p-3 shadow-[4px_4px_0px_0px_#000]" style={{ background: "var(--neo-muted)" }}>
+                  <input type="hidden" name="next" value={next} />
+                  <input type="hidden" name="mode" value={mode} />
+                  <input type="hidden" name="email" value={state.email} />
+                  <div className="space-y-2">
+                    <Label htmlFor="email-token" className="text-xs font-black uppercase tracking-[0.14em] text-black">
+                      邮箱回执验证码
+                    </Label>
+                    <Input id="email-token" name="token" inputMode="numeric" maxLength={6} placeholder="输入邮件里的 6 位验证码" required />
+                    <p className="text-xs font-black leading-5 text-black/65">
+                      发送邮件后，复制邮件中的验证码到这里完成登录。
+                    </p>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={verifyEmailPending || !state.email}>
+                    验证邮箱并登录
+                  </Button>
+                </form>
+              </div>
+
+              {!isAdminMode ? (
+                <div className="border-4 border-black bg-white p-4 shadow-[6px_6px_0px_0px_#000]">
+                  <div className="mb-3 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]">
+                    <Smartphone className="size-4" />
+                    手机号验证码登录
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                    <form action={phoneAction} className="space-y-3">
+                      <Input name="phone" type="tel" placeholder="输入 11 位手机号，例如 13800138000" autoComplete="tel" required />
+                      <Button type="submit" className="w-full" disabled={phonePending || phoneCooldownSeconds > 0}>
+                        {phoneCooldownSeconds > 0 ? <Clock3 className="size-4" /> : <Send className="size-4" />}
+                        {phoneButtonLabel}
+                      </Button>
+                    </form>
+                    <form action={verifyPhoneAction} className="space-y-3">
+                      <input type="hidden" name="phone" value={phoneState.phone} />
+                      <Input name="token" inputMode="numeric" maxLength={6} placeholder="6 位短信验证码" required />
+                      <Button type="submit" className="w-full" disabled={verifyPhonePending || !phoneState.phone}>
+                        验证并登录
+                      </Button>
+                    </form>
+                  </div>
+                  <p className="mt-3 text-xs font-black leading-5 text-black/65">
+                    手机号登录已接入阿里云短信验证码，适合中国大陆用户快速登录。
+                  </p>
+                  {phoneState.error || verifyPhoneState.error ? (
+                    <p className="mt-3 text-xs font-black leading-5 text-[#c1121f]">{phoneState.error || verifyPhoneState.error}</p>
+                  ) : null}
+                  {phoneState.success ? <p className="mt-3 text-xs font-black leading-5 text-black/80">{phoneState.success}</p> : null}
+                </div>
+              ) : null}
+
               {!isAdminMode ? (
                 <>
-                  <form action={signInWithWechat} className="space-y-3">
+                  <div className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.14em] text-black/50">
+                    <span className="h-1 flex-1 bg-black/20" />
+                    <span>暂未激活的第三方登录</span>
+                    <span className="h-1 flex-1 bg-black/20" />
+                  </div>
+
+                  <form action={signInWithWechat} className="space-y-3 border-4 border-black bg-white/70 p-4 opacity-80 shadow-[6px_6px_0px_0px_#000]">
                     <input type="hidden" name="next" value={next} />
                     <input type="hidden" name="mode" value={mode} />
                     <Button type="submit" className="w-full bg-[#07c160] text-black hover:bg-[#07c160]/85">
@@ -200,72 +305,11 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
                       微信快捷登录
                     </Button>
                     <p className="text-xs font-black leading-5 text-black/65">
-                      微信登录需要先配置微信开放平台网站应用和认证桥接地址；未配置时会返回当前页面并显示配置提示。
+                      微信登录尚未作为主入口启用；需要配置微信开放平台网站应用和认证桥接地址后再上移。
                     </p>
                   </form>
-
-                  <div className="border-4 border-black bg-white p-4 shadow-[6px_6px_0px_0px_#000]">
-                    <div className="mb-3 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]">
-                      <Smartphone className="size-4" />
-                      手机号验证码登录
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                      <form action={phoneAction} className="space-y-3">
-                        <Input name="phone" type="tel" placeholder="输入 11 位手机号，例如 13800138000" autoComplete="tel" required />
-                        <Button type="submit" className="w-full" disabled={phonePending || phoneCooldownSeconds > 0}>
-                          {phoneCooldownSeconds > 0 ? <Clock3 className="size-4" /> : <Send className="size-4" />}
-                          {phoneButtonLabel}
-                        </Button>
-                      </form>
-                      <form action={verifyPhoneAction} className="space-y-3">
-                        <input type="hidden" name="phone" value={phoneState.phone} />
-                        <Input name="token" inputMode="numeric" maxLength={6} placeholder="6 位短信验证码" required />
-                        <Button type="submit" className="w-full" disabled={verifyPhonePending || !phoneState.phone}>
-                          验证并登录
-                        </Button>
-                      </form>
-                    </div>
-                    <p className="mt-3 text-xs font-black leading-5 text-black/65">
-                      手机号登录默认关闭。启用前需要配置 Supabase Phone OTP、短信服务商、短信模板和防刷策略；当前未配置时会显示明确提示。
-                    </p>
-                    {phoneState.error || verifyPhoneState.error ? (
-                      <p className="mt-3 text-xs font-black leading-5 text-[#c1121f]">{phoneState.error || verifyPhoneState.error}</p>
-                    ) : null}
-                    {phoneState.success ? <p className="mt-3 text-xs font-black leading-5 text-black/80">{phoneState.success}</p> : null}
-                  </div>
-
-                  <div className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.14em] text-black/50">
-                    <span className="h-1 flex-1 bg-black/20" />
-                    <span>或使用邮箱验证码</span>
-                    <span className="h-1 flex-1 bg-black/20" />
-                  </div>
                 </>
               ) : null}
-
-              <form action={formAction} className="space-y-4">
-                <input type="hidden" name="next" value={next} />
-                <input type="hidden" name="mode" value={mode} />
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-black uppercase tracking-[0.14em] text-black">
-                    {isAdminMode ? "管理员邮箱" : "登录邮箱"}
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="例如：yourname@qq.com / 163.com / outlook.com"
-                    autoComplete="email"
-                    required
-                  />
-                  <p className="text-xs font-black leading-5 text-black/65">
-                    推荐顺序：163、126、Outlook、Gmail、企业邮箱；若使用 QQ 邮箱，请同时检查垃圾邮件箱。
-                  </p>
-                </div>
-                <Button type="submit" className="w-full" disabled={pending || cooldownSeconds > 0}>
-                  {cooldownSeconds > 0 ? <Clock3 className="size-4" /> : <Send className="size-4" />}
-                  {sendButtonLabel}
-                </Button>
-              </form>
             </CardContent>
           </Card>
         </MotionReveal>

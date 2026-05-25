@@ -1,16 +1,24 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
+
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { createClient, ensureProfile, isAdminUser } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { sendAliyunDypnsVerifyCode, verifyAliyunDypnsCode } from "@/lib/sms/aliyun-dypns";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient, ensureProfile, isAdminUser } from "@/lib/supabase/server";
 import { getServerSupabaseEnv } from "@/lib/supabase/server-config";
 
 type AuthActionState = {
   debug: string;
   error: string;
   success: string;
+};
+
+type EmailAuthActionState = AuthActionState & {
+  email: string;
 };
 
 type PhoneAuthActionState = AuthActionState & {
@@ -29,7 +37,7 @@ function isPhoneOtpEnabled() {
 
 function getPhoneOtpSetupError() {
   if (!isPhoneOtpEnabled()) {
-    return "手机号验证码登录尚未启用：请先配置 Supabase Phone OTP、Send SMS Hook、阿里云普通短信模板和防刷策略。";
+    return "手机号验证码登录尚未启用：请先开启 ENABLE_SUPABASE_PHONE_OTP，并配置阿里云号码认证短信。";
   }
 
   const missing: string[] = [];
@@ -38,20 +46,20 @@ function getPhoneOtpSetupError() {
       (process.env.ALIYUN_OSS_ACCESS_KEY_ID && process.env.ALIYUN_OSS_ACCESS_KEY_SECRET),
   );
 
-  if (!process.env.SUPABASE_SEND_SMS_HOOK_SECRET) {
-    missing.push("SUPABASE_SEND_SMS_HOOK_SECRET");
-  }
-
   if (!hasAliyunAccessKey) {
     missing.push("ALIBABA_CLOUD_ACCESS_KEY_ID / ALIBABA_CLOUD_ACCESS_KEY_SECRET");
   }
 
-  if (!(process.env.ALIYUN_DYSMS_SIGN_NAME || process.env.ALIYUN_SMS_SIGN_NAME)) {
-    missing.push("ALIYUN_DYSMS_SIGN_NAME");
+  if (!(process.env.ALIYUN_DYPNS_SIGN_NAME)) {
+    missing.push("ALIYUN_DYPNS_SIGN_NAME");
   }
 
-  if (!(process.env.ALIYUN_DYSMS_TEMPLATE_CODE || process.env.ALIYUN_SMS_TEMPLATE_CODE)) {
-    missing.push("ALIYUN_DYSMS_TEMPLATE_CODE");
+  if (!(process.env.ALIYUN_DYPNS_TEMPLATE_CODE)) {
+    missing.push("ALIYUN_DYPNS_TEMPLATE_CODE");
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    missing.push("SUPABASE_SERVICE_ROLE_KEY");
   }
 
   if (missing.length > 0) {
@@ -65,21 +73,124 @@ function normalizeChinaPhone(rawPhone: string) {
   const compact = rawPhone.replace(/[\s-]/g, "").trim();
 
   if (/^1\d{10}$/.test(compact)) {
-    return `+86${compact}`;
-  }
-
-  if (/^\+86(?:1\d{10})$/.test(compact)) {
     return compact;
   }
 
+  if (/^\+86(?:1\d{10})$/.test(compact)) {
+    return compact.slice(3);
+  }
+
   return "";
+}
+
+function toSupabasePhone(phone: string) {
+  return `86${phone}`;
+}
+
+function getSupabasePhoneVariants(phone: string) {
+  return new Set([phone, `86${phone}`, `+86${phone}`]);
+}
+
+function createTemporaryPhonePassword() {
+  return `${randomBytes(24).toString("base64url")}Aa1!`;
+}
+
+async function findPhoneUser(phone: string) {
+  const supabaseAdmin = createAdminClient();
+
+  if (!supabaseAdmin) {
+    throw new Error("缺少 SUPABASE_SERVICE_ROLE_KEY，无法查询手机号登录用户。");
+  }
+
+  const phoneVariants = getSupabasePhoneVariants(phone);
+  const perPage = 1000;
+
+  for (let page = 1; page <= 20; page += 1) {
+    const users = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+
+    if (users.error) {
+      throw new Error(`查询手机号用户失败：${users.error.message}`);
+    }
+
+    const existingUser = users.data.users.find((user) => user.phone && phoneVariants.has(user.phone));
+
+    if (existingUser) {
+      return existingUser;
+    }
+
+    if (users.data.users.length < perPage) {
+      break;
+    }
+  }
+
+  return null;
+}
+
+async function updatePhoneUserForPasswordLogin(userId: string, phone: string, password: string) {
+  const supabaseAdmin = createAdminClient();
+
+  if (!supabaseAdmin) {
+    throw new Error("缺少 SUPABASE_SERVICE_ROLE_KEY，无法更新手机号登录用户。");
+  }
+
+  const updated = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    password,
+    phone_confirm: true,
+    user_metadata: {
+      display_name: `手机用户 ${phone.slice(0, 3)}****${phone.slice(-4)}`,
+      phone_login_provider: "aliyun_dypns",
+    },
+  });
+
+  if (updated.error || !updated.data.user) {
+    throw new Error(updated.error?.message || "手机号用户密码刷新失败。");
+  }
+
+  return updated.data.user;
+}
+
+async function upsertPhoneUserForPasswordLogin(phone: string, password: string) {
+  const supabaseAdmin = createAdminClient();
+
+  if (!supabaseAdmin) {
+    throw new Error("缺少 SUPABASE_SERVICE_ROLE_KEY，无法创建手机号登录用户。");
+  }
+
+  const existingUser = await findPhoneUser(phone);
+
+  if (existingUser) {
+    return updatePhoneUserForPasswordLogin(existingUser.id, phone, password);
+  }
+
+  const supabasePhone = toSupabasePhone(phone);
+  const created = await supabaseAdmin.auth.admin.createUser({
+    phone: supabasePhone,
+    password,
+    phone_confirm: true,
+    user_metadata: {
+      display_name: `手机用户 ${phone.slice(0, 3)}****${phone.slice(-4)}`,
+      phone_login_provider: "aliyun_dypns",
+    },
+  });
+
+  if (!created.error && created.data.user) {
+    return created.data.user;
+  }
+
+  const duplicatedUser = await findPhoneUser(phone);
+
+  if (duplicatedUser) {
+    return updatePhoneUserForPasswordLogin(duplicatedUser.id, phone, password);
+  }
+
+  throw new Error(created.error?.message || "手机号用户创建失败，且未找到已有用户。");
 }
 
 function getBaseUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
-export async function signInWithMagicLink(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
+export async function signInWithMagicLink(_prevState: EmailAuthActionState, formData: FormData): Promise<EmailAuthActionState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const next = String(formData.get("next") ?? "/admin/upload");
   const mode = String(formData.get("mode") ?? "admin") as SignInMode;
@@ -94,6 +205,7 @@ export async function signInWithMagicLink(_prevState: AuthActionState, formData:
 
     return {
       debug: "missing_env",
+      email,
       error: "Supabase 环境变量未配置完整，请先检查 .env.local。",
       success: "",
     };
@@ -102,6 +214,7 @@ export async function signInWithMagicLink(_prevState: AuthActionState, formData:
   if (!email) {
     return {
       debug: "missing_email",
+      email,
       error: "请输入邮箱地址。",
       success: "",
     };
@@ -110,6 +223,7 @@ export async function signInWithMagicLink(_prevState: AuthActionState, formData:
   if (mode === "admin" && env.adminEmail && email !== env.adminEmail) {
     return {
       debug: `unauthorized_email:${email}`,
+      email,
       error: "该邮箱未被授权为管理员。",
       success: "",
     };
@@ -148,6 +262,7 @@ export async function signInWithMagicLink(_prevState: AuthActionState, formData:
 
     return {
       debug: `otp_error:${error.code ?? "unknown"}:${error.message}`,
+      email,
       error: error.message,
       success: "",
     };
@@ -161,9 +276,90 @@ export async function signInWithMagicLink(_prevState: AuthActionState, formData:
 
   return {
     debug: `otp_success:${email}:${redirectTo.toString()}`,
+    email,
     error: "",
     success: "邮箱验证码登录邮件已发送，请前往邮箱查收。",
   };
+}
+
+export async function verifyEmailOtp(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const token = String(formData.get("token") ?? "").replace(/\s/g, "").trim();
+  const next = String(formData.get("next") ?? "/favorites");
+  const mode = String(formData.get("mode") ?? "user") as SignInMode;
+  const env = getServerSupabaseEnv();
+
+  if (!env) {
+    return {
+      debug: "missing_env",
+      error: "Supabase 环境变量未配置完整，请先检查 .env.local。",
+      success: "",
+    };
+  }
+
+  if (!email) {
+    return {
+      debug: "missing_email",
+      error: "请先输入邮箱地址并发送邮箱验证码。",
+      success: "",
+    };
+  }
+
+  if (!/^\d{6}$/.test(token)) {
+    return {
+      debug: "invalid_email_token",
+      error: "请输入邮件中的 6 位邮箱验证码。",
+      success: "",
+    };
+  }
+
+  if (mode === "admin" && env.adminEmail && email !== env.adminEmail) {
+    return {
+      debug: `unauthorized_email:${email}`,
+      error: "该邮箱未被授权为管理员。",
+      success: "",
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "email",
+  });
+
+  if (error) {
+    logger.error("[auth] verifyEmailOtp failed", {
+      code: error.code,
+      email,
+      message: error.message,
+      name: error.name,
+      status: error.status,
+    });
+
+    return {
+      debug: `email_verify_error:${error.code ?? "unknown"}:${error.message}`,
+      error: error.message,
+      success: "",
+    };
+  }
+
+  if (mode === "admin") {
+    const admin = await isAdminUser();
+
+    if (!admin) {
+      await supabase.auth.signOut();
+      return {
+        debug: "unauthorized_admin",
+        error: "该邮箱未被授权为管理员。",
+        success: "",
+      };
+    }
+  } else {
+    await ensureProfile();
+  }
+
+  redirect(next);
 }
 
 export async function sendPhoneOtp(_prevState: PhoneAuthActionState, formData: FormData): Promise<PhoneAuthActionState> {
@@ -204,29 +400,32 @@ export async function sendPhoneOtp(_prevState: PhoneAuthActionState, formData: F
     };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({ phone });
+  try {
+    const result = await sendAliyunDypnsVerifyCode(phone);
 
-  if (error) {
-    logger.error("[auth] sendPhoneOtp failed", {
-      code: error.code,
-      message: error.message,
-      name: error.name,
-      status: error.status,
+    logger.info("[auth] sendPhoneOtp via Aliyun Dypns success", {
+      phone: toSupabasePhone(phone),
+      bizId: result.bizId,
+      requestId: result.requestId,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "阿里云短信验证码发送失败。";
+
+    logger.error("[auth] sendPhoneOtp via Aliyun Dypns failed", {
+      message,
+      phone: toSupabasePhone(phone),
     });
 
     return {
-      debug: `phone_otp_error:${error.code ?? "unknown"}:${error.message}`,
-      error: error.message,
+      debug: `phone_dypns_error:${message}`,
+      error: message,
       phone,
       success: "",
     };
   }
 
-  logger.info("[auth] sendPhoneOtp success", { phone });
-
   return {
-    debug: `phone_otp_success:${phone}`,
+    debug: `phone_dypns_success:${toSupabasePhone(phone)}`,
     error: "",
     phone,
     success: "短信验证码已发送，请在 60 秒内查看手机短信。",
@@ -254,10 +453,10 @@ export async function verifyPhoneOtp(_prevState: AuthActionState, formData: Form
     };
   }
 
-  if (!/^\d{6}$/.test(token)) {
+  if (!/^\d{4,8}$/.test(token)) {
     return {
       debug: "invalid_phone_token",
-      error: "请输入 6 位短信验证码。",
+      error: "请输入短信验证码。",
       success: "",
     };
   }
@@ -272,24 +471,48 @@ export async function verifyPhoneOtp(_prevState: AuthActionState, formData: Form
     };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.verifyOtp({
-    phone,
-    token,
-    type: "sms",
-  });
+  try {
+    await verifyAliyunDypnsCode(phone, token);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "短信验证码校验失败。";
 
-  if (error) {
-    logger.error("[auth] verifyPhoneOtp failed", {
-      code: error.code,
-      message: error.message,
-      name: error.name,
-      status: error.status,
+    logger.error("[auth] verifyPhoneOtp via Aliyun Dypns failed", {
+      message,
+      phone: toSupabasePhone(phone),
     });
 
     return {
-      debug: `phone_verify_error:${error.code ?? "unknown"}:${error.message}`,
-      error: error.message,
+      debug: `phone_dypns_verify_error:${message}`,
+      error: message,
+      success: "",
+    };
+  }
+
+  const password = createTemporaryPhonePassword();
+
+  try {
+    await upsertPhoneUserForPasswordLogin(phone, password);
+
+    const supabase = await createClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      phone: toSupabasePhone(phone),
+      password,
+    });
+
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "手机号用户登录会话创建失败。";
+
+    logger.error("[auth] create Supabase phone session failed", {
+      message,
+      phone: toSupabasePhone(phone),
+    });
+
+    return {
+      debug: `phone_session_error:${message}`,
+      error: message,
       success: "",
     };
   }

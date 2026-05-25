@@ -216,6 +216,7 @@ export type Database = {
           display_name: string | null;
           email: string | null;
           id: string;
+          phone: string | null;
           role: "admin" | "user" | "vip";
           updated_at: string;
         };
@@ -225,6 +226,7 @@ export type Database = {
           display_name?: string | null;
           email?: string | null;
           id: string;
+          phone?: string | null;
           role?: "admin" | "user" | "vip";
           updated_at?: string;
         };
@@ -234,6 +236,7 @@ export type Database = {
           display_name?: string | null;
           email?: string | null;
           id?: string;
+          phone?: string | null;
           role?: "admin" | "user" | "vip";
           updated_at?: string;
         };

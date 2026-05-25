@@ -38,9 +38,9 @@ export function normalizeMainlandChinaPhone(phone: string) {
 export function getAliyunDypnsConfig(): AliyunDypnsConfig | null {
   const accessKeyId = process.env.ALIBABA_CLOUD_ACCESS_KEY_ID || process.env.ALIYUN_OSS_ACCESS_KEY_ID;
   const accessKeySecret = process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET || process.env.ALIYUN_OSS_ACCESS_KEY_SECRET;
-  const endpoint = process.env.ALIYUN_DYPNS_ENDPOINT || process.env.ALIYUN_SMS_ENDPOINT || "dypnsapi.aliyuncs.com";
-  const signName = process.env.ALIYUN_DYPNS_SIGN_NAME || process.env.ALIYUN_SMS_SIGN_NAME;
-  const templateCode = process.env.ALIYUN_DYPNS_TEMPLATE_CODE || process.env.ALIYUN_SMS_TEMPLATE_CODE;
+  const endpoint = process.env.ALIYUN_DYPNS_ENDPOINT || "dypnsapi.aliyuncs.com";
+  const signName = process.env.ALIYUN_DYPNS_SIGN_NAME;
+  const templateCode = process.env.ALIYUN_DYPNS_TEMPLATE_CODE;
 
   if (!accessKeyId || !accessKeySecret || !endpoint || !signName || !templateCode) {
     return null;

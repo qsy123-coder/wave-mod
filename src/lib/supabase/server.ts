@@ -71,6 +71,7 @@ export async function ensureProfile() {
   }
 
   const email = user.email?.trim().toLowerCase() ?? null;
+  const phone = user.phone?.trim() || null;
   const env = getServerSupabaseEnv();
   const role = email && env?.adminEmail && email === env.adminEmail ? "admin" : "user";
   const displayName =
@@ -83,6 +84,7 @@ export async function ensureProfile() {
     {
       id: user.id,
       email,
+      phone,
       role,
       display_name: displayName,
       avatar_url: avatarUrl,
