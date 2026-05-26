@@ -18,6 +18,10 @@ const ossRemotePatterns = [
 ].filter((pattern): pattern is { protocol: "https"; hostname: string } => Boolean(pattern));
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  },
   reactCompiler: true,
   cacheComponents: true,
   images: {
