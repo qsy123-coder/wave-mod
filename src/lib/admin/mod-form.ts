@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import { defaultGameKey, games } from "@/config/games";
+
+const gameKeySchema = z.enum(games.map((game) => game.key) as [string, ...string[]]);
+
 export type AdminModFormState = {
   error: string;
   fieldErrors: Record<string, string>;
@@ -14,6 +18,7 @@ export const initialAdminModFormState: AdminModFormState = {
 
 export const adminModFormSchema = z.object({
   title: z.string().trim().min(2, "标题至少 2 个字"),
+  gameKey: gameKeySchema.default(defaultGameKey),
   character: z.string().trim().min(1, "请输入角色名称"),
   description: z.string().trim().min(10, "描述至少 10 个字"),
   downloadUrl: z.url("请输入有效的阿里云 OSS 直链"),
@@ -45,6 +50,7 @@ export function buildAdminModFieldErrors(error: z.ZodError) {
 export function parseAdminModFormData(formData: FormData) {
   return {
     title: String(formData.get("title") ?? ""),
+    gameKey: String(formData.get("gameKey") ?? defaultGameKey),
     character: String(formData.get("character") ?? ""),
     description: String(formData.get("description") ?? ""),
     downloadUrl: String(formData.get("downloadUrl") ?? ""),

@@ -3,6 +3,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { AuthHashSessionBridge } from "@/components/features/auth/auth-hash-session-bridge";
+
 type ClientProvidersProps = {
   children: React.ReactNode;
 };
@@ -20,5 +22,10 @@ export function ClientProviders({ children }: ClientProvidersProps) {
       }),
   );
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthHashSessionBridge />
+      {children}
+    </QueryClientProvider>
+  );
 }

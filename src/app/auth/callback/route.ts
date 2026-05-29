@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { logger } from "@/lib/logger";
 import { getServerSupabaseEnv } from "@/lib/supabase/server-config";
 import { createClient, ensureProfile, isAdminUser } from "@/lib/supabase/server";
 
@@ -18,6 +19,12 @@ export async function GET(request: Request) {
   }
 
   if (!code) {
+    logger.warn("[auth] callback missing code", {
+      next,
+      mode,
+      search: requestUrl.search,
+    });
+
     loginUrl.searchParams.set("error", "missing_code");
     return NextResponse.redirect(loginUrl);
   }

@@ -2,8 +2,9 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { Heart, LogIn, LogOut, Menu, Sparkles } from "lucide-react";
+import { Heart, LogIn, LogOut, Menu, Sparkles, Gamepad2 } from "lucide-react";
 
+import { getEnabledGames } from "@/config/games";
 import { signOutUser } from "@/actions/auth/auth-actions";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { SiteSearchForm } from "@/components/layout/site-search-form";
@@ -16,6 +17,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { siteConfig } from "@/lib/constants/site";
 
 type SiteHeaderClientProps = {
@@ -26,6 +35,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const loginHref = "/auth/login?mode=user&next=/favorites";
   const signOutAction = signOutUser.bind(null, "/");
+  const games = getEnabledGames();
 
   return (
     <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
@@ -46,6 +56,29 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
               <p className="text-sm font-black text-black">鸣潮角色MOD个人站</p>
             </div>
           </Link>
+        </MotionReveal>
+
+        <MotionReveal delay={0.04} rotate={1}>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="hidden border-4 border-black bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[5px_5px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_#000] md:inline-flex md:items-center md:gap-2">
+              <Gamepad2 className="size-4" />游戏切换
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
+              <DropdownMenuLabel className="text-xs font-black uppercase tracking-[0.16em] text-black/60">选择 MOD 分站</DropdownMenuLabel>
+              <DropdownMenuSeparator className="my-2 h-1 bg-black" />
+              {games.map((game, index) => (
+                <DropdownMenuItem key={game.key} className="cursor-pointer p-0 focus:bg-transparent">
+                  <Link
+                    href={game.nav.home}
+                    className={`flex w-full items-center justify-between border-4 border-black px-3 py-2 text-sm font-black text-black shadow-[4px_4px_0px_0px_#000] ${index % 3 === 0 ? "bg-[#ffd84f]" : index % 3 === 1 ? "bg-[#ff7a7a]" : "bg-[#bcaeff]"}`}
+                  >
+                    <span>{game.name}</span>
+                    <span className="text-[10px] uppercase tracking-[0.16em]">{game.shortName}</span>
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </MotionReveal>
 
         <nav className="hidden items-center gap-2 lg:flex">
@@ -119,6 +152,22 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
               <Suspense fallback={<div className="neo-card px-4 py-3 text-sm font-bold text-black/60" style={{ background: "var(--neo-search)" }}>加载搜索…</div>}>
                 <SiteSearchForm />
               </Suspense>
+
+              <nav className="grid gap-3">
+                <div className="border-4 border-black bg-[#ffd84f] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
+                  游戏切换
+                </div>
+                {games.map((game, index) => (
+                  <Link
+                    key={game.key}
+                    href={game.nav.home}
+                    onClick={() => setMobileOpen(false)}
+                    className={`border-4 border-black px-4 py-3 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[6px_6px_0px_0px_#000] ${index % 3 === 0 ? "bg-[#ffd84f]" : index % 3 === 1 ? "bg-[#ff7a7a]" : "bg-[#bcaeff]"}`}
+                  >
+                    {game.name} MOD
+                  </Link>
+                ))}
+              </nav>
 
               <nav className="grid gap-3">
                 {siteConfig.primaryNav.map((item, index) => (

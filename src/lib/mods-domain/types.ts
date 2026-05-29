@@ -11,6 +11,7 @@ export type SiteMod = {
   downloadUrl: string;
   downloads: number;
   favorites: number;
+  gameKey: string;
   gameVersion: string;
   id: string;
   images: string[];
@@ -75,6 +76,7 @@ export type CommentRow = Omit<Pick<Tables<"comments">, "id" | "content" | "creat
 
 export type PublicModsFilters = {
   character?: string;
+  gameKey?: string;
   query?: string;
   sort?: ModSort;
 };

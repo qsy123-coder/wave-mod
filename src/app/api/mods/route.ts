@@ -7,11 +7,13 @@ export async function GET(request: NextRequest) {
   const page = Number(searchParams.get("page") ?? "1");
   const pageSize = Number(searchParams.get("pageSize") ?? "12");
   const character = parseCharacterFilter(searchParams.get("character") ?? undefined);
+  const gameKey = searchParams.get("gameKey") ?? undefined;
   const query = parseModQuery(searchParams.get("query") ?? undefined);
   const sort = parseModSort(searchParams.get("sort") ?? undefined);
 
   const result = await getPublicModsPage(page, pageSize, {
     character,
+    gameKey,
     query,
     sort,
   });

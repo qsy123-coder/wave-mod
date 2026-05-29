@@ -12,11 +12,13 @@ const PAGE_SIZE = 16;
 
 async function fetchModsPage({
   character,
+  gameKey,
   page,
   query,
   sort,
 }: {
   character?: string;
+  gameKey?: string;
   page: number;
   query?: string;
   sort: ModSort;
@@ -29,6 +31,10 @@ async function fetchModsPage({
 
   if (character) {
     params.set("character", character);
+  }
+
+  if (gameKey) {
+    params.set("gameKey", gameKey);
   }
 
   if (query) {
@@ -46,12 +52,13 @@ async function fetchModsPage({
 
 type ModsInfiniteGridProps = {
   character?: string;
+  gameKey?: string;
   initialMods: SiteMod[];
   query?: string;
   sort: ModSort;
 };
 
-export function ModsInfiniteGrid({ character, initialMods, query, sort }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const initialPage: PaginatedResult<SiteMod> = {
     hasMore: initialMods.length === PAGE_SIZE,
@@ -69,8 +76,8 @@ export function ModsInfiniteGrid({ character, initialMods, query, sort }: ModsIn
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ["mods", { character, query, sort }],
-    queryFn: ({ pageParam }) => fetchModsPage({ character, page: pageParam, query, sort }),
+    queryKey: ["mods", { character, gameKey, query, sort }],
+    queryFn: ({ pageParam }) => fetchModsPage({ character, gameKey, page: pageParam, query, sort }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
     initialData: {
@@ -123,7 +130,7 @@ export function ModsInfiniteGrid({ character, initialMods, query, sort }: ModsIn
           <MotionReveal key={`${mod.id}-${index}`} delay={0.03 + (index % 8) * 0.02} y={14} rotate={index % 2 === 0 ? -1 : 1}>
             <ModCard
               mod={mod}
-              href={`/mods/${mod.id}`}
+              href={gameKey ? `/${gameKey}/mods/${mod.id}` : `/mods/${mod.id}`}
               variant="list"
               className="bg-[#fff8ef] p-2.5"
               imageAspectClassName="aspect-[5/6] sm:aspect-[4/5]"

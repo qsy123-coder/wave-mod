@@ -45,6 +45,7 @@ export async function updateModAction(_prevState: UploadFormState, formData: For
     .from("mods")
     .update({
       title: payload.title,
+      game_key: payload.gameKey,
       character: payload.character,
       version: persistedMeta.version,
       game_version: persistedMeta.gameVersion,
@@ -65,6 +66,9 @@ export async function updateModAction(_prevState: UploadFormState, formData: For
 
   revalidatePublicModCaches(payload.id);
   revalidatePath("/admin/mods");
+  revalidatePath(`/${payload.gameKey}`);
+  revalidatePath(`/${payload.gameKey}/mods`);
+  revalidatePath(`/${payload.gameKey}/mods/${payload.id}`);
   revalidatePath(`/admin/mods/${payload.id}/edit`);
 
   return { error: "", fieldErrors: {}, success: "MOD 信息已更新。" };
@@ -87,6 +91,7 @@ export async function getEditableMod(id: string) {
       character,
       version,
       game_version,
+      game_key,
       description,
       images,
       video_url,
@@ -119,6 +124,7 @@ export async function getEditableMod(id: string) {
     downloadUrl: data.download_url,
     downloads: data.downloads_count ?? 0,
     favorites: data.favorites_count ?? 0,
+    gameKey: data.game_key,
     gameVersion: data.game_version,
     id: data.id,
     images: data.images ?? [],

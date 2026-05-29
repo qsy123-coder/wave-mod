@@ -127,6 +127,7 @@ export type Database = {
           download_url: string;
           downloads_count: number;
           favorites_count: number;
+          game_key: string;
           game_version: string;
           id: string;
           images: string[];
@@ -154,6 +155,7 @@ export type Database = {
           download_url: string;
           downloads_count?: number;
           favorites_count?: number;
+          game_key?: string;
           game_version: string;
           id?: string;
           images?: string[];
@@ -181,6 +183,7 @@ export type Database = {
           download_url?: string;
           downloads_count?: number;
           favorites_count?: number;
+          game_key?: string;
           game_version?: string;
           id?: string;
           images?: string[];

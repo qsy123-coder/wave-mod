@@ -167,6 +167,7 @@ export function ModCard({
   const limits = textLimits[variant];
   const TitleTag = titleTag;
   const canLink = Boolean(href);
+  const canUseInnerLinks = canLink && linkMode !== "card";
   const resolvedHref = href ?? "#";
 
   const metaBadges = showMetaBadges ? (
@@ -198,7 +199,7 @@ export function ModCard({
     </div>
   ) : null;
 
-  const inlineDetailLink = canLink ? (
+  const inlineDetailLink = canUseInnerLinks ? (
     <div className={styles.detailLink}>
       查看详情
       <ArrowUpRight className="size-3.5" />
@@ -231,7 +232,7 @@ export function ModCard({
 
       <div className={cn(styles.content, contentClassName)}>
         <div className="max-w-sm space-y-1.5">
-          {canLink && linkMode === "split" ? (
+          {canUseInnerLinks && linkMode === "split" ? (
             <Link href={resolvedHref} className={styles.titleLinkWrap}>
               {titleAndDescription}
             </Link>
@@ -275,7 +276,7 @@ export function ModCard({
 
   return (
     <article className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
-      {canLink && linkMode === "split" ? <Link href={resolvedHref} className="block">{media}</Link> : media}
+      {canUseInnerLinks && linkMode === "split" ? <Link href={resolvedHref} className="block">{media}</Link> : media}
     </article>
   );
 }

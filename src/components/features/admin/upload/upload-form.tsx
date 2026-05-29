@@ -6,6 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { Copy, DatabaseZap, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 
+import { getEnabledGames } from "@/config/games";
 import { updateModAction } from "@/actions/admin/edit-mod-actions";
 import { createModAction } from "@/actions/admin/upload-actions";
 import { defaultUploadFormValues, getDefaultXXMIGuide, type UploadFormValues } from "@/constants/upload-defaults";
@@ -38,6 +39,7 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
   const action = mode === "edit" ? updateModAction : createModAction;
   const [state, formAction, pending] = useActionState(action, initialAdminModFormState);
   const defaultGuide = formValues.xxmiGuide || getDefaultXXMIGuide();
+  const games = getEnabledGames();
   const allowSubmitRef = useRef(false);
   const form = useForm<AdminModFormValues>({
     defaultValues: {
@@ -97,6 +99,20 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
               {mode === "edit" && modId ? <input type="hidden" name="id" value={modId} /> : null}
 
               <div className="grid gap-5 md:grid-cols-2">
+                <Field label="所属游戏" error={getFieldError("gameKey")}> 
+                  <select
+                    {...register("gameKey")}
+                    className="flex h-11 w-full border-4 border-black bg-white px-3 py-2 text-sm font-black text-black shadow-[4px_4px_0px_0px_#000] outline-none transition focus:translate-x-[1px] focus:translate-y-[1px] focus:shadow-[2px_2px_0px_0px_#000]"
+                    required
+                  >
+                    {games.map((game) => (
+                      <option key={game.key} value={game.key}>
+                        {game.name} MOD
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
                 <Field label="MOD 标题" error={getFieldError("title")}>
                   <Input {...register("title")} placeholder="请输入完整的 MOD 标题，例如：今汐 夜巡作战制服" required />
                 </Field>

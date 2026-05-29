@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Download, PencilRuler } from "lucide-react";
+import { Download, Gamepad2, PencilRuler } from "lucide-react";
 
+import { games } from "@/config/games";
 import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { DeleteModButton } from "@/components/features/admin/mods/delete-mod-button";
 import { PublishToggleButton } from "@/components/features/admin/mods/publish-toggle-button";
@@ -12,6 +13,7 @@ import { getAdminMods } from "@/lib/mods";
 
 async function AdminModsList() {
   const mods = await getAdminMods();
+  const gameNameMap = new Map<string, string>(games.map((game) => [game.key, game.name]));
 
   if (mods.length === 0) {
     return (
@@ -45,6 +47,9 @@ async function AdminModsList() {
 
               <div className="flex flex-wrap gap-2">
                 <Badge className="neo-sticker -rotate-2 bg-[var(--neo-secondary)] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-[var(--neo-secondary)]">
+                  <Gamepad2 className="mr-1 size-3.5" />{gameNameMap.get(mod.gameKey) ?? mod.gameKey}
+                </Badge>
+                <Badge className="neo-sticker rotate-1 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-white">
                   {mod.character}
                 </Badge>
                 <Badge className="neo-sticker rotate-2 bg-[var(--neo-accent)] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-[var(--neo-accent)]">

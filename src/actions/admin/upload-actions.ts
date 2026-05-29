@@ -57,6 +57,7 @@ export async function createModAction(_prevState: UploadFormState, formData: For
 
   const { error } = await supabaseAdmin.from("mods").insert({
     title: payload.title,
+    game_key: payload.gameKey,
     character: payload.character,
     version: persistedMeta.version,
     game_version: persistedMeta.gameVersion,
@@ -83,6 +84,8 @@ export async function createModAction(_prevState: UploadFormState, formData: For
 
   revalidatePublicModCaches();
   revalidatePath("/mods");
+  revalidatePath(`/${payload.gameKey}`);
+  revalidatePath(`/${payload.gameKey}/mods`);
   revalidatePath("/admin/mods");
 
   return {

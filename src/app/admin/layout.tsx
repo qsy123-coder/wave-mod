@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { LayoutDashboard, LogOut, UploadCloud } from "lucide-react";
+import { LayoutDashboard, LogOut, UploadCloud, Gamepad2 } from "lucide-react";
 
+import { getEnabledGames } from "@/config/games";
 import { signOutAdmin } from "@/actions/auth/auth-actions";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -20,6 +21,8 @@ export default function AdminLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const games = getEnabledGames();
+
   return (
     <div className="min-h-screen" style={{ background: "var(--neo-dark)" }}>
       <header className="border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
@@ -35,6 +38,16 @@ export default function AdminLayout({
           </MotionReveal>
 
           <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 border-4 border-black bg-white px-3 py-2 shadow-[6px_6px_0px_0px_#000]">
+              <span className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-[0.14em] text-black/70">
+                <Gamepad2 className="size-3.5" />游戏
+              </span>
+              {games.map((game) => (
+                <Link key={game.key} href={game.nav.home} className="border-2 border-black px-2 py-1 text-xs font-black text-black hover:bg-[var(--neo-accent)]">
+                  {game.shortName}
+                </Link>
+              ))}
+            </div>
             <Link href="/admin/upload" className="neo-button-outline inline-flex items-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]">
               <UploadCloud className="size-4" />
               上传页面

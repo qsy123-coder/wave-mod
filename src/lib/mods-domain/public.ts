@@ -2,6 +2,7 @@ import "server-only";
 
 import { cacheLife, cacheTag } from "next/cache";
 
+import { defaultGameKey } from "@/config/games";
 import { defaultCharacterSuggestions } from "@/lib/constants/characters";
 import { logger } from "@/lib/logger";
 import { modCacheTags } from "@/lib/mod-cache";
@@ -10,9 +11,10 @@ import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName
 import type { ModRow, PaginatedResult, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
-export async function getAvailableCharacters() {
+export async function getAvailableCharacters(gameKey = defaultGameKey) {
   "use cache";
   cacheTag(modCacheTags.characters);
+  cacheTag(`mods:characters:${gameKey}`);
   cacheLife("hours");
 
   try {
@@ -20,7 +22,8 @@ export async function getAvailableCharacters() {
     const { data, error } = await supabase
       .from("mods")
       .select("character")
-      .eq("is_published", true);
+      .eq("is_published", true)
+      .eq("game_key", gameKey);
 
     if (error) {
       return defaultCharacterSuggestions;
@@ -40,8 +43,8 @@ export async function getAvailableCharacters() {
   }
 }
 
-export async function getCharacterSuggestions() {
-  const publishedCharacters = await getAvailableCharacters();
+export async function getCharacterSuggestions(gameKey = defaultGameKey) {
+  const publishedCharacters = await getAvailableCharacters(gameKey);
   const mergedCharacters = Array.from(new Set([...publishedCharacters, ...defaultCharacterSuggestions]));
   return mergedCharacters.sort((a, b) => a.localeCompare(b, "zh-CN"));
 }
@@ -51,12 +54,13 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
   cacheTag(modCacheTags.list);
   cacheLife("minutes");
 
-  const { sort = "latest" } = filters;
+  const { gameKey = defaultGameKey, sort = "latest" } = filters;
   const supabase = createPublicReadClient();
   const { data, error } = await supabase
     .from("mods")
     .select(publicModColumns)
-    .eq("is_published", true);
+    .eq("is_published", true)
+    .eq("game_key", gameKey);
 
   if (error) {
     logger.warn("[mods] getPublicMods failed, fallback to empty list", { error: error.message });
@@ -69,12 +73,12 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
   return typeof limit === "number" ? sortedMods.slice(0, limit) : sortedMods;
 }
 
-export async function getFeaturedMods(limit: number) {
-  return getPublicMods(limit, { sort: "hot" });
+export async function getFeaturedMods(limit: number, gameKey = defaultGameKey) {
+  return getPublicMods(limit, { gameKey, sort: "hot" });
 }
 
-export async function getWeeklyHotMods(limit: number) {
-  const hotMods = await getPublicMods(undefined, { sort: "hot" });
+export async function getWeeklyHotMods(limit: number, gameKey = defaultGameKey) {
+  const hotMods = await getPublicMods(undefined, { gameKey, sort: "hot" });
   const latestTimestamp = hotMods.reduce((maxTimestamp, mod) => Math.max(maxTimestamp, Date.parse(mod.createdAt)), 0);
   const since = latestTimestamp - 7 * 24 * 60 * 60 * 1000;
   const weeklyMods = hotMods.filter((mod) => Date.parse(mod.createdAt) >= since);
@@ -86,12 +90,12 @@ export async function getWeeklyHotMods(limit: number) {
   return hotMods.slice(0, limit);
 }
 
-export async function getTopRatedMods(limit: number) {
-  return getPublicMods(limit, { sort: "rating" });
+export async function getTopRatedMods(limit: number, gameKey = defaultGameKey) {
+  return getPublicMods(limit, { gameKey, sort: "rating" });
 }
 
-export async function getLatestMods(limit: number) {
-  return getPublicMods(limit, { sort: "latest" });
+export async function getLatestMods(limit: number, gameKey = defaultGameKey) {
+  return getPublicMods(limit, { gameKey, sort: "latest" });
 }
 
 export async function getPublicModsPage(page: number, pageSize: number, filters: PublicModsFilters = {}): Promise<PaginatedResult<SiteMod>> {
@@ -112,7 +116,7 @@ export async function getPublicModsPage(page: number, pageSize: number, filters:
   };
 }
 
-export async function getPublicModBaseById(id: string) {
+export async function getPublicModBaseById(id: string, gameKey?: string) {
   "use cache";
 
   const parsedId = modIdSchema.safeParse(id);
@@ -122,15 +126,23 @@ export async function getPublicModBaseById(id: string) {
   }
 
   cacheTag(modCacheTags.detail(parsedId.data));
+  if (gameKey) {
+    cacheTag(`mods:detail:${gameKey}:${parsedId.data}`);
+  }
   cacheLife("minutes");
 
   const supabase = createPublicReadClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("mods")
     .select(publicModColumns)
     .eq("id", parsedId.data)
-    .eq("is_published", true)
-    .maybeSingle();
+    .eq("is_published", true);
+
+  if (gameKey) {
+    query = query.eq("game_key", gameKey);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     logger.warn("[mods] getPublicModBaseById failed, fallback to null", { error: error.message });
