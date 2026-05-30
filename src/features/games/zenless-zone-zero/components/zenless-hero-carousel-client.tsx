@@ -41,8 +41,8 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
   }, [total]);
 
   return (
-    <section className="relative h-[50vh] min-h-[430px] overflow-hidden border-b-4 border-black bg-black pt-[58px] text-white">
-      <div className="absolute inset-0">
+    <section className="relative h-[55vh] min-h-[470px] bg-transparent pt-[58px] text-white">
+      <div className="absolute inset-x-0 -bottom-28 top-0 overflow-hidden">
         {activeSlide.coverImage ? (
           <Image
             key={activeSlide.id}
@@ -57,8 +57,9 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
           <div className="h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
         )}
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.86)_0%,rgba(0,0,0,0.5)_36%,rgba(0,0,0,0.14)_70%,rgba(0,0,0,0.74)_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(0,0,0,0.66)_0%,rgba(0,0,0,0.04)_44%,rgba(0,0,0,0.36)_100%)]" />
-        <div className="neo-grid absolute inset-0 opacity-[0.18] mix-blend-screen" />
+        <div className="absolute inset-0 bg-[linear-gradient(0deg,#3a2418_0%,rgba(58,36,24,0.98)_14%,rgba(58,36,24,0.78)_28%,rgba(58,36,24,0.38)_44%,rgba(0,0,0,0.08)_62%,rgba(0,0,0,0.34)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(to_bottom,transparent_0%,rgba(58,36,24,0.62)_44%,#3a2418_82%,#3a2418_100%)]" />
+        <div className="neo-grid absolute inset-0 opacity-[0.16] mix-blend-screen" />
       </div>
 
       <button
@@ -79,13 +80,13 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
         <ChevronRight className="size-5" />
       </button>
 
-      <div className="relative z-10 mx-auto grid h-full w-full max-w-[1500px] grid-cols-1 items-center gap-4 px-4 pb-12 pt-2 sm:px-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:px-6 xl:grid-cols-[minmax(0,1fr)_310px] 2xl:px-4">
+      <div className="relative z-10 mx-auto grid h-full w-full max-w-[1500px] grid-cols-1 items-center gap-2 px-4 pb-16 pt-2 sm:px-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:px-6 xl:grid-cols-[minmax(0,1fr)_310px] 2xl:px-4">
         <div className="max-w-2xl pt-1">
           <div className="mb-2 inline-flex -rotate-1 items-center gap-2 border-4 border-black bg-[var(--neo-accent)] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-black shadow-[5px_5px_0px_0px_#000]">
             <Sparkles className="size-3.5" /> Shape Your New Eridu
           </div>
 
-          <h1 className="max-w-2xl text-[2.35rem] font-black uppercase leading-[0.86] tracking-tight text-white drop-shadow-[4px_4px_0px_#000] sm:text-5xl lg:text-[3.45rem] xl:text-[4.05rem]">
+          <h1 className="max-w-xl text-[2.35rem] font-black uppercase leading-[0.86] tracking-tight text-white drop-shadow-[4px_4px_0px_#000] sm:text-5xl lg:text-[2.45rem] xl:text-[3.05rem]">
             Zenless Zone Zero<br />Mod Hub
           </h1>
 
@@ -114,9 +115,7 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
             Explore Now<ArrowRight className="size-4" />
           </Link>
         </aside>
-      </div>
-
-      <div className="absolute bottom-3 left-4 z-20 flex items-center gap-2 sm:left-5 lg:left-6 2xl:left-[max(1rem,calc((100vw-1500px)/2+1rem))]">
+      <div className="flex items-center gap-2 ">
         <span className="text-xs font-black tracking-[0.18em] text-white">{String(current + 1).padStart(2, "0")}</span>
         <div className="flex items-center gap-1.5">
           {slides.map((slide, index) => (
@@ -131,6 +130,8 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
         </div>
         <span className="text-xs font-black tracking-[0.18em] text-white/55">{String(total).padStart(2, "0")}</span>
       </div>
+      </div>
+
     </section>
   );
 }
