@@ -91,7 +91,7 @@ export const games = [
   },
 ] satisfies GameConfig[];
 
-export function getEnabledGames() {
+export function getEnabledGames(): GameConfig[] {
   return games.filter((game) => game.enabled);
 }
 
@@ -99,7 +99,7 @@ export function getGameBySlug(slug: string | undefined) {
   return getEnabledGames().find((game) => game.slug === slug) ?? null;
 }
 
-export function getDefaultGame() {
+export function getDefaultGame(): GameConfig {
   return games.find((game) => game.key === defaultGameKey) ?? games[0];
 }
 

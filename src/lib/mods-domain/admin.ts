@@ -2,10 +2,10 @@ import "server-only";
 
 import { logger } from "@/lib/logger";
 import { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
-import type { AdminMod, ModRow } from "@/lib/mods-domain/types";
+import type { AdminMod, ModRow, PublicModsFilters } from "@/lib/mods-domain/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function getAdminMods() {
+export async function getAdminMods(gameKey?: PublicModsFilters["gameKey"]) {
   const supabase = createAdminClient();
 
   if (!supabase) {
@@ -13,10 +13,15 @@ export async function getAdminMods() {
     return [] satisfies AdminMod[];
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("mods")
-    .select(publicModColumns)
-    .order("created_at", { ascending: false });
+    .select(publicModColumns);
+
+  if (gameKey) {
+    query = query.eq("game_key", gameKey);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false });
 
   if (error) {
     logger.error("[mods] getAdminMods failed", { error: error.message });

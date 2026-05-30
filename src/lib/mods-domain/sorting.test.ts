@@ -21,6 +21,7 @@ function createMod(overrides: Partial<SiteMod>): SiteMod {
     downloadUrl: "https://example.oss-cn-shanghai.aliyuncs.com/mod.zip",
     downloads: 0,
     favorites: 0,
+    gameKey: "wuthering-waves",
     gameVersion: "2.0",
     id: crypto.randomUUID(),
     images: [],

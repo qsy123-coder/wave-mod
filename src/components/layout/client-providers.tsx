@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { AuthHashSessionBridge } from "@/components/features/auth/auth-hash-session-bridge";
+import { LastGameVisitBridge } from "@/components/features/games/last-game-visit-bridge";
 
 type ClientProvidersProps = {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ export function ClientProviders({ children }: ClientProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthHashSessionBridge />
+      <LastGameVisitBridge />
       {children}
     </QueryClientProvider>
   );
