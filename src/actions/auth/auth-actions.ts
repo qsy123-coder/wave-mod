@@ -9,7 +9,7 @@ import { logger } from "@/lib/logger";
 import { sendAliyunDypnsVerifyCode, verifyAliyunDypnsCode } from "@/lib/sms/aliyun-dypns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, ensureProfile, isAdminUser } from "@/lib/supabase/server";
-import { getServerSupabaseEnv } from "@/lib/supabase/server-config";
+import { getServerSupabaseEnv, isAdminIdentity } from "@/lib/supabase/server-config";
 
 type AuthActionState = {
   debug: string;
@@ -220,7 +220,7 @@ export async function signInWithMagicLink(_prevState: EmailAuthActionState, form
     };
   }
 
-  if (mode === "admin" && env.adminEmail && email !== env.adminEmail) {
+  if (mode === "admin" && !isAdminIdentity({ email }, env)) {
     return {
       debug: `unauthorized_email:${email}`,
       email,
@@ -313,7 +313,7 @@ export async function verifyEmailOtp(_prevState: AuthActionState, formData: Form
     };
   }
 
-  if (mode === "admin" && env.adminEmail && email !== env.adminEmail) {
+  if (mode === "admin" && !isAdminIdentity({ email }, env)) {
     return {
       debug: `unauthorized_email:${email}`,
       error: "该邮箱未被授权为管理员。",
@@ -518,6 +518,11 @@ export async function verifyPhoneOtp(_prevState: AuthActionState, formData: Form
   }
 
   await ensureProfile();
+
+  if (await isAdminUser()) {
+    redirect("/admin/upload");
+  }
+
   redirect("/favorites");
 }
 

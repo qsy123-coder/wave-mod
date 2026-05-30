@@ -3,7 +3,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getServerSupabaseEnv } from "@/lib/supabase/server-config";
+import { getServerSupabaseEnv, isAdminIdentity } from "@/lib/supabase/server-config";
 import type { Database } from "@/types/supabase";
 
 export function createPublicReadClient() {
@@ -73,7 +73,7 @@ export async function ensureProfile() {
   const email = user.email?.trim().toLowerCase() ?? null;
   const phone = user.phone?.trim() || null;
   const env = getServerSupabaseEnv();
-  const role = email && env?.adminEmail && email === env.adminEmail ? "admin" : "user";
+  const role = isAdminIdentity(user, env) ? "admin" : "user";
   const displayName =
     user.user_metadata?.display_name ??
     user.user_metadata?.full_name ??
@@ -101,7 +101,6 @@ export async function ensureProfile() {
 
 export async function isAdminUser() {
   const user = await getCurrentUser();
-  const env = getServerSupabaseEnv();
 
-  return Boolean(user?.email && env?.adminEmail && user.email === env.adminEmail);
+  return isAdminIdentity(user);
 }
