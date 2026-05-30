@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { ArrowRight, LogOut, Sparkles } from "lucide-react";
 
 import { requireAuthUser, signOutUser } from "@/actions/auth/auth-actions";
@@ -35,7 +36,7 @@ async function GameFavoritesContent({ params }: PageProps) {
 
   const nextPath = `${game.nav.home}/favorites`;
   await requireAuthUser(nextPath);
-  const favorites = (await getFavoriteMods()).filter((mod) => mod.gameKey === game.key);
+  const favorites = (await getFavoriteMods() ?? []).filter((mod) => mod.gameKey === game.key);
 
   return (
     <>
@@ -103,6 +104,8 @@ async function GameFavoritesContent({ params }: PageProps) {
 }
 
 export default async function GameFavoritesPage({ params }: PageProps) {
+  await connection();
+
   const { game: gameSlug } = await params;
   const game = getGameBySlug(gameSlug);
 

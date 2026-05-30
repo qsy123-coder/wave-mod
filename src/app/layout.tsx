@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { ClientProviders } from "@/components/layout/client-providers";
 import { ThemeProvider } from "@/components/layout/theme-provider";
@@ -29,7 +30,7 @@ export default function RootLayout({
       <body className="min-h-full bg-background text-foreground">
         <ThemeProvider>
           <ClientProviders>
-            {children}
+            <Suspense fallback={null}>{children}</Suspense>
             <Toaster position="top-center" richColors />
           </ClientProviders>
         </ThemeProvider>

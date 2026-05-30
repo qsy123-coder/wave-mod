@@ -7,11 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 
 function getSafeNextPath(value: string | null) {
   if (!value || !value.startsWith("/")) {
-    return "/";
+    return "/admin/upload";
   }
 
   if (value.startsWith("//")) {
-    return "/";
+    return "/admin/upload";
   }
 
   return value;

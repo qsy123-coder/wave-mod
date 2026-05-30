@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { Bug, Clock3, Mail, MessageCircle, Send, ShieldEllipsis, Smartphone, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-import { sendPhoneOtp, signInWithMagicLink, signInWithWechat, verifyEmailOtp, verifyPhoneOtp } from "@/actions/auth/auth-actions";
+import { sendPhoneOtp, signInWithMagicLink, signInWithWechat, verifyEmailOtp } from "@/actions/auth/auth-actions";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,6 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
   const [state, formAction, pending] = useActionState(signInWithMagicLink, emailInitialState);
   const [verifyEmailState, verifyEmailAction, verifyEmailPending] = useActionState(verifyEmailOtp, initialState);
   const [phoneState, phoneAction, phonePending] = useActionState(sendPhoneOtp, phoneInitialState);
-  const [verifyPhoneState, verifyPhoneAction, verifyPhonePending] = useActionState(verifyPhoneOtp, initialState);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [phoneCooldownSeconds, setPhoneCooldownSeconds] = useState(0);
   const isAdminMode = mode === "admin";
@@ -101,16 +100,6 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
       }, 0);
     }
   }, [phoneState.error, phoneState.success]);
-
-  useEffect(() => {
-    if (verifyPhoneState.error) {
-      toast.error(verifyPhoneState.error);
-    }
-
-    if (verifyPhoneState.success) {
-      toast.success(verifyPhoneState.success);
-    }
-  }, [verifyPhoneState.error, verifyPhoneState.success]);
 
   useEffect(() => {
     if (pageError) {
@@ -257,37 +246,38 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
                 </form>
               </div>
 
-              {!isAdminMode ? (
-                <div className="border-4 border-black bg-white p-4 shadow-[6px_6px_0px_0px_#000]">
-                  <div className="mb-3 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]">
-                    <Smartphone className="size-4" />
-                    手机号验证码登录
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                    <form action={phoneAction} className="space-y-3">
-                      <Input name="phone" type="tel" placeholder="输入 11 位手机号，例如 13800138000" autoComplete="tel" required />
-                      <Button type="submit" className="w-full" disabled={phonePending || phoneCooldownSeconds > 0}>
-                        {phoneCooldownSeconds > 0 ? <Clock3 className="size-4" /> : <Send className="size-4" />}
-                        {phoneButtonLabel}
-                      </Button>
-                    </form>
-                    <form action={verifyPhoneAction} className="space-y-3">
-                      <input type="hidden" name="phone" value={phoneState.phone} />
-                      <Input name="token" inputMode="numeric" maxLength={6} placeholder="6 位短信验证码" required />
-                      <Button type="submit" className="w-full" disabled={verifyPhonePending || !phoneState.phone}>
-                        验证并登录
-                      </Button>
-                    </form>
-                  </div>
-                  <p className="mt-3 text-xs font-black leading-5 text-black/65">
-                    手机号登录已接入阿里云短信验证码，适合中国大陆用户快速登录。
-                  </p>
-                  {phoneState.error || verifyPhoneState.error ? (
-                    <p className="mt-3 text-xs font-black leading-5 text-[#c1121f]">{phoneState.error || verifyPhoneState.error}</p>
-                  ) : null}
-                  {phoneState.success ? <p className="mt-3 text-xs font-black leading-5 text-black/80">{phoneState.success}</p> : null}
+              <div className="border-4 border-black bg-white p-4 shadow-[6px_6px_0px_0px_#000]">
+                <div className="mb-3 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]">
+                  <Smartphone className="size-4" />
+                  {isAdminMode ? "管理员手机号验证码登录" : "手机号验证码登录"}
                 </div>
-              ) : null}
+                <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                  <form action={phoneAction} className="space-y-3">
+                    <Input name="phone" type="tel" placeholder="输入 11 位手机号，例如 13800138000" autoComplete="tel" required />
+                    <input type="hidden" name="mode" value={mode} />
+                    <Button type="submit" className="w-full" disabled={phonePending || phoneCooldownSeconds > 0}>
+                      {phoneCooldownSeconds > 0 ? <Clock3 className="size-4" /> : <Send className="size-4" />}
+                      {phoneButtonLabel}
+                    </Button>
+                  </form>
+                  <form action="/auth/phone/verify" method="post" className="space-y-3">
+                    <input type="hidden" name="phone" value={phoneState.phone} />
+                    <input type="hidden" name="mode" value={mode} />
+                    <input type="hidden" name="next" value={next} />
+                    <Input name="token" inputMode="numeric" maxLength={6} placeholder="6 位短信验证码" required />
+                    <Button type="submit" className="w-full" disabled={!phoneState.phone}>
+                      验证并登录
+                    </Button>
+                  </form>
+                </div>
+                <p className="mt-3 text-xs font-black leading-5 text-black/65">
+                  {isAdminMode ? "管理员手机号已加入白名单后，可用短信验证码直接进入后台。" : "手机号登录已接入阿里云短信验证码，适合中国大陆用户快速登录。"}
+                </p>
+                {phoneState.error ? (
+                  <p className="mt-3 text-xs font-black leading-5 text-[#c1121f]">{phoneState.error}</p>
+                ) : null}
+                {phoneState.success ? <p className="mt-3 text-xs font-black leading-5 text-black/80">{phoneState.success}</p> : null}
+              </div>
 
               {!isAdminMode ? (
                 <>

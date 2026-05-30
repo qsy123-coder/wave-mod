@@ -200,10 +200,10 @@ export function ModCard({
   ) : null;
 
   const inlineDetailLink = canUseInnerLinks ? (
-    <div className={styles.detailLink}>
+    <span className={styles.detailLink}>
       查看详情
       <ArrowUpRight className="size-3.5" />
-    </div>
+    </span>
   ) : null;
 
   const topRightContent = mediaTopRight ??
@@ -276,7 +276,7 @@ export function ModCard({
 
   return (
     <article className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
-      {canUseInnerLinks && linkMode === "split" ? <Link href={resolvedHref} className="block">{media}</Link> : media}
+      {media}
     </article>
   );
 }

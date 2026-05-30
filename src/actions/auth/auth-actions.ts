@@ -2,7 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { logger } from "@/lib/logger";
@@ -149,6 +149,21 @@ async function updatePhoneUserForPasswordLogin(userId: string, phone: string, pa
   return updated.data.user;
 }
 
+async function persistSupabaseSession(accessToken: string, refreshToken: string) {
+  const cookieStore = await cookies();
+  const supabase = await createClient();
+  const { error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  cookieStore.getAll();
+}
+
 async function upsertPhoneUserForPasswordLogin(phone: string, password: string) {
   const supabaseAdmin = createAdminClient();
 
@@ -187,7 +202,23 @@ async function upsertPhoneUserForPasswordLogin(phone: string, password: string) 
 }
 
 function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (configuredSiteUrl) {
+    return configuredSiteUrl;
+  }
+
+  const deploymentUrl = process.env.VERCEL_URL?.trim() || process.env.CF_PAGES_URL?.trim();
+
+  if (deploymentUrl) {
+    return deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`;
+  }
+
+  return "http://localhost:3000";
+}
+
+function getRequestOrigin() {
+  return getBaseUrl();
 }
 
 export async function signInWithMagicLink(_prevState: EmailAuthActionState, formData: FormData): Promise<EmailAuthActionState> {
@@ -230,8 +261,7 @@ export async function signInWithMagicLink(_prevState: EmailAuthActionState, form
   }
 
   const supabase = await createClient();
-  const headerStore = await headers();
-  const origin = headerStore.get("origin") ?? getBaseUrl();
+  const origin = getRequestOrigin();
   const redirectTo = new URL("/auth/callback", origin);
   redirectTo.searchParams.set("next", next);
   redirectTo.searchParams.set("mode", mode);
@@ -435,6 +465,7 @@ export async function sendPhoneOtp(_prevState: PhoneAuthActionState, formData: F
 export async function verifyPhoneOtp(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const phone = normalizeChinaPhone(String(formData.get("phone") ?? ""));
   const token = String(formData.get("token") ?? "").replace(/\s/g, "").trim();
+  const mode = String(formData.get("mode") ?? "user") as SignInMode;
   const env = getServerSupabaseEnv();
 
   if (!env) {
@@ -494,7 +525,7 @@ export async function verifyPhoneOtp(_prevState: AuthActionState, formData: Form
     await upsertPhoneUserForPasswordLogin(phone, password);
 
     const supabase = await createClient();
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       phone: toSupabasePhone(phone),
       password,
     });
@@ -502,6 +533,12 @@ export async function verifyPhoneOtp(_prevState: AuthActionState, formData: Form
     if (error) {
       throw error;
     }
+
+    if (!data.session?.access_token || !data.session.refresh_token) {
+      throw new Error("手机号用户登录成功但未返回会话。请检查 Supabase Phone Auth 配置。");
+    }
+
+    await persistSupabaseSession(data.session.access_token, data.session.refresh_token);
   } catch (error) {
     const message = error instanceof Error ? error.message : "手机号用户登录会话创建失败。";
 
@@ -519,6 +556,18 @@ export async function verifyPhoneOtp(_prevState: AuthActionState, formData: Form
 
   await ensureProfile();
 
+  if (mode === "admin") {
+    if (isAdminIdentity({ phone }, env) || await isAdminUser()) {
+      redirect("/admin/upload");
+    }
+
+    return {
+      debug: "unauthorized_admin_phone",
+      error: "该手机号未被授权为管理员。",
+      success: "",
+    };
+  }
+
   if (await isAdminUser()) {
     redirect("/admin/upload");
   }
@@ -535,8 +584,7 @@ export async function signInWithWechat(formData: FormData) {
     redirect(`/auth/login?next=${encodeURIComponent(next)}&mode=${mode}&error=wechat_not_configured`);
   }
 
-  const headerStore = await headers();
-  const origin = headerStore.get("origin") ?? getBaseUrl();
+  const origin = getRequestOrigin();
   const callbackUrl = new URL("/auth/callback", origin);
   callbackUrl.searchParams.set("next", next);
   callbackUrl.searchParams.set("mode", mode);
@@ -594,12 +642,12 @@ export async function requireAdminUser(next = "/admin/upload") {
   const env = getServerSupabaseEnv();
 
   if (!env) {
-    redirect(`/auth/login?next=${encodeURIComponent(next)}&error=missing_env`);
+    redirect(`/auth/login?next=${encodeURIComponent(next)}&error=missing_env&mode=admin`);
   }
 
   const authed = await isAdminUser();
 
   if (!authed) {
-    redirect(`/auth/login?next=${encodeURIComponent(next)}`);
+    redirect(`/auth/login?next=${encodeURIComponent(next)}&mode=admin`);
   }
 }

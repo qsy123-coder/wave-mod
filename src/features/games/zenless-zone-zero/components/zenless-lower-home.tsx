@@ -205,7 +205,7 @@ type ZenlessLowerHomeProps = {
 
 export function ZenlessLowerHome({ game, latestMods, mods }: ZenlessLowerHomeProps) {
   return (
-    <section className="relative z-10 -mt-12 px-4 pb-6 pt-0 text-white sm:px-5 lg:px-6 2xl:px-4">
+    <section className="relative z-10 -mt-14 px-4 pb-6 pt-0 text-white sm:px-5 lg:px-6 2xl:px-4">
       <div className="mx-auto grid max-w-[1500px] gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-3">
           <ZenlessStatsBar />

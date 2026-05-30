@@ -39,7 +39,7 @@ async function GameSupportContent({ params }: PageProps) {
               </div>
               <p className="text-base font-bold leading-8 text-black/80">这个入口属于 {game.name} 分站，不会跳回鸣潮首页语境。后续可以接入独立赞助二维码、会员权益或创作者支持列表。</p>
             </div>
-            <div className="border-4 border-black p-5 shadow-[6px_6px_0px_0px_#000]" style={{ background: game.theme.secondary }}>
+            <div className="border-4 border-black p-5 shadow-[6px_6px_0px_0px_#000]" style={{ background: game.theme.primary }}>
               <p className="neo-label text-black/60">当前状态</p>
               <p className="mt-3 text-sm font-bold leading-7 text-black/80">赞助入口目前先保留占位，后面可以替换为真实链接、二维码或会员支持入口。</p>
             </div>
@@ -50,7 +50,7 @@ async function GameSupportContent({ params }: PageProps) {
       <div className="grid gap-5 md:grid-cols-3">
         {siteConfig.supportLinks.map((item, index) => (
           <MotionReveal key={item.label} delay={0.14 + index * 0.04} y={22} rotate={index % 2 === 0 ? -1 : 1}>
-            <Card className="neo-card neo-card-lift p-5" style={{ background: index % 3 === 0 ? game.theme.secondary : index % 3 === 1 ? game.theme.muted : game.theme.accent }}>
+            <Card className="neo-card neo-card-lift p-5" style={{ background: index % 3 === 0 ? game.theme.primary : index % 3 === 1 ? game.theme.muted : game.theme.accent }}>
               <CardContent className="space-y-4 p-0 text-black">
                 <div className="flex size-14 items-center justify-center border-4 border-black bg-white shadow-[6px_6px_0px_0px_#000]">
                   {index === 0 ? <Gift className="size-7" /> : index === 1 ? <Sparkles className="size-7" /> : <HeartHandshake className="size-7" />}

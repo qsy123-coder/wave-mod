@@ -2,10 +2,10 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { createServerClient } from "@supabase/ssr";
 
-import { getServerSupabaseEnv } from "@/lib/supabase/server-config";
+import { getServerSupabaseEnv, isAdminIdentity } from "@/lib/supabase/server-config";
 
-function isAllowedAdmin(email: string | undefined, adminEmail: string | null) {
-  return Boolean(email && adminEmail && email === adminEmail);
+function isAllowedAdmin(identity: { email?: string | null; phone?: string | null } | null) {
+  return isAdminIdentity(identity);
 }
 
 export async function proxy(request: NextRequest) {
@@ -14,6 +14,7 @@ export async function proxy(request: NextRequest) {
   if (!env) {
     const loginUrl = new URL("/auth/login", request.url);
     loginUrl.searchParams.set("next", request.nextUrl.pathname);
+    loginUrl.searchParams.set("mode", "admin");
     loginUrl.searchParams.set("error", "missing_env");
     return NextResponse.redirect(loginUrl);
   }
@@ -36,9 +37,11 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!isAllowedAdmin(user?.email, env.adminEmail)) {
+  if (!isAllowedAdmin(user)) {
     const loginUrl = new URL("/auth/login", request.url);
     loginUrl.searchParams.set("next", request.nextUrl.pathname);
+    loginUrl.searchParams.set("mode", "admin");
+    loginUrl.searchParams.set("error", user ? "unauthorized" : "login_required");
     return NextResponse.redirect(loginUrl);
   }
 
