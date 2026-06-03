@@ -1,3 +1,4 @@
+import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { GameConfig } from "@/config/games";
 import {
   getPublicModsPage,
@@ -11,7 +12,6 @@ import { ZenlessModsRail } from "../components/zenless-mods-rail";
 import { ZenlessModsFooterCta } from "../components/zenless-mods-footer-cta";
 import { ZenlessModsToolbar } from "../components/zenless-mods-toolbar";
 import { ZenlessModsGrid, ZenlessModsPagination } from "../components/zenless-mods-grid";
-import { ZenlessModsMotionItem, ZenlessModsMotionRoot } from "../components/zenless-mods-motion";
 
 type Props = {
   game: GameConfig;
@@ -33,33 +33,31 @@ export async function ZenlessModsPage({ game, searchParams }: Props) {
   return (
     <main className="relative -mt-[74px] mx-auto min-h-screen w-full max-w-[1680px] overflow-hidden px-4 pb-4 pt-0 sm:px-5 lg:px-6">
       <ZenlessModsBackground />
-      <ZenlessModsMotionRoot className="relative z-10 pr-0 xl:pr-[268px]">
-        <ZenlessModsMotionItem delay={0.02} lift={12} rotate={-0.4}>
+      <section className="relative z-10 pr-0 xl:pr-[268px]">
+        <MotionReveal delay={0.02} y={18} rotate={-1}>
           <ZenlessModsHeroCopy />
-        </ZenlessModsMotionItem>
-        <ZenlessModsMotionItem className="absolute right-0 top-[74px] hidden w-[250px] xl:block" delay={0.16} lift={14} rotate={0.6}>
+        </MotionReveal>
+        <MotionReveal className="absolute right-0 top-[74px] hidden w-[250px] xl:block" delay={0.16} y={20} rotate={1}>
           <ZenlessModsRail game={game} mods={items} />
-        </ZenlessModsMotionItem>
+        </MotionReveal>
         <div className="grid gap-4 xl:grid-cols-[238px_minmax(0,1fr)]">
-          <ZenlessModsMotionItem delay={0.22} lift={18} rotate={-0.8}>
+          <MotionReveal delay={0.18} y={24} rotate={-1}>
             <ZenlessModsFilterPanel character={character} game={game} query={query} sort={sort} />
-          </ZenlessModsMotionItem>
+          </MotionReveal>
           <section className="space-y-2">
-            <ZenlessModsMotionItem delay={0.28} lift={14} rotate={0.4}>
+            <MotionReveal delay={0.24} y={18} rotate={1}>
               <ZenlessModsToolbar character={character} game={game} query={query} sort={sort} />
-            </ZenlessModsMotionItem>
-            <ZenlessModsMotionItem delay={0.34} lift={20} rotate={0.2}>
-              <ZenlessModsGrid game={game} mods={items} />
-            </ZenlessModsMotionItem>
-            <ZenlessModsMotionItem delay={0.42} lift={12} rotate={-0.2}>
+            </MotionReveal>
+            <ZenlessModsGrid game={game} mods={items} />
+            <MotionReveal delay={0.42} y={18} rotate={-1}>
               <ZenlessModsPagination />
-            </ZenlessModsMotionItem>
+            </MotionReveal>
           </section>
         </div>
-      </ZenlessModsMotionRoot>
-      <ZenlessModsMotionItem delay={0.52} lift={14} rotate={0.5}>
+      </section>
+      <MotionReveal delay={0.5} y={22} rotate={1}>
         <ZenlessModsFooterCta />
-      </ZenlessModsMotionItem>
+      </MotionReveal>
     </main>
   );
 }

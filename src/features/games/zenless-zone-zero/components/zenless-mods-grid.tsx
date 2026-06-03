@@ -1,7 +1,7 @@
+import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { GameConfig } from "@/config/games";
 import type { SiteMod } from "@/lib/mods";
 import { ZenlessModsCard } from "./zenless-mods-card";
-import { ZenlessModsMotionItem } from "./zenless-mods-motion";
 
 export function ZenlessModsGrid({ game, mods }: { game: GameConfig; mods: SiteMod[] }) {
   if (!mods.length) {
@@ -16,9 +16,9 @@ export function ZenlessModsGrid({ game, mods }: { game: GameConfig; mods: SiteMo
   return (
     <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
       {mods.slice(0, 10).map((mod, index) => (
-        <ZenlessModsMotionItem key={mod.id} delay={index * 0.035} lift={16} rotate={index % 2 === 0 ? -0.4 : 0.4}>
+        <MotionReveal key={mod.id} delay={0.28 + index * 0.035} y={24} rotate={index % 2 === 0 ? -1 : 1}>
           <ZenlessModsCard game={game} index={index} mod={mod} />
-        </ZenlessModsMotionItem>
+        </MotionReveal>
       ))}
     </div>
   );

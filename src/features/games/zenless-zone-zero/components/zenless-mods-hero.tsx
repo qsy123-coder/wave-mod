@@ -1,11 +1,12 @@
 import Image from "next/image";
 
+import { MotionReveal } from "@/components/layout/motion-reveal";
+
 import cityBackground from "../../../../../bg-zzz/长图粉色.png";
-import { ZenlessModsMotionBackground } from "./zenless-mods-motion";
 
 export function ZenlessModsBackground() {
   return (
-    <ZenlessModsMotionBackground className="pointer-events-none absolute inset-x-0 top-0 h-[18vh] min-h-[260px] overflow-hidden">
+    <MotionReveal className="pointer-events-none absolute inset-x-0 top-0 h-[18vh] min-h-[260px] overflow-hidden" delay={0} y={0}>
       <Image
         src={cityBackground}
         alt="New Eridu skyline"
@@ -17,7 +18,7 @@ export function ZenlessModsBackground() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_28%,rgba(0,0,0,0.64)_100%)]" />
       <div className="absolute inset-0 bg-gradient-to-r from-black/62 via-black/20 to-black/42" />
       <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#3a2418] via-[#3a2418]/70 to-transparent" />
-    </ZenlessModsMotionBackground>
+    </MotionReveal>
   );
 }
 

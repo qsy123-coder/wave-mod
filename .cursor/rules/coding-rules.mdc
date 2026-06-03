@@ -1,23 +1,19 @@
 ---
-description: 
+description:
 alwaysApply: true
 ---
 
 项目名称：鸣潮角色MOD个人站（Wuthering Waves Character MOD Hub）
 
-技术栈固定：
--始终用gitbash命令，严禁使用powershell，我的gitbash安装在D:\Git目录下
+技术栈固定：-始终用gitbash命令，严禁使用powershell，我的gitbash安装在D:\Git目录下
+
 - Next.js 16 App Router + TypeScript + Tailwind + shadcn/ui
 - 后端：Supabase (Database + Auth + Storage + Realtime)
 - 大文件：阿里云OSS直链下载（不要用 Supabase Storage 存MOD ZIP）
 - 风格：深色游戏风，预览图突出，下载按钮醒目
 
-必须遵守：
+必须参考的文档：
+
 - 当你写组件时必须使用skills C:\Users\qsy123\Desktop\WaveMod\.agents\skills\next-best-practices
-- 所有页面使用 Server Components 为主，客户端只用 'use client' 必要部分。
-- MOD 数据表字段：id, title, character（角色名如“今汐”）, version, description, images[], video_url, download_url（OSS直链）, tags[]
-- 详情页布局：左侧图片/视频轮播 + 右侧信息栏（下载 + 一键复制XXMI安装说明 + 收藏 + 评论）
-- 上传页面仅管理员可见，使用 Supabase Auth 保护。
-- 始终提供一键复制XXMI Launcher安装指引。
-- 角色分类必须支持今汐、长离、炽霞等动态标签。
-- 成本意识：优化图片大小，避免不必要的大文件。
+  -C:\Users\qsy123\Desktop\WaveMod\docs\AI-Interaction-Guidelines.md
+  -C:\Users\qsy123\Desktop\WaveMod\docs\Coding-Standards.md
