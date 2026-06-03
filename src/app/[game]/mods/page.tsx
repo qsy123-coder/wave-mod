@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import { getGameBySlug } from "@/config/games";
 import { DefaultGameModsPage } from "@/features/games/shared/default-game-mods-page";
+import { ZenlessModsPage } from "@/features/games/zenless-zone-zero/pages/zenless-mods-page";
+import { ZenlessModsPageSkeleton } from "@/features/games/zenless-zone-zero/components/zenless-mods-skeletons";
 
 type PageProps = {
   params: Promise<{ game: string }>;
@@ -21,12 +23,16 @@ async function GameModsContent({ params, searchParams }: PageProps) {
     notFound();
   }
 
+  if (game.key === "zenless-zone-zero") {
+    return <ZenlessModsPage game={game} searchParams={searchParams} />;
+  }
+
   return <DefaultGameModsPage game={game} searchParams={searchParams} />;
 }
 
 export default function GameModsPage({ params, searchParams }: PageProps) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<ZenlessModsPageSkeleton />}>
       <GameModsContent params={params} searchParams={searchParams} />
     </Suspense>
   );

@@ -2,8 +2,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { Download, Grid3X3, Star, Upload, Users, WandSparkles, Zap } from "lucide-react";
 
+import multiAgentPlaceholder from "../../../../../bg-zzz/多人占位.png";
+import pinkWideBackground from "../../../../../bg-zzz/长图粉色.png";
+
+import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { GameConfig } from "@/config/games";
 import type { SiteMod } from "@/lib/mods";
+
+const statsBackgroundPositionY = 25;
+const statsBackgroundScale = 1;
+const creatorBackgroundPositionY = 15;
+const creatorBackgroundScale = 1;
+
+function getBackgroundSize(scale: number) {
+  return `${scale * 100}% auto`;
+}
 
 const stats = [
   { icon: Download, value: "25K+", label: "MOD 可用" },
@@ -47,18 +60,34 @@ const fallbackUpdates = [
 
 function ZenlessStatsBar() {
   return (
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
-      {stats.map(({ icon: Icon, label, value }, index) => (
-        <div key={label} className={`flex items-center gap-2 border-4 border-black px-3 py-2 text-black shadow-[5px_5px_0px_0px_#000] ${index % 3 === 0 ? "bg-[var(--neo-accent)]" : index % 3 === 1 ? "bg-white" : "bg-[var(--neo-muted)]"}`}>
-          <div className="flex size-9 shrink-0 items-center justify-center border-2 border-black bg-white/85">
-            <Icon className="size-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-base font-black leading-none text-black">{value}</p>
-            <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.16em] text-black/62">{label}</p>
-          </div>
-        </div>
-      ))}
+    <div
+      className="group/stats relative grid overflow-hidden border-2 border-black bg-white py-0 text-black shadow-[7px_7px_0px_0px_#000] transition-all duration-300 ease-out hover:py-20 sm:grid-cols-5"
+      style={{
+        backgroundImage: `url(${multiAgentPlaceholder.src})`,
+        backgroundPosition: `center ${statsBackgroundPositionY}%`,
+        backgroundRepeat: "no-repeat",
+        backgroundSize: getBackgroundSize(statsBackgroundScale),
+      }}
+    >
+      <div className="absolute inset-0 bg-white/8" />
+      {stats.map(({ icon: Icon, label, value }, index) => {
+        // const dividerClass = index > 0 ? "border-t-4 sm:border-l-4 sm:border-t-0" : "";
+        // const toneClass = index % 3 === 0 ? "bg-[var(--neo-accent)]/76" : index % 3 === 1 ? "bg-white/78" : "bg-[var(--neo-muted)]/76";
+
+        return (
+          <MotionReveal key={label} delay={0.06 + index * 0.03} y={18} rotate={index % 2 === 0 ? -1 : 1}>
+            <div className="relative z-10 flex min-w-0 items-center gap-2 border-black px-3 py-2.5 transition-all duration-300 ease-out group-hover/stats:gap-1.5 group-hover/stats:px-2 group-hover/stats:py-1.5">
+              <div className="flex size-9 shrink-0 items-center justify-center border-2 border-black bg-white/85 transition-all duration-300 ease-out group-hover/stats:size-7 group-hover/stats:bg-white/72">
+                <Icon className="size-4 transition-all duration-300 ease-out group-hover/stats:size-3.5" />
+              </div>
+              <div className="min-w-0 transition-all duration-300 ease-out group-hover/stats:scale-90 group-hover/stats:opacity-90">
+                <p className="text-base font-black leading-none text-black">{value}</p>
+                <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.16em] text-black/62">{label}</p>
+              </div>
+            </div>
+          </MotionReveal>
+        );
+      })}
     </div>
   );
 }
@@ -89,13 +118,22 @@ function ZenlessFeaturedCard({ game, index, mod }: { game: GameConfig; index: nu
 function ZenlessFeaturedMods({ game, mods }: { game: GameConfig; mods: SiteMod[] }) {
   return (
     <section className="space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="border-4 border-black bg-[var(--neo-secondary)] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-black shadow-[5px_5px_0px_0px_#000]">Featured Mods</h2>
-        <Link href={game.nav.mods} className="text-[10px] font-black uppercase tracking-[0.16em] text-white underline decoration-[var(--neo-accent)] decoration-4 underline-offset-4">View All</Link>
+      <div className="flex items-center gap-3">
+        <MotionReveal delay={0.08} rotate={-1}>
+          <h2 className="shrink-0 border-4 border-black bg-[var(--neo-secondary)] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-black shadow-[5px_5px_0px_0px_#000]">Featured Mods</h2>
+        </MotionReveal>
+        <div className="h-px flex-1 bg-white/65 shadow-[0_1px_0px_#000]" />
+        <MotionReveal delay={0.12} rotate={1}>
+          <Link href={game.nav.mods} className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-white underline decoration-[var(--neo-accent)] decoration-4 underline-offset-4">View All</Link>
+        </MotionReveal>
       </div>
       {mods.length > 0 ? (
         <div className="flex gap-3 overflow-x-auto pb-2 pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {mods.slice(0, 4).map((mod, index) => <ZenlessFeaturedCard key={mod.id} game={game} index={index} mod={mod} />)}
+          {mods.slice(0, 6).map((mod, index) => (
+            <MotionReveal key={mod.id} delay={0.14 + index * 0.04} y={24} rotate={index % 2 === 0 ? -1 : 1}>
+              <ZenlessFeaturedCard game={game} index={index} mod={mod} />
+            </MotionReveal>
+          ))}
         </div>
       ) : (
         <div className="border-4 border-black bg-white p-4 text-sm font-black text-black shadow-[6px_6px_0px_0px_#000]">暂无精选 MOD，发布后自动展示。</div>
@@ -165,12 +203,21 @@ function ZenlessPopularCategories({ game }: { game: GameConfig }) {
 
 function ZenlessCreatorCta() {
   return (
-    <div className="flex items-center justify-between gap-3 border-4 border-black bg-[var(--neo-muted)] px-4 py-2 text-black shadow-[7px_7px_0px_0px_#000]">
-      <div>
+    <div
+      className="group/creator relative flex min-h-12 items-center justify-between gap-3 overflow-hidden border-4 border-black bg-[var(--neo-muted)] px-4 py-2 text-black shadow-[7px_7px_0px_0px_#000] transition-all duration-300 ease-out hover:min-h-24 hover:px-5 hover:py-20"
+      style={{
+        backgroundImage: `url(${pinkWideBackground.src})`,
+        backgroundPosition: `center ${creatorBackgroundPositionY}%`,
+        backgroundRepeat: "no-repeat",
+        backgroundSize: getBackgroundSize(creatorBackgroundScale),
+      }}
+    >
+      <div className="absolute inset-0 bg-[var(--neo-muted)]/45" />
+      <div className="relative z-10 transition-all duration-300 ease-out group-hover/creator:-translate-y-1 group-hover/creator:scale-95 group-hover/creator:opacity-90">
         <h3 className="text-[8px] font-black uppercase leading-tight">Create. Share. Inspire.</h3>
         <p className="mt-1 text-[10px] font-bold text-black/62">成为创作者，分享你的新艾利都 MOD。</p>
       </div>
-      <Link href="/admin/upload" className="neo-button-primary inline-flex shrink-0 items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em]">
+      <Link href="/admin/upload" className="neo-button-primary relative z-10 inline-flex shrink-0 items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition-all duration-300 ease-out group-hover/creator:translate-y-1 group-hover/creator:scale-90 group-hover/creator:px-3 group-hover/creator:py-1.5">
         <Upload className="size-2.5" />Upload
       </Link>
     </div>
@@ -208,14 +255,24 @@ export function ZenlessLowerHome({ game, latestMods, mods }: ZenlessLowerHomePro
     <section className="relative z-10 -mt-14 px-4 pb-6 pt-0 text-white sm:px-5 lg:px-6 2xl:px-4">
       <div className="mx-auto grid max-w-[1500px] gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-3">
-          <ZenlessStatsBar />
+          <MotionReveal delay={0.04} y={24} rotate={-1}>
+            <ZenlessStatsBar />
+          </MotionReveal>
           <ZenlessFeaturedMods game={game} mods={mods} />
-          <ZenlessCreatorCta />
-          <ZenlessCreatorsBar />
+          <MotionReveal delay={0.22} y={24} rotate={1}>
+            <ZenlessCreatorCta />
+          </MotionReveal>
+          <MotionReveal delay={0.26} y={20} rotate={-1}>
+            <ZenlessCreatorsBar />
+          </MotionReveal>
         </div>
         <aside className="grid gap-3 lg:auto-rows-max">
-          <ZenlessLatestUpdates game={game} mods={latestMods} />
-          <ZenlessPopularCategories game={game} />
+          <MotionReveal delay={0.18} y={26} rotate={1}>
+            <ZenlessLatestUpdates game={game} mods={latestMods} />
+          </MotionReveal>
+          <MotionReveal delay={0.24} y={26} rotate={-1}>
+            <ZenlessPopularCategories game={game} />
+          </MotionReveal>
         </aside>
       </div>
     </section>

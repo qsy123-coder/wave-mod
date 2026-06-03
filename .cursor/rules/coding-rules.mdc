@@ -13,6 +13,7 @@ alwaysApply: true
 - 风格：深色游戏风，预览图突出，下载按钮醒目
 
 必须遵守：
+- 当你写组件时必须使用skills C:\Users\qsy123\Desktop\WaveMod\.agents\skills\next-best-practices
 - 所有页面使用 Server Components 为主，客户端只用 'use client' 必要部分。
 - MOD 数据表字段：id, title, character（角色名如“今汐”）, version, description, images[], video_url, download_url（OSS直链）, tags[]
 - 详情页布局：左侧图片/视频轮播 + 右侧信息栏（下载 + 一键复制XXMI安装说明 + 收藏 + 评论）
