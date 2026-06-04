@@ -34,6 +34,7 @@ export type {
   FavoriteMod,
   FavoriteRow,
   ModComment,
+  ModCommentSort,
   ModRow,
   ModSort,
   PaginatedResult,

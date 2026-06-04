@@ -45,14 +45,19 @@ export type AdminMod = SiteMod & {
   isPublished: boolean;
 };
 
+export type ModCommentSort = "newest" | "oldest" | "most-liked";
+
 export type ModComment = {
   id: string;
   content: string;
   createdAt: string;
+  isPinned?: boolean;
+  likesCount?: number;
   user: {
     avatarUrl: string | null;
     displayName: string;
     id: string | null;
+    role?: "admin" | "creator" | "user" | null;
   };
 };
 

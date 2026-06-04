@@ -2,19 +2,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { Download, MessageSquare, Star } from "lucide-react";
 
-import { CommentsPanel } from "@/components/features/mods/detail/comments-panel";
 import { ModViewTracker } from "@/components/features/mods/detail/mod-view-tracker";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import type { GameConfig } from "@/config/games";
 import type { ModComment, SiteMod } from "@/lib/mods";
+import { ZenlessCommentsSection } from "../components/zenless-comments-section";
+import { ZenlessCommentHeroSlot, ZenlessDetailLayoutSwitch } from "../components/zenless-detail-layout-switch";
 import { ZenlessModDetailTabs } from "../components/zenless-mod-detail-tabs";
 import {
   ZenlessHeroActions,
   ZenlessRecommended,
   ZenlessRightRail,
   ZenlessScreenshots,
-  ZenlessSignals,
   compactZenlessNumber,
 } from "../components/zenless-mod-detail-parts";
 
@@ -67,8 +67,7 @@ export function ZenlessModDetailPage({
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#04070d] to-transparent" />
       </div>
 
-      <div className="relative z-10 mx-auto grid w-full max-w-[1500px] gap-5 px-5 pb-8 pt-[92px] lg:px-8 xl:grid-cols-[minmax(0,1fr)_286px] xl:pt-[86px]">
-        <div className="min-w-0">
+      <ZenlessDetailLayoutSwitch rightRail={<ZenlessRightRail game={game} mod={mod} />}>
           <MotionReveal delay={0.02} y={18}>
             <nav className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-400">
               <Link href={game.nav.home}>Home</Link>
@@ -132,7 +131,9 @@ export function ZenlessModDetailPage({
             </MotionReveal>
           </section>
 
-          <ZenlessScreenshots mod={mod} />
+          <ZenlessCommentHeroSlot>
+            <ZenlessScreenshots mod={mod} />
+          </ZenlessCommentHeroSlot>
           <ZenlessModDetailTabs
             commentsCount={mod.commentsCount}
             recommendedCount={recommendedMods.length}
@@ -180,30 +181,22 @@ export function ZenlessModDetailPage({
               </section>
             }
             comments={
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-                <div
-                  id="mod-comments"
-                  className="scroll-mt-24 border-4 border-black bg-[#07111f]/20 p-2 text-slate-100 shadow-[5px_5px_0px_0px_#000] ring-1 ring-white/10 [&_[data-comments-panel]]:border-0 [&_[data-comments-panel]]:bg-transparent [&_[data-comments-panel]]:text-slate-100 [&_[data-comments-panel]]:shadow-none"
-                >
-                  <CommentsPanel
-                    admin={admin}
-                    currentUserId={user?.id}
-                    currentUserName={userName}
-                    initialComments={comments}
-                    isLoggedIn={loggedIn}
-                    modId={mod.id}
-                  />
-                </div>
-                <ZenlessSignals mod={mod} loggedIn={loggedIn} />
-              </div>
+              <ZenlessCommentsSection
+                admin={admin}
+                comments={comments}
+                game={game}
+                loggedIn={loggedIn}
+                mod={mod}
+                recommendedMods={recommendedMods}
+                user={user}
+                userName={userName}
+              />
             }
             recommended={
               <ZenlessRecommended game={game} mods={recommendedMods} />
             }
           />
-        </div>
-        <ZenlessRightRail game={game} mod={mod} />
-      </div>
+      </ZenlessDetailLayoutSwitch>
     </main>
   );
 }

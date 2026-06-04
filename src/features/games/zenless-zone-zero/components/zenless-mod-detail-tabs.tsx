@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-type ZenlessDetailTabKey = "description" | "installation" | "changelog" | "comments" | "recommended";
+type ZenlessDetailTabKey =
+  | "description"
+  | "installation"
+  | "changelog"
+  | "comments"
+  | "recommended";
 
 type ZenlessModDetailTabsProps = {
   changelog: React.ReactNode;
@@ -36,8 +41,17 @@ function readTabFromHash() {
   return hashToTab[window.location.hash] ?? null;
 }
 
-export function ZenlessModDetailTabs({ changelog, comments, commentsCount, description, installation, recommended, recommendedCount }: ZenlessModDetailTabsProps) {
-  const [activeTab, setActiveTab] = useState<ZenlessDetailTabKey>("description");
+export function ZenlessModDetailTabs({
+  changelog,
+  comments,
+  commentsCount,
+  description,
+  installation,
+  recommended,
+  recommendedCount,
+}: ZenlessModDetailTabsProps) {
+  const [activeTab, setActiveTab] =
+    useState<ZenlessDetailTabKey>("description");
   const content: Record<ZenlessDetailTabKey, React.ReactNode> = {
     changelog,
     comments,
@@ -49,7 +63,12 @@ export function ZenlessModDetailTabs({ changelog, comments, commentsCount, descr
   useEffect(() => {
     const syncFromHash = () => {
       const tab = readTabFromHash();
-      if (tab) setActiveTab(tab);
+      if (tab) {
+        setActiveTab(tab);
+        window.dispatchEvent(
+          new CustomEvent("zenless-detail-tab-change", { detail: tab }),
+        );
+      }
     };
 
     syncFromHash();
@@ -60,14 +79,25 @@ export function ZenlessModDetailTabs({ changelog, comments, commentsCount, descr
   const handleTabChange = (tab: ZenlessDetailTabKey) => {
     setActiveTab(tab);
     window.history.replaceState(null, "", `#${tab}`);
+    window.dispatchEvent(
+      new CustomEvent("zenless-detail-tab-change", { detail: tab }),
+    );
   };
 
   return (
-    <section id="mod-details" className="mt-6 scroll-mt-24 border-t-4 border-black bg-black/25 p-3 pt-4 shadow-[0_-4px_0px_0px_#000]">
+    <section
+      id="mod-details"
+      className="mt-6 scroll-mt-24 border-t-4 border-black bg-black/25 p-3 pt-4 shadow-[0_-4px_0px_0px_#000]"
+    >
       <div className="flex flex-wrap gap-x-8 gap-y-3 text-[12px] font-black uppercase tracking-[0.18em] text-white/62 sm:text-[13px]">
         {tabs.map((tab) => {
           const isActive = tab.key === activeTab;
-          const suffix = tab.key === "comments" ? ` (${commentsCount})` : tab.key === "recommended" ? ` (${recommendedCount})` : "";
+          const suffix =
+            tab.key === "comments"
+              ? ` (${commentsCount})`
+              : tab.key === "recommended"
+                ? ` (${recommendedCount})`
+                : "";
 
           return (
             <button
@@ -76,7 +106,8 @@ export function ZenlessModDetailTabs({ changelog, comments, commentsCount, descr
               onClick={() => handleTabChange(tab.key)}
               className={`px-2 py-1.5 transition active:translate-x-[2px] active:translate-y-[2px] ${isActive ? "border-2 border-black bg-[#0f172a]/48 text-white shadow-[3px_3px_0px_0px_#000] backdrop-blur-[2px]" : "border-2 border-transparent hover:border-black hover:bg-[#172033]/45 hover:text-white hover:shadow-[3px_3px_0px_0px_#000] hover:backdrop-blur-[2px]"}`}
             >
-              {tab.label}{suffix}
+              {tab.label}
+              {suffix}
             </button>
           );
         })}
