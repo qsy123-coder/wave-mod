@@ -63,7 +63,7 @@ function ZenlessStatsBar() {
     <div
       className="group/stats relative grid overflow-hidden border-2 border-black bg-white py-0 text-black shadow-[7px_7px_0px_0px_#000] transition-all duration-300 ease-out hover:py-20 sm:grid-cols-5"
       style={{
-        backgroundImage: `url(${multiAgentPlaceholder.src})`,
+        backgroundImage: `url(${multiAgentPlaceholder})`,
         backgroundPosition: `center ${statsBackgroundPositionY}%`,
         backgroundRepeat: "no-repeat",
         backgroundSize: getBackgroundSize(statsBackgroundScale),
@@ -206,7 +206,7 @@ function ZenlessCreatorCta() {
     <div
       className="group/creator relative flex min-h-12 items-center justify-between gap-3 overflow-hidden border-4 border-black bg-[var(--neo-muted)] px-4 py-2 text-black shadow-[7px_7px_0px_0px_#000] transition-all duration-300 ease-out hover:min-h-24 hover:px-5 hover:py-20"
       style={{
-        backgroundImage: `url(${pinkWideBackground.src})`,
+        backgroundImage: `url(${pinkWideBackground})`,
         backgroundPosition: `center ${creatorBackgroundPositionY}%`,
         backgroundRepeat: "no-repeat",
         backgroundSize: getBackgroundSize(creatorBackgroundScale),
