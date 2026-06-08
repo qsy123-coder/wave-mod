@@ -8,7 +8,9 @@ export type Database = {
           content: string;
           created_at: string;
           id: string;
+          is_pinned: boolean;
           mod_id: string;
+          parent_id: string | null;
           updated_at: string;
           user_id: string;
         };
@@ -16,7 +18,9 @@ export type Database = {
           content: string;
           created_at?: string;
           id?: string;
+          is_pinned?: boolean;
           mod_id: string;
+          parent_id?: string | null;
           updated_at?: string;
           user_id: string;
         };
@@ -24,7 +28,9 @@ export type Database = {
           content?: string;
           created_at?: string;
           id?: string;
+          is_pinned?: boolean;
           mod_id?: string;
+          parent_id?: string | null;
           updated_at?: string;
           user_id?: string;
         };
@@ -37,8 +43,57 @@ export type Database = {
             referencedRelation: "mods";
           },
           {
+            columns: ["parent_id"];
+            foreignKeyName: "comments_parent_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "comments";
+          },
+          {
             columns: ["user_id"];
             foreignKeyName: "comments_user_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "profiles";
+          },
+        ];
+      };
+      comment_reactions: {
+        Row: {
+          comment_id: string;
+          created_at: string;
+          id: string;
+          updated_at: string;
+          user_id: string;
+          value: number;
+        };
+        Insert: {
+          comment_id: string;
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+          user_id: string;
+          value: number;
+        };
+        Update: {
+          comment_id?: string;
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+          user_id?: string;
+          value?: number;
+        };
+        Relationships: [
+          {
+            columns: ["comment_id"];
+            foreignKeyName: "comment_reactions_comment_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "comments";
+          },
+          {
+            columns: ["user_id"];
+            foreignKeyName: "comment_reactions_user_id_fkey";
             isOneToOne: false;
             referencedColumns: ["id"];
             referencedRelation: "profiles";

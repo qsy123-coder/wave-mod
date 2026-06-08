@@ -17,6 +17,7 @@ type FavoriteButtonProps = {
   nextPath: string;
   loginLabel?: string;
   favoriteLabel?: string;
+  favoriteCount?: number;
   unfavoriteLabel?: string;
   pendingLabel?: string;
   variant?: "outline" | "secondary" | "destructive";
@@ -33,6 +34,7 @@ export function FavoriteButton({
   nextPath,
   loginLabel = "登录后收藏",
   favoriteLabel = "收藏 MOD",
+  favoriteCount,
   unfavoriteLabel = "取消收藏",
   variant,
 }: FavoriteButtonProps) {
@@ -40,6 +42,8 @@ export function FavoriteButton({
   const [, startTransition] = useTransition();
   const requestIdRef = useRef(0);
   const [optimisticFavorited, setOptimisticFavorited] = useState(isFavorited);
+  const [optimisticFavoriteCount, setOptimisticFavoriteCount] = useState(favoriteCount ?? 0);
+  const showFavoriteCount = typeof favoriteCount === "number";
 
   const buttonClass = compact
     ? "h-11 border-4 border-black px-3 text-[11px] font-black uppercase tracking-[0.12em] shadow-[4px_4px_0px_0px_#000]"
@@ -47,11 +51,13 @@ export function FavoriteButton({
 
   const handleToggle = () => {
     const previousFavorited = optimisticFavorited;
+    const previousCount = optimisticFavoriteCount;
     const nextFavorited = !previousFavorited;
     const requestId = requestIdRef.current + 1;
 
     requestIdRef.current = requestId;
     setOptimisticFavorited(nextFavorited);
+    if (showFavoriteCount) setOptimisticFavoriteCount(Math.max(0, previousCount + (nextFavorited ? 1 : -1)));
 
     startTransition(async () => {
       const formData = new FormData();
@@ -61,10 +67,15 @@ export function FavoriteButton({
         await toggleFavoriteAction(formData);
         router.refresh();
       } catch {
-        if (requestIdRef.current === requestId) setOptimisticFavorited(previousFavorited);
+        if (requestIdRef.current === requestId) {
+          setOptimisticFavorited(previousFavorited);
+          if (showFavoriteCount) setOptimisticFavoriteCount(previousCount);
+        }
       }
     });
   };
+
+  const countSuffix = showFavoriteCount ? ` ${optimisticFavoriteCount}` : "";
 
   if (!isLoggedIn) {
     return (
@@ -73,7 +84,7 @@ export function FavoriteButton({
         className={`${compact ? "inline-flex w-full items-center justify-center gap-2 border-4 border-black bg-white text-black hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none" : "neo-button-outline inline-flex"} ${buttonClass} ${className ?? "w-full justify-center"}`}
       >
         <Heart className="size-4" />
-        {loginLabel}
+        {compact ? `${loginLabel}${countSuffix}` : loginLabel}
       </Link>
     );
   }
@@ -83,7 +94,7 @@ export function FavoriteButton({
   return (
     <Button variant={resolvedVariant} size="lg" className={`${className ?? "w-full justify-center"} ${buttonClass}`} type="button" onClick={handleToggle}>
       <Heart className={`size-4 ${optimisticFavorited ? "fill-current" : ""}`} />
-      {compact ? (optimisticFavorited ? "已收藏" : "收藏") : optimisticFavorited ? unfavoriteLabel : favoriteLabel}
+      {compact ? (optimisticFavorited ? `已藏${countSuffix}` : `收藏${countSuffix}`) : optimisticFavorited ? unfavoriteLabel : favoriteLabel}
     </Button>
   );
 }

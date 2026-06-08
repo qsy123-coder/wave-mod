@@ -16,6 +16,77 @@ type RatingPanelProps = {
   userRating: number | null;
 };
 
+type MiniRatingControlProps = {
+  className?: string;
+  isLoggedIn: boolean;
+  modId: string;
+  nextPath: string;
+  ratingAverage: number;
+  ratingCount: number;
+  userRating: number | null;
+};
+
+export function MiniRatingControl({ className, isLoggedIn, modId, nextPath, ratingAverage, ratingCount, userRating }: MiniRatingControlProps) {
+  const [isPending, startTransition] = useTransition();
+  const [hoveredScore, setHoveredScore] = useState<number | null>(null);
+  const [optimisticUserRating, setOptimisticUserRating] = useState(userRating);
+  const activeScore = hoveredScore ?? optimisticUserRating ?? Math.round(ratingAverage);
+
+  const handleRate = (score: number) => {
+    if (!isLoggedIn) return;
+
+    const previousRating = optimisticUserRating;
+    setOptimisticUserRating(score);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("modId", modId);
+      formData.set("score", String(score));
+
+      try {
+        await rateModAction(formData);
+        toast.success("评分已提交。", { description: `你刚刚给这条 MOD 打了 ${score} 星。` });
+      } catch (error) {
+        setOptimisticUserRating(previousRating);
+        toast.error("评分失败", { description: error instanceof Error ? error.message : "请稍后再试。" });
+      }
+    });
+  };
+
+  return (
+    <div className={`grid min-h-11 min-w-[156px] border-2 border-black bg-[#07111f]/78 px-3 py-1.5 shadow-[4px_4px_0px_0px_#000] backdrop-blur-[2px] ${className ?? ""}`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Rating</span>
+        <span className="text-sm font-black text-white">{ratingAverage.toFixed(1)}</span>
+      </div>
+      <div className="mt-0.5 flex items-center justify-between gap-2">
+        <div className="flex gap-0.5">
+          {[1, 2, 3, 4, 5].map((score) => (
+            <button
+              key={score}
+              type="button"
+              disabled={isPending}
+              onMouseEnter={() => setHoveredScore(score)}
+              onMouseLeave={() => setHoveredScore(null)}
+              onFocus={() => setHoveredScore(score)}
+              onBlur={() => setHoveredScore(null)}
+              onClick={() => handleRate(score)}
+              className="group inline-flex size-4 items-center justify-center disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label={`评分 ${score} 星`}
+            >
+              <Star className={`size-3.5 transition ${score <= activeScore ? "fill-white text-white" : "text-slate-600 group-hover:text-white"}`} />
+            </button>
+          ))}
+        </div>
+        {isLoggedIn ? (
+          <span className="text-[10px] font-bold text-slate-400">{ratingCount} votes{optimisticUserRating ? ` · You ${optimisticUserRating}` : ""}</span>
+        ) : (
+          <a href={`/auth/login?next=${encodeURIComponent(nextPath)}&mode=user`} className="text-[10px] font-black uppercase text-slate-300 hover:text-white">Login</a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function RatingPanel({ modId, isLoggedIn, ratingAverage, ratingCount, userRating }: RatingPanelProps) {
   const [isPending, startTransition] = useTransition();
   const [hoveredScore, setHoveredScore] = useState<number | null>(null);

@@ -53,6 +53,10 @@ export type ModComment = {
   createdAt: string;
   isPinned?: boolean;
   likesCount?: number;
+  dislikesCount?: number;
+  parentId?: string | null;
+  replies?: ModComment[];
+  userReaction?: 1 | -1 | null;
   user: {
     avatarUrl: string | null;
     displayName: string;
@@ -65,16 +69,18 @@ export type ModRow = Tables<"mods">;
 
 export type FavoriteRow = Pick<Tables<"favorites">, "created_at" | "mod_id">;
 
-export type CommentRow = Omit<Pick<Tables<"comments">, "id" | "content" | "created_at" | "user_id">, "user_id"> & {
+export type CommentRow = Omit<Pick<Tables<"comments">, "id" | "content" | "created_at" | "is_pinned" | "parent_id" | "user_id">, "user_id"> & {
   user_id: string | null;
   profiles:
     | {
         avatar_url: string | null;
         display_name: string | null;
+        role: "admin" | "user" | "vip";
       }
     | {
         avatar_url: string | null;
         display_name: string | null;
+        role: "admin" | "user" | "vip";
       }[]
     | null;
 };

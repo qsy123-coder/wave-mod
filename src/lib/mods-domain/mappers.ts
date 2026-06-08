@@ -68,10 +68,13 @@ export function mapComment(row: CommentRow): ModComment {
     id: row.id,
     content: row.content,
     createdAt: row.created_at,
+    isPinned: row.is_pinned,
+    parentId: row.parent_id,
     user: {
       avatarUrl: profile?.avatar_url ?? null,
       displayName: profile?.display_name?.trim() || "匿名玩家",
       id: row.user_id,
+      role: profile?.role === "admin" ? "admin" : "user",
     },
   };
 }

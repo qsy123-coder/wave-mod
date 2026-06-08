@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getModCommentsPage } from "@/lib/mods";
 import { parseModCommentSort } from "@/lib/mods-domain/comments";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +13,8 @@ export async function GET(
   const page = Number(searchParams.get("page") ?? "1");
   const pageSize = Number(searchParams.get("limit") ?? searchParams.get("pageSize") ?? "10");
   const sort = parseModCommentSort(searchParams.get("sort"));
+  const user = await getCurrentUser();
 
-  const result = await getModCommentsPage(id, page, pageSize, sort);
+  const result = await getModCommentsPage(id, page, pageSize, sort, user?.id ?? null);
   return NextResponse.json(result);
 }
