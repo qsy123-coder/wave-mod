@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { LayoutDashboard, LogOut, UploadCloud, Gamepad2 } from "lucide-react";
 
 import { getEnabledGames } from "@/config/games";
-import { signOutAdmin } from "@/actions/auth/auth-actions";
+import { requireAdminUser, signOutAdmin } from "@/actions/auth/auth-actions";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { getCurrentUser } from "@/lib/supabase/server";
 
@@ -16,11 +16,13 @@ function AdminUserEmailFallback() {
   return <p className="mt-1 text-sm font-bold text-black/70">加载账号…</p>;
 }
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await requireAdminUser("/admin/upload");
+
   const games = getEnabledGames();
 
   return (
