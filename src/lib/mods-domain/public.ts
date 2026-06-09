@@ -55,7 +55,14 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
   cacheLife("minutes");
 
   const { gameKey = defaultGameKey, sort = "latest" } = filters;
-  const supabase = createPublicReadClient();
+  let supabase;
+  try {
+    supabase = createPublicReadClient();
+  } catch (error) {
+    logger.warn("[mods] getPublicMods skipped because Supabase env is missing", { error: error instanceof Error ? error.message : "unknown" });
+    return [] satisfies SiteMod[];
+  }
+
   const { data, error } = await supabase
     .from("mods")
     .select(publicModColumns)
@@ -131,7 +138,14 @@ export async function getPublicModBaseById(id: string, gameKey?: string) {
   }
   cacheLife("minutes");
 
-  const supabase = createPublicReadClient();
+  let supabase;
+  try {
+    supabase = createPublicReadClient();
+  } catch (error) {
+    logger.warn("[mods] getPublicModBaseById skipped because Supabase env is missing", { error: error instanceof Error ? error.message : "unknown" });
+    return null;
+  }
+
   let query = supabase
     .from("mods")
     .select(publicModColumns)

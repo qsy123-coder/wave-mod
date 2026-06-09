@@ -3,6 +3,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logger } from "@/lib/logger";
 import { getServerSupabaseEnv, isAdminIdentity } from "@/lib/supabase/server-config";
 import type { Database } from "@/types/supabase";
 
@@ -49,12 +50,17 @@ export async function createClient() {
 }
 
 export async function getCurrentUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  return user;
+    return user;
+  } catch (error) {
+    logger.warn("[auth] getCurrentUser fallback to null", { error: error instanceof Error ? error.message : "unknown" });
+    return null;
+  }
 }
 
 export async function ensureProfile() {
