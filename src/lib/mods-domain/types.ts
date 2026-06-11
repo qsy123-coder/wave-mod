@@ -98,4 +98,5 @@ export type PaginatedResult<T> = {
   nextPage: number | null;
   page: number;
   pageSize: number;
+  totalPages: number;
 };

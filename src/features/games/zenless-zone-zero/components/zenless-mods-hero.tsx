@@ -26,10 +26,10 @@ export function ZenlessModsHeroCopy() {
   return (
     <div className="max-w-xl pb-2 pt-[88px] text-white drop-shadow-[4px_4px_0_#000]">
       <p className="text-[10px] font-black uppercase tracking-[0.32em] text-white/70">
-        Explore · Customize · Download
+        探索 · 定制 · 高速下载
       </p>
       <h1 className="mt-1 text-4xl font-black uppercase leading-none sm:text-5xl lg:text-[3.25rem]">
-        Popular Mods
+        热门 MOD
       </h1>
       <p className="mt-3 max-w-lg text-xs font-bold leading-5 text-white/84">
         发现绝区零分站热门 MOD。高能角色外观、服装替换与直链下载都在这里。

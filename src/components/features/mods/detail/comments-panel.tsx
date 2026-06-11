@@ -62,6 +62,7 @@ export function CommentsPanel({ admin, currentUserId, currentUserName = "我", i
           nextPage: initialComments.length === COMMENTS_PAGE_SIZE ? 2 : null,
           page: 1,
           pageSize: COMMENTS_PAGE_SIZE,
+          totalPages: initialComments.length > 0 ? 1 : 1,
         },
       ],
     },

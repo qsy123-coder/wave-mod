@@ -66,6 +66,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort 
     nextPage: initialMods.length === PAGE_SIZE ? 2 : null,
     page: 1,
     pageSize: PAGE_SIZE,
+    totalPages: initialMods.length > 0 ? 1 : 1,
   };
 
   const {

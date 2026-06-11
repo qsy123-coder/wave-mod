@@ -114,12 +114,15 @@ export async function getPublicModsPage(page: number, pageSize: number, filters:
   const items = allMods.slice(from, from + safePageSize);
   const hasMore = from + safePageSize < allMods.length;
 
+  const totalPages = Math.max(1, Math.ceil(allMods.length / safePageSize));
+
   return {
     hasMore,
     items,
     nextPage: hasMore ? safePage + 1 : null,
     page: safePage,
     pageSize: safePageSize,
+    totalPages,
   };
 }
 

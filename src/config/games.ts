@@ -18,6 +18,7 @@ export type GameConfig = {
     guide: string;
     home: string;
     mods: string;
+    profile?: string;
     ranking?: string;
     stats?: string;
   };
@@ -44,6 +45,7 @@ export const games = [
       home: "/wuthering-waves",
       mods: "/wuthering-waves/mods",
       guide: "/wuthering-waves/guide",
+      profile: "/wuthering-waves/profile",
       ranking: "/wuthering-waves/ranking",
     },
   },
@@ -65,6 +67,7 @@ export const games = [
       home: "/zenless-zone-zero",
       mods: "/zenless-zone-zero/mods",
       guide: "/zenless-zone-zero/guide",
+      profile: "/zenless-zone-zero/profile",
       ranking: "/zenless-zone-zero/ranking",
     },
   },
@@ -86,6 +89,7 @@ export const games = [
       home: "/genshin-impact",
       mods: "/genshin-impact/mods",
       guide: "/genshin-impact/guide",
+      profile: "/genshin-impact/profile",
       ranking: "/genshin-impact/ranking",
     },
   },

@@ -4,25 +4,25 @@ import type { GameConfig } from "@/config/games";
 import type { ModSort, SiteMod } from "@/lib/mods";
 
 export const zenlessSortOptions: { label: string; value: ModSort }[] = [
-  { label: "Trending", value: "hot" },
-  { label: "Most Downloaded", value: "favorites" },
-  { label: "Top Rated", value: "rating" },
-  { label: "Latest", value: "latest" },
+  { label: "热门趋势", value: "hot" },
+  { label: "最多下载", value: "favorites" },
+  { label: "最高评分", value: "rating" },
+  { label: "最新发布", value: "latest" },
 ];
 
-export const zenlessAgents = ["All Mods", "星见雅", "艾莲", "妮可", "安比", "朱鸢", "青衣"] as const;
-export const zenlessTags = ["Female", "Male", "Outfit", "Weapon", "Anime", "Realistic", "SFW", "Lore Friendly"] as const;
+export const zenlessAgents = ["全部 MOD", "星见雅", "艾莲", "妮可", "安比", "朱鸢", "青衣"] as const;
+export const zenlessTags = ["女性", "男性", "服装", "武器", "动漫", "写实", "SFW", "贴合原作"] as const;
 
 export const zenlessDisplayMods = [
-  ["星见雅", "星见雅 · 霜刃行动套装", "HOT", "CHARACTER"],
-  ["艾莲", "艾莲 · 深海巡游外观", "HOT", "OUTFIT"],
-  ["莱卡恩", "莱卡恩 · 月影执事礼装", "TRENDING", "CHARACTER"],
-  ["妮可", "妮可 · 狡兔屋霓虹制服", "NEW", "OUTFIT"],
-  ["安比", "安比 · 电光战术服", "HOT", "CHARACTER"],
-  ["11号", "11号 · 火线行动涂装", "TRENDING", "WEAPON"],
-  ["苍角", "苍角 · 冰蓝补给套装", "NEW", "OUTFIT"],
-  ["朱鸢", "朱鸢 · 治安局暗夜制服", "TRENDING", "CHARACTER"],
-  ["青衣", "青衣 · 青霜巡逻外观", "HOT", "CHARACTER"],
+  ["星见雅", "星见雅 · 霜刃行动套装", "热门", "角色"],
+  ["艾莲", "艾莲 · 深海巡游外观", "热门", "服装"],
+  ["莱卡恩", "莱卡恩 · 月影执事礼装", "趋势", "角色"],
+  ["妮可", "妮可 · 狡兔屋霓虹制服", "新作", "服装"],
+  ["安比", "安比 · 电光战术服", "热门", "角色"],
+  ["11号", "11号 · 火线行动涂装", "趋势", "武器"],
+  ["苍角", "苍角 · 冰蓝补给套装", "新作", "服装"],
+  ["朱鸢", "朱鸢 · 治安局暗夜制服", "趋势", "角色"],
+  ["青衣", "青衣 · 青霜巡逻外观", "热门", "角色"],
 ] as const;
 
 export const zenlessCategories = [

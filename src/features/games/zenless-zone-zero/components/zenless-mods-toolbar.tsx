@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Grid3X3, X } from "lucide-react";
+import { Grid3X3, Search, X } from "lucide-react";
 
 import type { GameConfig } from "@/config/games";
 import type { ModSort } from "@/lib/mods";
@@ -23,7 +23,17 @@ export function ZenlessModsToolbar({ character, game, query, sort }: ZenlessMods
             </Link>
           ))}
         </div>
-        <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase text-black/58"><Grid3X3 className="size-4" />View Grid</span>
+        <div className="flex items-center gap-2">
+          <form method="GET" action={game.nav.mods} className="flex items-center gap-1">
+            {character ? <input type="hidden" name="character" value={character} /> : null}
+            {sort !== "hot" ? <input type="hidden" name="sort" value={sort} /> : null}
+            <input type="text" name="query" defaultValue={query ?? ""} placeholder="搜索 MOD..." className="border-2 border-black px-2 py-1.5 text-[10px] font-bold text-black placeholder:text-black/40 shadow-[2px_2px_0_0_#000] outline-none w-[140px]" />
+            <button type="submit" className="border-2 border-black bg-[var(--neo-accent)] px-2 py-1.5 shadow-[2px_2px_0_0_#000]">
+              <Search className="size-3.5" />
+            </button>
+          </form>
+          <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase text-black/58"><Grid3X3 className="size-4" />网格视图</span>
+        </div>
       </div>
       {character || query ? (
         <div className="flex flex-wrap gap-2">

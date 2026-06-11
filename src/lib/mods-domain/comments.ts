@@ -77,7 +77,7 @@ export async function getModCommentsPage(modId: string, page: number, pageSize: 
   const parsedId = modIdSchema.safeParse(modId);
 
   if (!parsedId.success) {
-    return { hasMore: false, items: [], nextPage: null, page: 1, pageSize };
+    return { hasMore: false, items: [], nextPage: null, page: 1, pageSize, totalPages: 0 };
   }
 
   const safePage = Math.max(1, page);
@@ -110,7 +110,7 @@ export async function getModCommentsPage(modId: string, page: number, pageSize: 
 
   if (error) {
     if (!isAbortErrorMessage(error.message)) logger.warn("[mods] getModCommentsPage failed, fallback to empty page", { error: error.message, sort });
-    return { hasMore: false, items: [], nextPage: null, page: safePage, pageSize: safePageSize };
+    return { hasMore: false, items: [], nextPage: null, page: safePage, pageSize: safePageSize, totalPages: 0 };
   }
 
   let items = await attachCommentCommunityData(((data ?? []) as CommentRow[]).map(mapComment), currentUserId);
@@ -121,5 +121,5 @@ export async function getModCommentsPage(modId: string, page: number, pageSize: 
   }
 
   const hasMore = sort === "most-liked" ? (data ?? []).length > safePage * safePageSize : items.length === safePageSize;
-  return { hasMore, items, nextPage: hasMore ? safePage + 1 : null, page: safePage, pageSize: safePageSize };
+  return { hasMore, items, nextPage: hasMore ? safePage + 1 : null, page: safePage, pageSize: safePageSize, totalPages: hasMore ? safePage + 1 : safePage };
 }
