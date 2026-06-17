@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 
 import {
   DEFAULT_LAYOUT_STYLE,
-  LAYOUT_STYLE_CLASS,
   LAYOUT_STYLE_COOKIE,
   type LayoutStyle,
 } from "./constants";
@@ -16,11 +15,6 @@ export async function getLayoutStyle(): Promise<LayoutStyle> {
   } catch {
     return DEFAULT_LAYOUT_STYLE;
   }
-}
-
-export async function getLayoutStyleClass(): Promise<string> {
-  const style = await getLayoutStyle();
-  return LAYOUT_STYLE_CLASS[style];
 }
 
 export function isDarkSkin(layoutStyle: LayoutStyle): boolean {

@@ -4,7 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import {
   DEFAULT_LAYOUT_STYLE,
-  LAYOUT_STYLE_CLASS,
   LAYOUT_STYLE_COOKIE,
   LAYOUT_STYLE_COOKIE_MAX_AGE,
   LAYOUT_STYLE_STORAGE_KEY,
@@ -40,8 +39,7 @@ function applySkinClass(style: LayoutStyle): void {
   if (typeof document === "undefined") return;
   const html = document.documentElement;
   html.classList.remove("theme-zzz-dark");
-  const cls = LAYOUT_STYLE_CLASS[style];
-  if (cls) html.classList.add(cls);
+  if (style === "zzz-dark") html.classList.add("theme-zzz-dark");
 }
 
 export function LayoutStyleProvider({ children }: { children: ReactNode }) {

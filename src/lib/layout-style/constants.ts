@@ -17,10 +17,4 @@ export const LAYOUT_STYLE_STORAGE_KEY = "wavemod-layout-style";
 export const DEFAULT_LAYOUT_STYLE: LayoutStyle = "zzz-immersive";
 export const LAYOUT_STYLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-/** 对应的 <html> CSS 类名 */
-export const LAYOUT_STYLE_CLASS: Record<LayoutStyle, string> = {
-  "zzz-immersive": "",
-  "zzz-dark": "theme-zzz-dark",
-};
-
 export { zLayoutStyle } from "./schema";
