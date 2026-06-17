@@ -260,23 +260,28 @@
    ZZZ 深色皮肤 — 严格按照个人中心页面的深色风格
    .theme-zzz-dark 类由 LayoutStyleProvider 在切换时添加到 <html>
    仅在 .zzz-skin-scope 容器内生效（绝区零分站布局）
+   只改面板/卡片/区域背景，不改页面大背景
    ========================================================================== */
 
-.theme-zzz-dark .zzz-skin-scope {
-  /* 页面背景 — 与个人中心一致的深蓝黑 */
-  background-color: #04070d !important;
-  background-image: none !important;
-  color: #fff;
+/* 面板 — 与个人中心一致的暗色毛玻璃面板 */
+.theme-zzz-dark .zzz-skin-scope [class*="bg-[#07111f"],
+.theme-zzz-dark .zzz-skin-scope [class*="bg-[#0a1628"],
+.theme-zzz-dark .zzz-skin-scope [class*="bg-[#0b1a2f"],
+.theme-zzz-dark .zzz-skin-scope [class*="bg-[#0d1b2e"],
+.theme-zzz-dark .zzz-skin-scope [class*="bg-[#050914"],
+.theme-zzz-dark .zzz-skin-scope [class*="bg-[#111827"] {
+  background-color: rgba(7, 17, 31, 0.42) !important;
 }
 
-/* 覆盖 body 级别网格背景为纯深色 */
-.theme-zzz-dark .zzz-skin-scope[class*="min-h-screen"] {
-  background-color: #04070d !important;
-  background-image:
-    radial-gradient(circle, rgba(255,255,255,0.06) 1.5px, transparent 1.6px),
-    linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px) !important;
-  background-size: 24px 24px, 44px 44px, 44px 44px !important;
+/* 毛玻璃效果 — 深色模式加回 backdrop-blur */
+.theme-zzz-dark .zzz-skin-scope section {
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* ring 增强可见度 */
+.theme-zzz-dark .zzz-skin-scope [class*="ring-white/10"] {
+  --tw-ring-color: rgba(255, 255, 255, 0.15) !important;
 }
 
 
