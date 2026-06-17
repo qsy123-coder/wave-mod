@@ -1,5 +1,5 @@
-export { getTopCreators } from "@/lib/mods-domain/creators";
-export type { TopCreator } from "@/lib/mods-domain/creators";
+export { getCreatorProfile, getCreatorProfileUncached, getTopCreators } from "@/lib/mods-domain/creators";
+export type { CreatorProfile, TopCreator } from "@/lib/mods-domain/creators";
 export { getAdminMods } from "@/lib/mods-domain/admin";
 export { getModComments, getModCommentsPage } from "@/lib/mods-domain/comments";
 export { getPublicModById } from "@/lib/mods-domain/detail";

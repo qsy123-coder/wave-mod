@@ -12,11 +12,14 @@ import {
 import { signOutUser } from "@/actions/auth/auth-actions";
 import { getEnabledGames, type GameConfig } from "@/config/games";
 import { getCurrentUser } from "@/lib/supabase/server";
+import { LayoutStyleToggle } from "@/components/layout/layout-style-toggle";
 import { ZenlessNavAuthSkeleton } from "./zenless-mods-skeletons";
 
 const zenlessNavItems = [
   { label: "首页", href: "/zenless-zone-zero" },
   { label: "角色分类", href: "/zenless-zone-zero/mods" },
+  { label: "排行榜", href: "/zenless-zone-zero/ranking" },
+  { label: "个人中心", href: "/zenless-zone-zero/profile" },
   { label: "先看我", href: "/zenless-zone-zero/guide" },
   { label: "支持本站", href: "/zenless-zone-zero/support" },
 ] as const;
@@ -125,6 +128,8 @@ export function ZenlessGlassNav({ game }: ZenlessGlassNavProps) {
               ))}
             </div>
           </details>
+
+          <LayoutStyleToggle variant="glass" />
 
           <Link
             href="/zenless-zone-zero/favorites"

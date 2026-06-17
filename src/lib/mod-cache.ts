@@ -11,6 +11,7 @@ export const modCacheTags = {
 export function revalidatePublicModCaches(modId?: string) {
   revalidateTag(modCacheTags.characters, "default");
   revalidateTag(modCacheTags.list, "default");
+  revalidateTag("creators:ranking", "default");
 
   if (modId) {
     revalidateTag(modCacheTags.detail(modId), "default");
@@ -19,4 +20,9 @@ export function revalidatePublicModCaches(modId?: string) {
 
   revalidatePath("/");
   revalidatePath("/mods");
+}
+
+/** 刷新指定创作者的 Profile 页缓存（上传/编辑 MOD 后调用） */
+export function revalidateCreatorProfileCache(userId: string) {
+  revalidateTag(`creator:profile:${userId}`, "default");
 }

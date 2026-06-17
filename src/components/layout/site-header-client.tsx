@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Heart, LogIn, LogOut, Menu, Sparkles, Gamepad2 } from "lucide-react";
 
 import { getEnabledGames } from "@/config/games";
@@ -9,6 +10,7 @@ import { signOutUser } from "@/actions/auth/auth-actions";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { SiteSearchForm } from "@/components/layout/site-search-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { LayoutStyleToggle } from "@/components/layout/layout-style-toggle";
 import {
   Sheet,
   SheetContent,
@@ -33,6 +35,8 @@ type SiteHeaderClientProps = {
 
 export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const isZzzRoute = pathname.startsWith("/zenless-zone-zero");
   const loginHref = "/auth/login?mode=user&next=/favorites";
   const signOutAction = signOutUser.bind(null, "/");
   const games = getEnabledGames();
@@ -102,6 +106,8 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
         </MotionReveal>
 
         <ThemeToggle />
+
+        {isZzzRoute && <LayoutStyleToggle variant="neo" />}
 
         <div className="hidden items-center gap-3 md:flex">
           <MotionReveal delay={0.18} rotate={1}>

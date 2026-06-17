@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { ClientProviders } from "@/components/layout/client-providers";
+import { LayoutStyleProvider } from "@/components/layout/layout-style-provider";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -29,10 +30,12 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         <ThemeProvider>
-          <ClientProviders>
-            <Suspense fallback={null}>{children}</Suspense>
-            <Toaster position="top-center" richColors />
-          </ClientProviders>
+          <LayoutStyleProvider>
+            <ClientProviders>
+              <Suspense fallback={null}>{children}</Suspense>
+              <Toaster position="top-center" richColors />
+            </ClientProviders>
+          </LayoutStyleProvider>
         </ThemeProvider>
       </body>
     </html>

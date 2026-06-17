@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Crown, Download, Flame, Heart, Star, Tags, Trophy } from "lucide-react";
 
@@ -5,7 +6,14 @@ import type { GameConfig } from "@/config/games";
 import { ModCard } from "@/components/common/mod-card";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
-import { calculateHotScore, getPublicMods, type SiteMod } from "@/lib/mods";
+import {
+  calculateHotScore,
+  getPublicMods,
+  getTopCreators,
+  type SiteMod,
+  type TopCreator,
+} from "@/lib/mods";
+import { CreatorRankingClient } from "@/features/games/shared/creator-ranking-client";
 
 function getDetailHref(game: GameConfig, mod: SiteMod) {
   return `${game.nav.mods}/${mod.id}`;
@@ -104,6 +112,39 @@ function RankingPodium({ game, mods }: { game: GameConfig; mods: SiteMod[] }) {
   );
 }
 
+/** 创作者排行榜 — 支持按下载量 / 按 MOD 数切换维度 */
+function CreatorRanking({
+  creators,
+  game,
+}: {
+  creators: TopCreator[];
+  game: GameConfig;
+}) {
+  if (creators.length === 0) {
+    return (
+      <MotionReveal delay={0.1} y={20} rotate={-1}>
+        <section className="neo-card-lg bg-[var(--neo-panel)] p-6 text-black">
+          <div className="border-4 border-black bg-white px-5 py-4 shadow-[8px_8px_0px_0px_#000]">
+            <p className="neo-label text-black/60">Creator Ranking</p>
+            <h2 className="mt-2 text-2xl font-black">
+              {game.name} 暂无创作者排名。
+            </h2>
+            <p className="mt-2 text-sm font-bold leading-7 text-black/75">
+              发布更多 MOD 后，创作者排名将自动生成。
+            </p>
+          </div>
+        </section>
+      </MotionReveal>
+    );
+  }
+
+  return (
+    <MotionReveal delay={0.1} y={20} rotate={-1}>
+      <CreatorRankingClient creators={creators} game={game} />
+    </MotionReveal>
+  );
+}
+
 function RankingList({ game, icon, mods, title, valueLabel, valueOf }: { game: GameConfig; icon: React.ReactNode; mods: SiteMod[]; title: string; valueLabel: string; valueOf: (mod: SiteMod) => string }) {
   return (
     <MotionReveal delay={0.14} y={22} rotate={1}>
@@ -165,7 +206,10 @@ function StatsCloud({ game, characters, tags }: { game: GameConfig; characters: 
 }
 
 export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
-  const mods = await getPublicMods(undefined, { gameKey: game.key, sort: "hot" });
+  const [mods, topCreators] = await Promise.all([
+    getPublicMods(undefined, { gameKey: game.key, sort: "hot" }),
+    getTopCreators(20, game.key),
+  ]);
   const hotMods = rankByHot(mods);
   const downloadMods = rankByDownloads(mods);
   const favoriteMods = rankByFavorites(mods);
@@ -174,17 +218,20 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
   const tagStats = buildTagStats(mods);
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <MotionReveal delay={0.04} rotate={-1}>
         <section className="relative overflow-hidden border-4 border-black bg-[var(--neo-panel)] p-6 text-black shadow-[10px_10px_0px_0px_#000]">
           <div className="neo-grid absolute inset-0 opacity-25" />
           <div className="relative">
             <p className="neo-label text-black/60">{game.name} Ranking</p>
-            <h1 className="mt-2 text-4xl font-black uppercase leading-none md:text-5xl">{game.name} MOD 排行榜</h1>
-            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-black/75">按下载、收藏、评分和互动热度生成运营榜单，后续可继续扩展为后台统计页和站内推荐策略。</p>
+            <h1 className="mt-2 text-4xl font-black uppercase leading-none md:text-5xl">{game.name} 排行榜</h1>
+            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-black/75">按创作者影响力、MOD 下载、收藏、评分和互动热度生成运营榜单，发现最受欢迎的内容和创作者。</p>
           </div>
         </section>
       </MotionReveal>
+
+      {/* 创作者排行榜 */}
+      <CreatorRanking creators={topCreators} game={game} />
 
       <RankingPodium game={game} mods={hotMods} />
 
@@ -199,7 +246,9 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
           <div className="inline-flex items-center gap-2 border-4 border-black bg-white px-4 py-2 text-sm font-black uppercase tracking-[0.14em] shadow-[5px_5px_0px_0px_#000]">
             <Flame className="size-4" />综合热度说明
           </div>
-          <p className="mt-4 text-sm font-bold leading-7 text-black/75">综合热度由浏览、下载、收藏、点赞、评论、评分人数和平均评分共同计算，适合作为首页推荐和每周热门的基础信号。</p>
+          <p className="mt-4 text-sm font-bold leading-7 text-black/75">
+            创作者排名基于 MOD 总下载量聚合；综合热度由浏览、下载、收藏、点赞、评论、评分人数和平均评分共同计算，适合作为首页推荐和每周热门的基础信号。
+          </p>
         </section>
       </MotionReveal>
 

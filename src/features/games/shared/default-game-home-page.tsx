@@ -47,7 +47,7 @@ export async function DefaultGameHomePage({ game }: { game: GameConfig }) {
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <MotionReveal delay={0.03} rotate={-1}>
         <section className="relative overflow-hidden border-4 border-black p-6 text-black shadow-[12px_12px_0px_0px_#000] sm:p-8" style={{ background: game.theme.accent }}>
           <div className="neo-grid absolute inset-0 opacity-25" />

@@ -114,7 +114,7 @@ export default async function GameFavoritesPage({ params }: PageProps) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <MotionReveal delay={0.04} rotate={1}>
         <section className="inline-block border-4 border-black px-5 py-4 shadow-[8px_8px_0px_0px_#000]" style={{ background: game.theme.muted }}>
           <p className="neo-label text-black/60">{game.name} 我的收藏</p>

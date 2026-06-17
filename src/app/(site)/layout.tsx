@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { SiteHeaderSkeleton } from "@/components/layout/site-header-skeleton";
 
 export default function SiteLayout({
   children,
@@ -10,7 +11,7 @@ export default function SiteLayout({
 }>) {
   return (
     <div className="min-h-screen" style={{ background: "var(--neo-dark)" }}>
-      <Suspense fallback={null}>
+      <Suspense fallback={<SiteHeaderSkeleton />}>
         <SiteHeader />
       </Suspense>
       <main>{children}</main>

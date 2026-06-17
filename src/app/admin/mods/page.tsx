@@ -5,6 +5,7 @@ import { Download, Gamepad2, PencilRuler } from "lucide-react";
 import { games } from "@/config/games";
 import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { DeleteModButton } from "@/components/features/admin/mods/delete-mod-button";
+import { FixCreatorButton } from "@/components/features/admin/mods/fix-creator-button";
 import { PublishToggleButton } from "@/components/features/admin/mods/publish-toggle-button";
 import { AdminModsSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -94,6 +95,9 @@ export default function AdminModsPage() {
         <section className="inline-block border-4 border-black px-5 py-4 shadow-[8px_8px_0px_0px_#000]" style={{ background: "var(--neo-secondary)" }}>
           <p className="neo-label text-black/60">Admin Mods</p>
           <h1 className="mt-2 text-4xl font-black text-black">后台 MOD 管理列表</h1>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <FixCreatorButton />
+          </div>
         </section>
       </MotionReveal>
 

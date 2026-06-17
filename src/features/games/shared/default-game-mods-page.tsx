@@ -135,7 +135,7 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
 
 export function DefaultGameModsPage({ game, searchParams }: DefaultGameModsPageProps) {
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
       <Suspense fallback={<ModGridSkeleton />}>
         <DefaultGameModsPageContent game={game} searchParams={searchParams} />
       </Suspense>

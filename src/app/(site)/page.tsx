@@ -1,6 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
-import { ArrowRight, Clock3, Flame, Sparkles, Star, Trophy } from "lucide-react";
+import { ArrowRight, Clock3, Crown, Flame, Sparkles, Star, Trophy } from "lucide-react";
 
 import { CharacterTagCollapse } from "@/components/common/character-tag-collapse";
 import { ModCard } from "@/components/common/mod-card";
@@ -8,10 +9,12 @@ import { HeroCarousel } from "@/components/features/home/hero-carousel";
 import { FeaturedCarouselSkeleton, ModGridSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
+import { defaultGameKey } from "@/config/games";
 import {
   getAvailableCharacters,
   getFeaturedMods,
   getLatestMods,
+  getTopCreators,
   getTopRatedMods,
   getWeeklyHotMods,
   type SiteMod,
@@ -132,6 +135,56 @@ async function HomeCharacterSection() {
   );
 }
 
+async function HomeTopCreatorsSection() {
+  const creators = await getTopCreators(5, defaultGameKey);
+
+  if (creators.length === 0) return null;
+
+  return (
+    <section className="space-y-4">
+      <MotionReveal delay={0.1} rotate={-1}>
+        <div className="inline-block border-4 border-black px-5 py-3 shadow-[8px_8px_0px_0px_#000]" style={{ background: "var(--neo-accent)" }}>
+          <p className="neo-label text-black/65">优秀创作者</p>
+          <h2 className="mt-2 inline-flex items-center gap-2 text-3xl font-black text-black">
+            <Crown className="size-7" />按总下载量排名
+          </h2>
+        </div>
+      </MotionReveal>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {creators.map((creator, index) => (
+          <MotionReveal key={creator.userId} delay={0.12 + index * 0.04} y={20} rotate={index % 2 === 0 ? -1 : 1}>
+            <Link
+              href={`/profile?user=${creator.userId}`}
+              className="group flex flex-col items-center gap-3 border-4 border-black bg-white p-5 text-black shadow-[6px_6px_0px_0px_#000] transition hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_#000]"
+            >
+              <span className="inline-flex size-8 items-center justify-center rounded-full border-3 border-black bg-[var(--neo-accent)] text-sm font-black">
+                {index + 1}
+              </span>
+              <span className="relative flex size-14 items-center justify-center overflow-hidden rounded-full border-3 border-black bg-[#f5f5f5]">
+                {creator.avatarUrl ? (
+                  <Image src={creator.avatarUrl} alt={creator.displayName} fill sizes="56px" className="object-cover" />
+                ) : (
+                  <span className="text-xl font-black text-black/30">{creator.displayName.charAt(0)}</span>
+                )}
+              </span>
+              <div className="text-center">
+                <p className="text-sm font-black group-hover:underline">{creator.displayName}</p>
+                <p className="mt-0.5 text-[11px] font-bold text-black/55">
+                  {creator.modCount} 个 MOD
+                </p>
+                <p className="mt-0.5 text-xs font-black">
+                  {creator.totalDownloads >= 1000 ? `${(creator.totalDownloads / 1000).toFixed(1)}K` : creator.totalDownloads} 下载
+                </p>
+              </div>
+            </Link>
+          </MotionReveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function HomeCharacterSectionSkeleton() {
   return (
     <section className="space-y-4">
@@ -148,7 +201,7 @@ function HomeCharacterSectionSkeleton() {
 
 export default function HomePage() {
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <section className="relative overflow-hidden border-4 border-black bg-[var(--neo-panel)] px-5 py-6 shadow-[12px_12px_0px_0px_#000] sm:px-6 lg:px-8 lg:py-8">
         <div className="neo-grid absolute inset-0 opacity-40" />
         <div className="absolute -left-4 top-6 h-14 w-14 rotate-12 border-4 border-black bg-[var(--neo-secondary)]" />
@@ -188,6 +241,7 @@ export default function HomePage() {
       <Suspense fallback={<ModGridSkeleton />}><HomeWeeklyHotSection /></Suspense>
       <Suspense fallback={<ModGridSkeleton />}><HomeTopRatedSection /></Suspense>
       <Suspense fallback={<ModGridSkeleton />}><HomeLatestSection /></Suspense>
+      <Suspense fallback={<ModGridSkeleton />}><HomeTopCreatorsSection /></Suspense>
 
       <MotionReveal delay={0.24} rotate={-1}>
         <section className="neo-card-lg p-6 text-black" style={{ background: "var(--neo-accent)" }}>

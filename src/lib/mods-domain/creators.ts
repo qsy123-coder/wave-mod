@@ -3,6 +3,9 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { logger } from "@/lib/logger";
+import { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
+import type { SiteMod } from "@/lib/mods-domain/types";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
 export type TopCreator = {
@@ -11,6 +14,21 @@ export type TopCreator = {
   avatarUrl: string | null;
   modCount: number;
   totalDownloads: number;
+};
+
+export type CreatorProfile = {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  createdAt: string;
+  stats: {
+    modCount: number;
+    totalDownloads: number;
+    totalFavorites: number;
+    totalLikes: number;
+  };
+  mods: SiteMod[];
 };
 
 /** 按总下载量排名聚合创作者，缓存数小时 */
@@ -68,8 +86,10 @@ export async function getTopCreators(
 
     if (topCreatorIds.length === 0) return [];
 
-    // 查 profiles 获取展示名和头像
-    const { data: profiles } = await supabase
+    // 查 profiles 获取展示名和头像（admin client 绕过 RLS）
+    const supabaseAdmin = createAdminClient();
+    const profileQuery = supabaseAdmin ?? supabase;
+    const { data: profiles } = await profileQuery
       .from("profiles")
       .select("id, display_name, avatar_url")
       .in("id", topCreatorIds);
@@ -93,5 +113,107 @@ export async function getTopCreators(
       error: error instanceof Error ? error.message : "unknown",
     });
     return [];
+  }
+}
+
+/** 查询核心逻辑（无缓存），供需要实时数据的场景使用 */
+async function fetchCreatorProfile(
+  userId: string,
+  gameKey: string,
+): Promise<CreatorProfile | null> {
+  // profiles 表有 RLS，public anon key 读不了 → 用 admin client
+  const supabaseAdmin = createAdminClient();
+  const supabase = createPublicReadClient();
+
+  // mods 用 public client，profiles 用 admin client（绕过 RLS）
+  const [profileRes, modsRes] = await Promise.all([
+    supabaseAdmin
+      ? supabaseAdmin
+          .from("profiles")
+          .select("id, display_name, avatar_url, bio, created_at")
+          .eq("id", userId)
+          .single()
+      : supabase
+          .from("profiles")
+          .select("id, display_name, avatar_url, bio, created_at")
+          .eq("id", userId)
+          .single(),
+    supabase
+      .from("mods")
+      .select(publicModColumns)
+      .eq("created_by", userId)
+      .eq("game_key", gameKey)
+      .eq("is_published", true)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (profileRes.error || !profileRes.data) {
+    logger.warn("[creators] fetchCreatorProfile profile not found", {
+      userId,
+      gameKey,
+      error: profileRes.error ? JSON.stringify(profileRes.error) : "no data",
+    });
+    return null;
+  }
+
+  const profile = profileRes.data;
+  const modRows = modsRes.data ?? [];
+  const mods = modRows.map((row) => mapMod(row as Parameters<typeof mapMod>[0]));
+
+  // 聚合统计
+  const stats = {
+    modCount: mods.length,
+    totalDownloads: mods.reduce((sum, m) => sum + m.downloads, 0),
+    totalFavorites: mods.reduce((sum, m) => sum + m.favorites, 0),
+    totalLikes: mods.reduce((sum, m) => sum + m.likes, 0),
+  };
+
+  return {
+    userId: profile.id,
+    displayName: profile.display_name?.trim() || "匿名创作者",
+    avatarUrl: profile.avatar_url ?? null,
+    bio: profile.bio?.trim() || null,
+    createdAt: profile.created_at,
+    stats,
+    mods,
+  };
+}
+
+/** 获取单个创作者的 Profile 页数据（缓存数小时，供公开访问使用） */
+export async function getCreatorProfile(
+  userId: string,
+  gameKey: string,
+): Promise<CreatorProfile | null> {
+  "use cache";
+  cacheTag(`creator:profile:${userId}`);
+  cacheTag(`creator:profile:${userId}:${gameKey}`);
+  cacheLife("hours");
+
+  try {
+    return await fetchCreatorProfile(userId, gameKey);
+  } catch (error) {
+    logger.warn("[creators] getCreatorProfile failed", {
+      userId,
+      gameKey,
+      error: error instanceof Error ? error.message : "unknown",
+    });
+    return null;
+  }
+}
+
+/** 获取创作者 Profile（无缓存），用于用户查看自己个人中心时保证数据实时 */
+export async function getCreatorProfileUncached(
+  userId: string,
+  gameKey: string,
+): Promise<CreatorProfile | null> {
+  try {
+    return await fetchCreatorProfile(userId, gameKey);
+  } catch (error) {
+    logger.warn("[creators] getCreatorProfileUncached failed", {
+      userId,
+      gameKey,
+      error: error instanceof Error ? error.message : "unknown",
+    });
+    return null;
   }
 }

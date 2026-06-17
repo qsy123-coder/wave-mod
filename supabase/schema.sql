@@ -32,9 +32,13 @@ create table if not exists public.profiles (
   role text not null default 'user' check (role in ('user', 'admin', 'vip')),
   display_name text,
   avatar_url text,
+  layout_style text,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+-- Migration: add layout_style column to existing profiles table (if column doesn't exist)
+-- alter table public.profiles add column if not exists layout_style text;
 
 create table if not exists public.mods (
   id uuid primary key default gen_random_uuid(),

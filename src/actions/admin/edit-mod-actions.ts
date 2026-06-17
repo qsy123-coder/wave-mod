@@ -13,8 +13,9 @@ import {
   splitImageUrls,
   splitTags,
 } from "@/lib/admin/mod-form";
-import { revalidatePublicModCaches } from "@/lib/mod-cache";
+import { revalidateCreatorProfileCache, revalidatePublicModCaches } from "@/lib/mod-cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 const modIdSchema = z.uuid("无效的 MOD ID。");
 
@@ -41,6 +42,15 @@ export async function updateModAction(_prevState: UploadFormState, formData: For
     return { error: "请至少提供一张预览图链接。", fieldErrors: { imageUrls: "请至少提供一张预览图链接。" }, success: "" };
   }
 
+  // 检查 created_by 是否为空，若为空则自动关联当前编辑者
+  const { data: existing } = await supabaseAdmin
+    .from("mods")
+    .select("created_by")
+    .eq("id", payload.id)
+    .maybeSingle();
+  const currentUser = await getCurrentUser();
+  const createdBy = existing?.created_by ?? currentUser?.id ?? null;
+
   const { error } = await supabaseAdmin
     .from("mods")
     .update({
@@ -57,6 +67,7 @@ export async function updateModAction(_prevState: UploadFormState, formData: For
       tags: tagList,
       nsfw: payload.nsfw,
       xxmi_install_guide: payload.xxmiGuide,
+      ...(createdBy ? { created_by: createdBy } : {}),
     })
     .eq("id", payload.id);
 
@@ -65,10 +76,14 @@ export async function updateModAction(_prevState: UploadFormState, formData: For
   }
 
   revalidatePublicModCaches(payload.id);
+  if (createdBy) {
+    revalidateCreatorProfileCache(createdBy);
+  }
   revalidatePath("/admin/mods");
   revalidatePath(`/${payload.gameKey}`);
   revalidatePath(`/${payload.gameKey}/mods`);
   revalidatePath(`/${payload.gameKey}/mods/${payload.id}`);
+  revalidatePath(`/${payload.gameKey}/profile`);
   revalidatePath(`/admin/mods/${payload.id}/edit`);
 
   return { error: "", fieldErrors: {}, success: "MOD 信息已更新。" };

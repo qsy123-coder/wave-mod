@@ -5,6 +5,7 @@ import { GameModDetailContent } from "@/components/features/mods/detail/game-mod
 import { ModDetailSkeleton } from "@/components/layout/data-skeletons";
 import { getGameBySlug } from "@/config/games";
 import { ZenlessModDetailPage } from "@/features/games/zenless-zone-zero/pages/zenless-mod-detail-page";
+import { getLayoutStyle, isZzzStyle } from "@/lib/layout-style/server";
 import { getFeaturedMods, getModComments, getPublicModBaseById, getViewerModState } from "@/lib/mods";
 import { getCurrentUser, isAdminUser } from "@/lib/supabase/server";
 
@@ -14,8 +15,9 @@ type PageProps = {
 
 async function GameSpecificModDetailContent({ params }: PageProps) {
   const resolvedParams = await params;
+  const layoutStyle = await getLayoutStyle();
 
-  if (resolvedParams.game !== "zenless-zone-zero") {
+  if (!isZzzStyle(resolvedParams.game, layoutStyle)) {
     return <GameModDetailContent params={Promise.resolve(resolvedParams)} redirectDefaultGame={false} />;
   }
 

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getGameBySlug } from "@/config/games";
 import { DefaultGameHomePage } from "@/features/games/shared/default-game-home-page";
 import { ZenlessHomePage } from "@/features/games/zenless-zone-zero/pages/zenless-home-page";
+import { getLayoutStyle, isZzzStyle } from "@/lib/layout-style/server";
 
 type PageProps = {
   params: Promise<{ game: string }>;
@@ -17,7 +18,9 @@ async function GameHomeContent({ params }: PageProps) {
     notFound();
   }
 
-  if (game.key === "zenless-zone-zero") {
+  const layoutStyle = await getLayoutStyle();
+
+  if (isZzzStyle(game.key, layoutStyle)) {
     return <ZenlessHomePage game={game} />;
   }
 

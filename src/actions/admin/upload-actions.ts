@@ -12,8 +12,9 @@ import {
   splitTags,
   type AdminModFormState,
 } from "@/lib/admin/mod-form";
-import { revalidatePublicModCaches } from "@/lib/mod-cache";
+import { revalidateCreatorProfileCache, revalidatePublicModCaches } from "@/lib/mod-cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/supabase/server";
 import { getServerSupabaseEnv } from "@/lib/supabase/server-config";
 
 export type UploadFormState = AdminModFormState;
@@ -55,6 +56,10 @@ export async function createModAction(_prevState: UploadFormState, formData: For
     };
   }
 
+  // 关联当前上传者
+  const currentUser = await getCurrentUser();
+  const createdBy = currentUser?.id ?? null;
+
   const { error } = await supabaseAdmin.from("mods").insert({
     title: payload.title,
     game_key: payload.gameKey,
@@ -69,6 +74,7 @@ export async function createModAction(_prevState: UploadFormState, formData: For
     tags: tagList,
     nsfw: payload.nsfw,
     xxmi_install_guide: payload.xxmiGuide,
+    created_by: createdBy,
   });
 
   if (error) {
@@ -83,9 +89,13 @@ export async function createModAction(_prevState: UploadFormState, formData: For
   }
 
   revalidatePublicModCaches();
+  if (createdBy) {
+    revalidateCreatorProfileCache(createdBy);
+  }
   revalidatePath("/mods");
   revalidatePath(`/${payload.gameKey}`);
   revalidatePath(`/${payload.gameKey}/mods`);
+  revalidatePath(`/${payload.gameKey}/profile`);
   revalidatePath("/admin/mods");
 
   return {
