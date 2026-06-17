@@ -290,5 +290,24 @@
   -webkit-backdrop-filter: blur(2px);
 }
 
+/* 文字颜色 — 面板变暗后，黑字必须变白 */
+.theme-zzz-dark .zzz-skin-scope .text-black,
+.theme-zzz-dark .zzz-skin-scope [class*="text-black/"] {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* 图标/emoji 也变亮 */
+.theme-zzz-dark .zzz-skin-scope .text-black\/60,
+.theme-zzz-dark .zzz-skin-scope .text-black\/70,
+.theme-zzz-dark .zzz-skin-scope .text-black\/75,
+.theme-zzz-dark .zzz-skin-scope .text-black\/80 {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* 当前激活的导航项保持可见 */
+.theme-zzz-dark .zzz-skin-scope a[aria-current="page"] {
+  color: inherit;
+}
+
 
 
