@@ -258,30 +258,36 @@
 
 /* ==========================================================================
    ZZZ 深色皮肤 — 严格按照个人中心页面的深色风格
-   .theme-zzz-dark 类由 LayoutStyleProvider 在切换时添加到 <html>
-   仅在 .zzz-skin-scope 容器内生效（绝区零分站布局）
-   只改面板/卡片/区域背景，不改页面大背景
+   覆盖 CSS 变量 + 白色面板 → 暗色毛玻璃
    ========================================================================== */
 
-/* 面板 — 与个人中心一致的暗色毛玻璃面板 */
-.theme-zzz-dark .zzz-skin-scope [class*="bg-[#07111f"],
-.theme-zzz-dark .zzz-skin-scope [class*="bg-[#0a1628"],
-.theme-zzz-dark .zzz-skin-scope [class*="bg-[#0b1a2f"],
-.theme-zzz-dark .zzz-skin-scope [class*="bg-[#0d1b2e"],
-.theme-zzz-dark .zzz-skin-scope [class*="bg-[#050914"],
-.theme-zzz-dark .zzz-skin-scope [class*="bg-[#111827"] {
+.theme-zzz-dark .zzz-skin-scope {
+  /* 面板背景 → 个人中心同款暗色半透明 */
+  --neo-panel: rgba(7, 17, 31, 0.42);
+  --neo-surface: rgba(7, 17, 31, 0.35);
+  --neo-search: rgba(7, 17, 31, 0.5);
+
+  /* 强调色稍微降饱和度，在暗色下更协调 */
+  --neo-accent: #e07070;
+  --neo-secondary: #e0c040;
+  --neo-muted: #a090e0;
+}
+
+/* 白色面板/卡片 → 暗色半透明 */
+.theme-zzz-dark .zzz-skin-scope .bg-white,
+.theme-zzz-dark .zzz-skin-scope [class*="bg-white/"] {
   background-color: rgba(7, 17, 31, 0.42) !important;
 }
 
-/* 毛玻璃效果 — 深色模式加回 backdrop-blur */
+/* 黑色背景 → 更深 */
+.theme-zzz-dark .zzz-skin-scope .bg-black {
+  background-color: #02050a !important;
+}
+
+/* 毛玻璃 — 与个人中心面板一致 */
 .theme-zzz-dark .zzz-skin-scope section {
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
-}
-
-/* ring 增强可见度 */
-.theme-zzz-dark .zzz-skin-scope [class*="ring-white/10"] {
-  --tw-ring-color: rgba(255, 255, 255, 0.15) !important;
 }
 
 
