@@ -1,28 +1,26 @@
 /**
  * 视觉风格切换 — 常量与类型定义
  *
- * 两种风格：
- * - "zzz-immersive"  绝区零深色沉浸式风格（默认）
- * - "neo-brutalism"   全站新粗野主义经典风格
+ * 两种视觉皮肤：
+ * - "zzz-immersive"  绝区零 Neo 风格（默认）— 现有 ZZZ 组件原生样式
+ * - "zzz-dark"        绝区零深色沉浸式 — 个人中心同款深蓝黑 + 毛玻璃面板
  */
-export type LayoutStyle = "zzz-immersive" | "neo-brutalism";
+export type LayoutStyle = "zzz-immersive" | "zzz-dark";
 
 export const LAYOUT_STYLES: readonly LayoutStyle[] = [
   "zzz-immersive",
-  "neo-brutalism",
+  "zzz-dark",
 ] as const;
 
-/** Cookie 名称 — 服务端通过 cookies() 读取 */
 export const LAYOUT_STYLE_COOKIE = "wavemod-layout-style";
-
-/** localStorage key — 客户端备份 */
 export const LAYOUT_STYLE_STORAGE_KEY = "wavemod-layout-style";
-
-/** 默认风格：保持现有用户体验不变 */
 export const DEFAULT_LAYOUT_STYLE: LayoutStyle = "zzz-immersive";
-
-/** Cookie 有效期：1 年 */
 export const LAYOUT_STYLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-/** Zod schema — 运行时校验 */
+/** 对应的 <html> CSS 类名 */
+export const LAYOUT_STYLE_CLASS: Record<LayoutStyle, string> = {
+  "zzz-immersive": "",
+  "zzz-dark": "theme-zzz-dark",
+};
+
 export { zLayoutStyle } from "./schema";

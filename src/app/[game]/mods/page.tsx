@@ -5,8 +5,6 @@ import { getGameBySlug } from "@/config/games";
 import { DefaultGameModsPage } from "@/features/games/shared/default-game-mods-page";
 import { ZenlessModsPage } from "@/features/games/zenless-zone-zero/pages/zenless-mods-page";
 import { ZenlessModsPageSkeleton } from "@/features/games/zenless-zone-zero/components/zenless-mods-skeletons";
-import { getLayoutStyle, isZzzStyle } from "@/lib/layout-style/server";
-
 type PageProps = {
   params: Promise<{ game: string }>;
   searchParams?: Promise<{
@@ -20,13 +18,9 @@ async function GameModsContent({ params, searchParams }: PageProps) {
   const { game: gameSlug } = await params;
   const game = getGameBySlug(gameSlug);
 
-  if (!game) {
-    notFound();
-  }
+  if (!game) notFound();
 
-  const layoutStyle = await getLayoutStyle();
-
-  if (isZzzStyle(game.key, layoutStyle)) {
+  if (game.key === "zenless-zone-zero") {
     return <ZenlessModsPage game={game} searchParams={searchParams} />;
   }
 

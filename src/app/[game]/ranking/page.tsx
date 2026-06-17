@@ -5,7 +5,6 @@ import { defaultGameKey, getGameBySlug } from "@/config/games";
 import { ModGridSkeleton } from "@/components/layout/data-skeletons";
 import { DefaultGameRankingPage } from "@/features/games/shared/default-game-ranking-page";
 import { ZenlessRankingPage } from "@/features/games/zenless-zone-zero/pages/zenless-ranking-page";
-import { getLayoutStyle, isZzzStyle } from "@/lib/layout-style/server";
 
 type PageProps = {
   params: Promise<{ game: string }>;
@@ -24,9 +23,7 @@ async function GameRankingContent({ params }: PageProps) {
     notFound();
   }
 
-  const layoutStyle = await getLayoutStyle();
-
-  if (isZzzStyle(game.key, layoutStyle)) {
+  if (game.key === "zenless-zone-zero") {
     return <ZenlessRankingPage game={game} />;
   }
 

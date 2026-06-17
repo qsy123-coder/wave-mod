@@ -256,3 +256,28 @@
   }
 }
 
+/* ==========================================================================
+   ZZZ 深色皮肤 — 严格按照个人中心页面的深色风格
+   .theme-zzz-dark 类由 LayoutStyleProvider 在切换时添加到 <html>
+   仅在 .zzz-skin-scope 容器内生效（绝区零分站布局）
+   ========================================================================== */
+
+.theme-zzz-dark .zzz-skin-scope {
+  /* 页面背景 — 与个人中心一致的深蓝黑 */
+  background-color: #04070d !important;
+  background-image: none !important;
+  color: #fff;
+}
+
+/* 覆盖 body 级别网格背景为纯深色 */
+.theme-zzz-dark .zzz-skin-scope[class*="min-h-screen"] {
+  background-color: #04070d !important;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.06) 1.5px, transparent 1.6px),
+    linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px) !important;
+  background-size: 24px 24px, 44px 44px, 44px 44px !important;
+}
+
+
+
