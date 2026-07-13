@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "filename": "sample-01.jpg",
+    "alt": "示例图片 1 — 横版风景",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "id": 2,
+    "filename": "sample-02.jpg",
+    "alt": "示例图片 2 — 竖版人像",
+    "width": 1080,
+    "height": 1920
+  },
+  {
+    "id": 3,
+    "filename": "sample-03.jpg",
+    "alt": "示例图片 3 — 方形构图",
+    "width": 1200,
+    "height": 1200
+  },
+  {
+    "id": 4,
+    "filename": "sample-04.jpg",
+    "alt": "示例图片 4 — 超宽全景",
+    "width": 2560,
+    "height": 1080
+  },
+  {
+    "id": 5,
+    "filename": "sample-05.jpg",
+    "alt": "示例图片 5 — 长竖版",
+    "width": 800,
+    "height": 1600
+  }
+]

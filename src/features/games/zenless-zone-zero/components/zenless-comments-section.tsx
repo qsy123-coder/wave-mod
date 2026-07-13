@@ -60,7 +60,7 @@ const sortOptions: { label: string; value: ModCommentSort }[] = [
   { label: "Most liked", value: "most-liked" },
 ];
 const panelClass =
-  "border-4 border-black bg-[#07111f]/24 shadow-[5px_5px_0px_0px_#000] ring-1 ring-white/10";
+  "border-4 border-black bg-[#07111f]/24 shadow-[5px_5px_0px_0px_#000] ring-1 ring-white/10 backdrop-blur-[2px]";
 
 function compactNumber(value: number) {
   return value >= 1000 ? `${(value / 1000).toFixed(1)}K` : String(value);

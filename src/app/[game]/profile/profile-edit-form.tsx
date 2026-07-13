@@ -24,7 +24,7 @@ export function ProfileEditForm({
     <form action={formAction} className="space-y-4">
       {/* 名字 */}
       <div>
-        <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+        <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.14em] text-black">
           显示名称
         </label>
         <input
@@ -32,13 +32,13 @@ export function ProfileEditForm({
           defaultValue={profile.displayName}
           maxLength={32}
           required
-          className="w-full border-2 border-black bg-[#050914] px-3 py-2 text-sm font-bold text-white outline-none focus:border-[var(--neo-accent)]"
+          className="w-full border-2 border-black bg-white px-3 py-2 text-sm font-bold text-black outline-none focus:border-[var(--neo-accent)]"
         />
       </div>
 
       {/* Bio */}
       <div>
-        <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+        <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.14em] text-black">
           个人简介
         </label>
         <textarea
@@ -47,9 +47,9 @@ export function ProfileEditForm({
           maxLength={200}
           rows={3}
           placeholder="介绍一下你自己……"
-          className="w-full resize-none border-2 border-black bg-[#050914] px-3 py-2 text-sm font-bold text-white outline-none focus:border-[var(--neo-accent)]"
+          className="w-full resize-none border-2 border-black bg-white px-3 py-2 text-sm font-bold text-black outline-none focus:border-[var(--neo-accent)]"
         />
-        <p className="mt-1 text-right text-[9px] font-bold text-slate-600">
+        <p className="mt-1 text-right text-[9px] font-bold text-black">
           最多 200 字
         </p>
       </div>
@@ -93,7 +93,7 @@ export function ProfileEditButton({ editHref }: { editHref: string }) {
   return (
     <a
       href={editHref}
-      className="inline-flex items-center gap-1.5 border-2 border-black bg-[#07111f]/70 px-3 py-2 text-[10px] font-black uppercase text-white shadow-[3px_3px_0_0_#000] transition hover:-translate-y-0.5"
+      className="inline-flex items-center gap-1.5 border-2 border-black bg-black/5 px-3 py-2 text-[10px] font-black uppercase text-black shadow-[3px_3px_0_0_#000] transition hover:-translate-y-0.5 pointer-events-auto"
     >
       <Edit3 className="size-3" />
       编辑资料

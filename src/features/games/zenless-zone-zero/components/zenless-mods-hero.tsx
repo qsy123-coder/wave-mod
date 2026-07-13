@@ -17,7 +17,7 @@ export function ZenlessModsBackground() {
       />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_28%,rgba(0,0,0,0.64)_100%)]" />
       <div className="absolute inset-0 bg-gradient-to-r from-black/62 via-black/20 to-black/42" />
-      <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#3a2418] via-[#3a2418]/70 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[var(--zzz-hero-bg,#3a2418)] via-[var(--zzz-hero-bg,#3a2418)]/70 to-transparent" />
     </MotionReveal>
   );
 }

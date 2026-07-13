@@ -5,6 +5,7 @@ export const siteConfig = {
   primaryNav: [
     { label: "首页", href: "/" },
     { label: "角色分类", href: "/mods" },
+    { label: "图库", href: "/gallery" },
     { label: "先看我", href: "/guide" },
     { label: "支持本站", href: "/support" },
   ],

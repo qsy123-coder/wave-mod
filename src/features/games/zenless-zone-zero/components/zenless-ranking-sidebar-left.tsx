@@ -6,7 +6,9 @@ import { LayoutGrid } from "lucide-react";
 import type { GameConfig } from "@/config/games";
 
 const panel =
-  "border-4 border-black bg-[#07111f]/25 shadow-[5px_5px_0px_0px_#000] ring-1 ring-white/10";
+  "border-4 border-black bg-white/30 shadow-[5px_5px_0px_0px_#000]";
+
+const placeholderItem = "border-2 border-black/20 px-2 py-1.5 text-[10px] font-bold text-black/20 opacity-20";
 
 const timePeriods = [
   { label: "All Time", value: "all" },
@@ -42,7 +44,7 @@ export function ZenlessRankingSidebarLeft({
             const v = e.target.value;
             window.location.href = v ? `${base}?character=${encodeURIComponent(v)}` : base;
           }}
-          className="shrink-0 border-2 border-black bg-[#050914] px-3 py-2 text-[11px] font-bold text-white outline-none"
+          className="shrink-0 border-2 border-black bg-white px-3 py-2 text-[11px] font-bold text-black outline-none"
         >
           <option value="">All Categories</option>
           {categories.map((cat) => (
@@ -55,7 +57,7 @@ export function ZenlessRankingSidebarLeft({
             const v = e.target.value;
             window.location.href = v === "all" ? base : `${base}?period=${v}`;
           }}
-          className="shrink-0 border-2 border-black bg-[#050914] px-3 py-2 text-[11px] font-bold text-white outline-none"
+          className="shrink-0 border-2 border-black bg-white px-3 py-2 text-[11px] font-bold text-black outline-none"
         >
           {timePeriods.map((tp) => (
             <option key={tp.value} value={tp.value}>{tp.label}</option>
@@ -66,25 +68,25 @@ export function ZenlessRankingSidebarLeft({
   }
 
   return (
-    <aside className="space-y-3">
+    <aside className="flex flex-col gap-3 h-full">
       {/* Categories */}
-      <section className={`${panel} p-2.5 backdrop-blur-[2px]`}>
-        <h3 className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+      <section className={`${panel} flex flex-col flex-1 min-h-0 p-2.5`}>
+        <h3 className="mb-2 shrink-0 text-[9px] font-black uppercase tracking-[0.16em] text-black">
           Categories
         </h3>
-        <nav className="space-y-0.5">
+        <nav className="flex-1 min-h-0 space-y-0.5 overflow-hidden">
           <Link
             href={base}
             className={`flex items-center gap-1.5 border-2 border-black px-2 py-1.5 text-[10px] font-bold shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5 ${
               !activeCategory
                 ? "bg-[var(--neo-accent)] text-black"
-                : "bg-[#050914]/30 text-slate-400 hover:bg-[#0a1220]/50"
+                : "bg-white/30 text-black hover:bg-[var(--neo-muted)]/60"
             }`}
           >
             <LayoutGrid className="size-3" />
             All Categories
           </Link>
-          {categories.slice(0, 8).map((cat) => {
+          {categories.map((cat) => {
             const isActive = activeCategory === cat;
             return (
               <Link
@@ -93,22 +95,25 @@ export function ZenlessRankingSidebarLeft({
                 className={`block border-2 border-black px-2 py-1.5 text-[10px] font-bold shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5 ${
                   isActive
                     ? "bg-[var(--neo-accent)] text-black"
-                    : "bg-[#050914]/30 text-slate-400 hover:bg-[#0a1220]/50 hover:text-slate-300"
+                    : "bg-white/30 text-black hover:bg-[var(--neo-muted)]/60 hover:text-black"
                 }`}
               >
                 {cat}
               </Link>
             );
           })}
+          {Array.from({ length: 15 }).map((_, i) => (
+            <div key={`ph-cat-${i}`} className={placeholderItem}>---</div>
+          ))}
         </nav>
       </section>
 
       {/* Time Period */}
-      <section className={`${panel} p-2.5 backdrop-blur-[2px]`}>
-        <h3 className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+      <section className={`${panel} flex flex-col flex-1 min-h-0 p-2.5`}>
+        <h3 className="mb-2 shrink-0 text-[9px] font-black uppercase tracking-[0.16em] text-black">
           Time Period
         </h3>
-        <nav className="space-y-0.5">
+        <nav className="flex-1 min-h-0 space-y-0.5 overflow-hidden">
           {timePeriods.map((tp) => {
             const isActive = period === tp.value;
             const href = tp.value === "all" ? base : `${base}?period=${tp.value}`;
@@ -119,13 +124,16 @@ export function ZenlessRankingSidebarLeft({
                 className={`block border-2 border-black px-2 py-1.5 text-[10px] font-bold shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5 ${
                   isActive
                     ? "bg-[var(--neo-accent)] text-black"
-                    : "bg-[#050914]/30 text-slate-400 hover:bg-[#0a1220]/50 hover:text-slate-300"
+                    : "bg-white/30 text-black hover:bg-[var(--neo-muted)]/60 hover:text-black"
                 }`}
               >
                 {tp.label}
               </Link>
             );
           })}
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={`ph-tp-${i}`} className={placeholderItem}>---</div>
+          ))}
         </nav>
       </section>
     </aside>

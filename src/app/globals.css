@@ -256,9 +256,75 @@
   }
 }
 
+/* Neo 模式默认 */
+.zzz-skin-scope {
+  --zzz-overlay-rgb: 255, 253, 245;
+}
+
+/* 双模式背景图切换 — Image 元素 */
+.zzz-bg-neo { display: block; }
+.zzz-bg-dark { display: none; }
+
+.theme-zzz-dark .zzz-skin-scope .zzz-bg-neo { display: none; }
+.theme-zzz-dark .zzz-skin-scope .zzz-bg-dark { display: block; }
+
+/* 双模式背景图切换 — 用 ::before / ::after 实现 crossfade 过渡 */
+.zzz-ranking-bg,
+.zzz-profile-bg {
+  position: relative;
+  z-index: 0;
+  background-color: transparent !important;
+}
+
+/* Neo 图 — ::after (默认可见) */
+.zzz-ranking-bg::after,
+.zzz-profile-bg::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-size: 110% auto;
+  background-position: 50% -100px;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-image: url('/bg-zzz/ChatGPT Image 2026年6月2日 00_01_21.png');
+  opacity: 1;
+  transition: opacity 0.8s ease;
+}
+
+/* 深色图 — ::before (默认隐藏) */
+.zzz-ranking-bg::before,
+.zzz-profile-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-size: 110% auto;
+  background-position: 50% -100px;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-image: url('/bg-zzz/ChatGPT Image 2026年6月5日 16_33_40.png');
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+/* 深色模式：切换 opacity */
+.theme-zzz-dark .zzz-skin-scope .zzz-ranking-bg::after,
+.theme-zzz-dark .zzz-skin-scope .zzz-profile-bg::after {
+  opacity: 0;
+}
+
+.theme-zzz-dark .zzz-skin-scope .zzz-ranking-bg::before,
+.theme-zzz-dark .zzz-skin-scope .zzz-profile-bg::before {
+  opacity: 1;
+}
+
 /* ==========================================================================
    ZZZ 深色皮肤 — 严格按照个人中心页面的深色风格
    覆盖 CSS 变量 + 白色面板 → 暗色毛玻璃
+   个人中心参考 panel 类：
+     "border-4 border-black bg-[#07111f]/42 shadow-[5px_5px_0px_0px_#000]
+      ring-1 ring-white/10 backdrop-blur-[2px]"
    ========================================================================== */
 
 .theme-zzz-dark .zzz-skin-scope {
@@ -267,16 +333,31 @@
   --neo-surface: rgba(7, 17, 31, 0.35);
   --neo-search: rgba(7, 17, 31, 0.5);
 
-  /* 强调色稍微降饱和度，在暗色下更协调 */
-  --neo-accent: #e07070;
-  --neo-secondary: #e0c040;
-  --neo-muted: #a090e0;
+  /* 强调色 → 深色模式下去饱和度、压低明度，不出现鲜艳颜色 */
+  --neo-accent: #4a2830;
+  --neo-secondary: #3d3520;
+  --neo-muted: #2e2840;
+
+  /* 页面背景 → 个人中心同款 #04070d */
+  background-color: #04070d !important;
+
+  /* Hero 渐变背景色 — 替代褐色 #3a2418 → 深黑 */
+  --zzz-hero-bg: #04070d;
+  --zzz-hero-bg-rgb: 4, 7, 13;
+
+  /* 渐变覆盖层 — 深色模式恢复暗色渐变 */
+  --zzz-overlay-rgb: 4, 7, 13;
 }
 
-/* 白色面板/卡片 → 暗色半透明 */
+/* 白色面板/卡片 → 暗色半透明（个人中心面板底色） */
 .theme-zzz-dark .zzz-skin-scope .bg-white,
 .theme-zzz-dark .zzz-skin-scope [class*="bg-white/"] {
   background-color: rgba(7, 17, 31, 0.42) !important;
+}
+
+/* 页面主背景 → Neo 奶油 / 深色纯黑 */
+.theme-zzz-dark .zzz-skin-scope .bg-\[\#FFFDF5\] {
+  background-color: #04070d !important;
 }
 
 /* 黑色背景 → 更深 */
@@ -284,29 +365,166 @@
   background-color: #02050a !important;
 }
 
-/* 毛玻璃 — 与个人中心面板一致 */
-.theme-zzz-dark .zzz-skin-scope section {
+/* 毛玻璃 — Neo 和深色模式统一：所有面板容器 blur */
+.zzz-skin-scope section,
+.zzz-skin-scope aside,
+.zzz-skin-scope nav[class*="border-"] {
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
 }
 
-/* 文字颜色 — 面板变暗后，黑字必须变白 */
-.theme-zzz-dark .zzz-skin-scope .text-black,
-.theme-zzz-dark .zzz-skin-scope [class*="text-black/"] {
-  color: rgba(255, 255, 255, 0.9) !important;
+/* 玻璃边缘 — 仿照个人中心 ring-1 ring-white/10，
+   对带黑色边框的面板元素添加微弱白色描边 */
+.theme-zzz-dark .zzz-skin-scope section[class*="border-black"],
+.theme-zzz-dark .zzz-skin-scope aside[class*="border-black"],
+.theme-zzz-dark .zzz-skin-scope div[class*="border-black"][class*="bg-"] {
+  outline: 1px solid rgba(255, 255, 255, 0.08);
+  outline-offset: -1px;
 }
 
-/* 图标/emoji 也变亮 */
-.theme-zzz-dark .zzz-skin-scope .text-black\/60,
+/* ==========================================================================
+   CubeLoader 3D 立方体加载动画
+   ========================================================================== */
+
+.perspective-container {
+  perspective: 1200px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+@keyframes cubeSpin {
+  0% { transform: rotateX(0deg) rotateY(0deg); }
+  100% { transform: rotateX(360deg) rotateY(360deg); }
+}
+@keyframes cubeBreathe {
+  0%, 100% { transform: translateZ(72px); opacity: 0.8; }
+  50% { transform: translateZ(120px); opacity: 0.3; border-color: rgba(255,122,122,0.9); }
+}
+@keyframes cubePulseSlow {
+  0%, 100% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+@keyframes cubeShadowSlow {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.6); opacity: 0.15; }
+}
+
+.animate-cube-spin {
+  animation: cubeSpin 20s linear infinite;
+}
+.animate-cube-pulse {
+  animation: cubePulseSlow 4s ease-in-out infinite;
+}
+.animate-cube-shadow {
+  animation: cubeShadowSlow 5s ease-in-out infinite;
+}
+
+/* 立方体六个面的包装器 */
+.cube-side-wrapper {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-style: preserve-3d;
+}
+.cube-face {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  animation: cubeBreathe 6s ease-in-out infinite;
+  backdrop-filter: blur(2px);
+}
+
+.cube-front  { transform: rotateY(0deg); }
+.cube-back   { transform: rotateY(180deg); }
+.cube-right  { transform: rotateY(90deg); }
+.cube-left   { transform: rotateY(-90deg); }
+.cube-top    { transform: rotateX(90deg); }
+.cube-bottom { transform: rotateX(-90deg); }
+
+/* ==========================================================================
+   NavigationLoader — neo 风格切换动画
+   ========================================================================== */
+
+@keyframes neoSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes neoProgressBar {
+  0% { width: 0%; }
+  60% { width: 75%; }
+  100% { width: 100%; }
+}
+
+.animate-neo-spin {
+  animation: neoSpin linear infinite;
+}
+.animate-neo-progress {
+  animation: neoProgressBar 1.5s ease-out forwards;
+}
+
+/* ==========================================================================
+   Featured Mods 横向轮播
+   ========================================================================== */
+
+@keyframes zzzMarquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.zzz-marquee-track {
+  animation: zzzMarquee 25s linear infinite;
+}
+
+/* 文字颜色 — 面板变暗后，黑字 → 纯白（与原始 text-white 一致） */
+.theme-zzz-dark .zzz-skin-scope .text-black,
+.theme-zzz-dark .zzz-skin-scope [class*="text-black/"] {
+  color: white !important;
+}
+
+/* 不同透明度的黑字 → 映射为原始 slate 色系，保持视觉层级 */
 .theme-zzz-dark .zzz-skin-scope .text-black\/70,
 .theme-zzz-dark .zzz-skin-scope .text-black\/75,
 .theme-zzz-dark .zzz-skin-scope .text-black\/80 {
-  color: rgba(255, 255, 255, 0.7) !important;
+  color: rgb(203, 213, 225) !important; /* slate-300 */
+}
+
+.theme-zzz-dark .zzz-skin-scope .text-black\/50,
+.theme-zzz-dark .zzz-skin-scope .text-black\/55,
+.theme-zzz-dark .zzz-skin-scope .text-black\/60,
+.theme-zzz-dark .zzz-skin-scope .text-black\/62,
+.theme-zzz-dark .zzz-skin-scope .text-black\/65,
+.theme-zzz-dark .zzz-skin-scope .text-black\/68 {
+  color: rgb(148, 163, 184) !important; /* slate-400 */
+}
+
+.theme-zzz-dark .zzz-skin-scope .text-black\/30,
+.theme-zzz-dark .zzz-skin-scope .text-black\/35,
+.theme-zzz-dark .zzz-skin-scope .text-black\/40,
+.theme-zzz-dark .zzz-skin-scope .text-black\/45,
+.theme-zzz-dark .zzz-skin-scope .text-black\/48 {
+  color: rgb(100, 116, 139) !important; /* slate-500 */
 }
 
 /* 当前激活的导航项保持可见 */
 .theme-zzz-dark .zzz-skin-scope a[aria-current="page"] {
   color: inherit;
+}
+
+/* 搜索输入框暗色适配 */
+.theme-zzz-dark .zzz-skin-scope input[type="text"],
+.theme-zzz-dark .zzz-skin-scope input[type="search"] {
+  background-color: rgba(7, 17, 31, 0.55);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.theme-zzz-dark .zzz-skin-scope input[type="text"]::placeholder,
+.theme-zzz-dark .zzz-skin-scope input[type="search"]::placeholder {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 

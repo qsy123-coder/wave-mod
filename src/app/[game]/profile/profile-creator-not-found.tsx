@@ -11,23 +11,12 @@ export function ProfileCreatorNotFound({
   gameHomeHref: string;
 }) {
   return (
-    <main className="relative -mt-[74px] flex min-h-screen items-center justify-center overflow-hidden bg-[#04070d] pt-[86px] text-white">
-      <div className="absolute inset-0">
-        <Image
-          src="/bg-zzz/zzz-detail-bg.png"
-          alt="profile background"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_55%_0%,rgba(118,141,255,0.2),transparent_32%),linear-gradient(90deg,rgba(4,7,13,0.96),rgba(4,7,13,0.62)_45%,rgba(4,7,13,0.92))]" />
-      </div>
+    <main className="relative -mt-[74px] flex h-[calc(100vh-74px)] items-center justify-center bg-[var(--neo-panel)] pt-[74px] text-black zzz-profile-bg overflow-hidden">
       <div className="relative z-10 text-center">
         <div className={`${panel} mx-auto max-w-md space-y-4 p-8`}>
-          <UserRound className="mx-auto size-12 text-slate-500" />
-          <h2 className="text-xl font-black text-white">创作者未找到</h2>
-          <p className="text-sm font-bold leading-relaxed text-slate-400">
+          <UserRound className="mx-auto size-12 text-black" />
+          <h2 className="text-xl font-black text-black">创作者未找到</h2>
+          <p className="text-sm font-bold leading-relaxed text-black">
             该创作者不存在或尚未发布任何 MOD。
           </p>
           <Link

@@ -25,7 +25,9 @@ export function ClientProviders({ children }: ClientProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthHashSessionBridge />
+      <Suspense fallback={null}>
+        <AuthHashSessionBridge />
+      </Suspense>
       <Suspense fallback={null}>
         <LastGameVisitBridge />
       </Suspense>

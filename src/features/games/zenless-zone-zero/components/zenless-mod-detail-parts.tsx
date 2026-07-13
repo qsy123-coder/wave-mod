@@ -84,7 +84,7 @@ export function ZenlessDarkPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-4 border-black bg-[#07111f]/42 p-2 text-slate-100 shadow-[4px_4px_0px_0px_#000] backdrop-blur-[2px]">
+    <section className="border-4 border-black bg-[#07111f]/42 p-2 text-slate-100 shadow-[4px_4px_0px_0px_#000] ring-1 ring-white/10 backdrop-blur-[2px]">
       <h2 className="inline-flex border-2 border-black bg-[#111827]/58 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-100 shadow-[2px_2px_0px_0px_#000] backdrop-blur-[2px]">
         {title}
       </h2>
@@ -305,7 +305,7 @@ export function ZenlessRecommended({
 }) {
   if (!mods.length)
     return (
-      <div className="border-4 border-black bg-[#07111f]/72 p-5 text-sm font-bold text-slate-300 shadow-[5px_5px_0px_0px_#000] backdrop-blur-[2px]">
+      <div className="border-4 border-black bg-[#07111f]/72 p-5 text-sm font-bold text-slate-300 shadow-[5px_5px_0px_0px_#000] ring-1 ring-white/10 backdrop-blur-[2px]">
         暂无推荐 MOD。
       </div>
     );
@@ -317,7 +317,7 @@ export function ZenlessRecommended({
           mod={item}
           href={`${game.nav.mods}/${item.id}`}
           variant="list"
-          className="border-4 border-black bg-[#07111f]/72 p-2 text-slate-100 shadow-[5px_5px_0px_0px_#000] backdrop-blur-[2px]"
+          className="border-4 border-black bg-[#07111f]/72 p-2 text-slate-100 shadow-[5px_5px_0px_0px_#000] ring-1 ring-white/10 backdrop-blur-[2px]"
           mediaClassName="border-2 border-black shadow-none"
           imageAspectClassName="aspect-[16/10] min-h-0"
           showDescription={false}

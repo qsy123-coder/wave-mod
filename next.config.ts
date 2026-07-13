@@ -18,7 +18,15 @@ const ossRemotePatterns = [
 ].filter((pattern): pattern is { protocol: "https"; hostname: string } => Boolean(pattern));
 
 const nextConfig: NextConfig = {
-  
+  async redirects() {
+    return [
+      {
+        source: "/wuthering-waves/:path*",
+        destination: "/:path*",
+        permanent: true,
+      },
+    ];
+  },
   reactCompiler: true,
   cacheComponents: true,
   images: {

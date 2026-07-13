@@ -25,11 +25,17 @@ type ZenlessHeroCarouselClientProps = {
 
 export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselClientProps) {
   const [current, setCurrent] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
   const total = slides.length;
   const activeSlide = slides[current] ?? slides[0];
 
   const previous = () => setCurrent((value) => (value - 1 + total) % total);
   const next = () => setCurrent((value) => (value + 1) % total);
+
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoaded(true), 50);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (total <= 1) return;
@@ -58,8 +64,8 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
           <div className="h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
         )}
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.86)_0%,rgba(0,0,0,0.5)_36%,rgba(0,0,0,0.14)_70%,rgba(0,0,0,0.74)_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(0deg,#3a2418_0%,rgba(58,36,24,0.98)_14%,rgba(58,36,24,0.78)_28%,rgba(58,36,24,0.38)_44%,rgba(0,0,0,0.08)_62%,rgba(0,0,0,0.34)_100%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(to_bottom,transparent_0%,rgba(58,36,24,0.62)_44%,#3a2418_82%,#3a2418_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(0deg,var(--zzz-hero-bg,#3a2418)_0%,rgba(var(--zzz-hero-bg-rgb,58,36,24),0.98)_14%,rgba(var(--zzz-hero-bg-rgb,58,36,24),0.78)_28%,rgba(var(--zzz-hero-bg-rgb,58,36,24),0.38)_44%,rgba(0,0,0,0.08)_62%,rgba(0,0,0,0.34)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(to_bottom,transparent_0%,rgba(var(--zzz-hero-bg-rgb,58,36,24),0.62)_44%,var(--zzz-hero-bg,#3a2418)_82%,var(--zzz-hero-bg,#3a2418)_100%)]" />
         <div className="neo-grid absolute inset-0 opacity-[0.16] mix-blend-screen" />
       </div>
 
@@ -81,6 +87,23 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
         <ChevronRight className="size-5" />
       </button>
 
+      <style>{`
+        @keyframes shimmer {
+          0% { background-position: 200% center; }
+          100% { background-position: 0% center; }
+        }
+        .tahoe-glass-text {
+            color: transparent;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.4) 25%, rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.9) 55%, rgba(255, 255, 255, 0.2) 75%, rgba(255, 255, 255, 1) 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.3);
+            filter: drop-shadow(0 15px 35px rgba(0,0,0,0.4)) drop-shadow(0 5px 10px rgba(0,0,0,0.2));
+            animation: shimmer 8s linear infinite;
+        }
+      `}</style>
+
       <div className="relative z-10 mx-auto grid h-full w-full max-w-[1500px] grid-cols-1 items-center gap-2 px-4 pb-16 pt-2 sm:px-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:px-6 xl:grid-cols-[minmax(0,1fr)_310px] 2xl:px-4">
         <div className="max-w-2xl pt-1">
           <MotionReveal delay={0.02} rotate={-2}>
@@ -90,19 +113,31 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
           </MotionReveal>
 
           <MotionReveal delay={0.08} y={28}>
-            <h1 className="max-w-xl text-[2.35rem] font-black uppercase leading-[0.86] tracking-tight text-white drop-shadow-[4px_4px_0px_#000] sm:text-5xl lg:text-[2.45rem] xl:text-[3.05rem]">
+            <h1 className="tahoe-glass-text max-w-xl text-[2.35rem] font-black uppercase leading-[0.86] tracking-tight sm:text-5xl lg:text-[2.45rem] xl:text-[3.05rem]">
               Zenless Zone Zero<br />Mod Hub
             </h1>
           </MotionReveal>
 
           <MotionReveal delay={0.14} y={20} rotate={1}>
-            <p className="mt-2 max-w-md text-sm font-black text-white/90 sm:text-base">Explore. Customize. Download Fast.</p>
-            <p className="mt-1.5 max-w-lg border-4 border-black bg-white/92 px-4 py-2.5 text-xs font-bold leading-5 text-black shadow-[5px_5px_0px_0px_#000] sm:text-[13px]">
-              {activeSlide.description || "围绕绝区零代理人 MOD 构建的高速直链分站，保留本站硬边框、强阴影与高对比游戏风格。"}
-            </p>
+            <div
+              className={`transition-all duration-[1200ms] ease-out transform ${
+                isLoaded ? "opacity-100 scale-100" : "opacity-0 scale-[0.97]"
+              }`}
+              style={{ transitionDelay: "250ms" }}
+            >
+              <p className="mt-2 max-w-md text-sm font-black text-white/90 sm:text-base">Explore. Customize. Download Fast.</p>
+              <p className="mt-1.5 max-w-lg border-4 border-black bg-white/92 px-4 py-2.5 text-xs font-bold leading-5 text-black shadow-[5px_5px_0px_0px_#000] sm:text-[13px]">
+                {activeSlide.description || "围绕绝区零代理人 MOD 构建的高速直链分站，保留本站硬边框、强阴影与高对比游戏风格。"}
+              </p>
+            </div>
           </MotionReveal>
 
-          <div className="mt-2.5 flex flex-wrap gap-2">
+          <div
+            className={`mt-2.5 flex flex-wrap gap-2 transition-all duration-[1200ms] ease-out transform ${
+              isLoaded ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-6 scale-95"
+            }`}
+            style={{ transitionDelay: "500ms" }}
+          >
             <MotionReveal delay={0.22} rotate={-1}>
               <Link href={game.nav.mods} className="neo-button-primary inline-flex items-center gap-2 px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.14em]">
                 Browse Mods<ArrowRight className="size-4" />

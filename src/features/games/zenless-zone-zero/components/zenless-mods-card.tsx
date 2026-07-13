@@ -4,6 +4,7 @@ import { Eye, Heart, Star } from "lucide-react";
 
 import type { GameConfig } from "@/config/games";
 import type { SiteMod } from "@/lib/mods";
+import { GlowCard } from "@/components/ui/spotlight-card";
 
 /** 从 mod.tags 中提取徽章文案和类型，带降级逻辑 */
 function getModBadge(mod: SiteMod, index: number) {
@@ -17,7 +18,7 @@ export function ZenlessModsCard({ game, index, mod }: { game: GameConfig; index:
   const { tag, type } = getModBadge(mod, index);
   const tone = index % 3 === 0 ? "bg-[var(--neo-accent)]" : index % 3 === 1 ? "bg-[var(--neo-secondary)]" : "bg-[var(--neo-muted)]";
 
-  return (
+  const card = (
     <Link href={`${game.nav.mods}/${mod.id}`} className="group block min-h-[136px] overflow-hidden border-4 border-black bg-black text-white shadow-[5px_5px_0_0_#000] transition hover:-translate-y-0.5 hover:shadow-[7px_7px_0_0_#000]">
       <div className="relative h-[88px] overflow-hidden bg-black">
         <Image src={mod.coverImage} alt={mod.title} fill sizes="(max-width: 768px) 100vw, 22vw" className="object-cover transition duration-500 group-hover:scale-105" />
@@ -39,5 +40,11 @@ export function ZenlessModsCard({ game, index, mod }: { game: GameConfig; index:
         </div>
       </div>
     </Link>
+  );
+
+  return (
+    <GlowCard glowColor="neo" customSize minimal radius={0}>
+      {card}
+    </GlowCard>
   );
 }

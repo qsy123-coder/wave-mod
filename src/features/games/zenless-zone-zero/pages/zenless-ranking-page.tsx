@@ -33,19 +33,10 @@ async function ZenlessRankingContent({ game, character, period }: Props) {
     : mods;
 
   return (
-    <div
-      className="min-h-screen bg-[#04070d]"
-      style={{
-        backgroundImage: "url(/bg-zzz/zzz-ranking-bg.png)",
-        backgroundSize: "100% auto",
-        backgroundPosition: "50% -180px",
-        backgroundAttachment: "fixed",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
+    <div className="h-[calc(100vh-74px)] sm:h-[calc(100vh-80px)] lg:h-[calc(100vh-74px)] flex flex-col zzz-ranking-bg overflow-hidden">
       <ZenlessRankingHero game={game} />
 
-      <div className="mx-auto max-w-[1680px] px-4 py-4 sm:px-5 lg:px-6">
+      <div className="flex-1 min-h-0 mx-auto w-full max-w-[1680px] px-4 pb-4 sm:px-5 lg:px-6 flex flex-col">
         {/* Mobile: filter row */}
         <div className="mb-4 flex gap-2 overflow-x-auto lg:hidden">
           <ZenlessRankingSidebarLeft
@@ -57,34 +48,40 @@ async function ZenlessRankingContent({ game, character, period }: Props) {
           />
         </div>
 
-        <div className="grid grid-cols-12 gap-4 sm:gap-5">
+        <div className="grid grid-cols-12 gap-4 sm:gap-5 flex-1 min-h-0">
           {/* Left Sidebar — desktop only */}
-          <div className="col-span-2 hidden lg:block">
-            <ZenlessRankingSidebarLeft
-              game={game}
-              categories={characters}
-              activeCategory={character ?? ""}
-              period={period ?? "all"}
-            />
+          <div className="col-span-2 hidden lg:flex lg:flex-col min-h-0">
+            <div className="flex flex-col gap-4 flex-1 min-h-0 ">
+              <ZenlessRankingSidebarLeft
+                game={game}
+                categories={characters}
+                activeCategory={character ?? ""}
+                period={period ?? "all"}
+              />
+            </div>
           </div>
 
           {/* Central Leaderboard */}
-          <div className="col-span-12 lg:col-span-7">
-            <ZenlessRankingLeaderboard
-              game={game}
-              mods={filteredMods}
-              topCreators={topCreators}
-              period={(period ?? "all") as "all" | "month" | "week" | "today"}
-            />
+          <div className="col-span-12 lg:col-span-7 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0">
+              <ZenlessRankingLeaderboard
+                game={game}
+                mods={filteredMods}
+                topCreators={topCreators}
+                period={(period ?? "all") as "all" | "month" | "week" | "today"}
+              />
+            </div>
           </div>
 
           {/* Right Sidebar */}
-          <div className="col-span-12 lg:col-span-3">
-            <ZenlessRankingSidebarRight
-              game={game}
-              topCreators={topCreators}
-              trendingMods={trendingMods}
-            />
+          <div className="col-span-12 lg:flex lg:flex-col lg:col-span-3 min-h-0">
+            <div className="flex flex-col gap-4 flex-1 min-h-0 ">
+              <ZenlessRankingSidebarRight
+                game={game}
+                topCreators={topCreators}
+                trendingMods={trendingMods}
+              />
+            </div>
           </div>
         </div>
       </div>

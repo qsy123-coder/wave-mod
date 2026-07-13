@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { ClientProviders } from "@/components/layout/client-providers";
 import { LayoutStyleProvider } from "@/components/layout/layout-style-provider";
+import { NavigationLoader } from "@/components/layout/navigation-loader";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -32,7 +33,10 @@ export default function RootLayout({
         <ThemeProvider>
           <LayoutStyleProvider>
             <ClientProviders>
-              <Suspense fallback={null}>{children}</Suspense>
+              {children}
+              <Suspense fallback={null}>
+                <NavigationLoader />
+              </Suspense>
               <Toaster position="top-center" richColors />
             </ClientProviders>
           </LayoutStyleProvider>
