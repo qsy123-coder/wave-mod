@@ -1,22 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type { GalleryImageResolved, GalleryState, ViewMode } from "../types";
 
 interface GalleryUrlSyncReturn extends GalleryState {
-  /** 切换网格/行视图 */
-  toggleViewMode: () => void;
-  /** 点击图片进入灯箱 */
+  /** 点击图片进入聚焦 */
   openImage: (index: number) => void;
-  /** 关闭灯箱 */
-  closeImage: () => void;
-  /** 灯箱内下一张 */
+  /** 行视图 → 返回网格（清空聚焦） */
+  dismissToGrid: () => void;
+  /** 行视图内下一张 */
   goToNext: () => void;
-  /** 灯箱内上一张 */
+  /** 行视图内上一张 */
   goToPrev: () => void;
-  /** 直接跳转到指定图片 */
-  goToImage: (index: number) => void;
 }
 
 /**
@@ -39,7 +35,6 @@ interface GalleryUrlSyncReturn extends GalleryState {
 export function useGalleryUrlSync(
   images: GalleryImageResolved[],
 ): GalleryUrlSyncReturn {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // 记录当前是否在弹窗中 — 用于 closeImage 决定 push vs back
@@ -66,7 +61,7 @@ export function useGalleryUrlSync(
     return { viewMode, activeImageIndex: clampedIndex };
   });
 
-  // 将状态同步到 URL
+  // 将状态同步到 URL（用 history API 避免 Next.js 导航导致 Suspense 重挂载）
   const syncURL = useCallback(
     (nextState: GalleryState, method: "push" | "replace") => {
       const params = new URLSearchParams();
@@ -80,27 +75,22 @@ export function useGalleryUrlSync(
       const url = qs ? `/gallery?${qs}` : "/gallery";
 
       if (method === "push") {
-        router.push(url);
+        window.history.pushState(null, "", url);
       } else {
-        router.replace(url);
+        window.history.replaceState(null, "", url);
       }
     },
-    [router],
+    [],
   );
 
-  // 切换视图模式
-  const toggleViewMode = useCallback(() => {
-    setState((prev) => {
-      const next: GalleryState = {
-        viewMode: prev.viewMode === "grid" ? "line" : "grid",
-        activeImageIndex: prev.activeImageIndex,
-      };
-      syncURL(next, "push");
-      return next;
-    });
-  }, [syncURL]);
+  // 从行视图退回网格（清空聚焦）
+  const dismissToGrid = useCallback(() => {
+    wasOpenRef.current = false;
+    setState({ viewMode: "grid", activeImageIndex: null });
+    window.history.replaceState(null, "", "/gallery");
+  }, []);
 
-  // 打开图片（灯箱或行视图聚焦）
+  // 打开图片（网格→行视图，或在行视图内切换）
   const openImage = useCallback(
     (index: number) => {
       if (index < 0 || index >= images.length) return;
@@ -113,22 +103,6 @@ export function useGalleryUrlSync(
     },
     [images.length, syncURL],
   );
-
-  // 关闭灯箱
-  const closeImage = useCallback(() => {
-    if (wasOpenRef.current) {
-      wasOpenRef.current = false;
-      router.back();
-      // 同时更新本地状态（router.back 不会 re-render 到无 image 状态）
-      setState((prev) => ({ ...prev, activeImageIndex: null }));
-    } else {
-      setState((prev) => {
-        const next: GalleryState = { ...prev, activeImageIndex: null };
-        syncURL(next, "replace");
-        return next;
-      });
-    }
-  }, [router, syncURL]);
 
   // 下一张
   const goToNext = useCallback(() => {
@@ -152,19 +126,6 @@ export function useGalleryUrlSync(
       return next;
     });
   }, [images.length, syncURL]);
-
-  // 跳转到指定图片
-  const goToImage = useCallback(
-    (index: number) => {
-      if (index < 0 || index >= images.length) return;
-      setState((prev) => {
-        const next: GalleryState = { ...prev, activeImageIndex: index };
-        syncURL(next, "replace");
-        return next;
-      });
-    },
-    [images.length, syncURL],
-  );
 
   // 监听浏览器前进/后退（popstate）
   useEffect(() => {
@@ -195,21 +156,11 @@ export function useGalleryUrlSync(
   return useMemo(
     () => ({
       ...state,
-      toggleViewMode,
       openImage,
-      closeImage,
+      dismissToGrid,
       goToNext,
       goToPrev,
-      goToImage,
     }),
-    [
-      state,
-      toggleViewMode,
-      openImage,
-      closeImage,
-      goToNext,
-      goToPrev,
-      goToImage,
-    ],
+    [state, openImage, dismissToGrid, goToNext, goToPrev],
   );
 }
