@@ -5,42 +5,21 @@ import { useSearchParams } from "next/navigation";
 import type { GalleryImageResolved, GalleryState, ViewMode } from "../types";
 
 interface GalleryUrlSyncReturn extends GalleryState {
-  /** 点击图片进入聚焦 */
   openImage: (index: number) => void;
-  /** 行视图 → 返回网格（清空聚焦） */
   dismissToGrid: () => void;
-  /** 行视图内下一张 */
   goToNext: () => void;
-  /** 行视图内上一张 */
   goToPrev: () => void;
 }
 
-/**
- * 图库状态机 + URL 双向同步 Hook。
- *
- * 状态维度：
- * - viewMode: grid | line
- * - activeImageIndex: number | null
- *
- * URL 映射：
- * - ?view=line&image=2  → 行视图 + 第 3 张图
- * - ?image=2           → 网格视图 + 灯箱展示第 3 张图
- * - (无参数)            → 默认网格视图
- *
- * 导航策略：
- * - 结构性变化（打开灯箱、切换视图）→ router.push（加入历史栈）
- * - 图片间切换 → router.replace（不污染历史栈）
- * - 关闭灯箱 → router.back()（恢复之前的历史状态）
- */
 export function useGalleryUrlSync(
   images: GalleryImageResolved[],
 ): GalleryUrlSyncReturn {
   const searchParams = useSearchParams();
 
-  // 记录当前是否在弹窗中 — 用于 closeImage 决定 push vs back
   const wasOpenRef = useRef(false);
+  // 追踪 URL 同步方法："push"（打开图片）或 "replace"（图片间切换）
+  const urlMethod = useRef<"push" | "replace">("push");
 
-  // 从 URL 初始化状态（仅挂载时一次）
   const [state, setState] = useState<GalleryState>(() => {
     const viewParam = searchParams.get("view");
     const imageParam = searchParams.get("image");
@@ -61,71 +40,61 @@ export function useGalleryUrlSync(
     return { viewMode, activeImageIndex: clampedIndex };
   });
 
-  // 将状态同步到 URL（用 history API 避免 Next.js 导航导致 Suspense 重挂载）
-  const syncURL = useCallback(
-    (nextState: GalleryState, method: "push" | "replace") => {
-      const params = new URLSearchParams();
-      if (nextState.viewMode !== "grid") {
-        params.set("view", nextState.viewMode);
-      }
-      if (nextState.activeImageIndex != null) {
-        params.set("image", String(nextState.activeImageIndex));
-      }
-      const qs = params.toString();
-      const url = qs ? `/gallery?${qs}` : "/gallery";
+  // URL 同步：在 effect 中执行，避免 setState 回调中更新其他组件
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (state.viewMode !== "grid") {
+      params.set("view", state.viewMode);
+    }
+    if (state.activeImageIndex != null) {
+      params.set("image", String(state.activeImageIndex));
+    }
+    const qs = params.toString();
+    const url = qs ? `/gallery?${qs}` : "/gallery";
 
-      if (method === "push") {
+    if (state.activeImageIndex != null) {
+      if (urlMethod.current === "push") {
         window.history.pushState(null, "", url);
       } else {
         window.history.replaceState(null, "", url);
       }
-    },
-    [],
-  );
+    }
+  }, [state.activeImageIndex, state.viewMode]);
 
-  // 从行视图退回网格（清空聚焦）
   const dismissToGrid = useCallback(() => {
     wasOpenRef.current = false;
     setState({ viewMode: "grid", activeImageIndex: null });
     window.history.replaceState(null, "", "/gallery");
   }, []);
 
-  // 打开图片（网格→行视图，或在行视图内切换）
   const openImage = useCallback(
     (index: number) => {
       if (index < 0 || index >= images.length) return;
       wasOpenRef.current = true;
-      setState((prev) => {
-        const next: GalleryState = { ...prev, activeImageIndex: index };
-        syncURL(next, "push");
-        return next;
-      });
+      urlMethod.current = "push";
+      setState((prev) => ({ ...prev, activeImageIndex: index }));
     },
-    [images.length, syncURL],
+    [images.length],
   );
 
-  // 下一张
   const goToNext = useCallback(() => {
+    urlMethod.current = "replace";
     setState((prev) => {
       if (prev.activeImageIndex == null) return prev;
       const nextIndex = (prev.activeImageIndex + 1) % images.length;
-      const next: GalleryState = { ...prev, activeImageIndex: nextIndex };
-      syncURL(next, "replace");
-      return next;
+      return { ...prev, activeImageIndex: nextIndex };
     });
-  }, [images.length, syncURL]);
+  }, [images.length]);
 
-  // 上一张
   const goToPrev = useCallback(() => {
+    urlMethod.current = "replace";
     setState((prev) => {
       if (prev.activeImageIndex == null) return prev;
       const prevIndex =
         (prev.activeImageIndex - 1 + images.length) % images.length;
-      const next: GalleryState = { ...prev, activeImageIndex: prevIndex };
-      syncURL(next, "replace");
-      return next;
+      return { ...prev, activeImageIndex: prevIndex };
     });
-  }, [images.length, syncURL]);
+  }, [images.length]);
 
   // 监听浏览器前进/后退（popstate）
   useEffect(() => {

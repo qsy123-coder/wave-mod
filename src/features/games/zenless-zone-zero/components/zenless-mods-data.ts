@@ -50,5 +50,5 @@ export function getZenlessDisplayMod(index: number) {
 
 export function toZenlessDisplayMod(mod: SiteMod, index: number): SiteMod {
   const [character, title, tag] = getZenlessDisplayMod(index);
-  return { ...mod, character, title, tags: [tag, "ZZZ", character], description: `${character} 主题绝区零 MOD，适合新艾利都分站预览、直链下载与 XXMI 安装流程。` };
+  return { ...mod, character, title, description: `${character} 主题绝区零 MOD，适合新艾利都分站预览、直链下载与 XXMI 安装流程。` };
 }

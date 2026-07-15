@@ -32,7 +32,7 @@ function ModTag({ label }: { label: string }) {
 }
 
 function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
-  const tag = mod.tags?.[0] ?? fallbackTags[index % fallbackTags.length];
+  const tag = fallbackTags[index % fallbackTags.length];
 
   return (
     <Link

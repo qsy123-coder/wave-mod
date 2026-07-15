@@ -179,8 +179,9 @@ export type Database = {
           created_at: string;
           created_by: string | null;
           description: string;
-          download_url: string;
+          download_url: string | null;
           downloads_count: number;
+          drive_links: Json;
           favorites_count: number;
           game_key: string;
           game_version: string;
@@ -193,7 +194,6 @@ export type Database = {
           nsfw: boolean;
           rating_average: number;
           rating_count: number;
-          tags: string[];
           title: string;
           updated_at: string;
           version: string;
@@ -207,8 +207,9 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           description: string;
-          download_url: string;
+          download_url: string | null;
           downloads_count?: number;
+          drive_links?: Json;
           favorites_count?: number;
           game_key?: string;
           game_version: string;
@@ -221,7 +222,6 @@ export type Database = {
           nsfw?: boolean;
           rating_average?: number;
           rating_count?: number;
-          tags?: string[];
           title: string;
           updated_at?: string;
           version: string;
@@ -235,8 +235,9 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           description?: string;
-          download_url?: string;
+          download_url?: string | null;
           downloads_count?: number;
+          drive_links?: Json;
           favorites_count?: number;
           game_key?: string;
           game_version?: string;
@@ -249,7 +250,6 @@ export type Database = {
           nsfw?: boolean;
           rating_average?: number;
           rating_count?: number;
-          tags?: string[];
           title?: string;
           updated_at?: string;
           version?: string;

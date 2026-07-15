@@ -51,26 +51,6 @@ function buildCharacterStats(mods: AdminMod[]) {
     .slice(0, 10);
 }
 
-function buildTagStats(mods: AdminMod[]) {
-  const map = new Map<string, { downloads: number; mods: number; views: number }>();
-
-  for (const mod of mods) {
-    for (const tag of mod.tags) {
-      const current = map.get(tag) ?? { downloads: 0, mods: 0, views: 0 };
-      map.set(tag, {
-        downloads: current.downloads + mod.downloads,
-        mods: current.mods + 1,
-        views: current.views + mod.views,
-      });
-    }
-  }
-
-  return Array.from(map.entries())
-    .map(([tag, stats]) => ({ tag, ...stats }))
-    .sort((a, b) => b.downloads - a.downloads || b.mods - a.mods || b.views - a.views)
-    .slice(0, 16);
-}
-
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="border-4 border-black bg-white p-4 text-black shadow-[6px_6px_0px_0px_#000]">
@@ -139,7 +119,6 @@ async function AdminGameStatsContent({ game }: { game: GameConfig }) {
   const publishedCount = mods.filter((mod) => mod.isPublished).length;
   const draftCount = mods.length - publishedCount;
   const characterStats = buildCharacterStats(mods);
-  const tagStats = buildTagStats(mods);
 
   return (
     <>
@@ -152,7 +131,6 @@ async function AdminGameStatsContent({ game }: { game: GameConfig }) {
         <StatCard icon={<Star className="size-4" />} label="加权评分" value={averageRating(mods).toFixed(1)} />
         <StatCard icon={<Eye className="size-4" />} label="浏览总量" value={formatNumber(sumBy(mods, (mod) => mod.views))} />
         <StatCard icon={<Users className="size-4" />} label="角色数量" value={formatNumber(characterStats.length)} />
-        <StatCard icon={<Tags className="size-4" />} label="标签数量" value={formatNumber(tagStats.length)} />
         <StatCard icon={<BarChart3 className="size-4" />} label="发布 / 草稿" value={`${publishedCount} / ${draftCount}`} />
       </section>
 
@@ -174,20 +152,6 @@ async function AdminGameStatsContent({ game }: { game: GameConfig }) {
           </div>
         </MotionReveal>
 
-        <MotionReveal delay={0.2} y={22} rotate={-1}>
-          <div className="neo-card bg-[var(--neo-muted)] p-5 text-black">
-            <div className="inline-flex items-center gap-2 border-4 border-black bg-white px-4 py-2 text-sm font-black uppercase tracking-[0.14em] shadow-[5px_5px_0px_0px_#000]">
-              <Tags className="size-4" />标签热度
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {tagStats.map((item, index) => (
-                <Badge key={item.tag} className="neo-sticker bg-white px-3 py-2 text-xs font-black text-black hover:bg-white">
-                  #{item.tag} · NO.{index + 1} · {item.mods} MOD
-                </Badge>
-              ))}
-            </div>
-          </div>
-        </MotionReveal>
       </section>
     </>
   );

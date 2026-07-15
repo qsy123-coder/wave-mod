@@ -53,26 +53,6 @@ function buildCharacterStats(mods: SiteMod[]) {
     .slice(0, 12);
 }
 
-function buildTagStats(mods: SiteMod[]) {
-  const statMap = new Map<string, { downloads: number; mods: number; views: number }>();
-
-  for (const mod of mods) {
-    for (const tag of mod.tags) {
-      const current = statMap.get(tag) ?? { downloads: 0, mods: 0, views: 0 };
-      statMap.set(tag, {
-        downloads: current.downloads + mod.downloads,
-        mods: current.mods + 1,
-        views: current.views + mod.views,
-      });
-    }
-  }
-
-  return Array.from(statMap.entries())
-    .map(([tag, stats]) => ({ tag, ...stats }))
-    .sort((a, b) => b.downloads - a.downloads || b.mods - a.mods || b.views - a.views)
-    .slice(0, 16);
-}
-
 function RankingPodium({ game, mods }: { game: GameConfig; mods: SiteMod[] }) {
   if (mods.length === 0) {
     return (
@@ -169,9 +149,9 @@ function RankingList({ game, icon, mods, title, valueLabel, valueOf }: { game: G
   );
 }
 
-function StatsCloud({ game, characters, tags }: { game: GameConfig; characters: ReturnType<typeof buildCharacterStats>; tags: ReturnType<typeof buildTagStats> }) {
+function StatsCloud({ game, characters }: { game: GameConfig; characters: ReturnType<typeof buildCharacterStats> }) {
   return (
-    <section className="grid gap-5 lg:grid-cols-2">
+    <section className="grid gap-5 lg:grid-cols-1">
       <MotionReveal delay={0.18} y={22} rotate={-1}>
         <div className="neo-card bg-[var(--neo-secondary)] p-5 text-black">
           <div className="inline-flex items-center gap-2 border-4 border-black bg-white px-4 py-2 text-sm font-black uppercase tracking-[0.14em] shadow-[5px_5px_0px_0px_#000]">
@@ -182,21 +162,6 @@ function StatsCloud({ game, characters, tags }: { game: GameConfig; characters: 
               <Link key={item.character} href={`${game.nav.mods}?character=${encodeURIComponent(item.character)}&sort=hot`} className="border-4 border-black bg-white px-3 py-2 text-xs font-black text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5">
                 NO.{index + 1} {item.character} · {item.downloads} 下载
               </Link>
-            ))}
-          </div>
-        </div>
-      </MotionReveal>
-
-      <MotionReveal delay={0.2} y={22} rotate={1}>
-        <div className="neo-card bg-[var(--neo-muted)] p-5 text-black">
-          <div className="inline-flex items-center gap-2 border-4 border-black bg-white px-4 py-2 text-sm font-black uppercase tracking-[0.14em] shadow-[5px_5px_0px_0px_#000]">
-            <Tags className="size-4" />标签热度
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {tags.map((item, index) => (
-              <span key={item.tag} className="border-4 border-black bg-white px-3 py-2 text-xs font-black text-black shadow-[4px_4px_0px_0px_#000]">
-                #{item.tag} · {item.mods} MOD · NO.{index + 1}
-              </span>
             ))}
           </div>
         </div>
@@ -215,7 +180,6 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
   const favoriteMods = rankByFavorites(mods);
   const ratingMods = rankByRating(mods);
   const characterStats = buildCharacterStats(mods);
-  const tagStats = buildTagStats(mods);
 
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
@@ -252,7 +216,7 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
         </section>
       </MotionReveal>
 
-      <StatsCloud game={game} characters={characterStats} tags={tagStats} />
+      <StatsCloud game={game} characters={characterStats} />
     </div>
   );
 }

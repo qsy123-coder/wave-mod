@@ -113,7 +113,7 @@ export function ZenlessModDetailPage({
               {mod.description}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {[mod.character, "Character", ...mod.tags]
+              {[mod.character, "Character"]
                 .slice(0, 6)
                 .map((tag) => (
                   <span

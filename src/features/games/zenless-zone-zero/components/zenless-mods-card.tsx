@@ -6,11 +6,10 @@ import type { GameConfig } from "@/config/games";
 import type { SiteMod } from "@/lib/mods";
 import { GlowCard } from "@/components/ui/spotlight-card";
 
-/** 从 mod.tags 中提取徽章文案和类型，带降级逻辑 */
-function getModBadge(mod: SiteMod, index: number) {
-  const tags = mod.tags ?? [];
-  const tag = tags[0] ?? (index % 3 === 0 ? "热门" : index % 3 === 1 ? "趋势" : "新作");
-  const type = tags[1] ?? (index % 2 === 0 ? "角色" : "服装");
+/** 根据索引提取徽章文案和类型 */
+function getModBadge(_mod: SiteMod, index: number) {
+  const tag = index % 3 === 0 ? "热门" : index % 3 === 1 ? "趋势" : "新作";
+  const type = index % 2 === 0 ? "角色" : "服装";
   return { tag, type };
 }
 

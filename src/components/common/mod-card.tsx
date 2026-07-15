@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowUpRight, Eye, Heart } from "lucide-react";
+import { ArrowUpRight, Download, Eye, Heart } from "lucide-react";
 
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
@@ -175,6 +175,12 @@ export function ModCard({
       <Badge className={cn("neo-sticker -rotate-2 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em]", badgeTone.character)}>
         {mod.character}
       </Badge>
+      {mod.downloadUrl ? (
+        <Badge className="neo-sticker rotate-1 border-2 border-black bg-[#4ade80] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-black shadow-[2px_2px_0px_0px_#000]">
+          <Download className="mr-1 inline size-3" />
+          直链
+        </Badge>
+      ) : null}
       {extraMetaBadges}
     </>
   ) : null;
@@ -239,15 +245,7 @@ export function ModCard({
           ) : (
             titleAndDescription
           )}
-          {showTags ? (
-            <div className={styles.tagWrap}>
-              {mod.tags.map((tag) => (
-                <span key={tag} className="border-2 border-black bg-white/92 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000]">
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          ) : null}
+          {showTags ? null : null}
           {bodyAfterDescription}
           {compactStats ? (
             <div className={styles.statsWrap}>

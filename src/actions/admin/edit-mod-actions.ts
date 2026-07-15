@@ -10,8 +10,8 @@ import {
   adminModUpdateFormSchema,
   buildAdminModFieldErrors,
   parseAdminModUpdateFormData,
+  splitDriveLinks,
   splitImageUrls,
-  splitTags,
 } from "@/lib/admin/mod-form";
 import { revalidateCreatorProfileCache, revalidatePublicModCaches } from "@/lib/mod-cache";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -35,7 +35,6 @@ export async function updateModAction(_prevState: UploadFormState, formData: For
 
   const payload = parsed.data;
   const imageList = splitImageUrls(payload.imageUrls);
-  const tagList = splitTags(payload.tags);
   const persistedMeta = getPersistedModMeta();
 
   if (imageList.length === 0) {
@@ -60,11 +59,11 @@ export async function updateModAction(_prevState: UploadFormState, formData: For
       version: persistedMeta.version,
       game_version: persistedMeta.gameVersion,
       description: payload.description,
-      download_url: payload.downloadUrl,
+      download_url: payload.downloadUrl || null,
       video_url: payload.videoUrl || null,
       mod_author_url: payload.authorUrl || null,
       images: imageList,
-      tags: tagList,
+      drive_links: splitDriveLinks(payload.driveLinksText),
       nsfw: payload.nsfw,
       xxmi_install_guide: payload.xxmiGuide,
       ...(createdBy ? { created_by: createdBy } : {}),
@@ -111,7 +110,7 @@ export async function getEditableMod(id: string) {
       images,
       video_url,
       download_url,
-      tags,
+      drive_links,
       nsfw,
       mod_author_url,
       xxmi_install_guide,
@@ -138,6 +137,7 @@ export async function getEditableMod(id: string) {
     description: data.description,
     downloadUrl: data.download_url,
     downloads: data.downloads_count ?? 0,
+    driveLinks: (data.drive_links as Array<{ platform: string; url: string }>) ?? [],
     favorites: data.favorites_count ?? 0,
     gameKey: data.game_key,
     gameVersion: data.game_version,
@@ -149,7 +149,6 @@ export async function getEditableMod(id: string) {
     nsfw: data.nsfw ?? false,
     ratingAverage: Number(data.rating_average ?? 0),
     ratingCount: data.rating_count ?? 0,
-    tags: data.tags ?? [],
     title: data.title,
     userRating: null,
     version: data.version,

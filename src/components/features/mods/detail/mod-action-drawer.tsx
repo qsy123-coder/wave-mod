@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, Download, Heart, Star, ThumbsUp } from "lucide-react";
 
+import type { DriveLink } from "@/lib/mods-domain/types";
+
 import { DownloadButton } from "./download-button";
 import { FavoriteButton } from "./favorite-button";
 import { LikeButton } from "./like-button";
 import { RatingPanel } from "./rating-panel";
 
 type ModActionDrawerProps = {
-  downloadUrl: string;
+  downloadUrl: string | null;
   downloads: number;
+  driveLinks: DriveLink[];
   isFavorited: boolean;
   isLiked: boolean;
   isLoggedIn: boolean;
@@ -27,6 +30,7 @@ type ModActionDrawerProps = {
 export function ModActionDrawer({
   downloadUrl,
   downloads,
+  driveLinks,
   isFavorited,
   isLiked,
   isLoggedIn,
@@ -82,7 +86,7 @@ export function ModActionDrawer({
           <section className="border-4 border-black bg-[#FF6B6B] p-2.5 shadow-[5px_5px_0px_0px_#000]">
             <p className="text-[10px] font-black uppercase tracking-[0.18em]">核心操作</p>
             <div className="mt-2.5 grid gap-2">
-              <DownloadButton compact modId={modId} downloadUrl={downloadUrl} downloadCount={downloads} />
+              <DownloadButton compact modId={modId} downloadUrl={downloadUrl} downloadCount={downloads} driveLinks={driveLinks} />
               <FavoriteButton compact id={modId} isFavorited={isFavorited} isLoggedIn={isLoggedIn} nextPath={nextPath} favoriteLabel="收藏" unfavoriteLabel="已收藏" loginLabel="登录收藏" />
               <LikeButton compact modId={modId} isLiked={isLiked} isLoggedIn={isLoggedIn} likeCount={likes} nextPath={nextPath} />
             </div>

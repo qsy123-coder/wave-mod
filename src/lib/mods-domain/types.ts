@@ -1,5 +1,7 @@
 import type { Tables } from "@/types/supabase";
 
+export type DriveLink = { platform: string; url: string };
+
 export type ModSort = "latest" | "favorites" | "rating" | "hot";
 
 export type SiteMod = {
@@ -8,8 +10,9 @@ export type SiteMod = {
   coverImage: string;
   createdAt: string;
   description: string;
-  downloadUrl: string;
+  downloadUrl: string | null;
   downloads: number;
+  driveLinks: DriveLink[];
   favorites: number;
   gameKey: string;
   gameVersion: string;
@@ -22,7 +25,6 @@ export type SiteMod = {
   nsfw: boolean;
   ratingAverage: number;
   ratingCount: number;
-  tags: string[];
   title: string;
   userRating?: number | null;
   version: string;

@@ -33,6 +33,7 @@ export {
 export type {
   AdminMod,
   CommentRow,
+  DriveLink,
   FavoriteMod,
   FavoriteRow,
   ModComment,

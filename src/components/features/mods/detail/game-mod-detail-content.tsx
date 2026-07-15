@@ -55,6 +55,7 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
       actionPanel={{
         downloadUrl: mod.downloadUrl,
         downloads: mod.downloads,
+        driveLinks: mod.driveLinks,
         isFavorited: Boolean(mod.isFavorited),
         isLiked: Boolean(mod.isLiked),
         isLoggedIn: Boolean(user),
@@ -137,7 +138,6 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
               <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="space-y-5">
                   <div className="border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000]"><p className="text-sm font-black uppercase tracking-[0.14em]">内容简介</p><p className="mt-4 whitespace-pre-wrap text-sm font-bold leading-8 text-black/80">{mod.description}</p></div>
-                  <div className="border-4 border-black bg-[#bcaeff] p-5 shadow-[6px_6px_0px_0px_#000]"><p className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]"><Star className="size-4" />相关标签</p><div className="mt-4 flex flex-wrap gap-2">{mod.tags.map((tag, index) => <Badge key={tag} className={`neo-sticker px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-inherit ${index % 3 === 0 ? "bg-[#ffd84f]" : index % 3 === 1 ? "bg-white" : "bg-[#ff7a7a]"}`}>#{tag}</Badge>)}</div></div>
                 </div>
                 <div className="space-y-4"><div className="border-4 border-black bg-[#ffd84f] p-5 shadow-[6px_6px_0px_0px_#000]"><p className="neo-label text-black/60">Quick Facts</p><dl className="mt-4 space-y-3 text-sm font-black leading-7"><div className="flex items-center justify-between gap-4 border-b-2 border-black/15 pb-2"><dt>角色</dt><dd>{mod.character}</dd></div><div className="flex items-center justify-between gap-4 border-b-2 border-black/15 pb-2"><dt>版本</dt><dd>{mod.version}</dd></div><div className="flex items-center justify-between gap-4 border-b-2 border-black/15 pb-2"><dt>适配</dt><dd>{mod.gameVersion}</dd></div><div className="flex items-center justify-between gap-4"><dt>内容等级</dt><dd>{mod.nsfw ? "NSFW" : "普通"}</dd></div></dl></div></div>
               </div>

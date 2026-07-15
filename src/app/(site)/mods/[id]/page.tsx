@@ -46,6 +46,7 @@ async function ModDetailContent({ params }: PageProps) {
       actionPanel={{
         downloadUrl: mod.downloadUrl,
         downloads: mod.downloads,
+        driveLinks: mod.driveLinks,
         isFavorited: Boolean(mod.isFavorited),
         isLiked: Boolean(mod.isLiked),
         isLoggedIn: Boolean(user),
@@ -157,12 +158,6 @@ async function ModDetailContent({ params }: PageProps) {
                   <div className="border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000]">
                     <p className="text-sm font-black uppercase tracking-[0.14em]">内容简介</p>
                     <p className="mt-4 whitespace-pre-wrap text-sm font-bold leading-8 text-black/80">{mod.description}</p>
-                  </div>
-                  <div className="border-4 border-black bg-[#bcaeff] p-5 shadow-[6px_6px_0px_0px_#000]">
-                    <p className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]"><Star className="size-4" />相关标签</p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {mod.tags.map((tag, index) => <Badge key={tag} className={`neo-sticker px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-inherit ${index % 3 === 0 ? "bg-[#ffd84f]" : index % 3 === 1 ? "bg-white" : "bg-[#ff7a7a]"}`}>#{tag}</Badge>)}
-                    </div>
                   </div>
                 </div>
 

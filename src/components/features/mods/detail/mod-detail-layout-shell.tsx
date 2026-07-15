@@ -2,15 +2,16 @@
 
 import { useMemo, useState } from "react";
 
-import type { SiteMod } from "@/lib/mods";
+import type { DriveLink, SiteMod } from "@/lib/mods";
 
 import { ModActionDrawer } from "./mod-action-drawer";
 import { ModRecommendationsSidebar } from "./mod-recommendations-sidebar";
 
 type ModDetailLayoutShellProps = {
   actionPanel: {
-    downloadUrl: string;
+    downloadUrl: string | null;
     downloads: number;
+    driveLinks: DriveLink[];
     isFavorited: boolean;
     isLiked: boolean;
     isLoggedIn: boolean;

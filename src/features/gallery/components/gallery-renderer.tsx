@@ -71,7 +71,8 @@ export function GalleryRenderer(p: Props) {
     raf: 0, prevT: 0, scheduled: false,
     anchor: 0,
     mode: "grid" as ViewMode,
-    _gen: 0, // 代数：每次模式转换递增
+    _rowsTop: [] as number[], _cols: 7,
+    _initialFocused: null as number | null, _initialScrollY: 0, // 进入 1D 时的图片和滚动位置
   }).current;
 
   useEffect(() => { R.focused = activeIndex; }, [activeIndex]);
@@ -104,7 +105,23 @@ export function GalleryRenderer(p: Props) {
 
       const promptEl = document.createElement("figcaption");
       promptEl.style.cssText = "position:absolute;width:100%;box-sizing:border-box;padding:8px 12px 0 12px;color:rgb(192,198,205);font-size:14px;cursor:text;display:-webkit-box;-webkit-box-orient:vertical;font-family:\"DM Sans\",system-ui,-apple-system,sans-serif";
-      promptEl.innerHTML = `<span style="color:rgb(122,126,130);padding-right:2px">❝</span>${genPrompt(img.id)}`;
+      // prompt 文本
+      const textSpan = document.createElement("span");
+      textSpan.innerHTML = `<span style="color:rgb(122,126,130);padding-right:2px">❝</span>${genPrompt(img.id)}`;
+      textSpan.style.cssText = "overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical";
+      promptEl.appendChild(textSpan);
+      // 下载按钮（1D 模式可见）
+      const dl = document.createElement("a");
+      dl.href = `/api/gallery/${encodeURIComponent(img.filename)}`;
+      dl.download = img.filename;
+      dl.title = "下载图片";
+      dl.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgb(192,198,205)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+      dl.style.cssText = "display:none;position:absolute;right:12px;bottom:8px;width:24px;height:24px;cursor:pointer;align-items:center;justify-content:center;border-radius:4px";
+      dl.addEventListener("mouseenter", () => { dl.style.backgroundColor = "rgba(255,255,255,0.1)"; });
+      dl.addEventListener("mouseleave", () => { dl.style.backgroundColor = "transparent"; });
+      dl.addEventListener("click", (e) => { e.stopPropagation(); });
+      promptEl.appendChild(dl);
+      (node as any)._dlBtn = dl;
 
       node.append(imgEl, promptEl);
       frag.append(node);
@@ -281,12 +298,15 @@ export function GalleryRenderer(p: Props) {
 
       if (pn) {
         pn.style.top = `${d.sx.pos / d.ar}px`;
+        const textSpan = pn.firstElementChild as HTMLElement | null;
         if (i === f) {
           pn.style.overflowY = "auto"; pn.style.height = `${PROMPT_H_1D - 8}px`;
           pn.style.webkitLineClamp = "999";
+          if (textSpan) textSpan.style.paddingRight = "28px"; // 为下载按钮留空间
         } else {
           pn.style.overflowY = "hidden"; pn.style.height = `${PROMPT_H - 8}px`;
           pn.style.webkitLineClamp = "2";
+          if (textSpan) textSpan.style.paddingRight = "0";
         }
       }
       if (imgEl) {
@@ -295,6 +315,11 @@ export function GalleryRenderer(p: Props) {
           const fullSrc = images[i]?.src;
           if (fullSrc && imgEl.src !== fullSrc) imgEl.src = fullSrc;
         }
+      }
+      // 下载按钮：仅在 1D 聚焦图且动画结束后显示
+      const dlBtn = (n as any)._dlBtn as HTMLElement | undefined;
+      if (dlBtn) {
+        dlBtn.style.display = i === f && !anim ? "flex" : "none";
       }
     }
 
@@ -309,6 +334,8 @@ export function GalleryRenderer(p: Props) {
 
     R.scrollY = adjustedScrollY;
     R.mode = f == null ? "grid" : "line";
+    R._rowsTop = rowsTop;
+    R._cols = cols;
     return anim;
   }, [R, images]);
 
@@ -417,7 +444,6 @@ export function GalleryRenderer(p: Props) {
   }, [R, schedule]);
 
   // ---- 点击 ----
-  const savedGridScrollY = useRef(0);
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target instanceof HTMLElement ? e.target : null;
@@ -432,17 +458,32 @@ export function GalleryRenderer(p: Props) {
       } else {
         if (onImage) { doClick(e.clientX, e.clientY); }
         else if (R.focused != null) {
-          // 仅在确实处于 1D 模式时处理 dismiss
-          const saved = savedGridScrollY.current;
-          onDismiss();
-          document.body.style.overflowY = "auto";
-          if (saved > 0) window.scrollTo({ top: saved, behavior: "instant" as ScrollBehavior });
+          dismiss1D();
         }
       }
     };
     window.addEventListener("click", handler);
     return () => window.removeEventListener("click", handler);
   }, [R, onDismiss]);
+
+  // 退出 1D 模式，恢复滚动位置
+  // 未切换图片 → 回到进入 1D 前的原位；切换过图片 → 滚动到最后查看图片的网格位置
+  const dismiss1D = useCallback(() => {
+    const idx = R.focused;
+    const initialIdx = R._initialFocused;
+    const initialScrollY = R._initialScrollY;
+    onDismiss();
+    document.body.style.overflowY = "auto";
+    if (idx === initialIdx && initialScrollY > 0) {
+      // 没有切换过图片，恢复原位
+      window.scrollTo({ top: initialScrollY, behavior: "instant" as ScrollBehavior });
+    } else if (idx != null && R._rowsTop.length > 0) {
+      // 切换过图片，滚动到最后查看图片的网格行位置
+      const row = Math.floor(idx / R._cols);
+      const targetY = Math.max(0, (R._rowsTop[row] ?? 0) - GAP_Y - GAP_TOP_PEEK);
+      if (targetY > 0) window.scrollTo({ top: targetY, behavior: "instant" as ScrollBehavior });
+    }
+  }, [onDismiss, R]);
 
   const doClick = useCallback((clientX: number, clientY: number) => {
     const pxLocal = clientX + window.scrollX;
@@ -454,7 +495,8 @@ export function GalleryRenderer(p: Props) {
         if (b.x.dest <= pxLocal && pxLocal < b.x.dest + b.sx.dest &&
             b.y.dest <= pyLocal && pyLocal < b.y.dest + b.sy.dest) {
           // 在 1D 模式启动前同步保存 scroll 位置
-          savedGridScrollY.current = window.scrollY;
+          R._initialFocused = i;
+          R._initialScrollY = window.scrollY;
           R.focused = i; schedule(); onImageClick(i); return;
         }
       }
@@ -462,7 +504,7 @@ export function GalleryRenderer(p: Props) {
       const Wv = vpW.current;
       if (clientX <= HIT_AREA_1D) { onPrev(); schedule(); }
       else if (clientX >= Wv - HIT_AREA_1D) { onNext(); schedule(); }
-      else { onDismiss(); }
+      else { dismiss1D(); }
     }
   }, [R, schedule, onImageClick, onNext, onPrev, onDismiss]);
 
@@ -470,7 +512,7 @@ export function GalleryRenderer(p: Props) {
   useEffect(() => {
     const kd = (e: KeyboardEvent) => {
       const f = R.focused;
-      if (e.key === "Escape" && f != null) { onDismiss(); return; }
+      if (e.key === "Escape" && f != null) { dismiss1D(); return; }
       if (f != null) {
         if (e.key === "ArrowRight") onNext(); else if (e.key === "ArrowLeft") onPrev();
         schedule();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { Copy, DatabaseZap, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
@@ -38,6 +38,7 @@ function mergeImageUrls(existingValue: string, uploadedUrls: string[]) {
 export function UploadForm({ characters, formValues = defaultUploadFormValues, modId, mode = "create" }: UploadFormProps) {
   const action = mode === "edit" ? updateModAction : createModAction;
   const [state, formAction, pending] = useActionState(action, initialAdminModFormState);
+  const [formKey, setFormKey] = useState(0);
   const defaultGuide = formValues.xxmiGuide || getDefaultXXMIGuide();
   const games = getEnabledGames();
   const allowSubmitRef = useRef(false);
@@ -54,7 +55,10 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
-    if (state.success) toast.success(state.success);
+    if (state.success) {
+      toast.success(state.success);
+      setFormKey((k) => k + 1);
+    }
   }, [state.error, state.success]);
 
   const copyGuide = async () => {
@@ -78,7 +82,7 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
             {state.error ? <div className="border-4 border-black bg-[#ffb5c3] px-4 py-3 text-sm font-black shadow-[6px_6px_0px_0px_#000]">{state.error}</div> : null}
             {state.success ? <div className="border-4 border-black px-4 py-3 text-sm font-black shadow-[6px_6px_0px_0px_#000]" style={{ background: "var(--neo-secondary)" }}>{state.success}</div> : null}
 
-            <form action={formAction} className="grid gap-5" onSubmit={(event) => {
+            <form key={formKey} action={formAction} className="grid gap-5" onSubmit={(event) => {
               if (allowSubmitRef.current) {
                 allowSubmitRef.current = false;
                 return;
@@ -140,11 +144,15 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
               </Field>
 
               <div className="grid gap-5 md:grid-cols-2">
-                <Field label="阿里云 OSS 下载地址" error={getFieldError("downloadUrl")}>
+                <Field label="直链下载地址" error={getFieldError("downloadUrl")}>
                   <div className="space-y-3">
-                    <Input {...register("downloadUrl")} value={downloadUrl} onChange={(event) => setValue("downloadUrl", event.target.value, { shouldDirty: true, shouldValidate: true })} placeholder="可手动粘贴，也可用下方 ZIP 上传自动回填" required />
+                    <Input {...register("downloadUrl")} value={downloadUrl} onChange={(event) => setValue("downloadUrl", event.target.value, { shouldDirty: true, shouldValidate: true })} placeholder="可留空；也可用下方 ZIP 上传自动回填" />
                     <OssZipUpload defaultCharacter={formValues.character} onUploaded={(url) => setValue("downloadUrl", url, { shouldDirty: true, shouldValidate: true })} />
                   </div>
+                </Field>
+
+                <Field label="网盘下载链接（可选）" error={getFieldError("driveLinksText")}>
+                  <Textarea {...register("driveLinksText")} placeholder={"每行一条，格式：平台名 链接\n例如：\n百度网盘 https://pan.baidu.com/s/xxxx\n阿里云盘 https://www.alipan.com/xxxx"} rows={3} />
                 </Field>
 
                 <Field label="演示视频地址（可选）" error={getFieldError("videoUrl")}>
@@ -183,10 +191,6 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
                   ) : null}
                   <OssImageUpload defaultCharacter={formValues.character} onUploaded={(urls) => setValue("imageUrls", mergeImageUrls(imageUrls, urls), { shouldDirty: true, shouldValidate: true })} />
                 </div>
-              </Field>
-
-              <Field label="标签关键词（可选）" error={getFieldError("tags")}>
-                <Input {...register("tags")} placeholder="可留空；多个标签可用空格或逗号分隔，例如：今汐 机能风 夜巡" />
               </Field>
 
               <Field label="XXMI 安装说明" error={getFieldError("xxmiGuide")}>

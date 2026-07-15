@@ -18,8 +18,9 @@ function createMod(overrides: Partial<SiteMod>): SiteMod {
     coverImage: "https://example.oss-cn-shanghai.aliyuncs.com/cover.jpg",
     createdAt: "2026-01-01T00:00:00.000Z",
     description: "默认描述内容",
-    downloadUrl: "https://example.oss-cn-shanghai.aliyuncs.com/mod.zip",
+    downloadUrl: null,
     downloads: 0,
+    driveLinks: [],
     favorites: 0,
     gameKey: "wuthering-waves",
     gameVersion: "2.0",
@@ -30,7 +31,6 @@ function createMod(overrides: Partial<SiteMod>): SiteMod {
     nsfw: false,
     ratingAverage: 0,
     ratingCount: 0,
-    tags: [],
     title: "默认标题",
     version: "1.0.0",
     videoUrl: null,
@@ -72,9 +72,9 @@ describe("mods-domain sorting helpers", () => {
   });
 
   it("filters by character and all query keywords", () => {
-    const target = createMod({ title: "高清 战斗服", character: "今汐", description: "适合主线演出", tags: ["白色", "高质感"] });
-    const wrongCharacter = createMod({ title: "高清 战斗服", character: "长离", tags: ["白色"] });
-    const missingKeyword = createMod({ title: "普通战斗服", character: "今汐", tags: ["低清"] });
+    const target = createMod({ title: "高清 战斗服", character: "今汐", description: "适合主线演出 白色质感" });
+    const wrongCharacter = createMod({ title: "高清 战斗服", character: "长离", description: "白色质感" });
+    const missingKeyword = createMod({ title: "普通战斗服", character: "今汐", description: "低清版本" });
 
     expect(applyModQueryFilters([target, wrongCharacter, missingKeyword], { character: "今汐", query: "高清 白色" })).toEqual([target]);
   });

@@ -47,7 +47,7 @@ export function applyModQueryFilters(mods: SiteMod[], filters: Pick<PublicModsFi
 
   if (normalizedQuery && normalizedQuery.length > 0) {
     nextMods = nextMods.filter((mod) => {
-      const haystack = [mod.title, mod.character, mod.description, ...mod.tags].join(" ").toLowerCase();
+      const haystack = [mod.title, mod.character, mod.description, ...mod.driveLinks.map((d) => d.platform)].join(" ").toLowerCase();
       return normalizedQuery.every((keyword) => haystack.includes(keyword));
     });
   }

@@ -1,18 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Download, LoaderCircle } from "lucide-react";
+import { Cloud, Download, LoaderCircle } from "lucide-react";
+
+import type { DriveLink } from "@/lib/mods-domain/types";
 
 type DownloadButtonProps = {
   compact?: boolean;
   modId: string;
-  downloadUrl: string;
+  downloadUrl: string | null;
   downloadCount: number;
+  driveLinks: DriveLink[];
 };
 
-export function DownloadButton({ compact = false, modId, downloadUrl, downloadCount }: DownloadButtonProps) {
+export function DownloadButton({ compact = false, modId, downloadUrl, downloadCount, driveLinks }: DownloadButtonProps) {
   const [isPending, setIsPending] = useState(false);
-  const hasDownload = Boolean(downloadUrl.trim());
+  const hasDownload = Boolean(downloadUrl?.trim());
 
   const handleDownload = async () => {
     if (!hasDownload || isPending) return;
@@ -30,15 +33,38 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
     }
   };
 
+  if (!hasDownload && driveLinks.length === 0) return null;
+
   return (
-    <button
-      type="button"
-      onClick={handleDownload}
-      disabled={!hasDownload || isPending}
-      className={`inline-flex w-full items-center justify-center gap-2 border-4 border-black font-black uppercase shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${compact ? "h-11 px-3 text-[11px] tracking-[0.12em]" : "h-14 px-5 text-sm tracking-[0.16em]"} ${hasDownload ? "bg-[#FFD93D] text-black hover:-translate-y-0.5" : "cursor-not-allowed bg-white text-black/45"}`}
-    >
-      {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
-      {isPending ? "跳转中" : hasDownload ? compact ? "直链下载" : `直链下载 ZIP · ${downloadCount}` : "暂未提供下载"}
-    </button>
+    <div className="space-y-2">
+      {hasDownload ? (
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={isPending}
+          className={`inline-flex w-full items-center justify-center gap-2 border-4 border-black bg-[#FFD93D] font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${compact ? "h-11 px-3 text-[11px] tracking-[0.12em]" : "h-14 px-5 text-sm tracking-[0.16em]"}`}
+        >
+          {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
+          {isPending ? "跳转中" : compact ? "直链下载" : `直链下载 ZIP · ${downloadCount}`}
+        </button>
+      ) : null}
+
+      {driveLinks.length > 0 ? (
+        <div className="space-y-1.5">
+          {driveLinks.map((drive) => (
+            <a
+              key={`${drive.platform}-${drive.url}`}
+              href={drive.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`inline-flex w-full items-center justify-center gap-2 border-4 border-black bg-[#C4B5FD] font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${compact ? "h-11 px-3 text-[11px] tracking-[0.12em]" : "h-14 px-5 text-sm tracking-[0.16em]"}`}
+            >
+              <Cloud className="size-4" />
+              {drive.platform}
+            </a>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

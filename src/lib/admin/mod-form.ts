@@ -21,11 +21,11 @@ export const adminModFormSchema = z.object({
   gameKey: gameKeySchema.default(defaultGameKey),
   character: z.string().trim().min(1, "请输入角色名称"),
   description: z.string().trim().min(10, "描述至少 10 个字"),
-  downloadUrl: z.url("请输入有效的阿里云 OSS 直链"),
+  downloadUrl: z.union([z.literal(""), z.url("请输入有效的直链下载地址")]),
   videoUrl: z.union([z.literal(""), z.url("请输入有效的视频链接")]),
   authorUrl: z.union([z.literal(""), z.url("请输入有效的作者链接")]),
   imageUrls: z.string().trim().min(1, "请至少填写一张预览图链接"),
-  tags: z.string().trim().optional().default(""),
+  driveLinksText: z.string().trim().optional().default(""),
   nsfw: z.boolean(),
   xxmiGuide: z.string().trim().min(1, "请填写 XXMI 安装说明"),
 });
@@ -57,7 +57,7 @@ export function parseAdminModFormData(formData: FormData) {
     videoUrl: String(formData.get("videoUrl") ?? "").trim(),
     authorUrl: String(formData.get("authorUrl") ?? "").trim(),
     imageUrls: String(formData.get("imageUrls") ?? ""),
-    tags: String(formData.get("tags") ?? "").trim(),
+    driveLinksText: String(formData.get("driveLinksText") ?? ""),
     nsfw: formData.get("nsfw") === "on",
     xxmiGuide: String(formData.get("xxmiGuide") ?? ""),
   };
@@ -77,6 +77,16 @@ export function splitImageUrls(value: string) {
     .filter(Boolean);
 }
 
-export function splitTags(value: string) {
-  return value ? value.split(/[，,\s]+/).map((item) => item.trim()).filter(Boolean) : [];
+export function splitDriveLinks(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 2) return null;
+      const url = parts.pop()!;
+      const platform = parts.join(" ");
+      return { platform, url };
+    })
+    .filter((item): item is { platform: string; url: string } => item !== null && item.url.length > 0);
 }
+

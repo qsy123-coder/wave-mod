@@ -6,19 +6,19 @@ import {
   buildAdminModFieldErrors,
   parseAdminModFormData,
   parseAdminModUpdateFormData,
+  splitDriveLinks,
   splitImageUrls,
-  splitTags,
 } from "./mod-form";
 
 const validValues = {
   title: "今汐高清 MOD",
   character: "今汐",
   description: "这是一段足够长的 MOD 描述内容。",
-  downloadUrl: "https://example.oss-cn-shanghai.aliyuncs.com/mod.zip",
+  downloadUrl: "",
   videoUrl: "",
   authorUrl: "",
   imageUrls: "https://example.oss-cn-shanghai.aliyuncs.com/cover.jpg",
-  tags: "高清 白色",
+  driveLinksText: "",
   nsfw: false,
   xxmiGuide: "使用 XXMI 导入并启用。",
 };
@@ -36,7 +36,7 @@ describe("admin mod form helpers", () => {
     if (!result.success) {
       expect(buildAdminModFieldErrors(result.error)).toMatchObject({
         title: "标题至少 2 个字",
-        downloadUrl: "请输入有效的阿里云 OSS 直链",
+        downloadUrl: "请输入有效的直链下载地址",
         imageUrls: "请至少填写一张预览图链接",
       });
     }
@@ -78,8 +78,12 @@ describe("admin mod form helpers", () => {
     ]);
   });
 
-  it("splits tags by Chinese comma, English comma, and whitespace", () => {
-    expect(splitTags("高清，白色, 角色  长发")).toEqual(["高清", "白色", "角色", "长发"]);
-    expect(splitTags("")).toEqual([]);
+  it("splits drive links by lines with platform and URL", () => {
+    expect(splitDriveLinks("百度网盘 https://pan.baidu.com/s/1\n阿里云盘 https://www.alipan.com/abc")).toEqual([
+      { platform: "百度网盘", url: "https://pan.baidu.com/s/1" },
+      { platform: "阿里云盘", url: "https://www.alipan.com/abc" },
+    ]);
+    expect(splitDriveLinks("")).toEqual([]);
   });
+
 });

@@ -8,8 +8,8 @@ import {
   adminModFormSchema,
   buildAdminModFieldErrors,
   parseAdminModFormData,
+  splitDriveLinks,
   splitImageUrls,
-  splitTags,
   type AdminModFormState,
 } from "@/lib/admin/mod-form";
 import { revalidateCreatorProfileCache, revalidatePublicModCaches } from "@/lib/mod-cache";
@@ -45,7 +45,6 @@ export async function createModAction(_prevState: UploadFormState, formData: For
 
   const payload = parsed.data;
   const imageList = splitImageUrls(payload.imageUrls);
-  const tagList = splitTags(payload.tags);
   const persistedMeta = getPersistedModMeta();
 
   if (imageList.length === 0) {
@@ -67,11 +66,11 @@ export async function createModAction(_prevState: UploadFormState, formData: For
     version: persistedMeta.version,
     game_version: persistedMeta.gameVersion,
     description: payload.description,
-    download_url: payload.downloadUrl,
+    download_url: payload.downloadUrl || null,
     video_url: payload.videoUrl || null,
     mod_author_url: payload.authorUrl || null,
     images: imageList,
-    tags: tagList,
+    drive_links: splitDriveLinks(payload.driveLinksText),
     nsfw: payload.nsfw,
     xxmi_install_guide: payload.xxmiGuide,
     created_by: createdBy,

@@ -35,7 +35,7 @@ export function ProfileModMiniCard({
         <span
           className={`absolute left-1.5 top-1.5 border border-black px-1.5 py-0.5 text-[8px] font-black uppercase ${tone}`}
         >
-          {mod.nsfw ? "NSFW" : mod.tags[0] ?? "Hot"}
+          {mod.nsfw ? "NSFW" : "Hot"}
         </span>
         <span className="absolute right-1.5 top-1.5 border border-black bg-black/10 px-1.5 py-0.5 text-[8px] font-black text-black">
           {mod.version}

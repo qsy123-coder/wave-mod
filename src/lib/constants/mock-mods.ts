@@ -6,10 +6,10 @@ export type ModListItem = {
   description: string;
   coverImage: string;
   images: string[];
-  tags: string[];
   likes: number;
   favorites: number;
   views: number;
+  driveLinks: Array<{ platform: string; url: string }>;
   gameVersion: string;
   updatedAt: string;
   downloadUrl: string;
@@ -30,9 +30,9 @@ export const mockMods: ModListItem[] = [
       "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?auto=format&fit=crop&w=1200&q=80",
     ],
-    tags: ["高清贴图", "剧情过场", "热门"],
     likes: 1288,
     favorites: 846,
+    driveLinks: [],
     views: 18562,
     gameVersion: "2.3.x",
     updatedAt: "2026-04-08",
@@ -50,9 +50,9 @@ export const mockMods: ModListItem[] = [
       "https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1544256718-3bcf237f3974?auto=format&fit=crop&w=1200&q=80",
     ],
-    tags: ["高燃演示", "角色重涂"],
     likes: 946,
     favorites: 622,
+    driveLinks: [],
     views: 13210,
     gameVersion: "2.3.x",
     updatedAt: "2026-04-06",
@@ -70,9 +70,9 @@ export const mockMods: ModListItem[] = [
       "https://images.unsplash.com/photo-1511882150382-421056c89033?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=80",
     ],
-    tags: ["夜景", "轻量包"],
     likes: 731,
     favorites: 514,
+    driveLinks: [],
     views: 9840,
     gameVersion: "2.2.x",
     updatedAt: "2026-04-05",

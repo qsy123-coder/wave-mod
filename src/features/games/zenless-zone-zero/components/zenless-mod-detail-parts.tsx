@@ -43,6 +43,7 @@ export function ZenlessHeroActions({
           modId={mod.id}
           downloadUrl={mod.downloadUrl}
           downloadCount={mod.downloads}
+          driveLinks={mod.driveLinks}
         />
       </div>
       <FavoriteButton
@@ -102,11 +103,11 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RailDownloadButton({ downloadUrl }: { downloadUrl: string }) {
-  const disabled = !downloadUrl.trim();
+function RailDownloadButton({ downloadUrl }: { downloadUrl: string | null }) {
+  const disabled = !downloadUrl?.trim();
   return (
     <Link
-      href={disabled ? "#" : downloadUrl}
+      href={disabled ? "#" : (downloadUrl ?? "#")}
       target={disabled ? undefined : "_blank"}
       rel={disabled ? undefined : "noreferrer"}
       aria-disabled={disabled}
