@@ -107,9 +107,9 @@ const variantStyles: Record<
     defaultTopRight: null,
   },
   list: {
-    title: "line-clamp-2 max-w-[10.5rem] text-[0.96rem] font-black leading-[1.02] text-white sm:max-w-[11.5rem] sm:text-[1.02rem]",
-    description: "hidden max-w-[10.5rem] text-[10px] font-bold leading-4 text-white/66 md:block",
-    content: "absolute inset-x-0 bottom-0 px-3 pb-3 pt-24 text-white",
+    title: "line-clamp-1 max-w-[10.5rem] text-[0.78rem] font-black leading-[1.02] text-white sm:text-[0.82rem]",
+    description: "hidden max-w-[10.5rem] text-[9px] font-bold leading-3 text-white/66 md:block",
+    content: "absolute inset-x-0 bottom-0 px-2.5 pb-2.5 pt-20 text-white",
     tagWrap: "hidden",
     titleLinkWrap: "block space-y-1",
     detailLink:
@@ -172,12 +172,12 @@ export function ModCard({
 
   const metaBadges = showMetaBadges ? (
     <>
-      <Badge className={cn("neo-sticker -rotate-2 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em]", badgeTone.character)}>
+      <Badge className={cn("neo-sticker -rotate-2 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.16em]", badgeTone.character)}>
         {mod.character}
       </Badge>
       {mod.downloadUrl ? (
-        <Badge className="neo-sticker rotate-1 border-2 border-black bg-[#4ade80] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-black shadow-[2px_2px_0px_0px_#000]">
-          <Download className="mr-1 inline size-3" />
+        <Badge className="neo-sticker rotate-1 border-2 border-black bg-[#4ade80] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.16em] text-black shadow-[2px_2px_0px_0px_#000]">
+          <Download className="mr-1 inline size-2.5" />
           直链
         </Badge>
       ) : null}
