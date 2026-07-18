@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Download, Sparkles } from "lucide-react";
+import { Search, Download } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -9,8 +9,6 @@ import { cn } from "@/lib/utils";
 type ModsToolbarProps = {
   gameModsPath: string;
   initialQuery?: string;
-  showNsfw: boolean;
-  nsfwToggleHref: string;
   sort: string;
   sortOptions: { label: string; value: string }[];
   sortHrefs: Record<string, string>;
@@ -20,8 +18,6 @@ type ModsToolbarProps = {
 export function ModsToolbar({
   gameModsPath,
   initialQuery = "",
-  showNsfw,
-  nsfwToggleHref,
   sort,
   sortOptions,
   sortHrefs,
@@ -45,14 +41,14 @@ export function ModsToolbar({
   };
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+    <div className={cn("sticky top-[80px] z-10 flex flex-wrap items-center gap-2 border-4 border-black bg-[#fff8ef] p-3 shadow-[6px_6px_0px_0px_#000]", className)}>
       {/* 分类标签 */}
-      <span className="inline-flex items-center gap-1 border-[3px] border-black bg-[var(--neo-accent)] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000]">
+      <span className="inline-flex items-center gap-1 border-4 border-black bg-[#ffd84f] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000]">
         分类
       </span>
 
       {/* 搜索框 */}
-      <form onSubmit={handleSearch} className="flex flex-1 items-center gap-1.5 border-[3px] border-black bg-white px-3 py-1.5 shadow-[3px_3px_0px_0px_#000] min-w-[200px] max-w-md">
+      <form onSubmit={handleSearch} className="flex flex-1 items-center gap-1.5 border-4 border-black bg-white px-3 py-2 shadow-[4px_4px_0px_0px_#000] min-w-[180px] max-w-md">
         <Search className="size-4 shrink-0 text-black/60" />
         <input
           name="query"
@@ -63,50 +59,26 @@ export function ModsToolbar({
         />
       </form>
 
-      {/* 筛选按钮组 */}
-      <div className="flex items-center gap-1.5">
-        {/* 仅 Mods */}
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 border-[3px] border-black bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5"
-        >
-          仅Mods <span className="text-[9px] opacity-50">▼</span>
-        </button>
+      {/* 排序 */}
+      <select
+        value={sort}
+        onChange={handleSortChange}
+        className="cursor-pointer appearance-none border-4 border-black bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] outline-none transition hover:-translate-y-0.5"
+      >
+        {sortOptions.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
 
-        {/* NSFW 开关 */}
-        <Link
-          href={nsfwToggleHref}
-          className={cn(
-            "inline-flex items-center gap-1 border-[3px] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5",
-            showNsfw
-              ? "border-black bg-[#bcaeff] text-black"
-              : "border-black bg-white text-black"
-          )}
-        >
-          显示 NSFW {showNsfw ? "✓" : "—"}
-        </Link>
-
-        {/* 排序 */}
-        <select
-          value={sort}
-          onChange={handleSortChange}
-          className="appearance-none border-[3px] border-black bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] outline-none transition hover:-translate-y-0.5 cursor-pointer"
-        >
-          {sortOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-
-        {/* 直链下载 */}
-        <Link
-          href="/mods"
-          className="inline-flex items-center gap-1 border-[3px] border-black bg-[var(--neo-accent)] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5"
-        >
-          <Download className="size-3.5" />
-        </Link>
-      </div>
+      {/* 直链下载 */}
+      <Link
+        href="/mods"
+        className="inline-flex items-center gap-1 border-4 border-black bg-[var(--neo-accent)] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5"
+      >
+        <Download className="size-4" />
+      </Link>
     </div>
   );
 }

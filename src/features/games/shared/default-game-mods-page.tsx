@@ -20,7 +20,6 @@ type DefaultGameModsPageProps = {
     character?: string;
     query?: string;
     sort?: string;
-    nsfw?: string;
   }>;
 };
 
@@ -53,12 +52,6 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
     isActive: name === currentCharacter,
   }));
 
-  // NSFW 切换链接
-  const nsfwBase = buildModsHref(game, currentSort, currentCharacter, currentQuery);
-  const nsfwToggleHref = params.nsfw === "1"
-    ? nsfwBase
-    : `${nsfwBase}${nsfwBase.includes("?") ? "&" : "?"}nsfw=1`;
-
   // 排序选项链接映射
   const sortHrefs: Record<string, string> = {};
   for (const opt of sortOptions) {
@@ -86,8 +79,6 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
         <ModsToolbar
           gameModsPath={game.nav.mods}
           initialQuery={currentQuery ?? ""}
-          showNsfw={params.nsfw === "1"}
-          nsfwToggleHref={nsfwToggleHref}
           sort={currentSort}
           sortOptions={sortOptions}
           sortHrefs={sortHrefs}

@@ -5,13 +5,13 @@ import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-
 import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
 import { ModGridSkeleton } from "@/components/layout/data-skeletons";
 import { getAvailableCharacters, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
+import { createPublicReadClient } from "@/lib/supabase/server";
 
 type PageProps = {
   searchParams?: Promise<{
     sort?: string;
     character?: string;
     query?: string;
-    nsfw?: string;
   }>;
 };
 
@@ -31,6 +31,28 @@ function buildModsHref(sort: ModSort, character?: string, query?: string) {
   return qs ? `/mods?${qs}` : "/mods";
 }
 
+/** 获取每个角色的已发布 Mod 数量 */
+async function getCharacterCounts(): Promise<Record<string, number>> {
+  try {
+    const supabase = createPublicReadClient();
+    const { data, error } = await supabase
+      .from("mods")
+      .select("character")
+      .eq("is_published", true);
+
+    if (error || !data) return {};
+
+    const counts: Record<string, number> = {};
+    for (const row of data) {
+      const c = String(row.character ?? "").trim();
+      if (c) counts[c] = (counts[c] || 0) + 1;
+    }
+    return counts;
+  } catch {
+    return {};
+  }
+}
+
 async function ModsFeed({ sort, character, query }: { sort: ModSort; character?: string; query?: string }) {
   const firstPage = await getPublicModsPage(1, 16, { sort, character, query });
   return <ModsInfiniteGrid sort={sort} character={character} query={query} initialMods={firstPage.items} />;
@@ -41,19 +63,20 @@ async function ModsPageContent({ searchParams }: PageProps) {
   const currentSort = parseModSort(params.sort);
   const currentCharacter = parseCharacterFilter(params.character);
   const currentQuery = parseModQuery(params.query);
-  const availableCharacters = await getAvailableCharacters();
+
+  const [availableCharacters, counts] = await Promise.all([
+    getAvailableCharacters(),
+    getCharacterCounts(),
+  ]);
+
+  const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
 
   const sidebarCharacters = availableCharacters.map((name) => ({
     label: name,
     href: buildModsHref(currentSort, name, currentQuery),
-    count: 0,
+    count: counts[name] ?? 0,
     isActive: name === currentCharacter,
   }));
-
-  const nsfwBase = buildModsHref(currentSort, currentCharacter, currentQuery);
-  const nsfwToggleHref = params.nsfw === "1"
-    ? nsfwBase
-    : `${nsfwBase}${nsfwBase.includes("?") ? "&" : "?"}nsfw=1`;
 
   const sortHrefs: Record<string, string> = {};
   for (const opt of sortOptions) {
@@ -62,13 +85,13 @@ async function ModsPageContent({ searchParams }: PageProps) {
 
   return (
     <div className="flex gap-6">
-      {/* 侧边栏 */}
-      <div className="hidden w-[180px] shrink-0 lg:block">
-        <div className="sticky top-[100px] max-h-[calc(100vh-120px)] overflow-y-auto pb-8">
+      {/* 侧边栏 — sticky */}
+      <div className="hidden w-[200px] shrink-0 lg:block">
+        <div className="sticky top-[80px] max-h-[calc(100vh-100px)] overflow-y-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <CharacterSidebar
             allLabel="全部"
             allHref={buildModsHref(currentSort, undefined, currentQuery)}
-            allCount={0}
+            allCount={totalCount}
             isAllActive={!currentCharacter}
             characters={sidebarCharacters}
           />
@@ -80,8 +103,6 @@ async function ModsPageContent({ searchParams }: PageProps) {
         <ModsToolbar
           gameModsPath="/mods"
           initialQuery={currentQuery ?? ""}
-          showNsfw={params.nsfw === "1"}
-          nsfwToggleHref={nsfwToggleHref}
           sort={currentSort}
           sortOptions={sortOptions}
           sortHrefs={sortHrefs}
