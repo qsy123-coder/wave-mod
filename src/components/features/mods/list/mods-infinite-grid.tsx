@@ -126,7 +126,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort 
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid w-full auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {mods.map((mod, index) => (
           <MotionReveal key={`${mod.id}-${index}`} delay={0.03 + (index % 8) * 0.02} y={14} rotate={index % 2 === 0 ? -1 : 1}>
             <ModCard
