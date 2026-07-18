@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { LoaderCircle, Search } from "lucide-react";
+import { LoaderCircle, Lock, Search } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
@@ -162,9 +162,10 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
               ) : undefined}
               mediaTopRightClassName="absolute right-2 top-4"
               mediaBottomLeft={mod.nsfw && nsfwMode === "blur" ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="rotate-[-15deg] border-4 border-black bg-[#bcaeff]/90 px-4 py-2 text-lg font-black uppercase tracking-[0.2em] text-black shadow-[6px_6px_0px_0px_#000]">
-                    18禁
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+                  <Lock className="size-8 text-white drop-shadow-[2px_2px_0px_#000]" />
+                  <span className="border-2 border-black bg-black/70 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-[2px_2px_0px_0px_#000]">
+                    可能含18+内容
                   </span>
                 </div>
               ) : undefined}
