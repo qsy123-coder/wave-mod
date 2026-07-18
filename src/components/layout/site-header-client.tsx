@@ -51,6 +51,8 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
   return (
     <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
       <div className="mx-auto flex w-full max-w-[1680px] items-center gap-6 px-4 py-3 sm:px-6 lg:px-8">
+        {/* 左侧组：Logo + 游戏切换 + 导航 */}
+        <div className="flex items-center gap-6">
         <MotionReveal delay={0.02} rotate={-2}>
           <Link
             href="/"
@@ -60,7 +62,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
             <span className="flex size-9 items-center justify-center border-[3px] border-black bg-white text-sm font-black">
               W
             </span>
-            <div className="min-w-0 ">
+            <div className="min-w-0">
               <p className="truncate text-[10px] font-black uppercase tracking-[0.28em] text-black/70">
                 WaveMod
               </p>
@@ -113,18 +115,22 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
             </MotionReveal>
           ))}
         </nav>
+        </div>
 
-        <MotionReveal delay={0.14} className="ml-auto hidden md:block">
+        {/* 中间搜索 */}
+        <MotionReveal delay={0.14} className="hidden flex-1 md:block max-w-md mx-4">
           <Suspense fallback={<div className="neo-card min-w-[280px] px-4 py-3 text-sm font-bold text-black/60" style={{ background: "var(--neo-search)" }}>加载搜索…</div>}>
             <SiteSearchForm />
           </Suspense>
         </MotionReveal>
 
+        {/* 右侧组：主题切换 + 按钮 */}
+        <div className="flex items-center gap-2">
         <ThemeToggle />
 
         {isZzzRoute && <LayoutStyleToggle variant="neo" />}
 
-        <div className="hidden items-center gap-4.5 md:flex">
+        <div className="hidden items-center gap-1.5 md:flex">
           <MotionReveal delay={0.18} rotate={1}>
             <Link href="/favorites" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
               <Heart className="size-3.5" />
@@ -152,6 +158,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
               直链下载
             </Link>
           </MotionReveal>
+        </div>
         </div>
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
