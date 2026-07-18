@@ -82,15 +82,15 @@ export function ModGridSkeleton({ count = 6 }: { count?: number }) {
 export function ModsPageSkeleton() {
   return (
     <div className="flex gap-6">
-      {/* 侧边栏骨架 — 匹配 CharacterSidebar 样式 */}
+      {/* 侧边栏骨架 — 匹配 CharacterSidebar 样式，撑满高度 */}
       <div className="hidden w-[240px] shrink-0 flex-col lg:flex">
-        <div className="flex flex-col gap-2 border-4 border-black bg-[#fff8ef] p-3 shadow-[6px_6px_0px_0px_#000]">
-          <SkeletonBar className="h-10 w-full bg-[#ff7a7a]" />
-          <SkeletonBar className="h-10 w-full bg-white" />
-          <SkeletonBar className="h-10 w-full bg-white" />
-          <div className="my-1 border-t-4 border-black" />
-          {Array.from({ length: 8 }).map((_, i) => (
-            <SkeletonBar key={i} className={`h-10 w-full ${i % 3 === 0 ? "bg-[#bcaeff]" : i % 3 === 1 ? "bg-[#ffd84f]" : "bg-white"}`} />
+        <div className="flex flex-1 flex-col gap-2 overflow-hidden border-4 border-black bg-[#fff8ef] p-3 shadow-[6px_6px_0px_0px_#000]">
+          <SkeletonBar className="h-10 w-full shrink-0 bg-[#ff7a7a]" />
+          <SkeletonBar className="h-10 w-full shrink-0 bg-white" />
+          <SkeletonBar className="h-10 w-full shrink-0 bg-white" />
+          <div className="my-1 shrink-0 border-t-4 border-black" />
+          {Array.from({ length: 15 }).map((_, i) => (
+            <SkeletonBar key={i} className={`h-10 w-full shrink-0 ${i % 3 === 0 ? "bg-[#bcaeff]" : i % 3 === 1 ? "bg-[#ffd84f]" : "bg-white"}`} />
           ))}
         </div>
       </div>
