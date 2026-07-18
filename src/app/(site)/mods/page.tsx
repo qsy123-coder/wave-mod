@@ -120,7 +120,7 @@ async function ModsPageContent({ searchParams }: PageProps) {
 
 export default function ModsPage({ searchParams }: PageProps) {
   return (
-    <div className="flex h-[calc(100vh-60px)] flex-col overflow-hidden pr-0">
+    <div className="-mr-4 flex h-[calc(100vh-60px)] flex-col overflow-hidden sm:-mr-5 lg:-mr-6">
       <div className="flex flex-1 gap-6 overflow-hidden py-3 pl-4 sm:pl-5 lg:pl-6">
         <Suspense fallback={<ModGridSkeleton />}>
           <ModsPageContent searchParams={searchParams} />
