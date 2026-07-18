@@ -50,7 +50,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
 
   return (
     <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
-      <div className="flex items-center gap-2 px-3 py-2 sm:px-4 lg:px-6">
+      <div className="flex items-center gap-2 px-4 py-3 sm:px-6 lg:px-8">
         <MotionReveal delay={0.02} rotate={-2}>
           <Link
             href="/"
