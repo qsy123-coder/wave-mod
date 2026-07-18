@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 import { getGameBySlug } from "@/config/games";
 import { logger } from "@/lib/logger";
 import { getCreatorProfile, getCreatorProfileUncached, getFavoriteMods } from "@/lib/mods";
