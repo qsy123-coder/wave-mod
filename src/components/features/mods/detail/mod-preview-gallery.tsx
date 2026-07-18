@@ -72,16 +72,19 @@ export function ModPreviewGallery({ images, title, videoUrl }: ModPreviewGallery
         <div className="neo-card-lg bg-[#fff8ef] p-3">
           <div className="relative overflow-hidden border-4 border-black bg-black">
             {activeItem.type === "image" ? (
-              <button type="button" onClick={() => setIsLightboxOpen(true)} className="relative block h-[360px] w-full text-left sm:h-[460px] xl:h-[620px]">
-                <Image
-                  src={activeItem.src}
-                  alt={activeItem.alt}
-                  fill
-                  priority
-                  fetchPriority="high"
-                  sizes="(max-width: 1024px) 100vw, 66vw"
-                  className="object-cover transition-transform duration-300 hover:scale-[1.015]"
-                />
+              <button type="button" onClick={() => setIsLightboxOpen(true)} className="relative block max-h-[75vh] w-full text-left">
+                <div className="relative w-full" style={{ aspectRatio: "auto" }}>
+                  <Image
+                    src={activeItem.src}
+                    alt={activeItem.alt}
+                    width={1200}
+                    height={0}
+                    priority
+                    fetchPriority="high"
+                    sizes="(max-width: 1024px) 100vw, 66vw"
+                    className="h-auto w-full object-contain transition-transform duration-300 hover:scale-[1.015]"
+                  />
+                </div>
               </button>
             ) : (
               <div className="flex h-[360px] w-full flex-col justify-between bg-[#bcaeff] p-6 text-black sm:h-[460px] xl:h-[620px]">
@@ -153,13 +156,13 @@ export function ModPreviewGallery({ images, title, videoUrl }: ModPreviewGallery
                 >
                   <div className="relative overflow-hidden border-4 border-black bg-black">
                     {item.type === "image" ? (
-                      <div className="relative h-52 w-full">
+                      <div className="relative aspect-[3/2] w-full">
                         <Image
                           src={item.src}
                           alt={item.alt}
                           fill
                           sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                          className="object-cover"
+                          className="object-contain"
                         />
                       </div>
                     ) : (
