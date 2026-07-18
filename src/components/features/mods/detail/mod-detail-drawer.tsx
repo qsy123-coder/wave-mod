@@ -289,7 +289,7 @@ export function ModDetailDrawer({
               {/* ── 下载方式 ── */}
               <SectionHeading
                 extra={
-                  <span className="shrink-0 border-[3px] border-black bg-[#ff7a7a] px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-black shadow-[2px_2px_0px_0px_#000]">
+                  <span className="shrink-0 border-[3px] border-black bg-[#ff7a7a] px-2 py-0.5 text-[10px] font-bold tracking-widest text-black shadow-[2px_2px_0px_0px_#000]">
                     网盘解压码 x77syq
                   </span>
                 }
