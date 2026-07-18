@@ -56,9 +56,10 @@ type ModsInfiniteGridProps = {
   initialMods: SiteMod[];
   query?: string;
   sort: ModSort;
+  nsfwMode?: "show" | "blur" | "hide";
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur" }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const initialPage: PaginatedResult<SiteMod> = {
     hasMore: initialMods.length === PAGE_SIZE,
@@ -88,7 +89,11 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort 
     refetchOnWindowFocus: false,
   });
 
-  const mods = useMemo(() => data.pages.flatMap((page) => page.items), [data.pages]);
+  const mods = useMemo(() => {
+    const all = data.pages.flatMap((page) => page.items);
+    if (nsfwMode === "hide") return all.filter((m) => !m.nsfw);
+    return all;
+  }, [data.pages, nsfwMode]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -138,6 +143,12 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort 
               imagePriority={index < 4}
               imageFetchPriority={index < 4 ? "high" : "auto"}
               imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+              imageClassName={mod.nsfw && nsfwMode === "blur" ? "blur-xl" : undefined}
+              mediaTopRight={mod.nsfw ? (
+                <span className="inline-flex items-center border-2 border-black bg-[#bcaeff] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
+                  NSFW
+                </span>
+              ) : undefined}
             />
           </MotionReveal>
         ))}

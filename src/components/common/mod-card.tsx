@@ -107,8 +107,8 @@ const variantStyles: Record<
     defaultTopRight: null,
   },
   list: {
-    title: "line-clamp-1 max-w-[10.5rem] text-[0.78rem] font-black leading-[1.02] text-white sm:text-[0.82rem]",
-    description: "hidden max-w-[10.5rem] text-[9px] font-bold leading-3 text-white/66 md:block",
+    title: "line-clamp-1 max-w-[10.5rem] text-[1rem] font-black leading-[1.02] text-white sm:text-[0.82rem]",
+    description: "hidden max-w-[10.5rem] text-[10px] font-bold leading-3 text-white/66 md:block",
     content: "absolute inset-x-0 bottom-0 px-2.5 pb-2.5 pt-20 text-white",
     tagWrap: "hidden",
     titleLinkWrap: "block space-y-1",

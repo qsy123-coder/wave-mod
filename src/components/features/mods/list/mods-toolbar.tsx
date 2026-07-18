@@ -1,10 +1,11 @@
 "use client";
 
-import { Search } from "lucide-react";
-import Link from "next/link";
+import { Search, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+
+export type NsfwMode = "show" | "blur" | "hide";
 
 type ModsToolbarProps = {
   gameModsPath: string;
@@ -12,7 +13,15 @@ type ModsToolbarProps = {
   sort: string;
   sortOptions: { label: string; value: string }[];
   sortHrefs: Record<string, string>;
+  nsfwMode: NsfwMode;
+  onNsfwModeChange: (mode: NsfwMode) => void;
   className?: string;
+};
+
+const nsfwLabels: Record<NsfwMode, string> = {
+  show: "显示 NSFW",
+  blur: "模糊 NSFW",
+  hide: "隐藏 NSFW",
 };
 
 export function ModsToolbar({
@@ -21,6 +30,8 @@ export function ModsToolbar({
   sort,
   sortOptions,
   sortHrefs,
+  nsfwMode,
+  onNsfwModeChange,
   className,
 }: ModsToolbarProps) {
   const router = useRouter();
@@ -33,6 +44,11 @@ export function ModsToolbar({
     } else {
       router.push(gameModsPath);
     }
+  };
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const href = sortHrefs[e.target.value];
+    if (href) router.push(href);
   };
 
   return (
@@ -54,22 +70,37 @@ export function ModsToolbar({
         />
       </form>
 
-      {/* 排序方式 */}
-      {sortOptions.map((opt) => {
-        const active = opt.value === sort;
-        return (
-          <Link
-            key={opt.value}
-            href={sortHrefs[opt.value]}
-            className={cn(
-              "border-4 border-black px-3 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000]",
-              active ? "bg-[#ff7a7a] text-black" : "bg-white text-black/75"
-            )}
-          >
-            {opt.label}
-          </Link>
-        );
-      })}
+      {/* NSFW 筛选 */}
+      <div className="relative">
+        <select
+          value={nsfwMode}
+          onChange={(e) => onNsfwModeChange(e.target.value as NsfwMode)}
+          className="cursor-pointer appearance-none border-4 border-black bg-white px-3 py-2 pr-8 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] outline-none transition hover:-translate-y-0.5"
+        >
+          {(["show", "blur", "hide"] as NsfwMode[]).map((mode) => (
+            <option key={mode} value={mode}>
+              {nsfwLabels[mode]}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-black/60" />
+      </div>
+
+      {/* 排序下拉 */}
+      <div className="relative">
+        <select
+          value={sort}
+          onChange={handleSortChange}
+          className="cursor-pointer appearance-none border-4 border-black bg-white px-3 py-2 pr-8 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] outline-none transition hover:-translate-y-0.5"
+        >
+          {sortOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-black/60" />
+      </div>
     </div>
   );
 }

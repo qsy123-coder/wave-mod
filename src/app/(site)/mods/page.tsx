@@ -1,9 +1,8 @@
 import { Suspense } from "react";
 
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
-import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
-import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
-import { ModGridSkeleton, ModsPageSkeleton } from "@/components/layout/data-skeletons";
+import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
+import { ModsPageSkeleton } from "@/components/layout/data-skeletons";
 import { getAvailableCharacters, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
@@ -53,11 +52,6 @@ async function getCharacterCounts(): Promise<Record<string, number>> {
   }
 }
 
-async function ModsFeed({ sort, character, query }: { sort: ModSort; character?: string; query?: string }) {
-  const firstPage = await getPublicModsPage(1, 16, { sort, character, query });
-  return <ModsInfiniteGrid sort={sort} character={character} query={query} initialMods={firstPage.items} />;
-}
-
 async function ModsPageContent({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {};
   const currentSort = parseModSort(params.sort);
@@ -100,19 +94,15 @@ async function ModsPageContent({ searchParams }: PageProps) {
 
       {/* 主内容区 — 独立滚动 */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <ModsToolbar
+        <ModsPageClient
           gameModsPath="/mods"
           initialQuery={currentQuery ?? ""}
           sort={currentSort}
           sortOptions={sortOptions}
           sortHrefs={sortHrefs}
+          initialMods={(await getPublicModsPage(1, 16, { sort: currentSort, character: currentCharacter, query: currentQuery })).items}
+          character={currentCharacter}
         />
-
-        <div className="flex-1 overflow-y-auto pt-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-          <Suspense fallback={<ModGridSkeleton count={10} />}>
-            <ModsFeed sort={currentSort} character={currentCharacter} query={currentQuery} />
-          </Suspense>
-        </div>
       </div>
     </div>
   );
