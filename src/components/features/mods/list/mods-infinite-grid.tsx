@@ -146,7 +146,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
               imageFetchPriority={index < 4 ? "high" : "auto"}
               imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
               imageClassName={mod.nsfw && nsfwMode === "blur" ? "blur-xl" : undefined}
-              mediaTopRight={(
+              mediaTopRight={mod.nsfw || mod.downloadUrl ? (
                 <div className="flex flex-col gap-1">
                   {mod.nsfw ? (
                     <span className="inline-flex items-center border-2 border-black bg-[#bcaeff] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
@@ -159,7 +159,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
                     </span>
                   ) : null}
                 </div>
-              ) || undefined}
+              ) : undefined}
               mediaTopRightClassName="absolute right-2 top-2"
             />
           </MotionReveal>
