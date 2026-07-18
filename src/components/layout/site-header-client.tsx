@@ -100,7 +100,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
           </DropdownMenu>
         </MotionReveal>
 
-        <nav className="hidden flex-1 items-center justify-center gap-1.5 lg:flex">
+        <nav className="hidden items-center gap-1.5 lg:flex">
           {siteConfig.primaryNav.map((item, index) => (
             <MotionReveal key={item.href} delay={0.06 + index * 0.04} rotate={index % 2 === 0 ? 2 : -2}>
               <Link
@@ -114,7 +114,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
           ))}
         </nav>
 
-        <MotionReveal delay={0.14} className="hidden md:block">
+        <MotionReveal delay={0.14} className="ml-auto hidden md:block">
           <Suspense fallback={<div className="neo-card min-w-[280px] px-4 py-3 text-sm font-bold text-black/60" style={{ background: "var(--neo-search)" }}>加载搜索…</div>}>
             <SiteSearchForm />
           </Suspense>
