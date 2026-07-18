@@ -1,11 +1,9 @@
 import { Suspense } from "react";
-import { Filter, X } from "lucide-react";
 
-import { CharacterTagCollapse } from "@/components/common/character-tag-collapse";
+import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
+import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
 import { ModGridSkeleton } from "@/components/layout/data-skeletons";
-import { MotionReveal } from "@/components/layout/motion-reveal";
-import { SiteSearchForm } from "@/components/layout/site-search-form";
 import { getAvailableCharacters, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 
 type PageProps = {
@@ -13,6 +11,7 @@ type PageProps = {
     sort?: string;
     character?: string;
     query?: string;
+    nsfw?: string;
   }>;
 };
 
@@ -25,26 +24,15 @@ const sortOptions: { label: string; value: ModSort }[] = [
 
 function buildModsHref(sort: ModSort, character?: string, query?: string) {
   const params = new URLSearchParams();
-
-  if (sort !== "latest") {
-    params.set("sort", sort);
-  }
-
-  if (character) {
-    params.set("character", character);
-  }
-
-  if (query) {
-    params.set("query", query);
-  }
-
-  const queryString = params.toString();
-  return queryString ? `/mods?${queryString}` : "/mods";
+  if (sort !== "latest") params.set("sort", sort);
+  if (character) params.set("character", character);
+  if (query) params.set("query", query);
+  const qs = params.toString();
+  return qs ? `/mods?${qs}` : "/mods";
 }
 
 async function ModsFeed({ sort, character, query }: { sort: ModSort; character?: string; query?: string }) {
   const firstPage = await getPublicModsPage(1, 16, { sort, character, query });
-
   return <ModsInfiniteGrid sort={sort} character={character} query={query} initialMods={firstPage.items} />;
 }
 
@@ -54,97 +42,62 @@ async function ModsPageContent({ searchParams }: PageProps) {
   const currentCharacter = parseCharacterFilter(params.character);
   const currentQuery = parseModQuery(params.query);
   const availableCharacters = await getAvailableCharacters();
-  const characterTags = availableCharacters.map((character, index) => ({
-    href: buildModsHref(currentSort, character, currentQuery),
-    isActive: character === currentCharacter,
-    label: character,
-    className: character === currentCharacter ? "bg-[#ff7a7a]" : index % 3 === 0 ? "bg-[#ff7a7a]" : index % 3 === 1 ? "bg-[#ffd84f]" : "bg-[#bcaeff]",
+
+  const sidebarCharacters = availableCharacters.map((name) => ({
+    label: name,
+    href: buildModsHref(currentSort, name, currentQuery),
+    count: 0,
+    isActive: name === currentCharacter,
   }));
 
+  const nsfwBase = buildModsHref(currentSort, currentCharacter, currentQuery);
+  const nsfwToggleHref = params.nsfw === "1"
+    ? nsfwBase
+    : `${nsfwBase}${nsfwBase.includes("?") ? "&" : "?"}nsfw=1`;
+
+  const sortHrefs: Record<string, string> = {};
+  for (const opt of sortOptions) {
+    sortHrefs[opt.value] = buildModsHref(opt.value, currentCharacter, currentQuery);
+  }
+
   return (
-    <>
-      <MotionReveal delay={0.03} rotate={-1}>
-        <section className="border-4 border-black bg-[#fff8ef] p-4 shadow-[8px_8px_0px_0px_#000]">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <p className="neo-label text-black/60">MOD 分类页</p>
-                <h1 className="text-2xl font-black text-black sm:text-3xl">搜索、筛选并快速浏览更多 MOD</h1>
-              </div>
+    <div className="flex gap-6">
+      {/* 侧边栏 */}
+      <div className="hidden w-[180px] shrink-0 lg:block">
+        <div className="sticky top-[100px] max-h-[calc(100vh-120px)] overflow-y-auto pb-8">
+          <CharacterSidebar
+            allLabel="全部"
+            allHref={buildModsHref(currentSort, undefined, currentQuery)}
+            allCount={0}
+            isAllActive={!currentCharacter}
+            characters={sidebarCharacters}
+          />
+        </div>
+      </div>
 
-              {currentCharacter || currentQuery ? (
-                <div className="flex flex-wrap gap-2">
-                  {currentCharacter ? (
-                    <div className="inline-flex items-center gap-2 border-4 border-black bg-[#ffd84f] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
-                      当前角色：{currentCharacter}
-                    </div>
-                  ) : null}
-                  {currentQuery ? (
-                    <div className="inline-flex items-center gap-2 border-4 border-black bg-white px-3 py-2 text-xs font-black shadow-[4px_4px_0px_0px_#000]">
-                      关键词：{currentQuery}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+      {/* 主内容区 */}
+      <div className="min-w-0 flex-1 space-y-4">
+        <ModsToolbar
+          gameModsPath="/mods"
+          initialQuery={currentQuery ?? ""}
+          showNsfw={params.nsfw === "1"}
+          nsfwToggleHref={nsfwToggleHref}
+          sort={currentSort}
+          sortOptions={sortOptions}
+          sortHrefs={sortHrefs}
+        />
 
-            <div className="w-full xl:justify-self-end">
-              <Suspense fallback={<div className="neo-card min-w-0 w-full px-3 py-2.5 text-sm font-bold text-black/60" style={{ background: "var(--neo-search)" }}>加载搜索…</div>}>
-                <SiteSearchForm />
-              </Suspense>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-3 border-t-4 border-black pt-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-              <div className="inline-flex h-fit items-center gap-2 border-4 border-black bg-[#bcaeff] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
-                <Filter className="size-4" />排序
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {sortOptions.map((option) => {
-                  const active = option.value === currentSort;
-
-                  return (
-                    <a
-                      key={option.value}
-                      href={buildModsHref(option.value, currentCharacter, currentQuery)}
-                      className={`border-4 border-black px-3 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] ${active ? "bg-[#ff7a7a] text-black" : "bg-white text-black/75"}`}
-                    >
-                      {option.label}
-                    </a>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-              <div className="inline-flex h-fit items-center gap-2 border-4 border-black bg-[#ff7a7a] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
-                <X className="size-4" />角色
-              </div>
-              <CharacterTagCollapse
-                allLabel="全部角色"
-                allTagHref={buildModsHref(currentSort, undefined, currentQuery)}
-                allTagClassName={`inline-flex items-center gap-2 border-4 border-black px-3 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] ${!currentCharacter ? "bg-[#ff7a7a] text-black" : "bg-white text-black/75"}`}
-                characterTags={characterTags}
-                collapsedCount={6}
-                itemClassName="border-4 border-black px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000]"
-                moreButtonClassName="border-4 border-black bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000]"
-              />
-            </div>
-          </div>
-        </section>
-      </MotionReveal>
-
-      <Suspense fallback={<ModGridSkeleton />}>
-        <ModsFeed sort={currentSort} character={currentCharacter} query={currentQuery} />
-      </Suspense>
-    </>
+        <Suspense fallback={<ModGridSkeleton />}>
+          <ModsFeed sort={currentSort} character={currentCharacter} query={currentQuery} />
+        </Suspense>
+      </div>
+    </div>
   );
 }
 
 export default function ModsPage({ searchParams }: PageProps) {
   return (
-    <div className="flex flex-col gap-5 py-5 lg:py-6">
+    <div className="py-5 lg:py-6">
       <Suspense fallback={<ModGridSkeleton />}>
         <ModsPageContent searchParams={searchParams} />
       </Suspense>
