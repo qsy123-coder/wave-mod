@@ -92,9 +92,6 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   const mods = useMemo(() => {
     let all = data.pages.flatMap((page) => page.items);
-    const withDownload = all.filter((m) => m.downloadUrl);
-    console.log("[ModsInfiniteGrid] total:", all.length, "with downloadUrl:", withDownload.length);
-    if (withDownload.length > 0) console.log("[ModsInfiniteGrid] first download mod:", { title: withDownload[0]?.title, downloadUrl: withDownload[0]?.downloadUrl?.slice(0, 50) });
     if (nsfwMode === "hide") all = all.filter((m) => !m.nsfw);
     if (directOnly) all = all.filter((m) => m.downloadUrl);
     return all;
