@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Download } from "lucide-react";
+import { Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -35,11 +35,6 @@ export function ModsToolbar({
     }
   };
 
-  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const href = sortHrefs[e.target.value];
-    if (href) router.push(href);
-  };
-
   return (
     <div className={cn("flex flex-wrap items-center gap-2 border-4 border-black bg-[#fff8ef] p-3 shadow-[6px_6px_0px_0px_#000]", className)}>
       {/* 分类标签 */}
@@ -59,26 +54,22 @@ export function ModsToolbar({
         />
       </form>
 
-      {/* 排序 */}
-      <select
-        value={sort}
-        onChange={handleSortChange}
-        className="cursor-pointer appearance-none border-4 border-black bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] outline-none transition hover:-translate-y-0.5"
-      >
-        {sortOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+      {/* 排序方式 */}
+      {sortOptions.map((opt) => {
+        const active = opt.value === sort;
+        return (
+          <Link
+            key={opt.value}
+            href={sortHrefs[opt.value]}
+            className={cn(
+              "border-4 border-black px-3 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000]",
+              active ? "bg-[#ff7a7a] text-black" : "bg-white text-black/75"
+            )}
+          >
             {opt.label}
-          </option>
-        ))}
-      </select>
-
-      {/* 直链下载 */}
-      <Link
-        href="/mods"
-        className="inline-flex items-center gap-1 border-4 border-black bg-[var(--neo-accent)] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5"
-      >
-        <Download className="size-4" />
-      </Link>
+          </Link>
+        );
+      })}
     </div>
   );
 }
