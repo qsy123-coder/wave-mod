@@ -11,7 +11,7 @@ import { updateModAction } from "@/actions/admin/edit-mod-actions";
 import { createModAction } from "@/actions/admin/upload-actions";
 import { defaultUploadFormValues, getDefaultXXMIGuide, type UploadFormValues } from "@/constants/upload-defaults";
 import { adminModFormSchema, initialAdminModFormState, splitImageUrls, type AdminModFormValues } from "@/lib/admin/mod-form";
-import { OssImageUpload } from "@/components/features/admin/upload/oss-image-upload";
+import { StorageImageUpload } from "@/components/features/admin/upload/storage-image-upload";
 import { OssZipUpload } from "@/components/features/admin/upload/oss-zip-upload";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Button } from "@/components/ui/button";
@@ -189,7 +189,7 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
                       ))}
                     </div>
                   ) : null}
-                  <OssImageUpload defaultCharacter={formValues.character} onUploaded={(urls) => setValue("imageUrls", mergeImageUrls(imageUrls, urls), { shouldDirty: true, shouldValidate: true })} />
+                  <StorageImageUpload defaultCharacter={formValues.character} onUploaded={(urls) => setValue("imageUrls", mergeImageUrls(imageUrls, urls), { shouldDirty: true, shouldValidate: true })} />
                 </div>
               </Field>
 
@@ -227,8 +227,8 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
               </div>
               <ul className="space-y-3 text-sm font-bold leading-7 text-black/80">
                 <li>• 当前表单支持创建与编辑两种模式，字段会自动回填。</li>
-                <li>• MOD 压缩包必须使用阿里云 OSS 直链，不要放入 Supabase Storage。</li>
-                <li>• 现在支持后台直传 ZIP 和预览图到 OSS，成功后会自动回填链接。</li>
+                <li>• MOD 压缩包可上传到 Supabase Storage 或填写直链。</li>
+                <li>• 预览图上传到 Supabase Storage，成功后会自动回填链接。</li>
                 <li>• 角色名称支持自由输入，新角色无需等待后台更新选项列表。</li>
               </ul>
             </CardContent>

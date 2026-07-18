@@ -36,8 +36,16 @@ export function sortModsByHot(mods: SiteMod[]) {
 export function applyModQueryFilters(mods: SiteMod[], filters: Pick<PublicModsFilters, "character" | "query">) {
   let nextMods = mods;
 
+  // 非角色分类名，用于 Skins 筛选时排除
+  const NON_CHARACTER_CATEGORIES = new Set(["Skins", "UI", "Other/Misc"]);
+
   if (filters.character) {
-    nextMods = nextMods.filter((mod) => mod.character === filters.character);
+    if (filters.character === "Skins") {
+      // Skins 分类 = 展示所有角色 MOD，排除 UI / Other/Misc 等非角色分类
+      nextMods = nextMods.filter((mod) => !NON_CHARACTER_CATEGORIES.has(mod.character));
+    } else {
+      nextMods = nextMods.filter((mod) => mod.character === filters.character);
+    }
   }
 
   const normalizedQuery = filters.query
