@@ -55,9 +55,15 @@ export function ThemeToggle() {
       >
         <Palette className="size-4" />
         <span className="text-xs font-black uppercase tracking-[0.12em]">风格</span>
-        <span className="inline-flex items-center border-4 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[3px_3px_0px_0px_#000]" style={{ background: activeTheme.color }}>
-          {activeTheme.label}
-        </span>
+        {mounted ? (
+          <span className="inline-flex items-center border-4 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[3px_3px_0px_0px_#000]" style={{ background: activeTheme.color }}>
+            {activeTheme.label}
+          </span>
+        ) : (
+          <span className="inline-flex items-center border-4 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[3px_3px_0px_0px_#000]" style={{ background: themes[0].color }}>
+            {themes[0].label}
+          </span>
+        )}
         <ChevronDown className={`size-4 transition ${open ? "rotate-180" : "rotate-0"}`} />
       </button>
 
