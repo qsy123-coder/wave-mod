@@ -49,8 +49,9 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
   const currentGameKey = getCurrentGameKey(pathname);
 
   return (
-    <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
-      <div className="mx-auto flex w-full max-w-[1680px] items-center gap-6 px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 border-b-2 border-black/75 shadow-[0_4px_0px_0px_rgba(0,0,0,0.7)]">
+      <div className="absolute inset-0 bg-[var(--neo-nav)]/80 backdrop-blur-md" />
+      <div className="relative mx-auto flex w-full max-w-[1680px] items-center gap-6 px-4 py-3 sm:px-6 lg:px-8">
         {/* 左侧组：Logo + 游戏切换 + 导航 */}
         <div className="flex items-center gap-6">
         <MotionReveal delay={0.02} rotate={-2}>
@@ -125,12 +126,12 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
         </MotionReveal>
 
         {/* 右侧组：主题切换 + 按钮 */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
         <ThemeToggle />
 
         {isZzzRoute && <LayoutStyleToggle variant="neo" />}
 
-        <div className="hidden items-center gap-1.5 md:flex">
+        <div className="hidden items-center gap-4.5 md:flex">
           <MotionReveal delay={0.18} rotate={1}>
             <Link href="/favorites" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
               <Heart className="size-3.5" />
