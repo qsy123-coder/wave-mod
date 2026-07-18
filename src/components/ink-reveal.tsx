@@ -154,6 +154,8 @@ export default function InkReveal({
     [addStamp, stampStep]
   );
 
+  const loopRef = useRef<() => void>(() => {});
+
   const loop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -181,18 +183,21 @@ export default function InkReveal({
     }
 
     if (stamps.length) {
-      requestAnimationFrame(loop);
+      requestAnimationFrame(loopRef.current);
     } else {
       runningRef.current = false;
     }
   }, [carveInk, mc, lifetime, rStart]);
 
+  // 保持 loopRef 始终指向最新的 loop
+  useEffect(() => { loopRef.current = loop; });
+
   const startLoop = useCallback(() => {
     if (!runningRef.current) {
       runningRef.current = true;
-      requestAnimationFrame(loop);
+      requestAnimationFrame(loopRef.current);
     }
-  }, [loop]);
+  }, []);
 
   useEffect(() => {
     resize();

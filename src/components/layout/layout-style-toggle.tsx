@@ -22,6 +22,7 @@ export function LayoutStyleToggle({ variant = "glass" }: LayoutStyleToggleProps)
   const { layoutStyle, setLayoutStyle } = useLayoutStyle();
   const [mounted, setMounted] = useState(false);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration mount 标记
   useEffect(() => { setMounted(true); }, []);
 
   const activeIndex = STYLE_OPTIONS.findIndex((s) => s.id === layoutStyle);

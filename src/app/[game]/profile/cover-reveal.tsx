@@ -40,18 +40,7 @@ export function CoverReveal({
   const stampStep = 8;
   const maxStamps = 120;
 
-  // 加载封面图到内存
-  useEffect(() => {
-    const img = new window.Image();
-    img.crossOrigin = "anonymous";
-    img.src = coverImage;
-    img.onload = () => {
-      imgRef.current = img;
-      resize();
-    };
-    return () => { imgRef.current = null; };
-  }, [coverImage]);
-
+  // resize 必须在 useEffect 之前声明
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -80,6 +69,19 @@ export function CoverReveal({
     ctx.drawImage(img, coverRef.current.sx, coverRef.current.sy, sw, sh);
   }, []);
 
+  // 加载封面图到内存（必须在 resize 之后）
+  useEffect(() => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.src = coverImage;
+    img.onload = () => {
+      imgRef.current = img;
+      resize();
+    };
+    return () => { imgRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coverImage]);
+
   const addStamp = useCallback((x: number, y: number) => {
     const stamps = stampsRef.current;
     if (stamps.length >= maxStamps) stamps.shift();
@@ -98,6 +100,7 @@ export function CoverReveal({
     lastPosRef.current = { x, y };
   }, [addStamp]);
 
+  // loop 必须在 startLoop 之前声明
   const loop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;

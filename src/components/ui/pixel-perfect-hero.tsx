@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 
 /* -----------------------------------------------------------------------------
  * CANVAS PIXEL ENGINE
@@ -62,7 +62,7 @@ function PixelCanvas({ colors, gap = 5, speed = 30 }: PixelCanvasProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const pixelsRef = useRef<Pixel[]>([]);
   const animationRef = useRef<number>(0);
-  const lastFrameRef = useRef(performance.now());
+  const lastFrameRef = useRef(0);
   const reducedMotionRef = useRef(false);
 
   const init = useCallback(() => {

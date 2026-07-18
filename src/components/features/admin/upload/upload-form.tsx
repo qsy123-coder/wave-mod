@@ -57,6 +57,7 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
     if (state.error) toast.error(state.error);
     if (state.success) {
       toast.success(state.success);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 表单重置 Key
       setFormKey((k) => k + 1);
     }
   }, [state.error, state.success]);

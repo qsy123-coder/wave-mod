@@ -1,5 +1,12 @@
 "use client";
 
+/** 命令式创建的 DOM 节点，挂载图片/提示信息引用 */
+interface GalleryNode extends HTMLElement {
+  _dlBtn?: HTMLElement;
+  _imgEl?: HTMLImageElement;
+  _promptEl?: HTMLElement;
+}
+
 /**
  * GalleryRenderer — 完整参照 chenglou/chenglou.github.io。
  *
@@ -121,14 +128,14 @@ export function GalleryRenderer(p: Props) {
       dl.addEventListener("mouseleave", () => { dl.style.backgroundColor = "transparent"; });
       dl.addEventListener("click", (e) => { e.stopPropagation(); });
       promptEl.appendChild(dl);
-      (node as any)._dlBtn = dl;
+      (node as GalleryNode)._dlBtn = dl;
 
       node.append(imgEl, promptEl);
       frag.append(node);
 
       // 暂存引用，init effect 中创建 Box 时填充
-      (node as any)._imgEl = imgEl;
-      (node as any)._promptEl = promptEl;
+      (node as GalleryNode)._imgEl = imgEl;
+      (node as GalleryNode)._promptEl = promptEl;
     });
 
     // 插入占位 div 之后（占位 div 由 React 渲染）
@@ -317,7 +324,7 @@ export function GalleryRenderer(p: Props) {
         }
       }
       // 下载按钮：仅在 1D 聚焦图且动画结束后显示
-      const dlBtn = (n as any)._dlBtn as HTMLElement | undefined;
+      const dlBtn = (n as GalleryNode)._dlBtn as HTMLElement | undefined;
       if (dlBtn) {
         dlBtn.style.display = i === f && !anim ? "flex" : "none";
       }
@@ -388,8 +395,8 @@ export function GalleryRenderer(p: Props) {
         y: spring(Hv + Math.floor(i / cols) * imgMaxH),
         scale: spring(1), fx: spring(1),
         node: node!,
-        imgEl: (node as any)?._imgEl as HTMLImageElement || null!,
-        promptEl: (node as any)?._promptEl as HTMLElement || null!,
+        imgEl: (node as GalleryNode)?._imgEl as HTMLImageElement || null!,
+        promptEl: (node as GalleryNode)?._promptEl as HTMLElement || null!,
       };
     });
 

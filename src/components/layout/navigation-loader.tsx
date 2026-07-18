@@ -38,6 +38,7 @@ export function NavigationLoader() {
       return;
     }
     if (gameKey !== prevGameRef.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 跨游戏导航响应
       setTargetName(getGameName(gameKey));
       setShow(true);
       prevGameRef.current = gameKey;

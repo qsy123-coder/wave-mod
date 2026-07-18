@@ -35,10 +35,13 @@ export function useGalleryUrlSync(
         ? imageIndex
         : null;
 
-    if (clampedIndex != null) wasOpenRef.current = true;
-
     return { viewMode, activeImageIndex: clampedIndex };
   });
+
+  // 同步 wasOpenRef（不能在 useState 初始化器中访问 ref）
+  useEffect(() => {
+    if (state.activeImageIndex != null) wasOpenRef.current = true;
+  }, [state.activeImageIndex]);
 
   // URL 同步：在 effect 中执行，避免 setState 回调中更新其他组件
   useEffect(() => {
