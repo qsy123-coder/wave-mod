@@ -1,22 +1,14 @@
 import "server-only";
 
-import { cacheLife, cacheTag } from "next/cache";
-
 import { defaultGameKey } from "@/config/games";
 import { defaultCharacterSuggestions } from "@/lib/constants/characters";
 import { logger } from "@/lib/logger";
-import { modCacheTags } from "@/lib/mod-cache";
 import { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
 import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, sortModsByHot } from "@/lib/mods-domain/sorting";
 import type { ModRow, PaginatedResult, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
 export async function getAvailableCharacters(gameKey = defaultGameKey) {
-  "use cache";
-  cacheTag(modCacheTags.characters);
-  cacheTag(`mods:characters:${gameKey}`);
-  cacheLife("hours");
-
   try {
     const supabase = createPublicReadClient();
     const { data, error } = await supabase
@@ -50,10 +42,6 @@ export async function getCharacterSuggestions(gameKey = defaultGameKey) {
 }
 
 export async function getPublicMods(limit?: number, filters: PublicModsFilters = {}) {
-  "use cache";
-  cacheTag(modCacheTags.list);
-  cacheLife("minutes");
-
   const { gameKey = defaultGameKey, sort = "latest" } = filters;
   let supabase;
   try {
@@ -127,19 +115,11 @@ export async function getPublicModsPage(page: number, pageSize: number, filters:
 }
 
 export async function getPublicModBaseById(id: string, gameKey?: string) {
-  "use cache";
-
   const parsedId = modIdSchema.safeParse(id);
 
   if (!parsedId.success) {
     return null;
   }
-
-  cacheTag(modCacheTags.detail(parsedId.data));
-  if (gameKey) {
-    cacheTag(`mods:detail:${gameKey}:${parsedId.data}`);
-  }
-  cacheLife("minutes");
 
   let supabase;
   try {

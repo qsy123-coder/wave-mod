@@ -1,7 +1,5 @@
 import "server-only";
 
-import { cacheLife, cacheTag } from "next/cache";
-
 import { logger } from "@/lib/logger";
 import { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
 import type { SiteMod } from "@/lib/mods-domain/types";
@@ -36,11 +34,6 @@ export async function getTopCreators(
   limit: number,
   gameKey: string,
 ): Promise<TopCreator[]> {
-  "use cache";
-  cacheTag("creators:ranking");
-  cacheTag(`creators:ranking:${gameKey}`);
-  cacheLife("hours");
-
   try {
     const supabase = createPublicReadClient();
 
@@ -184,11 +177,6 @@ export async function getCreatorProfile(
   userId: string,
   gameKey: string,
 ): Promise<CreatorProfile | null> {
-  "use cache";
-  cacheTag(`creator:profile:${userId}`);
-  cacheTag(`creator:profile:${userId}:${gameKey}`);
-  cacheLife("hours");
-
   try {
     return await fetchCreatorProfile(userId, gameKey);
   } catch (error) {
