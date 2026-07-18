@@ -34,12 +34,12 @@ type RatingStickerProps = {
 
 export function RatingSticker({ ratingAverage, ratingCount, className = "" }: RatingStickerProps) {
   return (
-    <div className={`absolute bottom-3 right-3 rotate-2 border-4 border-black bg-[#ffd84f] px-2 py-1.5 shadow-[4px_4px_0px_0px_#000] ${className}`.trim()}>
-      <div className="flex items-center gap-1 text-black">
-        <Star className="size-3 fill-[#ff7a00] text-[#ff7a00]" />
-        <span className="text-sm font-black leading-none">{ratingAverage.toFixed(1)}</span>
+    <div className={`absolute bottom-2 right-2 rotate-2 border-[3px] border-black bg-[#ffd84f] px-1.5 py-1 shadow-[3px_3px_0px_0px_#000] ${className}`.trim()}>
+      <div className="flex items-center gap-0.5 text-black">
+        <Star className="size-2.5 fill-[#ff7a00] text-[#ff7a00]" />
+        <span className="text-[11px] font-black leading-none">{ratingAverage.toFixed(1)}</span>
       </div>
-      <p className="mt-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black/70">{ratingCount} 人评分</p>
+      <p className="mt-0.5 text-[7px] font-black uppercase tracking-[0.14em] text-black/70">{ratingCount} 人评分</p>
     </div>
   );
 }

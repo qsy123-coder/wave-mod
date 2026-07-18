@@ -172,7 +172,7 @@ export function ModCard({
 
   const metaBadges = showMetaBadges ? (
     <>
-      <Badge className={cn("neo-sticker -rotate-2 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.16em]", badgeTone.character)}>
+      <Badge className={cn("neo-sticker -rotate-2 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em]", badgeTone.character)}>
         {mod.character}
       </Badge>
       {mod.downloadUrl ? (
