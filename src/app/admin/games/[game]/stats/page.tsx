@@ -115,7 +115,7 @@ function TopModsTable({ game, mods }: { game: GameConfig; mods: AdminMod[] }) {
 
 async function AdminGameStatsContent({ game }: { game: GameConfig }) {
   await requireAdminUser(`/admin/games/${game.slug}/stats`);
-  const mods = await getAdminMods(game.key);
+  const mods = await getAdminMods({ gameKey: game.key });
   const publishedCount = mods.filter((mod) => mod.isPublished).length;
   const draftCount = mods.length - publishedCount;
   const characterStats = buildCharacterStats(mods);

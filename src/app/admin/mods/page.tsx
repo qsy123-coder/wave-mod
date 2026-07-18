@@ -4,33 +4,53 @@ import { Download, Gamepad2, PencilRuler } from "lucide-react";
 
 import { games } from "@/config/games";
 import { requireAdminUser } from "@/actions/auth/auth-actions";
+import { AdminModsToolbar } from "@/components/features/admin/mods/admin-mods-toolbar";
 import { DeleteModButton } from "@/components/features/admin/mods/delete-mod-button";
 import { FixCreatorButton } from "@/components/features/admin/mods/fix-creator-button";
 import { PublishToggleButton } from "@/components/features/admin/mods/publish-toggle-button";
+import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { AdminModsSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
-import { getAdminMods } from "@/lib/mods";
+import {
+  buildAdminModsHref,
+  getAdminCharacterCounts,
+  parseAdminModsSearchParams,
+  sortAdminCharacterNames,
+  ADMIN_SPECIAL_CATEGORIES,
+  type AdminModsFilters,
+} from "@/lib/admin/mods-filters";
+import { getAdminMods, type AdminMod } from "@/lib/mods";
 
-async function AdminModsList() {
-  const mods = await getAdminMods();
+/** 侧边栏单项：角色名 → href + count + 是否选中 */
+function buildSidebarItems(filters: AdminModsFilters, characterCounts: Record<string, number>) {
+  const characterNames = sortAdminCharacterNames(Object.keys(characterCounts));
+
+  // 特殊分类（Skins / Other/Misc / UI）
+  const specialItems = ADMIN_SPECIAL_CATEGORIES.filter((c) => characterNames.includes(c)).map((c) => ({
+    label: c,
+    href: buildAdminModsHref({ ...filters, character: c }),
+    count: characterCounts[c] ?? 0,
+    isActive: c === filters.character,
+  }));
+
+  // 普通角色（排除特殊分类名）
+  const regularItems = characterNames
+    .filter((n) => !ADMIN_SPECIAL_CATEGORIES.includes(n as (typeof ADMIN_SPECIAL_CATEGORIES)[number]))
+    .map((name) => ({
+      label: name,
+      href: buildAdminModsHref({ ...filters, character: name }),
+      count: characterCounts[name] ?? 0,
+      isActive: name === filters.character,
+    }));
+
+  return { specialItems, regularItems, all: [...specialItems, ...regularItems] };
+}
+
+function AdminModsCards({ mods }: { mods: AdminMod[] }) {
   const gameNameMap = new Map<string, string>(games.map((game) => [game.key, game.name]));
 
-  if (mods.length === 0) {
-    return (
-      <MotionReveal delay={0.08} y={22} rotate={1}>
-        <section className="neo-card-lg bg-[var(--neo-panel)] p-6 text-black">
-          <div className="border-4 border-black bg-white px-5 py-6 shadow-[8px_8px_0px_0px_#000]">
-            <p className="neo-label text-black/60">管理列表为空</p>
-            <h2 className="mt-2 text-3xl font-black">你还没有发布任何 MOD。</h2>
-            <p className="mt-4 text-sm font-bold leading-7 text-black/75">
-              去上传页面新增一条内容后，这里会自动显示真实数据库记录。
-            </p>
-          </div>
-        </section>
-      </MotionReveal>
-    );
-  }
+  if (mods.length === 0) return null;
 
   return (
     <div className="grid gap-4">
@@ -83,12 +103,98 @@ async function AdminModsList() {
   );
 }
 
-async function AdminModsContent() {
-  await requireAdminUser("/admin/mods");
-  return <AdminModsList />;
+function AdminModsEmpty({ hasActiveFilters }: { hasActiveFilters: boolean }) {
+  return (
+    <MotionReveal delay={0.08} y={22} rotate={1}>
+      <section className="neo-card-lg bg-[var(--neo-panel)] p-6 text-black">
+        <div className="border-4 border-black bg-white px-5 py-6 shadow-[8px_8px_0px_0px_#000]">
+          {hasActiveFilters ? (
+            <>
+              <p className="neo-label text-black/60">筛选结果为空</p>
+              <h2 className="mt-2 text-3xl font-black">没有符合当前筛选条件的 MOD。</h2>
+              <p className="mt-4 text-sm font-bold leading-7 text-black/75">
+                调整筛选条件或清除全部筛选试试。
+              </p>
+              <Link
+                href="/admin/mods"
+                className="neo-button-outline mt-4 inline-flex items-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
+              >
+                清除筛选
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="neo-label text-black/60">管理列表为空</p>
+              <h2 className="mt-2 text-3xl font-black">你还没有发布任何 MOD。</h2>
+              <p className="mt-4 text-sm font-bold leading-7 text-black/75">
+                去上传页面新增一条内容后，这里会自动显示真实数据库记录。
+              </p>
+            </>
+          )}
+        </div>
+      </section>
+    </MotionReveal>
+  );
 }
 
-export default function AdminModsPage() {
+type SearchParams = { character?: string; game?: string; query?: string; sort?: string; status?: string };
+
+async function AdminModsContent({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  await requireAdminUser("/admin/mods");
+
+  const params = (await searchParams) ?? {};
+  const filters = parseAdminModsSearchParams(params);
+
+  // 角色计数需要不受 character 筛选影响的全量（侧边栏展示每个角色在当前游戏/状态/关键词下的库存）
+  const [mods, fullMods] = await Promise.all([
+    getAdminMods(filters),
+    filters.character ? getAdminMods({ ...filters, character: undefined }) : Promise.resolve(null),
+  ]);
+
+  const characterCounts = getAdminCharacterCounts(fullMods ?? mods);
+  const sidebar = buildSidebarItems(filters, characterCounts);
+  const totalCount = Object.values(characterCounts).reduce((a, b) => a + b, 0);
+
+  const hasActiveFilters = Boolean(
+    filters.gameKey || filters.query || filters.character || (filters.status && filters.status !== "all"),
+  );
+
+  return (
+    <div className="flex gap-6">
+      {/* 左侧角色边栏 — 参照 mods-listing.tsx 布局 */}
+      <div className="hidden w-[240px] shrink-0 lg:flex">
+        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <CharacterSidebar
+            allLabel="全部"
+            allHref={buildAdminModsHref({ ...filters, character: undefined })}
+            allCount={totalCount}
+            isAllActive={!filters.character}
+            characters={sidebar.all}
+          />
+        </div>
+      </div>
+
+      {/* 右侧主内容区 */}
+      <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-hidden">
+        <AdminModsToolbar filters={filters} />
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-black/55">
+          共 {mods.length} 条{mods.length !== totalCount ? ` / 分站合计 ${totalCount}` : ""}
+        </p>
+        {mods.length === 0 ? (
+          <AdminModsEmpty hasActiveFilters={hasActiveFilters} />
+        ) : (
+          <AdminModsCards mods={mods} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function AdminModsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+}) {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <MotionReveal delay={0.04} rotate={-1}>
@@ -102,7 +208,7 @@ export default function AdminModsPage() {
       </MotionReveal>
 
       <Suspense fallback={<AdminModsSkeleton />}>
-        <AdminModsContent />
+        <AdminModsContent searchParams={searchParams!} />
       </Suspense>
     </div>
   );

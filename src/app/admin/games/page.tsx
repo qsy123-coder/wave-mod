@@ -39,7 +39,7 @@ async function getGameSummaries(): Promise<GameSummary[]> {
   const games = getEnabledGames();
   const summaries = await Promise.all(
     games.map(async (game) => {
-      const mods = await getAdminMods(game.key);
+      const mods = await getAdminMods({ gameKey: game.key });
       const published = mods.filter((mod) => mod.isPublished).length;
 
       return {
