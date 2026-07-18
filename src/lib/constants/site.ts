@@ -3,7 +3,6 @@ export const siteConfig = {
   shortName: "WaveMod",
   description: "高清预览、阿里云 OSS 高速直链下载、单主理人精选发布。",
   primaryNav: [
-    { label: "首页", href: "/" },
     { label: "角色分类", href: "/mods" },
     { label: "图库", href: "/gallery" },
     { label: "先看我", href: "/guide" },
