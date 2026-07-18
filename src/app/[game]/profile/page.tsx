@@ -1,6 +1,5 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
-
-export const dynamic = "force-dynamic";
 
 import { getGameBySlug } from "@/config/games";
 import { logger } from "@/lib/logger";
@@ -13,16 +12,14 @@ import { ProfileEmptyState } from "./profile-empty-state";
 import { ProfileBasicCenter } from "./profile-basic-center";
 import { ProfileCreatorNotFound } from "./profile-creator-not-found";
 import { ProfileContent } from "./profile-content";
+import { ProfilePageSkeleton } from "./profile-page-skeleton";
 
 type PageProps = {
   params: Promise<{ game: string }>;
   searchParams: Promise<{ user?: string; tab?: string }>;
 };
 
-export default async function GameProfilePage({
-  params,
-  searchParams,
-}: PageProps) {
+async function ProfileData({ params, searchParams }: PageProps) {
   const { game: gameSlug } = await params;
   const game = getGameBySlug(gameSlug);
   if (!game) notFound();
@@ -60,7 +57,6 @@ export default async function GameProfilePage({
     return <ProfileCreatorNotFound gameHomeHref={game.nav.home} />;
   }
 
-  // 收藏标签：仅自己的个人中心可用
   const favoriteMods =
     activeTab === "favorites" && isOwnProfile
       ? ((await getFavoriteMods()) ?? []).filter((m) => m.gameKey === game.key)
@@ -83,5 +79,13 @@ export default async function GameProfilePage({
       activeTab={activeTab}
       favoriteMods={favoriteMods}
     />
+  );
+}
+
+export default function GameProfilePage(props: PageProps) {
+  return (
+    <Suspense fallback={<ProfilePageSkeleton />}>
+      <ProfileData {...props} />
+    </Suspense>
   );
 }
