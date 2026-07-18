@@ -14,7 +14,7 @@ export default function SiteLayout({
       <Suspense fallback={<SiteHeaderSkeleton />}>
         <SiteHeader />
       </Suspense>
-      <main>{children}</main>
+      <main className="mx-auto w-full max-w-[1680px] px-4 sm:px-5 lg:px-6">{children}</main>
       <SiteFooter />
     </div>
   );

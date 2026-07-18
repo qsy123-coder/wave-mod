@@ -193,5 +193,5 @@ async function ModDetailContent({ params }: PageProps) {
 }
 
 export default function ModDetailPage({ params }: PageProps) {
-  return <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10"><Suspense fallback={<ModDetailSkeleton />}><ModDetailContent params={params} /></Suspense></div>;
+  return <div className="flex flex-col gap-8 py-8 lg:py-10"><Suspense fallback={<ModDetailSkeleton />}><ModDetailContent params={params} /></Suspense></div>;
 }

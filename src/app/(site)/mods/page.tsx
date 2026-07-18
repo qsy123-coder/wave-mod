@@ -144,7 +144,7 @@ async function ModsPageContent({ searchParams }: PageProps) {
 
 export default function ModsPage({ searchParams }: PageProps) {
   return (
-    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+    <div className="flex flex-col gap-5 py-5 lg:py-6">
       <Suspense fallback={<ModGridSkeleton />}>
         <ModsPageContent searchParams={searchParams} />
       </Suspense>

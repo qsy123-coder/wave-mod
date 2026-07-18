@@ -20,7 +20,7 @@ async function GameSupportContent({ params }: PageProps) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="flex flex-col gap-8 py-8 lg:py-10">
       <MotionReveal delay={0.04} rotate={-1}>
         <section className="inline-block border-4 border-black px-5 py-4 shadow-[8px_8px_0px_0px_#000]" style={{ background: game.theme.accent }}>
           <p className="neo-label text-black/60">{game.name} 支持本站</p>

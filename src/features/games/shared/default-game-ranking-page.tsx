@@ -182,7 +182,7 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
   const characterStats = buildCharacterStats(mods);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="flex flex-col gap-8 py-8 lg:py-10">
       <MotionReveal delay={0.04} rotate={-1}>
         <section className="relative overflow-hidden border-4 border-black bg-[var(--neo-panel)] p-6 text-black shadow-[10px_10px_0px_0px_#000]">
           <div className="neo-grid absolute inset-0 opacity-25" />
