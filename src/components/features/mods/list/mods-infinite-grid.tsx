@@ -133,7 +133,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   return (
     <div className="space-y-5">
-      <section className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <section className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
         {mods.map((mod, index) => (
           <MotionReveal key={`${mod.id}-${index}`} delay={0.03 + (index % 8) * 0.02} y={14} rotate={index % 2 === 0 ? -1 : 1}>
             <ModCard
@@ -147,7 +147,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
               imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
               imageClassName={mod.nsfw && nsfwMode === "blur" ? "blur-xl" : undefined}
               mediaTopRight={(
-                <>
+                <div className="flex flex-col gap-1">
                   {mod.nsfw ? (
                     <span className="inline-flex items-center border-2 border-black bg-[#bcaeff] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
                       NSFW
@@ -158,8 +158,9 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
                       直链
                     </span>
                   ) : null}
-                </>
+                </div>
               ) || undefined}
+              mediaTopRightClassName="absolute right-2 top-2"
             />
           </MotionReveal>
         ))}
