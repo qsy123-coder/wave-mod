@@ -50,7 +50,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
 
   return (
     <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
-      <div className="flex items-center gap-6 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="flex items-center gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <MotionReveal delay={0.02} rotate={-2}>
           <Link
             href="/"
@@ -124,7 +124,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
 
         {isZzzRoute && <LayoutStyleToggle variant="neo" />}
 
-        <div className="hidden items-center md:flex">
+        <div className="hidden items-center gap-4.5 md:flex">
           <MotionReveal delay={0.18} rotate={1}>
             <Link href="/favorites" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
               <Heart className="size-3.5" />
