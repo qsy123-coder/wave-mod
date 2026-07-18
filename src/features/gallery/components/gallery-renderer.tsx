@@ -94,8 +94,10 @@ export function GalleryRenderer(p: Props) {
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
     const frag = document.createDocumentFragment();
+    const nodes: HTMLElement[] = [];
     images.forEach((img, i) => {
       const node = document.createElement("div");
+      nodes.push(node);
       node.setAttribute("data-id", String(img.id));
       Object.assign(node.style, {
         position: "absolute", top: "0", left: "0", overflow: "hidden",
@@ -145,6 +147,15 @@ export function GalleryRenderer(p: Props) {
     } else {
       document.body.appendChild(frag);
     }
+
+    // 卸载时清理所有命令式创建的 DOM 节点，防止导航返回后图片残留
+    return () => {
+      for (const node of nodes) {
+        node.remove();
+      }
+      domCreated.current = false;
+      if ("scrollRestoration" in history) history.scrollRestoration = "auto";
+    };
   }, [images]);
 
   // ---- 滚动/视口 ----
