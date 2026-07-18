@@ -134,7 +134,7 @@ function parseQuarkCsv(filePath) {
       continue;
     }
 
-    const status = line.slice(0, firstComma);
+    const _status = line.slice(0, firstComma);
     let rest = line.slice(firstComma + 1);
 
     // 分享名（可能在引号中也可能没有）
@@ -199,7 +199,7 @@ function parseQuarkCsv(filePath) {
     // 剩余字段: 提取码,分享时间
     const remainingParts = rest.split(",");
     const extractCode = remainingParts[0]?.trim() || "";
-    const shareTime = remainingParts[1]?.trim() || "";
+    const _shareTime = remainingParts[1]?.trim() || "";
 
     // 从分享内容中提取夸克网盘链接
     const urlMatch = shareContent.match(
@@ -385,8 +385,6 @@ async function main() {
 
   // 4. 逐 mod 处理
   const results = [];
-  let successCount = 0;
-  let failCount = 0;
 
   for (const mod of mergedMods) {
     const modId = randomUUID();
