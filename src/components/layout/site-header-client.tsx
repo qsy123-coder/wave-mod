@@ -33,6 +33,12 @@ type SiteHeaderClientProps = {
   isLoggedIn: boolean;
 };
 
+function getCurrentGameKey(pathname: string) {
+  if (pathname.startsWith("/zenless-zone-zero")) return "zenless-zone-zero";
+  if (pathname.startsWith("/genshin-impact")) return "genshin-impact";
+  return "wuthering-waves"; // 默认（含 redirect 过来的根路径）
+}
+
 export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
@@ -40,6 +46,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
   const loginHref = "/auth/login?mode=user&next=/favorites";
   const signOutAction = signOutUser.bind(null, "/");
   const games = getEnabledGames();
+  const currentGameKey = getCurrentGameKey(pathname);
 
   return (
     <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
@@ -70,17 +77,25 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
             <DropdownMenuContent align="start" className="w-56 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
               <DropdownMenuLabel className="text-xs font-black uppercase tracking-[0.16em] text-black/60">选择 MOD 分站</DropdownMenuLabel>
               <DropdownMenuSeparator className="my-2 h-1 bg-black" />
-              {games.map((game, index) => (
+              {games.map((game, index) => {
+                const isActive = game.key === currentGameKey;
+                return (
                 <DropdownMenuItem key={game.key} className="cursor-pointer p-0 focus:bg-transparent">
                   <Link
                     href={game.nav.home}
-                    className={`flex w-full items-center justify-between border-4 border-black px-3 py-2 text-sm font-black text-black shadow-[4px_4px_0px_0px_#000] ${index % 3 === 0 ? "bg-[#ffd84f]" : index % 3 === 1 ? "bg-[#ff7a7a]" : "bg-[#bcaeff]"}`}
+                    onClick={(e) => { if (isActive) e.preventDefault(); }}
+                    className={`flex w-full items-center justify-between border-4 border-black px-3 py-2 text-sm font-black text-black shadow-[4px_4px_0px_0px_#000] ${
+                      isActive
+                        ? "bg-black text-white border-white"
+                        : index % 3 === 0 ? "bg-[#ffd84f]" : index % 3 === 1 ? "bg-[#ff7a7a]" : "bg-[#bcaeff]"
+                    }`}
                   >
-                    <span>{game.name}</span>
+                    <span>{game.name} {isActive ? "✓" : ""}</span>
                     <span className="text-[10px] uppercase tracking-[0.16em]">{game.shortName}</span>
                   </Link>
                 </DropdownMenuItem>
-              ))}
+                );
+              })}
             </DropdownMenuContent>
           </DropdownMenu>
         </MotionReveal>
@@ -163,16 +178,23 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
                 <div className="border-4 border-black bg-[#ffd84f] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
                   游戏切换
                 </div>
-                {games.map((game, index) => (
+                {games.map((game, index) => {
+                  const isActive = game.key === currentGameKey;
+                  return (
                   <Link
                     key={game.key}
                     href={game.nav.home}
-                    onClick={() => setMobileOpen(false)}
-                    className={`border-4 border-black px-4 py-3 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[6px_6px_0px_0px_#000] ${index % 3 === 0 ? "bg-[#ffd84f]" : index % 3 === 1 ? "bg-[#ff7a7a]" : "bg-[#bcaeff]"}`}
+                    onClick={(e) => { if (isActive) { e.preventDefault(); } setMobileOpen(false); }}
+                    className={`border-4 border-black px-4 py-3 text-sm font-black uppercase tracking-[0.14em] shadow-[6px_6px_0px_0px_#000] ${
+                      isActive
+                        ? "bg-black text-white border-white"
+                        : index % 3 === 0 ? "bg-[#ffd84f] text-black" : index % 3 === 1 ? "bg-[#ff7a7a] text-black" : "bg-[#bcaeff] text-black"
+                    }`}
                   >
-                    {game.name} MOD
+                    {game.name} MOD {isActive ? "✓" : ""}
                   </Link>
-                ))}
+                  );
+                })}
               </nav>
 
               <nav className="grid gap-3">
