@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { getGameBySlug } from "@/config/games";
@@ -7,12 +8,13 @@ import { compact } from "../../profile/profile-shared";
 import type { StatItem } from "../../profile/profile-shared";
 import { ProfileCreatorNotFound } from "../../profile/profile-creator-not-found";
 import { ProfileContent } from "../../profile/profile-content";
+import { ModGridSkeleton } from "@/components/layout/data-skeletons";
 
 type PageProps = {
   params: Promise<{ game: string; id: string }>;
 };
 
-export default async function CreatorDetailPage({ params }: PageProps) {
+async function CreatorData({ params }: PageProps) {
   const { game: gameSlug, id: userId } = await params;
   const game = getGameBySlug(gameSlug);
   if (!game) notFound();
@@ -38,5 +40,13 @@ export default async function CreatorDetailPage({ params }: PageProps) {
       isOwnProfile={false}
       stats={stats}
     />
+  );
+}
+
+export default function CreatorDetailPage(props: PageProps) {
+  return (
+    <Suspense fallback={<ModGridSkeleton />}>
+      <CreatorData {...props} />
+    </Suspense>
   );
 }
