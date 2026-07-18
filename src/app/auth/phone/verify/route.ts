@@ -54,8 +54,9 @@ async function upsertPhoneUserForPasswordLogin(phone: string, password: string) 
     const updated = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
       password,
       phone_confirm: true,
+      // 保留已有 metadata（display_name 等），避免手机登录覆盖账号昵称
       user_metadata: {
-        display_name: `手机用户 ${phone.slice(0, 3)}****${phone.slice(-4)}`,
+        ...existingUser.user_metadata,
         phone_login_provider: "aliyun_dypns",
       },
     });
