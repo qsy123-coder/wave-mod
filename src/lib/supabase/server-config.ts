@@ -1,7 +1,5 @@
 import "server-only";
 
-const DEFAULT_ADMIN_PHONES = ["15676325715"];
-
 export type ServerSupabaseEnv = {
   adminEmail: string | null;
   adminPhones: string[];
@@ -28,13 +26,14 @@ function normalizeChinaPhone(rawPhone: string) {
   return "";
 }
 
+// 管理员手机号从 ADMIN_PHONES 环境变量读取（逗号分隔，支持 1xx / 861xx / +861xx 格式）
 function getAdminPhones() {
   const configuredPhones = (process.env.ADMIN_PHONES ?? "")
     .split(",")
     .map(normalizeChinaPhone)
     .filter(Boolean);
 
-  return Array.from(new Set([...DEFAULT_ADMIN_PHONES, ...configuredPhones]));
+  return Array.from(new Set(configuredPhones));
 }
 
 export function getServerSupabaseEnv(): ServerSupabaseEnv | null {
