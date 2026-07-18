@@ -126,18 +126,18 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort 
 
   return (
     <div className="space-y-5">
-      <section className="grid w-full gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {mods.map((mod, index) => (
           <MotionReveal key={`${mod.id}-${index}`} delay={0.03 + (index % 8) * 0.02} y={14} rotate={index % 2 === 0 ? -1 : 1}>
             <ModCard
               mod={mod}
               href={gameKey ? `/${gameKey}/mods/${mod.id}` : `/mods/${mod.id}`}
               variant="list"
-              className="w-full bg-[#fff8ef] p-2.5"
+              className="bg-[#fff8ef] p-2.5"
               imageAspectClassName="aspect-[5/6] sm:aspect-[4/5]"
               imagePriority={index < 4}
               imageFetchPriority={index < 4 ? "high" : "auto"}
-              imageSizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
+              imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
             />
           </MotionReveal>
         ))}
