@@ -50,7 +50,8 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
 
   return (
     <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
-      <div className="flex items-center gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2">
         <MotionReveal delay={0.02} rotate={-2}>
           <Link
             href="/"
@@ -113,8 +114,10 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
             </MotionReveal>
           ))}
         </nav>
+        </div>
 
-        <MotionReveal delay={0.14} className="ml-auto hidden md:block">
+        <div className="flex items-center gap-2">
+        <MotionReveal delay={0.14} className="hidden md:block">
           <Suspense fallback={<div className="neo-card min-w-[280px] px-4 py-3 text-sm font-bold text-black/60" style={{ background: "var(--neo-search)" }}>加载搜索…</div>}>
             <SiteSearchForm />
           </Suspense>
@@ -124,7 +127,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
 
         {isZzzRoute && <LayoutStyleToggle variant="neo" />}
 
-        <div className="hidden items-center gap-4.5 md:flex">
+        <div className="hidden items-center gap-1.5 md:flex">
           <MotionReveal delay={0.18} rotate={1}>
             <Link href="/favorites" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
               <Heart className="size-3.5" />
@@ -152,6 +155,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
               直链下载
             </Link>
           </MotionReveal>
+        </div>
         </div>
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
