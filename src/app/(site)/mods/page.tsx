@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
-import { ModGridSkeleton } from "@/components/layout/data-skeletons";
+import { ModsPageSkeleton } from "@/components/layout/data-skeletons";
 import { getAvailableCharacters, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
@@ -109,7 +109,7 @@ async function ModsPageContent({ searchParams }: PageProps) {
         />
 
         <div className="flex-1 overflow-y-auto pt-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-          <Suspense fallback={<ModGridSkeleton />}>
+          <Suspense fallback={<ModsPageSkeleton />}>
             <ModsFeed sort={currentSort} character={currentCharacter} query={currentQuery} />
           </Suspense>
         </div>
@@ -122,7 +122,7 @@ export default function ModsPage({ searchParams }: PageProps) {
   return (
     <div className="flex h-[calc(100vh-60px)] flex-col overflow-hidden">
       <div className="flex flex-1 gap-6 overflow-hidden py-3">
-        <Suspense fallback={<ModGridSkeleton />}>
+        <Suspense fallback={<ModsPageSkeleton />}>
           <ModsPageContent searchParams={searchParams} />
         </Suspense>
       </div>

@@ -43,39 +43,39 @@ export function FeaturedCarouselSkeleton() {
   );
 }
 
-export function ModGridSkeleton({ count = 6 }: { count?: number }) {
+export function ModGridSkeleton({ count = 10 }: { count?: number }) {
   return (
-    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {Array.from({ length: count }).map((_, index) => (
-        <MotionReveal key={index} delay={0.06 + index * 0.03} y={24} rotate={index % 2 === 0 ? -1 : 1}>
-          <article className="neo-card h-full bg-[var(--neo-panel)] p-3">
-            <div className="relative overflow-hidden border-4 border-black bg-black">
-              <div className="h-72 w-full animate-pulse bg-[var(--neo-muted)]" />
-              <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-                <SkeletonBar className="h-8 w-20 bg-[var(--neo-secondary)]" />
-                <SkeletonBar className="h-8 w-18 bg-[var(--neo-accent)]" />
-              </div>
-            </div>
-            <div className="space-y-3 px-1 pb-1 pt-4 text-black">
-              <SkeletonBar className="h-8 w-4/5" />
-              <SkeletonBar className="h-4 w-full" />
-              <SkeletonBar className="h-4 w-2/3" />
-              <div className="flex flex-wrap gap-2">
-                <SkeletonBar className="h-7 w-16" />
-                <SkeletonBar className="h-7 w-20" />
-                <SkeletonBar className="h-7 w-14" />
-              </div>
-              <div className="flex items-center justify-between border-t-4 border-black pt-3">
-                <div className="flex gap-3">
-                  <SkeletonBar className="h-4 w-12" />
-                  <SkeletonBar className="h-4 w-12" />
-                </div>
-                <SkeletonBar className="h-4 w-20" />
-              </div>
-            </div>
-          </article>
-        </MotionReveal>
+        <article key={index} className="h-full bg-[#fff8ef] p-2.5 border-4 border-black shadow-[4px_4px_0px_0px_#000]">
+          <div className="relative overflow-hidden border-4 border-black bg-black">
+            <div className="aspect-[4/5] w-full animate-pulse bg-[var(--neo-muted)]" />
+          </div>
+        </article>
       ))}
+    </div>
+  );
+}
+
+/** 角色分类页专用骨架 — 侧边栏 + 工具栏 + 卡片网格 */
+export function ModsPageSkeleton() {
+  return (
+    <div className="flex gap-6">
+      {/* 侧边栏骨架 */}
+      <div className="hidden w-[240px] shrink-0 lg:block">
+        <div className="border-4 border-black bg-[#fff8ef] p-3 shadow-[6px_6px_0px_0px_#000] space-y-2">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <SkeletonBar key={i} className={`h-10 w-full ${i === 0 ? "bg-[#ff7a7a]" : i % 3 === 0 ? "bg-[#ffd84f]" : "bg-white"}`} />
+          ))}
+        </div>
+      </div>
+      {/* 右侧骨架 */}
+      <div className="min-w-0 flex-1 flex-col space-y-4">
+        <div className="border-4 border-black bg-[#fff8ef] p-3 shadow-[6px_6px_0px_0px_#000]">
+          <SkeletonBar className="h-10 w-full" />
+        </div>
+        <ModGridSkeleton count={10} />
+      </div>
     </div>
   );
 }
