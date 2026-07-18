@@ -92,10 +92,9 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   const mods = useMemo(() => {
     let all = data.pages.flatMap((page) => page.items);
-    if (nsfwMode === "hide") all = all.filter((m) => !m.nsfw);
     if (directOnly) all = all.filter((m) => m.downloadUrl);
     return all;
-  }, [data.pages, nsfwMode, directOnly]);
+  }, [data.pages, directOnly]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -145,7 +144,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
               imagePriority={index < 4}
               imageFetchPriority={index < 4 ? "high" : "auto"}
               imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
-              imageClassName={mod.nsfw && nsfwMode === "blur" ? "blur-xl" : undefined}
+              imageClassName={mod.nsfw && nsfwMode !== "show" ? (nsfwMode === "hide" ? "blur-2xl brightness-50" : "blur-xl") : undefined}
               mediaTopRight={mod.nsfw || mod.downloadUrl ? (
                 <div className="flex items-center gap-1">
                   {mod.nsfw ? (
@@ -161,6 +160,13 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
                 </div>
               ) : undefined}
               mediaTopRightClassName="absolute right-2 top-4"
+              mediaBottomLeft={mod.nsfw && nsfwMode === "hide" ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="rotate-[-15deg] border-4 border-black bg-[#bcaeff]/90 px-4 py-2 text-lg font-black uppercase tracking-[0.2em] text-black shadow-[6px_6px_0px_0px_#000]">
+                    18禁
+                  </span>
+                </div>
+              ) : undefined}
             />
           </MotionReveal>
         ))}

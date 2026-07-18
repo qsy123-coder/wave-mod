@@ -29,7 +29,7 @@ export function ModsPageClient({
   gameKey,
   activeCharacter,
 }: ModsPageClientProps) {
-  const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
+  const [nsfwMode, setNsfwMode] = useState<NsfwMode>("hide");
   const [directOnly, setDirectOnly] = useState(false);
 
   return (
