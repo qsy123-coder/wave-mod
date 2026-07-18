@@ -3,15 +3,18 @@ import Link from "next/link";
 import {
   ChevronDown,
   Heart,
+  LayoutDashboard,
   LogIn,
   LogOut,
   Search,
   Sparkles,
+  UploadCloud,
 } from "lucide-react";
 
 import { signOutUser } from "@/actions/auth/auth-actions";
 import { getEnabledGames, type GameConfig } from "@/config/games";
 import { getCurrentUser } from "@/lib/supabase/server";
+import { isAdminIdentity } from "@/lib/supabase/server-config";
 import { LayoutStyleToggle } from "@/components/layout/layout-style-toggle";
 import { ZenlessNavAuthSkeleton } from "./zenless-mods-skeletons";
 
@@ -32,24 +35,49 @@ async function ZenlessNavAuthAction({ game }: { game: GameConfig }) {
   const user = await getCurrentUser();
   const signOutAction = signOutUser.bind(null, game.nav.home);
 
-  return user ? (
-    <form action={signOutAction}>
-      <button
-        type="submit"
+  if (!user) {
+    return (
+      <Link
+        href={`/auth/login?mode=user&next=${encodeURIComponent(game.nav.home)}`}
         className="inline-flex h-9 items-center gap-1.5 border-2 border-black bg-white px-3 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:bg-white"
       >
-        <LogOut className="size-3.5" />
-        退出
-      </button>
-    </form>
-  ) : (
-    <Link
-      href={`/auth/login?mode=user&next=${encodeURIComponent(game.nav.home)}`}
-      className="inline-flex h-9 items-center gap-1.5 border-2 border-black bg-white px-3 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:bg-white"
-    >
-      <LogIn className="size-3.5" />
-      登录
-    </Link>
+        <LogIn className="size-3.5" />
+        登录
+      </Link>
+    );
+  }
+
+  return (
+    <>
+      {/* 管理员专属入口：与后台守卫同源判定，非管理员不渲染 */}
+      {isAdminIdentity(user) && (
+        <>
+          <Link
+            href="/admin/mods"
+            className="hidden h-9 items-center gap-1.5 border-2 border-black bg-[var(--neo-secondary)] px-3 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] md:inline-flex"
+          >
+            <LayoutDashboard className="size-3.5" />
+            管理列表
+          </Link>
+          <Link
+            href="/admin/upload"
+            className="hidden h-9 items-center gap-1.5 border-2 border-black bg-white px-3 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] md:inline-flex"
+          >
+            <UploadCloud className="size-3.5" />
+            上传
+          </Link>
+        </>
+      )}
+      <form action={signOutAction}>
+        <button
+          type="submit"
+          className="inline-flex h-9 items-center gap-1.5 border-2 border-black bg-white px-3 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:bg-white"
+        >
+          <LogOut className="size-3.5" />
+          退出
+        </button>
+      </form>
+    </>
   );
 }
 

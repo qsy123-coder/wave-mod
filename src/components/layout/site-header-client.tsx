@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, LogIn, LogOut, Menu, Sparkles, Gamepad2 } from "lucide-react";
+import { Heart, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2 } from "lucide-react";
 
 import { getEnabledGames } from "@/config/games";
 import { signOutUser } from "@/actions/auth/auth-actions";
@@ -31,6 +31,7 @@ import { siteConfig } from "@/lib/constants/site";
 
 type SiteHeaderClientProps = {
   isLoggedIn: boolean;
+  isAdmin: boolean;
 };
 
 function getCurrentGameKey(pathname: string) {
@@ -39,7 +40,7 @@ function getCurrentGameKey(pathname: string) {
   return "wuthering-waves"; // 默认（含 redirect 过来的根路径）
 }
 
-export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
+export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const isZzzRoute = pathname.startsWith("/zenless-zone-zero");
@@ -137,6 +138,23 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
               收藏
             </Link>
           </MotionReveal>
+          {/* 管理员专属入口：与后台守卫同源判定，非管理员不渲染 */}
+          {isAdmin && (
+            <MotionReveal delay={0.19} rotate={1}>
+              <Link href="/admin/mods" className="neo-button-secondary inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                <LayoutDashboard className="size-3.5" />
+                管理列表
+              </Link>
+            </MotionReveal>
+          )}
+          {isAdmin && (
+            <MotionReveal delay={0.2} rotate={-1}>
+              <Link href="/admin/upload" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                <UploadCloud className="size-3.5" />
+                上传
+              </Link>
+            </MotionReveal>
+          )}
           <MotionReveal delay={0.2} rotate={-1}>
             {isLoggedIn ? (
               <form action={signOutAction}>
@@ -226,6 +244,27 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
                   <Heart className="size-4" />
                   收藏
                 </Link>
+                {/* 管理员专属入口（移动端） */}
+                {isAdmin && (
+                  <>
+                    <Link
+                      href="/admin/mods"
+                      onClick={() => setMobileOpen(false)}
+                      className="neo-button-secondary inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
+                    >
+                      <LayoutDashboard className="size-4" />
+                      管理列表
+                    </Link>
+                    <Link
+                      href="/admin/upload"
+                      onClick={() => setMobileOpen(false)}
+                      className="neo-button-outline inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
+                    >
+                      <UploadCloud className="size-4" />
+                      上传
+                    </Link>
+                  </>
+                )}
                 {isLoggedIn ? (
                   <form action={signOutAction}>
                     <button
