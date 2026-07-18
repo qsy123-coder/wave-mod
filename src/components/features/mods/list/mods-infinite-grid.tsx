@@ -92,10 +92,6 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   const mods = useMemo(() => {
     let all = data.pages.flatMap((page) => page.items);
-    // DEBUG
-    const nsfwMods = all.filter((m) => m.nsfw);
-    console.log("[ModsInfiniteGrid] mods:", all.length, "nsfw:", nsfwMods.length, "nsfwMode:", nsfwMode, "directOnly:", directOnly);
-    if (nsfwMods.length > 0) console.log("[ModsInfiniteGrid] first NSFW mod:", JSON.stringify({ title: nsfwMods[0]?.title, nsfw: nsfwMods[0]?.nsfw, downloadUrl: nsfwMods[0]?.downloadUrl?.slice(0, 30) }));
     if (nsfwMode === "hide") all = all.filter((m) => !m.nsfw);
     if (directOnly) all = all.filter((m) => m.downloadUrl);
     return all;
