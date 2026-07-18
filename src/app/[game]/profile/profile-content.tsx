@@ -319,6 +319,7 @@ export function ProfileContent({
                               fill
                               sizes="48px"
                               className="object-cover"
+                              unoptimized={mod.coverImage?.includes("supabase.co")}
                             />
                           </div>
                           <div>

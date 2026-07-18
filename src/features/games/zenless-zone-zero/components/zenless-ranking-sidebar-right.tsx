@@ -97,7 +97,7 @@ export function ZenlessRankingSidebarRight({
               className="flex items-center gap-1.5 border-2 border-black bg-white/30 p-1.5 shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5 group"
             >
               <span className="relative size-7 shrink-0 overflow-hidden border-2 border-black bg-black">
-                <Image src={mod.coverImage} alt={mod.title} fill sizes="28px" className="object-cover" />
+                <Image src={mod.coverImage} alt={mod.title} fill sizes="28px" className="object-cover" unoptimized={mod.coverImage?.includes("supabase.co")} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[10px] font-black text-black group-hover:text-[var(--neo-accent)] transition">

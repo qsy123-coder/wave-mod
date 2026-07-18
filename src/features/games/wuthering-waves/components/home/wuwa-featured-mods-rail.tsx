@@ -46,6 +46,7 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
           fill
           sizes="224px"
           className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+          unoptimized={mod.coverImage?.includes("supabase.co")}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
         <div className="absolute left-2 top-2">

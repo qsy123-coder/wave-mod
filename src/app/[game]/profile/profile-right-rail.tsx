@@ -89,6 +89,7 @@ export function ProfileRightRail({
                         fill
                         sizes="20px"
                         className="object-cover"
+                        unoptimized={supporterMod.coverImage?.includes("supabase.co")}
                       />
                     ) : (
                       <span className="flex size-full items-center justify-center text-[8px] font-black text-black">

@@ -31,6 +31,7 @@ export function ProfileModMiniCard({
           fill
           sizes={large ? "600px" : "280px"}
           className="object-cover transition duration-300 group-hover:scale-105"
+          unoptimized={mod.coverImage?.includes("supabase.co")}
         />
         <span
           className={`absolute left-1.5 top-1.5 border border-black px-1.5 py-0.5 text-[8px] font-black uppercase ${tone}`}

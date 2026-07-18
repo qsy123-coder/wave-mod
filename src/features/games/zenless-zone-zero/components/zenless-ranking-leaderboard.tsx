@@ -78,7 +78,7 @@ function ModRow({
     >
       <RankBadge rank={rank} />
       <span className="relative size-7 sm:size-8 shrink-0 overflow-hidden border-2 border-black bg-black">
-        <Image src={mod.coverImage} alt={mod.title} fill sizes="32px" className="object-cover" />
+        <Image src={mod.coverImage} alt={mod.title} fill sizes="32px" className="object-cover" unoptimized={mod.coverImage?.includes("supabase.co")} />
       </span>
       <div className="min-w-0">
         <p className="truncate text-[10px] sm:text-[11px] font-black text-black group-hover:text-[var(--neo-accent)] transition">

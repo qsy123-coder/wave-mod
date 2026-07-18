@@ -160,6 +160,7 @@ export function ZenlessRightRail({
               fill
               sizes="40px"
               className="object-cover"
+              unoptimized={mod.coverImage?.includes("supabase.co")}
             />
           </div>
           <div>
@@ -237,6 +238,7 @@ export function ZenlessScreenshots({ mod }: { mod: SiteMod }) {
               fill
               sizes="(max-width: 768px) 45vw, 150px"
               className="object-cover"
+              unoptimized={image?.includes("supabase.co")}
             />
           </a>
         ))}

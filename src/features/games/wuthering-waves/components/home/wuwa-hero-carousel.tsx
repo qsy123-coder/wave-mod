@@ -29,7 +29,7 @@ export function WuwaHeroCarousel({ mods }: { mods: SiteMod[] }) {
     <div className="relative h-[360px] w-full overflow-hidden md:h-[390px] xl:h-[430px]">
       <div className="absolute inset-0">
         {mod ? (
-          <Image src={mod.coverImage} alt={mod.title} fill priority className="object-cover object-center" sizes="100vw" />
+          <Image src={mod.coverImage} alt={mod.title} fill priority className="object-cover object-center" sizes="100vw" unoptimized={mod.coverImage?.includes("supabase.co")} />
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
         )}

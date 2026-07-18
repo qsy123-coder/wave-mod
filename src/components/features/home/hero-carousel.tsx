@@ -82,6 +82,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                       src={mod.coverImage}
                       alt={mod.title}
                       fill
+                      unoptimized={mod.coverImage?.includes("supabase.co")}
                       priority={index === 0}
                       fetchPriority={index === 0 ? "high" : "auto"}
                       sizes="(max-width: 1024px) 100vw, 58vw"

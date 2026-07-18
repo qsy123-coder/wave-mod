@@ -222,6 +222,7 @@ export function ModCard({
           src={mod.coverImage}
           alt={mod.title}
           fill
+          unoptimized={mod.coverImage?.includes("supabase.co")}
           priority={imagePriority}
           fetchPriority={imageFetchPriority}
           sizes={imageSizes}

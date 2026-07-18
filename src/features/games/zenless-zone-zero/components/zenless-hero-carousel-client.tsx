@@ -56,6 +56,7 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
             src={activeSlide.coverImage}
             alt={activeSlide.title}
             fill
+            unoptimized={activeSlide.coverImage?.includes("supabase.co")}
             priority
             sizes="100vw"
             className="object-cover object-center transition-transform duration-700 ease-out"

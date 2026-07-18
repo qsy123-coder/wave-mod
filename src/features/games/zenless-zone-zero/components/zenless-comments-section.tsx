@@ -338,6 +338,7 @@ function RatingSidebar({
                   fill
                   sizes="52px"
                   className="object-cover transition duration-300 group-hover:scale-110"
+                  unoptimized={item.coverImage?.includes("supabase.co")}
                 />
               </div>
               <div className="min-w-0">

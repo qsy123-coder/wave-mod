@@ -153,6 +153,7 @@ function ZenlessFeaturedCard({
           fill
           sizes="210px"
           className="object-cover transition duration-500 group-hover:scale-105"
+          unoptimized={mod.coverImage?.includes("supabase.co")}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
         <span

@@ -20,7 +20,7 @@ export function ZenlessModsCard({ game, index, mod }: { game: GameConfig; index:
   const card = (
     <Link href={`${game.nav.mods}/${mod.id}`} className="group block min-h-[136px] overflow-hidden border-4 border-black bg-black text-white shadow-[5px_5px_0_0_#000] transition hover:-translate-y-0.5 hover:shadow-[7px_7px_0_0_#000]">
       <div className="relative h-[88px] overflow-hidden bg-black">
-        <Image src={mod.coverImage} alt={mod.title} fill sizes="(max-width: 768px) 100vw, 22vw" className="object-cover transition duration-500 group-hover:scale-105" />
+        <Image src={mod.coverImage} alt={mod.title} fill sizes="(max-width: 768px) 100vw, 22vw" className="object-cover transition duration-500 group-hover:scale-105" unoptimized={mod.coverImage?.includes("supabase.co")} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/8 to-black/10" />
         <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black via-black/62 to-transparent" />
         <div className="absolute left-2 top-2 flex gap-1">
