@@ -15,6 +15,8 @@ type ModsToolbarProps = {
   sortHrefs: Record<string, string>;
   nsfwMode: NsfwMode;
   onNsfwModeChange: (mode: NsfwMode) => void;
+  directOnly: boolean;
+  onDirectOnlyChange: (v: boolean) => void;
   className?: string;
 };
 
@@ -32,6 +34,8 @@ export function ModsToolbar({
   sortHrefs,
   nsfwMode,
   onNsfwModeChange,
+  directOnly,
+  onDirectOnlyChange,
   className,
 }: ModsToolbarProps) {
   const router = useRouter();
@@ -69,6 +73,18 @@ export function ModsToolbar({
           className="min-w-0 flex-1 bg-transparent text-xs font-black text-black outline-none placeholder:text-black/40"
         />
       </form>
+
+      {/* 直链下载筛选 */}
+      <button
+        type="button"
+        onClick={() => onDirectOnlyChange(!directOnly)}
+        className={cn(
+          "border-4 border-black px-3 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5",
+          directOnly ? "bg-[#4ade80] text-black" : "bg-white text-black/75"
+        )}
+      >
+        直链
+      </button>
 
       {/* NSFW 筛选 */}
       <div className="relative">

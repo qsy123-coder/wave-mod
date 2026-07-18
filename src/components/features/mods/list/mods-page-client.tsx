@@ -28,6 +28,7 @@ export function ModsPageClient({
   gameKey,
 }: ModsPageClientProps) {
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
+  const [directOnly, setDirectOnly] = useState(false);
 
   return (
     <>
@@ -39,6 +40,8 @@ export function ModsPageClient({
         sortHrefs={sortHrefs}
         nsfwMode={nsfwMode}
         onNsfwModeChange={setNsfwMode}
+        directOnly={directOnly}
+        onDirectOnlyChange={setDirectOnly}
       />
 
       <div className="flex-1 overflow-y-auto pt-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
@@ -50,6 +53,7 @@ export function ModsPageClient({
             query={initialQuery || undefined}
             initialMods={initialMods}
             nsfwMode={nsfwMode}
+            directOnly={directOnly}
           />
         </Suspense>
       </div>

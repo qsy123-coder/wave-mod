@@ -57,9 +57,10 @@ type ModsInfiniteGridProps = {
   query?: string;
   sort: ModSort;
   nsfwMode?: "show" | "blur" | "hide";
+  directOnly?: boolean;
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur" }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const initialPage: PaginatedResult<SiteMod> = {
     hasMore: initialMods.length === PAGE_SIZE,
@@ -90,10 +91,15 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
   });
 
   const mods = useMemo(() => {
-    const all = data.pages.flatMap((page) => page.items);
-    if (nsfwMode === "hide") return all.filter((m) => !m.nsfw);
+    let all = data.pages.flatMap((page) => page.items);
+    // DEBUG
+    const nsfwMods = all.filter((m) => m.nsfw);
+    console.log("[ModsInfiniteGrid] mods:", all.length, "nsfw:", nsfwMods.length, "nsfwMode:", nsfwMode, "directOnly:", directOnly);
+    if (nsfwMods.length > 0) console.log("[ModsInfiniteGrid] first NSFW mod:", JSON.stringify({ title: nsfwMods[0]?.title, nsfw: nsfwMods[0]?.nsfw, downloadUrl: nsfwMods[0]?.downloadUrl?.slice(0, 30) }));
+    if (nsfwMode === "hide") all = all.filter((m) => !m.nsfw);
+    if (directOnly) all = all.filter((m) => m.downloadUrl);
     return all;
-  }, [data.pages, nsfwMode]);
+  }, [data.pages, nsfwMode, directOnly]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -144,11 +150,20 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
               imageFetchPriority={index < 4 ? "high" : "auto"}
               imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
               imageClassName={mod.nsfw && nsfwMode === "blur" ? "blur-xl" : undefined}
-              mediaTopRight={mod.nsfw ? (
-                <span className="inline-flex items-center border-2 border-black bg-[#bcaeff] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
-                  NSFW
-                </span>
-              ) : undefined}
+              mediaTopRight={(
+                <>
+                  {mod.nsfw ? (
+                    <span className="inline-flex items-center border-2 border-black bg-[#bcaeff] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
+                      NSFW
+                    </span>
+                  ) : null}
+                  {mod.downloadUrl ? (
+                    <span className="inline-flex items-center border-2 border-black bg-[#4ade80] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
+                      直链
+                    </span>
+                  ) : null}
+                </>
+              ) || undefined}
             />
           </MotionReveal>
         ))}
