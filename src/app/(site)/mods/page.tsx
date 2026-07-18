@@ -85,9 +85,9 @@ async function ModsPageContent({ searchParams }: PageProps) {
 
   return (
     <div className="flex gap-6">
-      {/* 侧边栏 — sticky */}
-      <div className="hidden w-[200px] shrink-0 lg:block">
-        <div className="sticky top-[80px] max-h-[calc(100vh-100px)] overflow-y-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+      {/* 侧边栏 — 固定，内部独立滚动 */}
+      <div className="hidden w-[240px] shrink-0 flex-col lg:flex">
+        <div className="flex-1 overflow-y-auto pr-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <CharacterSidebar
             allLabel="全部"
             allHref={buildModsHref(currentSort, undefined, currentQuery)}
@@ -98,8 +98,8 @@ async function ModsPageContent({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* 主内容区 */}
-      <div className="min-w-0 flex-1 space-y-4">
+      {/* 主内容区 — 独立滚动 */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <ModsToolbar
           gameModsPath="/mods"
           initialQuery={currentQuery ?? ""}
@@ -108,9 +108,11 @@ async function ModsPageContent({ searchParams }: PageProps) {
           sortHrefs={sortHrefs}
         />
 
-        <Suspense fallback={<ModGridSkeleton />}>
-          <ModsFeed sort={currentSort} character={currentCharacter} query={currentQuery} />
-        </Suspense>
+        <div className="flex-1 overflow-y-auto pt-4">
+          <Suspense fallback={<ModGridSkeleton />}>
+            <ModsFeed sort={currentSort} character={currentCharacter} query={currentQuery} />
+          </Suspense>
+        </div>
       </div>
     </div>
   );
@@ -118,10 +120,12 @@ async function ModsPageContent({ searchParams }: PageProps) {
 
 export default function ModsPage({ searchParams }: PageProps) {
   return (
-    <div className="py-5 lg:py-6">
-      <Suspense fallback={<ModGridSkeleton />}>
-        <ModsPageContent searchParams={searchParams} />
-      </Suspense>
+    <div className="flex h-[calc(100vh-60px)] flex-col overflow-hidden">
+      <div className="flex flex-1 gap-6 overflow-hidden px-4 py-3 sm:px-5 lg:px-6">
+        <Suspense fallback={<ModGridSkeleton />}>
+          <ModsPageContent searchParams={searchParams} />
+        </Suspense>
+      </div>
     </div>
   );
 }
