@@ -233,7 +233,7 @@ export function ModCard({
 
       <div className={cn(styles.content, contentClassName)}>
         <div className="max-w-sm space-y-1.5">
-          {canUseInnerLinks && linkMode === "split" ? (
+          {canUseInnerLinks && linkMode === "split" ? ( 
             <Link href={resolvedHref} className={styles.titleLinkWrap}>
               {titleAndDescription}
             </Link>

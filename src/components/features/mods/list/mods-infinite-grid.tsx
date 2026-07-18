@@ -160,7 +160,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
                   ) : null}
                 </div>
               ) : undefined}
-              mediaTopRightClassName="absolute right-2 top-2"
+              mediaTopRightClassName="absolute right-2 top-10"
             />
           </MotionReveal>
         ))}
