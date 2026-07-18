@@ -49,9 +49,8 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
   const currentGameKey = getCurrentGameKey(pathname);
 
   return (
-    <header className="sticky top-0 z-50 border-b-2 border-black/75 shadow-[0_4px_0px_0px_rgba(0,0,0,0.7)]">
-      <div className="absolute inset-0 bg-[rgba(255,253,245,0.4)] backdrop-blur-md" />
-      <div className="relative mx-auto flex w-full max-w-[1680px] items-center gap-6 px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
+      <div className="mx-auto flex w-full max-w-[1680px] items-center gap-6 px-4 py-3 sm:px-6 lg:px-8">
         {/* 左侧组：Logo + 游戏切换 + 导航 */}
         <div className="flex items-center gap-6">
         <MotionReveal delay={0.02} rotate={-2}>
