@@ -65,9 +65,9 @@ async function ModsPageContent({ searchParams }: PageProps) {
 
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
 
-  // 特殊分类（Skins = 所有角色 MOD 排除 UI/Other/Misc）
+  // 特殊分类（Skins = 所有角色 MOD，排除 UI/Other/Misc；含 character 名为 Skins 的 mod）
   const skinCount = Object.entries(counts)
-    .filter(([k]) => !["Skins", "UI", "Other/Misc"].includes(k))
+    .filter(([k]) => !["UI", "Other/Misc"].includes(k))
     .reduce((sum, [, c]) => sum + c, 0);
 
   const specialCategories = [
