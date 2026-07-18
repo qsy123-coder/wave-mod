@@ -17,6 +17,8 @@ type ModsToolbarProps = {
   onNsfwModeChange: (mode: NsfwMode) => void;
   directOnly: boolean;
   onDirectOnlyChange: (v: boolean) => void;
+  activeCharacter?: string;
+  activeQuery?: string;
   className?: string;
 };
 
@@ -36,6 +38,8 @@ export function ModsToolbar({
   onNsfwModeChange,
   directOnly,
   onDirectOnlyChange,
+  activeCharacter,
+  activeQuery,
   className,
 }: ModsToolbarProps) {
   const router = useRouter();
@@ -117,6 +121,38 @@ export function ModsToolbar({
         </select>
         <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-black/60" />
       </div>
+
+      {/* 当前筛选条件 */}
+      {(activeCharacter || activeQuery || directOnly || nsfwMode !== "blur" || sort !== "latest") ? (
+        <div className="flex w-full flex-wrap items-center gap-1.5 border-t-4 border-black pt-2">
+          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-black/60">筛选：</span>
+          {activeCharacter ? (
+            <span className="inline-flex items-center gap-1 border-[3px] border-black bg-[#ffd84f] px-2 py-0.5 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
+              角色: {activeCharacter}
+            </span>
+          ) : null}
+          {activeQuery ? (
+            <span className="inline-flex items-center gap-1 border-[3px] border-black bg-white px-2 py-0.5 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
+              搜索: {activeQuery}
+            </span>
+          ) : null}
+          {directOnly ? (
+            <span className="inline-flex items-center gap-1 border-[3px] border-black bg-[#4ade80] px-2 py-0.5 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
+              仅直链
+            </span>
+          ) : null}
+          {nsfwMode !== "blur" ? (
+            <span className="inline-flex items-center gap-1 border-[3px] border-black bg-[#bcaeff] px-2 py-0.5 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
+              {nsfwLabels[nsfwMode]}
+            </span>
+          ) : null}
+          {sort !== "latest" ? (
+            <span className="inline-flex items-center gap-1 border-[3px] border-black bg-white px-2 py-0.5 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
+              排序: {sortOptions.find((o) => o.value === sort)?.label ?? sort}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -15,6 +15,7 @@ type ModsPageClientProps = {
   initialMods: SiteMod[];
   character?: string;
   gameKey?: string;
+  activeCharacter?: string;
 };
 
 export function ModsPageClient({
@@ -26,6 +27,7 @@ export function ModsPageClient({
   initialMods,
   character,
   gameKey,
+  activeCharacter,
 }: ModsPageClientProps) {
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
@@ -42,6 +44,8 @@ export function ModsPageClient({
         onNsfwModeChange={setNsfwMode}
         directOnly={directOnly}
         onDirectOnlyChange={setDirectOnly}
+        activeCharacter={activeCharacter}
+        activeQuery={initialQuery || undefined}
       />
 
       <div className="flex-1 overflow-y-auto pt-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>

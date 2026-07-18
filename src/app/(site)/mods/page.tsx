@@ -123,6 +123,7 @@ async function ModsPageContent({ searchParams }: PageProps) {
           sortHrefs={sortHrefs}
           initialMods={(await getPublicModsPage(1, 16, { sort: currentSort, character: currentCharacter, query: currentQuery })).items}
           character={currentCharacter}
+          activeCharacter={currentCharacter}
         />
       </div>
     </div>
