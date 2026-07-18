@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowUpRight, Download, Eye, Heart } from "lucide-react";
+import { ArrowUpRight, Eye, Heart } from "lucide-react";
 
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
@@ -175,12 +175,6 @@ export function ModCard({
       <Badge className={cn("neo-sticker -rotate-2 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em]", badgeTone.character)}>
         {mod.character}
       </Badge>
-      {mod.downloadUrl ? (
-        <Badge className="neo-sticker rotate-1 border-2 border-black bg-[#4ade80] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.16em] text-black shadow-[2px_2px_0px_0px_#000]">
-          <Download className="mr-1 inline size-2.5" />
-          直链
-        </Badge>
-      ) : null}
       {extraMetaBadges}
     </>
   ) : null;
