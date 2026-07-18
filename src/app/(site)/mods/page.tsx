@@ -108,7 +108,7 @@ async function ModsPageContent({ searchParams }: PageProps) {
           sortHrefs={sortHrefs}
         />
 
-        <div className="flex-1 overflow-y-auto pt-4">
+        <div className="flex-1 overflow-y-auto pt-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <Suspense fallback={<ModGridSkeleton />}>
             <ModsFeed sort={currentSort} character={currentCharacter} query={currentQuery} />
           </Suspense>
@@ -120,8 +120,8 @@ async function ModsPageContent({ searchParams }: PageProps) {
 
 export default function ModsPage({ searchParams }: PageProps) {
   return (
-    <div className="flex h-[calc(100vh-60px)] flex-col overflow-hidden">
-      <div className="flex flex-1 gap-6 overflow-hidden px-4 py-3 sm:px-5 lg:px-6">
+    <div className="flex h-[calc(100vh-60px)] flex-col overflow-hidden pr-0">
+      <div className="flex flex-1 gap-6 overflow-hidden py-3 pl-4 sm:pl-5 lg:pl-6">
         <Suspense fallback={<ModGridSkeleton />}>
           <ModsPageContent searchParams={searchParams} />
         </Suspense>
