@@ -1,10 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Eye, Heart, Star, ThumbsUp } from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft, ChevronRight, Eye, Heart, Star, ThumbsUp, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -22,6 +21,8 @@ type ModDetailDrawerProps = {
   currentUserId?: string;
   currentUserName?: string;
   isLoggedIn?: boolean;
+  modId: string;
+  onClose?: () => void;
 };
 
 type DrawerTab = "overview" | "comments";
@@ -70,13 +71,14 @@ export function ModDetailDrawer({
   currentUserId,
   currentUserName = "我",
   isLoggedIn = false,
+  modId,
+  onClose,
 }: ModDetailDrawerProps) {
-  const params = useParams();
-  const router = useRouter();
-  const modId = params.id as string;
   const [activeTab, setActiveTab] = useState<DrawerTab>("overview");
   const [descExpanded, setDescExpanded] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
 
   const {
     data: mod,
@@ -101,10 +103,46 @@ export function ModDetailDrawer({
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      // 等待退场动画完成 (duration-200) 再导航
-      setTimeout(() => router.push("/mods"), 200);
+      setTimeout(() => onClose?.(), 200);
     }
   };
+
+  // Lightbox open/close with animation
+  const openLightbox = useCallback((index: number) => {
+    setLightboxIndex(index);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setLightboxVisible(true));
+    });
+  }, []);
+
+  const closeLightbox = useCallback(() => {
+    setLightboxVisible(false);
+    setTimeout(() => setLightboxIndex(null), 200);
+  }, []);
+
+  const lightboxPrev = useCallback(() => {
+    if (mod) {
+      setLightboxIndex((prev) => (prev! - 1 + mod.images.length) % mod.images.length);
+    }
+  }, [mod]);
+
+  const lightboxNext = useCallback(() => {
+    if (mod) {
+      setLightboxIndex((prev) => (prev! + 1) % mod.images.length);
+    }
+  }, [mod]);
+
+  // Keyboard nav for lightbox
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeLightbox();
+      if (e.key === "ArrowLeft") lightboxPrev();
+      if (e.key === "ArrowRight") lightboxNext();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxIndex, closeLightbox, lightboxPrev, lightboxNext]);
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
@@ -273,9 +311,11 @@ export function ModDetailDrawer({
                   <SectionHeading>预览 ({mod.images.length})</SectionHeading>
                   <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1" style={{ scrollbarWidth: "thin" }}>
                     {mod.images.map((src, index) => (
-                      <div
+                      <button
                         key={src}
-                        className="shrink-0 overflow-hidden border-[3px] border-black bg-white shadow-[4px_4px_0px_0px_#000]"
+                        type="button"
+                        onClick={() => openLightbox(index)}
+                        className="shrink-0 cursor-zoom-in overflow-hidden border-[3px] border-black bg-white shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5"
                       >
                         <Image
                           src={src}
@@ -286,7 +326,7 @@ export function ModDetailDrawer({
                           sizes="320px"
                           className="h-auto max-h-72 w-auto max-w-[280px] object-contain"
                         />
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </>
@@ -345,6 +385,70 @@ export function ModDetailDrawer({
           )}
         </div>
       </SheetContent>
+
+      {/* Lightbox: fullscreen image preview with dark blur overlay */}
+      {lightboxIndex !== null && mod && (
+        <div
+          className={cn(
+            "fixed inset-0 z-[130] flex items-center justify-center bg-black/80 backdrop-blur-sm transition-opacity duration-200",
+            lightboxVisible ? "opacity-100" : "opacity-0",
+          )}
+          onClick={closeLightbox}
+        >
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={closeLightbox}
+            className="absolute right-5 top-5 z-[135] inline-flex size-12 items-center justify-center border-4 border-black bg-white text-black shadow-[6px_6px_0px_0px_#000] transition hover:-translate-y-0.5"
+            aria-label="关闭预览"
+          >
+            <X className="size-5" />
+          </button>
+
+          {/* Counter */}
+          <div className="absolute left-5 top-5 z-[135] border-4 border-black bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
+            {lightboxIndex + 1} / {mod.images.length}
+          </div>
+
+          {/* Prev / Next arrows */}
+          {mod.images.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
+                className="absolute left-5 top-1/2 z-[135] inline-flex size-14 -translate-y-1/2 items-center justify-center border-4 border-black bg-white text-black shadow-[6px_6px_0px_0px_#000] transition hover:-translate-y-[calc(50%+2px)]"
+                aria-label="上一张"
+              >
+                <ChevronLeft className="size-6" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
+                className="absolute right-5 top-1/2 z-[135] inline-flex size-14 -translate-y-1/2 items-center justify-center border-4 border-black bg-white text-black shadow-[6px_6px_0px_0px_#000] transition hover:-translate-y-[calc(50%+2px)]"
+                aria-label="下一张"
+              >
+                <ChevronRight className="size-6" />
+              </button>
+            </>
+          )}
+
+          {/* Image: centered, constrained to viewport */}
+          <div
+            className={cn(
+              "z-[132] flex max-h-[85vh] max-w-[90vw] items-center justify-center transition duration-200",
+              lightboxVisible ? "scale-100 opacity-100" : "scale-95 opacity-0",
+            )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={mod.images[lightboxIndex]}
+              alt={`${mod.title} 预览 ${lightboxIndex + 1}`}
+              className="max-h-[85vh] max-w-[90vw] border-4 border-black object-contain shadow-[10px_10px_0px_0px_#000]"
+            />
+          </div>
+        </div>
+      )}
     </Sheet>
   );
 }

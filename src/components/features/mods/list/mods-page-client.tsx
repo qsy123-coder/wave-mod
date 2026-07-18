@@ -1,6 +1,8 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+
+import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar, type NsfwMode } from "@/components/features/mods/list/mods-toolbar";
 import { ModGridSkeleton } from "@/components/layout/data-skeletons";
@@ -16,6 +18,12 @@ type ModsPageClientProps = {
   character?: string;
   gameKey?: string;
   activeCharacter?: string;
+  openModId?: string;
+  // drawer user props
+  admin?: boolean;
+  currentUserId?: string;
+  currentUserName?: string;
+  isLoggedIn?: boolean;
 };
 
 export function ModsPageClient({
@@ -28,9 +36,35 @@ export function ModsPageClient({
   character,
   gameKey,
   activeCharacter,
+  openModId: initialModId,
+  admin = false,
+  currentUserId,
+  currentUserName,
+  isLoggedIn = false,
 }: ModsPageClientProps) {
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
+  const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
+
+  // 同步浏览器历史：点击卡片时 pushState，浏览器后退/前进时 popstate
+  const openDrawer = useCallback((modId: string) => {
+    setDrawerModId(modId);
+    window.history.pushState(null, "", `/mods/${modId}`);
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerModId(null);
+    window.history.pushState(null, "", "/mods");
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const match = window.location.pathname.match(/^\/mods\/(.+)$/);
+      setDrawerModId(match ? match[1] : null);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   return (
     <>
@@ -58,9 +92,21 @@ export function ModsPageClient({
             initialMods={initialMods}
             nsfwMode={nsfwMode}
             directOnly={directOnly}
+            onCardClick={openDrawer}
           />
         </Suspense>
       </div>
+
+      {drawerModId && (
+        <ModDetailDrawer
+          admin={admin}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          isLoggedIn={isLoggedIn}
+          modId={drawerModId}
+          onClose={closeDrawer}
+        />
+      )}
     </>
   );
 }

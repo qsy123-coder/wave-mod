@@ -4,7 +4,7 @@ import { CharacterSidebar } from "@/components/features/mods/list/character-side
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import { ModsPageSkeleton } from "@/components/layout/data-skeletons";
 import { getAvailableCharacters, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
-import { createPublicReadClient } from "@/lib/supabase/server";
+import { createPublicReadClient, getCurrentUser, isAdminUser } from "@/lib/supabase/server";
 
 type PageProps = {
   searchParams?: Promise<{
@@ -12,6 +12,7 @@ type PageProps = {
     character?: string;
     query?: string;
   }>;
+  openModId?: string;
 };
 
 const sortOptions: { label: string; value: ModSort }[] = [
@@ -30,7 +31,6 @@ function buildModsHref(sort: ModSort, character?: string, query?: string) {
   return qs ? `/mods?${qs}` : "/mods";
 }
 
-/** 获取每个角色的已发布 Mod 数量 */
 async function getCharacterCounts(): Promise<Record<string, number>> {
   try {
     const supabase = createPublicReadClient();
@@ -52,20 +52,21 @@ async function getCharacterCounts(): Promise<Record<string, number>> {
   }
 }
 
-async function ModsListingContent({ searchParams }: PageProps) {
+async function ModsListingContent({ searchParams, openModId }: PageProps) {
   const params = (await searchParams) ?? {};
   const currentSort = parseModSort(params.sort);
   const currentCharacter = parseCharacterFilter(params.character);
   const currentQuery = parseModQuery(params.query);
 
-  const [availableCharacters, counts] = await Promise.all([
+  const [availableCharacters, counts, user, admin] = await Promise.all([
     getAvailableCharacters(),
     getCharacterCounts(),
+    getCurrentUser(),
+    isAdminUser(),
   ]);
 
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
 
-  // 特殊分类（Skins = 所有角色 MOD，排除 UI/Other/Misc；含 character 名为 Skins 的 mod）
   const skinCount = Object.entries(counts)
     .filter(([k]) => !["UI", "Other/Misc"].includes(k))
     .reduce((sum, [, c]) => sum + c, 0);
@@ -102,7 +103,6 @@ async function ModsListingContent({ searchParams }: PageProps) {
 
   return (
     <>
-      {/* 侧边栏 — 固定，内部独立滚动 */}
       <div className="hidden w-[240px] shrink-0 flex-col lg:flex">
         <div className="flex-1 overflow-y-auto pr-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <CharacterSidebar
@@ -114,8 +114,6 @@ async function ModsListingContent({ searchParams }: PageProps) {
           />
         </div>
       </div>
-
-      {/* 主内容区 — 独立滚动 */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <ModsPageClient
           gameModsPath="/mods"
@@ -126,16 +124,25 @@ async function ModsListingContent({ searchParams }: PageProps) {
           initialMods={initialMods}
           character={currentCharacter}
           activeCharacter={currentCharacter}
+          openModId={openModId}
+          admin={Boolean(admin)}
+          currentUserId={user?.id}
+          currentUserName={
+            user?.user_metadata?.display_name ??
+            user?.email?.split("@")[0] ??
+            "我"
+          }
+          isLoggedIn={Boolean(user)}
         />
       </div>
     </>
   );
 }
 
-export function ModsListing({ searchParams }: PageProps) {
+export function ModsListing({ searchParams, openModId }: PageProps) {
   return (
     <Suspense fallback={<ModsPageSkeleton />}>
-      <ModsListingContent searchParams={searchParams} />
+      <ModsListingContent searchParams={searchParams} openModId={openModId} />
     </Suspense>
   );
 }

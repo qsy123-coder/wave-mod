@@ -58,9 +58,10 @@ type ModsInfiniteGridProps = {
   sort: ModSort;
   nsfwMode?: "show" | "blur" | "hide";
   directOnly?: boolean;
+  onCardClick?: (modId: string) => void;
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, onCardClick }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const initialPage: PaginatedResult<SiteMod> = {
     hasMore: initialMods.length === PAGE_SIZE,
@@ -139,6 +140,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
             <ModCard
               mod={mod}
               href={gameKey ? `/${gameKey}/mods/${mod.id}` : `/mods/${mod.id}`}
+              onCardClick={onCardClick}
               variant="list"
               className="bg-[#fff8ef] p-2.5"
               imageAspectClassName="aspect-[5/6] sm:aspect-[4/5]"

@@ -44,6 +44,7 @@ type ModCardProps = {
   bodyAfterDescription?: ReactNode;
   bodyBottom?: ReactNode;
   actions?: ReactNode;
+  onCardClick?: (modId: string) => void;
 };
 
 const metaBadgeStyles: Record<MetaBadgeTone, { character: string; version: string; nsfw: string }> = {
@@ -161,6 +162,7 @@ export function ModCard({
   bodyAfterDescription,
   bodyBottom,
   actions,
+  onCardClick,
 }: ModCardProps) {
   const badgeTone = metaBadgeStyles[metaBadgeTone];
   const styles = variantStyles[variant];
@@ -258,6 +260,15 @@ export function ModCard({
   );
 
   if (canLink && linkMode === "card") {
+    if (onCardClick) {
+      return (
+        <article className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
+          <button type="button" onClick={() => onCardClick(mod.id)} className="block h-full w-full cursor-pointer text-left">
+            {media}
+          </button>
+        </article>
+      );
+    }
     return (
       <article className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
         <Link href={resolvedHref} className="block h-full">
