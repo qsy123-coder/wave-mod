@@ -124,7 +124,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
 
         {isZzzRoute && <LayoutStyleToggle variant="neo" />}
 
-        <div className="hidden flex-1 items-center justify-evenly md:flex">
+        <div className="hidden items-center gap-4.5 md:flex">
           <MotionReveal delay={0.18} rotate={1}>
             <Link href="/favorites" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
               <Heart className="size-3.5" />
