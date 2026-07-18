@@ -50,29 +50,29 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
 
   return (
     <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 sm:px-6 lg:px-8">
+      <div className="flex items-center gap-2 px-3 py-2 sm:px-4 lg:px-6">
         <MotionReveal delay={0.02} rotate={-2}>
           <Link
             href="/"
-            className="neo-card flex -rotate-1 items-center gap-3 px-4 py-3"
+            className="neo-card flex -rotate-1 items-center gap-2 px-3 py-2"
             style={{ background: "var(--neo-accent)" }}
           >
-            <span className="flex size-11 items-center justify-center border-4 border-black bg-white text-base font-black">
+            <span className="flex size-9 items-center justify-center border-[3px] border-black bg-white text-sm font-black">
               W
             </span>
             <div className="min-w-0">
-              <p className="truncate text-xs font-black uppercase tracking-[0.28em] text-black/70">
+              <p className="truncate text-[10px] font-black uppercase tracking-[0.28em] text-black/70">
                 WaveMod
               </p>
-              <p className="text-sm font-black text-black">鸣潮角色MOD个人站</p>
+              <p className="text-xs font-black text-black">鸣潮角色MOD个人站</p>
             </div>
           </Link>
         </MotionReveal>
 
         <MotionReveal delay={0.04} rotate={1}>
           <DropdownMenu>
-            <DropdownMenuTrigger className="hidden border-4 border-black bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[5px_5px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_#000] md:inline-flex md:items-center md:gap-2">
-              <Gamepad2 className="size-4" />游戏切换
+            <DropdownMenuTrigger className="hidden border-[3px] border-black bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] md:inline-flex md:items-center md:gap-1.5">
+              <Gamepad2 className="size-3.5" />游戏切换
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
               <DropdownMenuLabel className="text-xs font-black uppercase tracking-[0.16em] text-black/60">选择 MOD 分站</DropdownMenuLabel>
@@ -100,12 +100,12 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
           </DropdownMenu>
         </MotionReveal>
 
-        <nav className="hidden items-center gap-2 lg:flex">
+        <nav className="hidden items-center gap-1.5 lg:flex">
           {siteConfig.primaryNav.map((item, index) => (
             <MotionReveal key={item.href} delay={0.06 + index * 0.04} rotate={index % 2 === 0 ? 2 : -2}>
               <Link
                 href={item.href}
-                className={`border-2 border-transparent px-3 py-2 text-sm font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
+                className={`border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
                 style={{ background: index % 2 === 0 ? "transparent" : "rgba(255,255,255,0.35)" }}
               >
                 {item.label}
@@ -124,31 +124,31 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
 
         {isZzzRoute && <LayoutStyleToggle variant="neo" />}
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-1.5 md:flex">
           <MotionReveal delay={0.18} rotate={1}>
-            <Link href="/favorites" className="neo-button-outline inline-flex items-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.16em]">
-              <Heart className="size-4" />
+            <Link href="/favorites" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+              <Heart className="size-3.5" />
               收藏
             </Link>
           </MotionReveal>
           <MotionReveal delay={0.2} rotate={-1}>
             {isLoggedIn ? (
               <form action={signOutAction}>
-                <button type="submit" className="neo-button-outline inline-flex items-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.16em]">
-                  <LogOut className="size-4" />
+                <button type="submit" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                  <LogOut className="size-3.5" />
                   退出
                 </button>
               </form>
             ) : (
-              <Link href={loginHref} className="neo-button-outline inline-flex items-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.16em]">
-                <LogIn className="size-4" />
+              <Link href={loginHref} className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                <LogIn className="size-3.5" />
                 登录
               </Link>
             )}
           </MotionReveal>
           <MotionReveal delay={0.22} rotate={-1}>
-            <Link href="/mods" className="neo-button-primary inline-flex -rotate-1 items-center gap-2 px-5 py-3 text-sm font-black uppercase tracking-[0.16em]">
-              <Sparkles className="size-4" />
+            <Link href="/mods" className="neo-button-primary inline-flex -rotate-1 items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+              <Sparkles className="size-3.5" />
               直链下载
             </Link>
           </MotionReveal>
@@ -156,7 +156,7 @@ export function SiteHeaderClient({ isLoggedIn }: SiteHeaderClientProps) {
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger
-            className="neo-button-outline ml-auto inline-flex items-center justify-center p-3 md:hidden"
+            className="neo-button-outline ml-auto inline-flex items-center justify-center p-2 md:hidden"
             aria-label="打开移动端导航"
           >
             <Menu className="size-4" />
