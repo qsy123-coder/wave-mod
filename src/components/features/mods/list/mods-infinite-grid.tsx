@@ -164,7 +164,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
               mediaBottomLeft={mod.nsfw && nsfwMode === "blur" ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
                   <Lock className="size-8 text-white drop-shadow-[2px_2px_0px_#000]" />
-                  <span className="border-2 border-black bg-black/70 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-[2px_2px_0px_0px_#000]">
+                  <span className="border-2 border-black bg-black/70 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#ff7a7a] shadow-[2px_2px_0px_0px_#000]">
                     可能含18+内容
                   </span>
                 </div>
