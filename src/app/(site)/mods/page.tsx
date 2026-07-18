@@ -65,12 +65,33 @@ async function ModsPageContent({ searchParams }: PageProps) {
 
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
 
-  const sidebarCharacters = availableCharacters.map((name) => ({
-    label: name,
-    href: buildModsHref(currentSort, name, currentQuery),
-    count: counts[name] ?? 0,
-    isActive: name === currentCharacter,
-  }));
+  // 特殊分类（Skins = 所有角色 MOD 排除 UI/Other/Misc）
+  const skinCount = Object.entries(counts)
+    .filter(([k]) => !["Skins", "UI", "Other/Misc"].includes(k))
+    .reduce((sum, [, c]) => sum + c, 0);
+
+  const specialCategories = [
+    { label: "Skins", count: skinCount },
+    { label: "Other/Misc", count: counts["Other/Misc"] ?? 0 },
+    { label: "UI", count: counts["UI"] ?? 0 },
+  ];
+
+  const sidebarCharacters = [
+    ...specialCategories.map((c) => ({
+      label: c.label,
+      href: buildModsHref(currentSort, c.label, currentQuery),
+      count: c.count,
+      isActive: c.label === currentCharacter,
+    })),
+    ...availableCharacters
+      .filter((name) => !["Skins", "UI", "Other/Misc"].includes(name))
+      .map((name) => ({
+        label: name,
+        href: buildModsHref(currentSort, name, currentQuery),
+        count: counts[name] ?? 0,
+        isActive: name === currentCharacter,
+      })),
+  ];
 
   const sortHrefs: Record<string, string> = {};
   for (const opt of sortOptions) {
