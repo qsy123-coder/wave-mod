@@ -103,25 +103,81 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  overlayClassName,
+  customWidth,
   ...props
 }: React.ComponentProps<"div"> & {
   side?: "top" | "right" | "bottom" | "left";
   showCloseButton?: boolean;
+  overlayClassName?: string;
+  customWidth?: boolean;
 }) {
   const { open, setOpen } = useSheetContext();
+  const [visible, setVisible] = React.useState(false);
+  const [animatingIn, setAnimatingIn] = React.useState(false);
 
-  if (!open) return null;
+  // 入场: render → next frame → slide in
+  // 退场: slide out → transition end → remove from DOM
+  React.useEffect(() => {
+    if (open) {
+      setVisible(true);
+      // 锁定 body 滚动
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      const raf = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setAnimatingIn(true));
+      });
+      return () => {
+        cancelAnimationFrame(raf);
+        document.body.style.overflow = prev;
+      };
+    } else {
+      setAnimatingIn(false);
+      const timer = setTimeout(() => setVisible(false), 200); // match duration-200
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  if (!visible) return null;
+
+  const isHorizontal = side === "left" || side === "right";
+
+  const translateClass = isHorizontal
+    ? side === "right"
+      ? animatingIn ? "translate-x-0" : "translate-x-full"
+      : animatingIn ? "translate-x-0" : "-translate-x-full"
+    : side === "bottom"
+      ? animatingIn ? "translate-y-0" : "translate-y-full"
+      : animatingIn ? "-translate-y-0" : "-translate-y-full";
 
   return (
     <SheetPortal>
-      <SheetOverlay />
+      <SheetOverlay
+        className={cn(
+          overlayClassName,
+          animatingIn ? "opacity-100" : "opacity-0",
+        )}
+      />
       <div
         data-slot="sheet-content"
         data-side={side}
         role="dialog"
         aria-modal="true"
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
+          "fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out",
+          translateClass,
+          "data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t",
+          "data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b",
+          isHorizontal && !customWidth && [
+            side === "left"
+              ? "data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=left]:sm:max-w-sm"
+              : "data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=right]:sm:max-w-sm",
+          ],
+          isHorizontal && customWidth && [
+            side === "left"
+              ? "data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:border-r"
+              : "data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:border-l",
+          ],
           className,
         )}
         {...props}

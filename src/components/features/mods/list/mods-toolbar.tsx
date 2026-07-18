@@ -13,10 +13,10 @@ type ModsToolbarProps = {
   sort: string;
   sortOptions: { label: string; value: string }[];
   sortHrefs: Record<string, string>;
-  nsfwMode: NsfwMode;
-  onNsfwModeChange: (mode: NsfwMode) => void;
-  directOnly: boolean;
-  onDirectOnlyChange: (v: boolean) => void;
+  nsfwMode?: NsfwMode;
+  onNsfwModeChange?: (mode: NsfwMode) => void;
+  directOnly?: boolean;
+  onDirectOnlyChange?: (v: boolean) => void;
   activeCharacter?: string;
   activeQuery?: string;
   className?: string;
@@ -34,9 +34,9 @@ export function ModsToolbar({
   sort,
   sortOptions,
   sortHrefs,
-  nsfwMode,
+  nsfwMode = "blur",
   onNsfwModeChange,
-  directOnly,
+  directOnly = false,
   onDirectOnlyChange,
   activeCharacter,
   activeQuery,
@@ -81,7 +81,7 @@ export function ModsToolbar({
       {/* 直链下载筛选 */}
       <button
         type="button"
-        onClick={() => onDirectOnlyChange(!directOnly)}
+        onClick={() => onDirectOnlyChange?.(!directOnly)}
         className={cn(
           "border-4 border-black px-3 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5",
           directOnly ? "bg-[#4ade80] text-black" : "bg-white text-black/75"
@@ -94,7 +94,7 @@ export function ModsToolbar({
       <div className="relative">
         <select
           value={nsfwMode}
-          onChange={(e) => onNsfwModeChange(e.target.value as NsfwMode)}
+          onChange={(e) => onNsfwModeChange?.(e.target.value as NsfwMode)}
           className="cursor-pointer appearance-none border-4 border-black bg-white px-3 py-2 pr-8 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] outline-none transition hover:-translate-y-0.5"
         >
           {(["show", "blur", "hide"] as NsfwMode[]).map((mode) => (
