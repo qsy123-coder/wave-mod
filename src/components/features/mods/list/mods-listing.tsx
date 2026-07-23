@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import { ModsPageSkeleton } from "@/components/layout/data-skeletons";
-import { getAvailableCharacters, getPublicMods, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
+import { getCharacterSuggestions, getPublicMods, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 import { createPublicReadClient, getCurrentUser, isAdminUser } from "@/lib/supabase/server";
 
 type PageProps = {
@@ -60,7 +60,7 @@ async function ModsListingContent({ searchParams, openModId }: PageProps) {
   const currentQuery = parseModQuery(params.query);
 
   const [availableCharacters, counts, user, admin] = await Promise.all([
-    getAvailableCharacters(),
+    getCharacterSuggestions(),
     getCharacterCounts(),
     getCurrentUser(),
     isAdminUser(),
