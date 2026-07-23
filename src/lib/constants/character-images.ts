@@ -1,0 +1,68 @@
+/**
+ * 角色名 → 头像图片路径映射
+ * 图片位于 public/character-imgs/ 目录
+ */
+export const characterImageMap: Record<string, string> = {
+  // 特殊分类
+  "Skins": "/character-imgs/皮肤.png",
+  "Other/Misc": "/character-imgs/其他角色.png",
+  "UI": "/character-imgs/UI界面.png",
+
+  // 鸣潮角色
+  "秋水": "/character-imgs/秋水.png",
+  "奥古斯塔": "/character-imgs/奥古斯塔.png",
+  "白芷": "/character-imgs/白芷.png",
+  "布兰特": "/character-imgs/布兰特.png",
+  "卜灵": "/character-imgs/卜灵.webp",
+  "卡卡罗": "/character-imgs/卡卡罗.png",
+  "椿": "/character-imgs/椿.png",
+  "坎特蕾拉": "/character-imgs/坎特蕾拉.png",
+  "珂莱塔": "/character-imgs/珂莱塔.png",
+  "卡提希娅": "/character-imgs/卡提希娅.png",
+  "长离": "/character-imgs/长离.png",
+  "千咲": "/character-imgs/千咲.webp",
+  "炽霞": "/character-imgs/炽霞.png",
+  "夏空": "/character-imgs/夏空.png",
+  "丹瑾": "/character-imgs/丹瑾.png",
+  "安可": "/character-imgs/安可.png",
+  "绯雪": "/character-imgs/绯雪.png",
+  "嘉贝丽娜": "/character-imgs/嘉贝丽娜.png",
+  "爱弥斯": "/character-imgs/爱弥斯.png",
+  "尤诺": "/character-imgs/尤诺.png",
+  "鉴心": "/character-imgs/鉴心.png",
+  "今汐": "/character-imgs/今汐.png",
+  "忌炎": "/character-imgs/忌炎.png",
+  "凌阳": "/character-imgs/凌阳.png",
+  "洛瑟菈": "/character-imgs/洛瑟菈.webp",
+  "露西": "/character-imgs/露西.jpeg",
+  "灯灯": "/character-imgs/灯灯.png",
+  "露帕": "/character-imgs/露帕.png",
+  "路赫斯": "/character-imgs/路赫斯.webp",
+  "琳奈": "/character-imgs/琳奈.webp",
+  "莫宁": "/character-imgs/莫宁.webp",
+  "莫特斐": "/character-imgs/莫特斐.png",
+  "菲比": "/character-imgs/菲比.png",
+  "弗洛洛": "/character-imgs/弗洛洛.png",
+  "仇远": "/character-imgs/仇远.png",
+  "丽贝卡": "/character-imgs/丽贝卡.jpeg",
+  "洛可可": "/character-imgs/洛可可.png",
+  "漂泊者": "/character-imgs/漂泊者.png",
+  "散华": "/character-imgs/散华.png",
+  "守岸人": "/character-imgs/守岸人.png",
+  "西格莉卡": "/character-imgs/西格莉卡.webp",
+  "桃祈": "/character-imgs/桃祈.png",
+  "维里奈": "/character-imgs/维里奈.png",
+  "相里要": "/character-imgs/相里要.png",
+  "玄翎": "/character-imgs/玄翎.jpeg",
+  "秧秧": "/character-imgs/秧秧.png",
+  "吟霖": "/character-imgs/吟霖.png",
+  "釉瑚": "/character-imgs/釉瑚.png",
+  "渊武": "/character-imgs/渊武.png",
+  "赞妮": "/character-imgs/赞妮.png",
+  "折枝": "/character-imgs/折枝.png",
+} as const;
+
+/** 根据角色名获取头像路径，无头像时返回 null */
+export function getCharacterImagePath(label: string): string | null {
+  return characterImageMap[label] ?? null;
+}
