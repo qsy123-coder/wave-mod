@@ -10,7 +10,7 @@ export default function SiteLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="min-h-screen bg-[#8B7355] bg-[radial-gradient(circle,rgba(255,255,255,0.18)_1.2px,transparent_1.3px),radial-gradient(circle,rgba(255,255,255,0.10)_0.8px,transparent_0.9px)] bg-[size:20px_20px,32px_32px] bg-[position:0_0,10px_10px]">
+    <div className="min-h-screen bg-[#3a2418] bg-[radial-gradient(circle,rgba(0,0,0,0.42)_1.5px,transparent_1.6px),linear-gradient(to_right,rgba(0,0,0,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.14)_1px,transparent_1px)] bg-[size:24px_24px,44px_44px,44px_44px]">
       <Suspense fallback={<SiteHeaderSkeleton />}>
         <SiteHeader />
       </Suspense>
