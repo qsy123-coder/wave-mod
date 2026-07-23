@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Heart } from "lucide-react";
 
 type Props = {
@@ -14,7 +14,12 @@ type Props = {
 export function CardFavoriteButton({ modId, isFavorited, isLoggedIn }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [optimistic, setOptimistic] = useState(isFavorited);
+  const [optimistic, setOptimistic] = useState(false);
+
+  // 水合后同步服务端状态，避免 SSR 与客户端渲染不一致
+  useEffect(() => {
+    setOptimistic(isFavorited);
+  }, [isFavorited]);
 
   if (!isLoggedIn) {
     return (
@@ -29,9 +34,10 @@ export function CardFavoriteButton({ modId, isFavorited, isLoggedIn }: Props) {
   }
 
   return (
-    <button
-      type="button"
-      className="absolute bottom-12 right-2 z-20 inline-flex size-7 items-center justify-center border-[2.5px] border-black bg-[#fff8ef] shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5"
+    <span
+      role="button"
+      tabIndex={0}
+      className="absolute bottom-12 right-2 z-20 inline-flex size-7 cursor-pointer items-center justify-center border-[2.5px] border-black bg-[#fff8ef] shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5"
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -49,8 +55,15 @@ export function CardFavoriteButton({ modId, isFavorited, isLoggedIn }: Props) {
           }
         });
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          (e.target as HTMLElement).click();
+        }
+      }}
     >
       <Heart className={`size-3.5 ${optimistic ? "fill-[#ff7a7a] text-[#ff7a7a]" : "text-black/50"}`} />
-    </button>
+    </span>
   );
 }
