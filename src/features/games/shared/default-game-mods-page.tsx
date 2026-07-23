@@ -4,7 +4,17 @@ import type { GameConfig } from "@/config/games";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
 import { ModGridSkeleton } from "@/components/layout/data-skeletons";
-import { getAvailableCharacters, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
+import { getAvailableCharacters, getPublicMods, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
+
+async function getCharacterCounts(gameKey: string): Promise<Record<string, number>> {
+  const allMods = await getPublicMods(undefined, { gameKey });
+  const counts: Record<string, number> = {};
+  for (const mod of allMods) {
+    const c = (mod.character ?? "").trim();
+    if (c) counts[c] = (counts[c] || 0) + 1;
+  }
+  return counts;
+}
 import { GameModsFilterClient } from "./game-mods-filter-client";
 
 const sortOptions: { label: string; value: ModSort }[] = [
@@ -38,14 +48,19 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
   const currentSort = parseModSort(params.sort);
   const currentCharacter = parseCharacterFilter(params.character);
   const currentQuery = parseModQuery(params.query);
-  const availableCharacters = await getAvailableCharacters(game.key);
-  const firstPage = await getPublicModsPage(1, 16, { sort: currentSort, character: currentCharacter, query: currentQuery, gameKey: game.key });
+  const [availableCharacters, counts, firstPage] = await Promise.all([
+    getAvailableCharacters(game.key),
+    getCharacterCounts(game.key),
+    getPublicModsPage(1, 16, { sort: currentSort, character: currentCharacter, query: currentQuery, gameKey: game.key }),
+  ]);
+
+  const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
 
   // 构造侧边栏角色列表
   const sidebarCharacters = availableCharacters.map((name) => ({
     label: name,
     href: buildModsHref(game, currentSort, name, currentQuery),
-    count: 0,
+    count: counts[name] ?? 0,
     isActive: name === currentCharacter,
   }));
 
@@ -63,7 +78,7 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
           <CharacterSidebar
             allLabel="全部"
             allHref={buildModsHref(game, currentSort, undefined, currentQuery)}
-            allCount={0}
+            allCount={totalCount}
             isAllActive={!currentCharacter}
             characters={sidebarCharacters}
           />
