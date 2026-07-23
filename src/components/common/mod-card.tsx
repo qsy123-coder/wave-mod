@@ -1,10 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition, type ReactNode } from "react";
 import { ArrowUpRight, Eye, Heart } from "lucide-react";
 
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
-import { FavoriteButton } from "@/components/features/mods/detail/favorite-button";
 import { Badge } from "@/components/ui/badge";
 import type { SiteMod } from "@/lib/mods";
 import { cn } from "@/lib/utils";
@@ -130,6 +130,49 @@ function shortenText(text: string, max: number) {
   return `${text.slice(0, max).trimEnd()}...`;
 }
 
+function CardFavoriteButton({ modId, isFavorited, isLoggedIn }: { modId: string; isFavorited: boolean; isLoggedIn: boolean }) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [optimistic, setOptimistic] = useState(isFavorited);
+
+  if (!isLoggedIn) {
+    return (
+      <Link
+        href={`/auth/login?next=${encodeURIComponent(`/mods/${modId}`)}&mode=user`}
+        className="absolute bottom-12 right-2 z-20 inline-flex size-7 items-center justify-center border-[2.5px] border-black bg-[#fff8ef] shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Heart className="size-3.5 text-black/50" />
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="absolute bottom-12 right-2 z-20 inline-flex size-7 items-center justify-center border-[2.5px] border-black bg-[#fff8ef] shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5"
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const prev = optimistic;
+        setOptimistic(!prev);
+        startTransition(async () => {
+          try {
+            const formData = new FormData();
+            formData.set("id", modId);
+            await import("@/actions/mods/favorite-actions").then((m) => m.toggleFavoriteAction(formData));
+            router.refresh();
+          } catch {
+            setOptimistic(prev);
+          }
+        });
+      }}
+    >
+      <Heart className={`size-3.5 ${optimistic ? "fill-[#ff7a7a] text-[#ff7a7a]" : "text-black/50"}`} />
+    </button>
+  );
+}
+
 export function ModCard({
   mod,
   href,
@@ -241,25 +284,12 @@ export function ModCard({
       {mediaBottomLeft}
       {showRatingSticker ? <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} className={cn("z-20 shadow-[4px_4px_0px_0px_#000]", ratingStickerClassName)} /> : null}
 
-      {/* 收藏按钮 — 放在评分 sticker 上方，阻止冒泡避免触发卡片跳转 */}
-      <div
-        className="absolute bottom-12 right-2 z-20 rotate-[-1deg] border-[3px] border-black bg-[#fff8ef] px-1.5 py-1 shadow-[3px_3px_0px_0px_#000]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <FavoriteButton
-          compact
-          id={mod.id}
-          isFavorited={mod.isFavorited ?? false}
-          isLoggedIn={isLoggedIn}
-          nextPath={`/mods/${mod.id}`}
-          favoriteCount={mod.favorites}
-          loginLabel="收藏"
-          favoriteLabel="已藏"
-          unfavoriteLabel="已藏"
-          pendingLabel="..."
-          className="!border-0 !shadow-none !h-auto !px-0 !py-0 !text-[11px]"
-        />
-      </div>
+      {/* 收藏按钮 — 放在评分 sticker 上方 */}
+      <CardFavoriteButton
+        modId={mod.id}
+        isFavorited={mod.isFavorited ?? false}
+        isLoggedIn={isLoggedIn}
+      />
 
       <div className={cn(styles.content, contentClassName)}>
         <div className="max-w-sm space-y-1.5">
