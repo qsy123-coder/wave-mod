@@ -21,14 +21,17 @@ export function CardFavoriteButton({ modId, isFavorited, isLoggedIn }: Props) {
     setOptimistic(isFavorited);
   }, [isFavorited]);
 
+  const sharedClass = "absolute bottom-12 right-2 z-20 inline-flex items-center gap-0.5 border-[2.5px] border-black bg-[#fff8ef] px-1 py-0.5 shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5";
+
   if (!isLoggedIn) {
     return (
       <Link
         href={`/auth/login?next=${encodeURIComponent(`/mods/${modId}`)}&mode=user`}
-        className="absolute bottom-12 right-2 z-20 inline-flex size-7 items-center justify-center border-[2.5px] border-black bg-[#fff8ef] shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5"
+        className={sharedClass}
         onClick={(e) => e.stopPropagation()}
       >
-        <Heart className="size-3.5 text-black/50" />
+        <Heart className="size-3 text-black/50" />
+        <span className="text-[9px] font-black uppercase text-black/50">收藏</span>
       </Link>
     );
   }
@@ -37,7 +40,7 @@ export function CardFavoriteButton({ modId, isFavorited, isLoggedIn }: Props) {
     <span
       role="button"
       tabIndex={0}
-      className="absolute bottom-12 right-2 z-20 inline-flex size-7 cursor-pointer items-center justify-center border-[2.5px] border-black bg-[#fff8ef] shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5"
+      className={`${sharedClass} cursor-pointer`}
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -63,7 +66,8 @@ export function CardFavoriteButton({ modId, isFavorited, isLoggedIn }: Props) {
         }
       }}
     >
-      <Heart className={`size-3.5 ${optimistic ? "fill-[#ff7a7a] text-[#ff7a7a]" : "text-black/50"}`} />
+      <Heart className={`size-3 ${optimistic ? "fill-[#ff7a7a] text-[#ff7a7a]" : "text-black/50"}`} />
+      <span className={`text-[9px] font-black uppercase ${optimistic ? "text-[#ff7a7a]" : "text-black/50"}`}>收藏</span>
     </span>
   );
 }
