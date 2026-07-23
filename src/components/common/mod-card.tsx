@@ -209,29 +209,52 @@ export function ModCard({
   const topRightContent = mediaTopRight ??
     (styles.defaultTopRight && inlineDetailLink ? <div className={styles.defaultTopRight}>{inlineDetailLink}</div> : null);
 
+  const isAutoAspect = imageAspectClassName === "auto";
+
   const media = (
     <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>
-      <div className={cn("relative min-h-72 aspect-[4/5] w-full sm:aspect-[3/4] xl:aspect-[4/5]", imageAspectClassName)}>
+      <div className={cn(
+        "relative w-full",
+        isAutoAspect ? "h-auto" : "min-h-72 aspect-[4/5] sm:aspect-[3/4] xl:aspect-[4/5]",
+        !isAutoAspect && imageAspectClassName
+      )}>
         {/* 模糊放大背景图，填充 object-contain 产生的空白区域 */}
-        <Image
-          src={mod.coverImage}
-          alt=""
-          fill
-          unoptimized={mod.coverImage?.includes("supabase.co")}
-          sizes={imageSizes}
-          className="scale-110 object-cover blur-xl"
-          aria-hidden="true"
-        />
-        <Image
-          src={mod.coverImage}
-          alt={mod.title}
-          fill
-          unoptimized={mod.coverImage?.includes("supabase.co")}
-          priority={imagePriority}
-          fetchPriority={imageFetchPriority}
-          sizes={imageSizes}
-          className={cn("object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
-        />
+        {isAutoAspect ? (
+          <Image
+            src={mod.coverImage}
+            alt={mod.title}
+            width={800}
+            height={600}
+            unoptimized={mod.coverImage?.includes("supabase.co")}
+            priority={imagePriority}
+            fetchPriority={imageFetchPriority}
+            sizes={imageSizes}
+            style={{ width: "100%", height: "auto" }}
+            className={cn("block object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
+          />
+        ) : (
+          <>
+            <Image
+              src={mod.coverImage}
+              alt=""
+              fill
+              unoptimized={mod.coverImage?.includes("supabase.co")}
+              sizes={imageSizes}
+              className="scale-110 object-cover blur-xl"
+              aria-hidden="true"
+            />
+            <Image
+              src={mod.coverImage}
+              alt={mod.title}
+              fill
+              unoptimized={mod.coverImage?.includes("supabase.co")}
+              priority={imagePriority}
+              fetchPriority={imageFetchPriority}
+              sizes={imageSizes}
+              className={cn("object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
+            />
+          </>
+        )}
       </div>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,transparent_18%,rgba(0,0,0,0.16)_55%,rgba(0,0,0,0.42)_100%)] transition-opacity duration-500 group-hover/mod-card:opacity-90" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/18 to-black/8" />

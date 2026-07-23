@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Columns2, LayoutGrid, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,8 @@ type ModsToolbarProps = {
   activeQuery?: string;
   modCount?: number;
   className?: string;
+  layoutMode?: "grid" | "masonry";
+  onLayoutChange?: (mode: "grid" | "masonry") => void;
 };
 
 const filterOptions = [
@@ -65,6 +67,8 @@ export function ModsToolbar({
   activeQuery,
   modCount,
   className,
+  layoutMode = "grid",
+  onLayoutChange,
 }: ModsToolbarProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
@@ -243,6 +247,40 @@ export function ModsToolbar({
           })}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* 布局切换 */}
+      {onLayoutChange ? (
+        <div className="ml-auto flex items-center gap-0.5 border-4 border-black bg-white shadow-[4px_4px_0px_0px_#000]">
+          <button
+            type="button"
+            onClick={() => onLayoutChange("grid")}
+            className={cn(
+              "px-2 py-2 transition",
+              layoutMode === "grid"
+                ? "bg-black text-white"
+                : "text-black/55 hover:text-black"
+            )}
+            aria-label="网格布局"
+            title="网格布局"
+          >
+            <LayoutGrid className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onLayoutChange("masonry")}
+            className={cn(
+              "px-2 py-2 transition",
+              layoutMode === "masonry"
+                ? "bg-black text-white"
+                : "text-black/55 hover:text-black"
+            )}
+            aria-label="瀑布流布局"
+            title="瀑布流布局"
+          >
+            <Columns2 className="size-4" />
+          </button>
+        </div>
+      ) : null}
 
       {/* 当前筛选条件 */}
       {(activeCharacter || activeQuery || isFilterActive || isNsfwActive || isSortActive) ? (

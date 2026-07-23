@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar, type NsfwMode } from "@/components/features/mods/list/mods-toolbar";
+import { useLayoutPreference } from "@/components/features/mods/list/use-layout-preference";
 import { ModGridSkeleton } from "@/components/layout/data-skeletons";
 import type { ModSort, SiteMod } from "@/lib/mods";
 
@@ -48,6 +49,7 @@ export function ModsPageClient({
   const [directOnly, setDirectOnly] = useState(false);
   const [nsfwOnly, setNsfwOnly] = useState(false);
   const [gridCount, setGridCount] = useState<number | null>(null);
+  const [layoutMode, setLayoutMode] = useLayoutPreference();
   const hasClientFilter = nsfwMode !== "blur" || nsfwOnly || directOnly;
   const modCount = hasClientFilter ? (gridCount ?? (serverTotalCount ?? initialMods.length)) : (serverTotalCount ?? initialMods.length);
   const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
@@ -89,6 +91,8 @@ export function ModsPageClient({
         activeCharacter={activeCharacter}
         activeQuery={initialQuery || undefined}
         modCount={modCount}
+        layoutMode={layoutMode}
+        onLayoutChange={setLayoutMode}
       />
 
       <div className="flex-1 overflow-y-auto pt-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
@@ -103,6 +107,7 @@ export function ModsPageClient({
             directOnly={directOnly}
             nsfwOnly={nsfwOnly}
             isLoggedIn={isLoggedIn}
+            layoutMode={layoutMode}
             onCountChange={setGridCount}
             onCardClick={openDrawer}
           />

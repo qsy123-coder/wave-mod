@@ -62,9 +62,10 @@ type ModsInfiniteGridProps = {
   onCardClick?: (modId: string) => void;
   onCountChange?: (count: number) => void;
   isLoggedIn?: boolean;
+  layoutMode?: "grid" | "masonry";
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "grid" }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const initialPage: PaginatedResult<SiteMod> = {
     hasMore: initialMods.length === PAGE_SIZE,
@@ -140,11 +141,19 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
     );
   }
 
+  const isMasonry = layoutMode === "masonry";
+
   return (
     <div className="space-y-5">
-      <section className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
-        {mods.map((mod, index) => (
-          <MotionReveal key={`${mod.id}-${index}`} delay={0.03 + (index % 8) * 0.02} y={14} rotate={index % 2 === 0 ? -1 : 1}>
+      <section
+        className={
+          isMasonry
+            ? "columns-[220px] gap-4 [column-fill:balance]"
+            : "grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5"
+        }
+      >
+        {mods.map((mod, index) => {
+          const card = (
             <ModCard
               mod={mod}
               href={gameKey ? `/${gameKey}/mods/${mod.id}` : `/mods/${mod.id}`}
@@ -152,7 +161,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
               isLoggedIn={isLoggedIn}
               variant="list"
               className="bg-[#fff8ef] p-2.5"
-              imageAspectClassName="aspect-[5/6] sm:aspect-[4/5]"
+              imageAspectClassName={isMasonry ? "auto" : "aspect-[5/6] sm:aspect-[4/5]"}
               imagePriority={index < 4}
               imageFetchPriority={index < 4 ? "high" : "auto"}
               imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
@@ -181,8 +190,25 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
                 </div>
               ) : undefined}
             />
-          </MotionReveal>
-        ))}
+          );
+
+          // 瀑布流模式：需要 break-inside-avoid 防止卡片在列中被截断
+          if (isMasonry) {
+            return (
+              <div key={`${mod.id}-${index}`} className="break-inside-avoid mb-4">
+                <MotionReveal delay={0.03 + (index % 8) * 0.02} y={14} rotate={index % 2 === 0 ? -1 : 1}>
+                  {card}
+                </MotionReveal>
+              </div>
+            );
+          }
+
+          return (
+            <MotionReveal key={`${mod.id}-${index}`} delay={0.03 + (index % 8) * 0.02} y={14} rotate={index % 2 === 0 ? -1 : 1}>
+              {card}
+            </MotionReveal>
+          );
+        })}
       </section>
 
       {error ? (
