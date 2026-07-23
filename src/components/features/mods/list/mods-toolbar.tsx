@@ -83,12 +83,15 @@ export function ModsToolbar({
     if (key === "nsfw") {
       onNsfwOnlyChange?.(true);
       onDirectOnlyChange?.(false);
+      onNsfwModeChange?.("show");
     } else if (key === "direct") {
       onNsfwOnlyChange?.(false);
       onDirectOnlyChange?.(true);
     } else {
+      // "全部"：重置所有过滤条件
       onNsfwOnlyChange?.(false);
       onDirectOnlyChange?.(false);
+      onNsfwModeChange?.("blur");
     }
     setFilterOpen(false);
   };
