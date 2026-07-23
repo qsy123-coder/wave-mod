@@ -270,12 +270,12 @@ export function ModCard({
               inline
             />
             {showRatingSticker ? (
-              <div className="border-[3px] border-black bg-[#ffd84f] px-1.5 py-1 shadow-[3px_3px_0px_0px_#000]">
+              <div className="border-[2px] border-black bg-[#ffd84f] px-1 py-0.5 shadow-[1px_1px_0px_0px_#000]">
                 <div className="flex items-center gap-0.5 text-black">
-                  <Star className="size-2.5 fill-[#ff7a00] text-[#ff7a00]" />
-                  <span className="text-[11px] font-black leading-none">{mod.ratingAverage.toFixed(1)}</span>
+                  <Star className="size-2 fill-[#ff7a00] text-[#ff7a00]" />
+                  <span className="text-[9px] font-black leading-none">{mod.ratingAverage.toFixed(1)}</span>
                 </div>
-                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-black/70">{mod.ratingCount} 人评分</p>
+                <p className="text-[6px] font-black uppercase tracking-[0.14em] text-black/70">{mod.ratingCount} 评</p>
               </div>
             ) : null}
           </div>
