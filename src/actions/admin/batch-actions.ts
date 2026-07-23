@@ -114,14 +114,15 @@ export async function batchUpdateMods(
   }
 
   // 只更新非空字段
-  const updateData: Record<string, unknown> = {};
-  if (fields.title?.trim()) updateData.title = fields.title.trim();
-  if (fields.description?.trim()) updateData.description = fields.description.trim();
-  if (fields.character?.trim()) updateData.character = fields.character.trim();
-  if (fields.version?.trim()) updateData.version = fields.version.trim();
-  if (fields.gameKey?.trim()) updateData.game_key = fields.gameKey.trim();
-  if (fields.nsfw !== undefined) updateData.nsfw = fields.nsfw;
-  if (fields.downloadUrl !== undefined) updateData.download_url = fields.downloadUrl.trim();
+  const updateData = {
+    ...(fields.title?.trim() ? { title: fields.title.trim() } : {}),
+    ...(fields.description?.trim() ? { description: fields.description.trim() } : {}),
+    ...(fields.character?.trim() ? { character: fields.character.trim() } : {}),
+    ...(fields.version?.trim() ? { version: fields.version.trim() } : {}),
+    ...(fields.gameKey?.trim() ? { game_key: fields.gameKey.trim() } : {}),
+    ...(fields.nsfw !== undefined ? { nsfw: fields.nsfw } : {}),
+    ...(fields.downloadUrl !== undefined ? { download_url: fields.downloadUrl.trim() } : {}),
+  };
 
   if (Object.keys(updateData).length === 0) {
     return { success: 0, failed: ids.map((id) => ({ id, title: "", error: "没有提供任何要更新的字段" })) };
@@ -135,10 +136,8 @@ export async function batchUpdateMods(
         .eq("id", id)
         .single();
 
-      const { error } = await supabase
-        .from("mods")
-        .update(updateData)
-        .eq("id", id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from("mods") as any).update(updateData).eq("id", id);
 
       if (error) {
         result.failed.push({ id, title: mod?.title ?? "", error: error.message });
@@ -208,15 +207,16 @@ export async function batchUpdateModsIndividually(
 
   for (const { id, fields } of updates) {
     try {
-      const updateData: Record<string, unknown> = {};
-      if (fields.gameKey?.trim()) updateData.game_key = fields.gameKey.trim();
-      if (fields.title?.trim()) updateData.title = fields.title.trim();
-      if (fields.character?.trim()) updateData.character = fields.character.trim();
-      if (fields.description?.trim()) updateData.description = fields.description.trim();
-      if (fields.downloadUrl !== undefined) updateData.download_url = fields.downloadUrl.trim();
-      if (fields.videoUrl !== undefined) updateData.video_url = fields.videoUrl.trim();
-      if (fields.imageUrls !== undefined) updateData.images = fields.imageUrls.filter(Boolean);
-      if (fields.nsfw !== undefined) updateData.nsfw = fields.nsfw;
+      const updateData = {
+        ...(fields.gameKey?.trim() ? { game_key: fields.gameKey.trim() } : {}),
+        ...(fields.title?.trim() ? { title: fields.title.trim() } : {}),
+        ...(fields.character?.trim() ? { character: fields.character.trim() } : {}),
+        ...(fields.description?.trim() ? { description: fields.description.trim() } : {}),
+        ...(fields.downloadUrl !== undefined ? { download_url: fields.downloadUrl.trim() } : {}),
+        ...(fields.videoUrl !== undefined ? { video_url: fields.videoUrl.trim() } : {}),
+        ...(fields.imageUrls !== undefined ? { images: fields.imageUrls.filter(Boolean) } : {}),
+        ...(fields.nsfw !== undefined ? { nsfw: fields.nsfw } : {}),
+      };
 
       if (Object.keys(updateData).length === 0) {
         result.success++;
@@ -224,7 +224,8 @@ export async function batchUpdateModsIndividually(
       }
 
       const { data: mod } = await supabase.from("mods").select("title").eq("id", id).single();
-      const { error } = await supabase.from("mods").update(updateData).eq("id", id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from("mods") as any).update(updateData).eq("id", id);
 
       if (error) {
         result.failed.push({ id, title: mod?.title ?? "", error: error.message });
