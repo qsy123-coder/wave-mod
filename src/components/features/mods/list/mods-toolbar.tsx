@@ -94,7 +94,6 @@ export function ModsToolbar({
   };
 
   const handleNsfwModeSelect = (key: NsfwMode) => {
-    console.log("[nsfw-debug] ModsToolbar handleNsfwModeSelect:", { from: nsfwMode, to: key, hasCallback: !!onNsfwModeChange });
     onNsfwModeChange?.(key);
     setNsfwOpen(false);
   };

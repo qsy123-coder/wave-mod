@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import type { GameConfig } from "@/config/games";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
@@ -29,10 +29,6 @@ export function GameModsFilterClient({
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
   const [nsfwOnly, setNsfwOnly] = useState(false);
-
-  useEffect(() => {
-    console.log("[nsfw-debug] GameModsFilterClient nsfwMode changed:", { nsfwMode, nsfwOnly, directOnly });
-  }, [nsfwMode, nsfwOnly, directOnly]);
 
   return (
     <>

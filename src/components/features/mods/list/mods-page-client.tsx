@@ -47,10 +47,6 @@ export function ModsPageClient({
   const [nsfwOnly, setNsfwOnly] = useState(false);
   const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
 
-  useEffect(() => {
-    console.log("[nsfw-debug] ModsPageClient nsfwMode changed:", { nsfwMode, nsfwOnly, directOnly });
-  }, [nsfwMode, nsfwOnly, directOnly]);
-
   // 同步浏览器历史：点击卡片时 pushState，浏览器后退/前进时 popstate
   const openDrawer = useCallback((modId: string) => {
     setDrawerModId(modId);
