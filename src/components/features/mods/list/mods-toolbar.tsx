@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -145,6 +145,7 @@ export function ModsToolbar({
           )}
         >
           {filterLabel}
+          <ChevronDown className="size-3 shrink-0" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-40 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
           {filterOptions.map((opt, index) => {
@@ -180,6 +181,7 @@ export function ModsToolbar({
           )}
         >
           {nsfwLabel}
+          <ChevronDown className="size-3 shrink-0" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-44 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
           {nsfwModeOptions.map((opt, index) => {
@@ -215,6 +217,7 @@ export function ModsToolbar({
           )}
         >
           {sortLabel}
+          <ChevronDown className="size-3 shrink-0" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-36 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
           {sortOptions.map((opt, index) => {
