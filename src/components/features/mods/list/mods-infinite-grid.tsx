@@ -60,9 +60,10 @@ type ModsInfiniteGridProps = {
   directOnly?: boolean;
   nsfwOnly?: boolean;
   onCardClick?: (modId: string) => void;
+  onCountChange?: (count: number) => void;
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const initialPage: PaginatedResult<SiteMod> = {
     hasMore: initialMods.length === PAGE_SIZE,
@@ -99,6 +100,10 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
     if (directOnly) all = all.filter((m) => m.downloadUrl);
     return all;
   }, [data.pages, nsfwMode, directOnly, nsfwOnly]);
+
+  useEffect(() => {
+    onCountChange?.(mods.length);
+  }, [mods.length, onCountChange]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;

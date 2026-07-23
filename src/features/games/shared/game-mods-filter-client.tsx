@@ -29,6 +29,7 @@ export function GameModsFilterClient({
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
   const [nsfwOnly, setNsfwOnly] = useState(false);
+  const [modCount, setModCount] = useState(initialMods.length);
 
   return (
     <>
@@ -46,9 +47,11 @@ export function GameModsFilterClient({
         onNsfwOnlyChange={setNsfwOnly}
         activeCharacter={initialCharacter}
         activeQuery={initialQuery}
+        modCount={modCount}
       />
 
       <ModsInfiniteGrid
+        onCountChange={setModCount}
         sort={initialSort}
         character={initialCharacter}
         gameKey={game.key}

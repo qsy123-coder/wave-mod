@@ -27,6 +27,7 @@ type ModsToolbarProps = {
   onNsfwOnlyChange?: (v: boolean) => void;
   activeCharacter?: string;
   activeQuery?: string;
+  modCount?: number;
   className?: string;
 };
 
@@ -62,6 +63,7 @@ export function ModsToolbar({
   onNsfwOnlyChange,
   activeCharacter,
   activeQuery,
+  modCount,
   className,
 }: ModsToolbarProps) {
   const router = useRouter();
@@ -243,6 +245,11 @@ export function ModsToolbar({
       {(activeCharacter || activeQuery || isFilterActive || isNsfwActive || isSortActive) ? (
         <div className="flex w-full flex-wrap items-center gap-1.5 border-t-4 border-black pt-2">
           <span className="text-[10px] font-black uppercase tracking-[0.14em] text-black/60">筛选：</span>
+          {modCount !== undefined ? (
+            <span className="inline-flex items-center gap-1 border-[3px] border-black bg-[#ffd84f] px-2 py-0.5 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
+              共 {modCount} 个 MOD
+            </span>
+          ) : null}
           {activeCharacter ? (
             <span className="inline-flex items-center gap-1 border-[3px] border-black bg-[#ffd84f] px-2 py-0.5 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
               角色: {activeCharacter}

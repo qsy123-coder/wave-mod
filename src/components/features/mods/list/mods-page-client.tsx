@@ -45,6 +45,7 @@ export function ModsPageClient({
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
   const [nsfwOnly, setNsfwOnly] = useState(false);
+  const [modCount, setModCount] = useState(initialMods.length);
   const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
 
   // 同步浏览器历史：点击卡片时 pushState，浏览器后退/前进时 popstate
@@ -83,6 +84,7 @@ export function ModsPageClient({
         onNsfwOnlyChange={setNsfwOnly}
         activeCharacter={activeCharacter}
         activeQuery={initialQuery || undefined}
+        modCount={modCount}
       />
 
       <div className="flex-1 overflow-y-auto pt-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
@@ -96,6 +98,7 @@ export function ModsPageClient({
             nsfwMode={nsfwMode}
             directOnly={directOnly}
             nsfwOnly={nsfwOnly}
+            onCountChange={setModCount}
             onCardClick={openDrawer}
           />
         </Suspense>
