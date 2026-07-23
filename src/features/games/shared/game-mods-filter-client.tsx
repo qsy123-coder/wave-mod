@@ -34,7 +34,9 @@ export function GameModsFilterClient({
   // 默认用服务端的全量计数；客户端筛选激活后由 grid 回调更新
   const [gridCount, setGridCount] = useState<number | null>(null);
 
-  const modCount = gridCount ?? serverTotalCount;
+  // 仅当客户端筛选激活时使用 grid 的过滤后数量，否则用服务端全量
+  const hasClientFilter = nsfwMode !== "blur" || nsfwOnly || directOnly;
+  const modCount = hasClientFilter ? (gridCount ?? serverTotalCount) : serverTotalCount;
 
   return (
     <>

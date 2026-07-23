@@ -36,7 +36,7 @@ type DefaultGameModsPageProps = {
 
 function buildModsHref(game: GameConfig, sort: ModSort, character?: string, query?: string) {
   const params = new URLSearchParams();
-  if (sort !== "latest") params.set("sort", sort);
+  if (sort !== "default") params.set("sort", sort);
   if (character) params.set("character", character);
   if (query) params.set("query", query);
   const qs = params.toString();

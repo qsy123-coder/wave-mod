@@ -48,7 +48,8 @@ export function ModsPageClient({
   const [directOnly, setDirectOnly] = useState(false);
   const [nsfwOnly, setNsfwOnly] = useState(false);
   const [gridCount, setGridCount] = useState<number | null>(null);
-  const modCount = gridCount ?? serverTotalCount ?? initialMods.length;
+  const hasClientFilter = nsfwMode !== "blur" || nsfwOnly || directOnly;
+  const modCount = hasClientFilter ? (gridCount ?? (serverTotalCount ?? initialMods.length)) : (serverTotalCount ?? initialMods.length);
   const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
 
   // 同步浏览器历史：点击卡片时 pushState，浏览器后退/前进时 popstate
