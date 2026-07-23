@@ -94,9 +94,19 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   const mods = useMemo(() => {
     let all = data.pages.flatMap((page) => page.items);
+    const totalBefore = all.length;
+    const nsfwCount = all.filter((m) => m.nsfw).length;
+    console.log("[nsfw-debug] ModsInfiniteGrid useMemo", {
+      nsfwMode,
+      nsfwOnly,
+      directOnly,
+      totalBefore,
+      nsfwCount,
+    });
     if (nsfwOnly) all = all.filter((m) => m.nsfw);
     if (nsfwMode === "hide") all = all.filter((m) => !m.nsfw);
     if (directOnly) all = all.filter((m) => m.downloadUrl);
+    console.log("[nsfw-debug] ModsInfiniteGrid after filter:", { totalAfter: all.length, removed: totalBefore - all.length });
     return all;
   }, [data.pages, nsfwMode, directOnly, nsfwOnly]);
 
