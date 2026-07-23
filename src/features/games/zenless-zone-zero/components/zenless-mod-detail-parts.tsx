@@ -323,7 +323,6 @@ export function ZenlessRecommended({
           className="border-4 border-black bg-[#07111f]/72 p-2 text-slate-100 shadow-[5px_5px_0px_0px_#000] ring-1 ring-white/10 backdrop-blur-[2px]"
           mediaClassName="border-2 border-black shadow-none"
           imageAspectClassName="aspect-[16/10] min-h-0"
-          showDescription={false}
           showInteractionBar={false}
           showMetaBadges={false}
           showRatingSticker={false}

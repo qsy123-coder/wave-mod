@@ -2,12 +2,13 @@ import { Suspense } from "react";
 
 import type { GameConfig } from "@/config/games";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
-import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
 import { ModGridSkeleton } from "@/components/layout/data-skeletons";
 import { getAvailableCharacters, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
+import { GameModsFilterClient } from "./game-mods-filter-client";
 
 const sortOptions: { label: string; value: ModSort }[] = [
+  { label: "默认", value: "default" },
   { label: "最新", value: "latest" },
   { label: "热度", value: "hot" },
   { label: "收藏", value: "favorites" },
@@ -32,17 +33,13 @@ function buildModsHref(game: GameConfig, sort: ModSort, character?: string, quer
   return qs ? `${game.nav.mods}?${qs}` : game.nav.mods;
 }
 
-async function ModsFeed({ character, game, query, sort }: { character?: string; game: GameConfig; query?: string; sort: ModSort }) {
-  const firstPage = await getPublicModsPage(1, 16, { sort, character, query, gameKey: game.key });
-  return <ModsInfiniteGrid sort={sort} character={character} gameKey={game.key} query={query} initialMods={firstPage.items} />;
-}
-
 async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameModsPageProps) {
   const params = (await searchParams) ?? {};
   const currentSort = parseModSort(params.sort);
   const currentCharacter = parseCharacterFilter(params.character);
   const currentQuery = parseModQuery(params.query);
   const availableCharacters = await getAvailableCharacters(game.key);
+  const firstPage = await getPublicModsPage(1, 16, { sort: currentSort, character: currentCharacter, query: currentQuery, gameKey: game.key });
 
   // 构造侧边栏角色列表
   const sidebarCharacters = availableCharacters.map((name) => ({
@@ -73,21 +70,17 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
         </div>
       </div>
 
-      {/* 主内容区 */}
+      {/* 主内容区 — 客户端组件管理过滤状态 */}
       <div className="min-w-0 flex-1 space-y-4">
-        {/* 工具栏 */}
-        <ModsToolbar
-          gameModsPath={game.nav.mods}
-          initialQuery={currentQuery ?? ""}
-          sort={currentSort}
+        <GameModsFilterClient
+          game={game}
+          initialSort={currentSort}
+          initialCharacter={currentCharacter}
+          initialQuery={currentQuery}
+          initialMods={firstPage.items}
           sortOptions={sortOptions}
           sortHrefs={sortHrefs}
         />
-
-        {/* 卡片网格 */}
-        <Suspense fallback={<ModGridSkeleton />}>
-          <ModsFeed sort={currentSort} character={currentCharacter} game={game} query={currentQuery} />
-        </Suspense>
       </div>
     </div>
   );

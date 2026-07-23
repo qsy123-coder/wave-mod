@@ -42,7 +42,7 @@ export async function getCharacterSuggestions(gameKey = defaultGameKey) {
 }
 
 export async function getPublicMods(limit?: number, filters: PublicModsFilters = {}) {
-  const { gameKey = defaultGameKey, sort = "latest" } = filters;
+  const { gameKey = defaultGameKey, sort = "default" } = filters;
   let supabase;
   try {
     supabase = createPublicReadClient();
@@ -96,7 +96,7 @@ export async function getLatestMods(limit: number, gameKey = defaultGameKey) {
 export async function getPublicModsPage(page: number, pageSize: number, filters: PublicModsFilters = {}): Promise<PaginatedResult<SiteMod>> {
   const safePage = Math.max(1, page);
   const safePageSize = Math.max(1, pageSize);
-  const sort = filters.sort ?? "latest";
+  const sort = filters.sort ?? "default";
   const allMods = await getPublicMods(undefined, { ...filters, sort });
   const from = (safePage - 1) * safePageSize;
   const items = allMods.slice(from, from + safePageSize);

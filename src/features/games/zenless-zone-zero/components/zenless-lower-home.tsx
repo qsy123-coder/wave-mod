@@ -149,10 +149,19 @@ function ZenlessFeaturedCard({
       <div className="relative h-[104px] overflow-hidden border-b-4 border-black bg-black">
         <Image
           src={mod.coverImage}
+          alt=""
+          fill
+          sizes="210px"
+          className="scale-110 object-cover blur-xl"
+          aria-hidden="true"
+          unoptimized={mod.coverImage?.includes("supabase.co")}
+        />
+        <Image
+          src={mod.coverImage}
           alt={mod.title}
           fill
           sizes="210px"
-          className="object-cover transition duration-500 group-hover:scale-105"
+          className="object-contain object-center transition duration-500 group-hover:scale-105"
           unoptimized={mod.coverImage?.includes("supabase.co")}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />

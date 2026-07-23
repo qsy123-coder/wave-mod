@@ -41,9 +41,9 @@ function createMod(overrides: Partial<SiteMod>): SiteMod {
 }
 
 describe("mods-domain sorting helpers", () => {
-  it("parses invalid or missing sort as latest", () => {
-    expect(parseModSort(undefined)).toBe("latest");
-    expect(parseModSort("unknown")).toBe("latest");
+  it("parses invalid or missing sort as default", () => {
+    expect(parseModSort(undefined)).toBe("default");
+    expect(parseModSort("unknown")).toBe("default");
     expect(parseModSort("hot")).toBe("hot");
   });
 

@@ -2,7 +2,7 @@ import type { Tables } from "@/types/supabase";
 
 export type DriveLink = { platform: string; url: string };
 
-export type ModSort = "latest" | "favorites" | "rating" | "hot";
+export type ModSort = "default" | "latest" | "favorites" | "rating" | "hot";
 
 export type SiteMod = {
   character: string;

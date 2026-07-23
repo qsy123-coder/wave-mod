@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { ModSort, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 
 export const modIdSchema = z.uuid();
-export const modSortSchema = z.enum(["latest", "favorites", "rating", "hot"]);
+export const modSortSchema = z.enum(["default", "latest", "favorites", "rating", "hot"]);
 
 export function calculateHotScore(mod: Pick<SiteMod, "views" | "downloads" | "favorites" | "likes" | "commentsCount" | "ratingCount" | "ratingAverage">) {
   return mod.views * 0.08 + mod.downloads * 5 + mod.favorites * 4 + mod.likes * 3 + mod.commentsCount * 5 + mod.ratingCount * 2 + mod.ratingAverage * 18;
@@ -11,6 +11,12 @@ export function calculateHotScore(mod: Pick<SiteMod, "views" | "downloads" | "fa
 
 export function applyModSort(sort: Exclude<ModSort, "hot">) {
   return (mods: SiteMod[]) => {
+    if (sort === "default") {
+      return mods
+        .slice()
+        .sort((a, b) => a.title.localeCompare(b.title, "zh-CN"));
+    }
+
     if (sort === "favorites") {
       return mods
         .slice()
@@ -64,7 +70,7 @@ export function applyModQueryFilters(mods: SiteMod[], filters: Pick<PublicModsFi
 }
 
 export function parseModSort(sort: string | undefined): ModSort {
-  return modSortSchema.safeParse(sort).data ?? "latest";
+  return modSortSchema.safeParse(sort).data ?? "default";
 }
 
 export function parseCharacterFilter(character: string | undefined) {

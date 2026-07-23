@@ -25,10 +25,8 @@ type ModCardProps = {
   imagePriority?: boolean;
   imageFetchPriority?: "auto" | "high" | "low";
   titleClassName?: string;
-  descriptionClassName?: string;
   contentClassName?: string;
   titleTag?: "h2" | "h3";
-  showDescription?: boolean;
   showInteractionBar?: boolean;
   showTags?: boolean;
   showMetaBadges?: boolean;
@@ -61,9 +59,9 @@ const metaBadgeStyles: Record<MetaBadgeTone, { character: string; version: strin
 };
 
 const textLimits: Record<ModCardVariant, { title: number; description: number }> = {
-  default: { title: 30, description: 36 },
-  home: { title: 24, description: 22 },
-  list: { title: 18, description: 16 },
+  default: { title: 8, description: 36 },
+  home: { title: 8, description: 22 },
+  list: { title: 8, description: 16 },
 };
 
 const variantStyles: Record<
@@ -82,7 +80,7 @@ const variantStyles: Record<
   }
 > = {
   default: {
-    title: "line-clamp-2 max-w-[13rem] text-[1.24rem] font-black leading-[1.04] text-white",
+    title: "line-clamp-2 max-w-[13rem] text-[0.9rem] font-black uppercase leading-[1.04] tracking-[0.16em] text-white/50 group-hover/mod-card:text-white transition-colors",
     description: "hidden max-w-[14rem] text-[11px] font-bold leading-4 text-white/76 md:block",
     content: "absolute inset-x-0 bottom-0 px-4 pb-4 pt-24 text-white",
     tagWrap: "hidden flex-wrap gap-1.5 md:flex",
@@ -95,7 +93,7 @@ const variantStyles: Record<
     defaultTopRight: null,
   },
   home: {
-    title: "line-clamp-2 max-w-[13rem] text-[1.1rem] font-black leading-[1.03] text-white md:max-w-[14rem] md:text-[1.18rem]",
+    title: "line-clamp-2 max-w-[13rem] text-[0.85rem] font-black uppercase leading-[1.03] tracking-[0.16em] text-white/50 group-hover/mod-card:text-white transition-colors",
     description: "hidden max-w-[14rem] text-[11px] font-bold leading-4 text-white/72 md:block",
     content: "absolute inset-x-0 bottom-0 px-4 pb-4 pt-24 text-white",
     tagWrap: "hidden",
@@ -108,7 +106,7 @@ const variantStyles: Record<
     defaultTopRight: null,
   },
   list: {
-    title: "line-clamp-1 max-w-[10.5rem] text-[1rem] font-black leading-[1.02] text-white sm:text-[0.82rem]",
+    title: "line-clamp-1 max-w-[10.5rem] text-[0.75rem] font-black uppercase leading-[1.02] tracking-[0.16em] text-white/50 group-hover/mod-card:text-white transition-colors",
     description: "hidden max-w-[10.5rem] text-[10px] font-bold leading-3 text-white/66 md:block",
     content: "absolute inset-x-0 bottom-0 px-2.5 pb-2.5 pt-20 text-white",
     tagWrap: "hidden",
@@ -143,10 +141,8 @@ export function ModCard({
   imagePriority = false,
   imageFetchPriority = imagePriority ? "high" : "auto",
   titleClassName,
-  descriptionClassName,
   contentClassName,
   titleTag = "h2",
-  showDescription = true,
   showInteractionBar = true,
   showTags = false,
   showMetaBadges = true,
@@ -186,18 +182,17 @@ export function ModCard({
   const titleAndDescription = (
     <>
       <TitleTag className={cn(styles.title, titleClassName)}>{shortenText(mod.title, limits.title)}</TitleTag>
-      {showDescription ? <p className={cn(styles.description, descriptionClassName)}>{shortenText(mod.description, limits.description)}</p> : null}
     </>
   );
 
   const compactStats = showInteractionBar ? (
-    <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-black/80">
-      <div className="inline-flex items-center gap-1 border-2 border-black bg-white/92 px-2 py-1 shadow-[3px_3px_0px_0px_#000]">
+    <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-white/55">
+      <span className="inline-flex items-center gap-1">
         <Eye className="size-3.5" />{mod.views}
-      </div>
-      <div className="inline-flex items-center gap-1 border-2 border-black bg-white/92 px-2 py-1 shadow-[3px_3px_0px_0px_#000]">
+      </span>
+      <span className="inline-flex items-center gap-1">
         <Heart className="size-3.5" />{mod.favorites}
-      </div>
+      </span>
     </div>
   ) : null;
 
@@ -214,6 +209,16 @@ export function ModCard({
   const media = (
     <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>
       <div className={cn("relative min-h-72 aspect-[4/5] w-full sm:aspect-[3/4] xl:aspect-[4/5]", imageAspectClassName)}>
+        {/* 模糊放大背景图，填充 object-contain 产生的空白区域 */}
+        <Image
+          src={mod.coverImage}
+          alt=""
+          fill
+          unoptimized={mod.coverImage?.includes("supabase.co")}
+          sizes={imageSizes}
+          className="scale-110 object-cover blur-xl"
+          aria-hidden="true"
+        />
         <Image
           src={mod.coverImage}
           alt={mod.title}
@@ -222,7 +227,7 @@ export function ModCard({
           priority={imagePriority}
           fetchPriority={imageFetchPriority}
           sizes={imageSizes}
-          className={cn("object-cover object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
+          className={cn("object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
         />
       </div>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,transparent_18%,rgba(0,0,0,0.16)_55%,rgba(0,0,0,0.42)_100%)] transition-opacity duration-500 group-hover/mod-card:opacity-90" />

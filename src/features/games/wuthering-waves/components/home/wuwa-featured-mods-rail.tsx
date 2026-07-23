@@ -42,10 +42,19 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
       <div className="relative h-[118px] w-full overflow-hidden">
         <Image
           src={mod.coverImage}
+          alt=""
+          fill
+          sizes="224px"
+          className="scale-110 object-cover blur-xl"
+          aria-hidden="true"
+          unoptimized={mod.coverImage?.includes("supabase.co")}
+        />
+        <Image
+          src={mod.coverImage}
           alt={mod.title}
           fill
           sizes="224px"
-          className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+          className="object-contain object-center transition-transform duration-500 group-hover:scale-105"
           unoptimized={mod.coverImage?.includes("supabase.co")}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
@@ -64,8 +73,8 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
         <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
           {mod.character}
         </p>
-        <h3 className="mb-1 line-clamp-1 text-xs font-bold uppercase tracking-wide text-white">
-          {mod.title}
+        <h3 className="mb-1 line-clamp-1 text-[10px] font-black uppercase tracking-[0.16em] text-white/50 group-hover:text-white transition-colors">
+          {mod.title.length > 8 ? `${mod.title.slice(0, 8)}...` : mod.title}
         </h3>
         <p className="mb-2 text-[10px] text-slate-500">
           By {mod.modAuthorUrl ?? "WaveMod"}

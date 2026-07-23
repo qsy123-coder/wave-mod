@@ -107,7 +107,6 @@ export function ModRecommendationsSidebar({
                     mediaClassName="shadow-[3px_3px_0px_0px_#000]"
                     contentClassName="mt-2.5 space-y-2 px-0 pb-0 pt-0"
                     titleClassName="line-clamp-1 text-sm font-black leading-5"
-                    showDescription={false}
                     showInteractionBar={false}
                     showMetaBadges={false}
                     showRatingSticker={false}

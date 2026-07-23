@@ -108,7 +108,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                     <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-24 text-white">
                       <div className="max-w-lg space-y-2.5">
                         <p className="neo-label text-white/65">FEATURED DROP</p>
-                        <h2 className="text-2xl font-black leading-tight md:text-[1.75rem]">{mod.title}</h2>
+                        <h2 className="text-sm font-black uppercase leading-tight tracking-[0.16em] text-white/50 transition-colors group-hover:text-white md:text-base">{mod.title.length > 8 ? `${mod.title.slice(0, 8)}...` : mod.title}</h2>
                         <p className="line-clamp-2 text-xs font-bold leading-5 text-white/78 md:text-sm md:leading-6">{mod.description}</p>
                         <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-black/80">
                           <div className="border-2 border-black bg-white/92 px-2.5 py-1.5 shadow-[3px_3px_0px_0px_#000]">浏览 {mod.views}</div>

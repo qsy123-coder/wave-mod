@@ -44,6 +44,7 @@ export function ModsPageClient({
 }: ModsPageClientProps) {
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
+  const [nsfwOnly, setNsfwOnly] = useState(false);
   const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
 
   // 同步浏览器历史：点击卡片时 pushState，浏览器后退/前进时 popstate
@@ -78,6 +79,8 @@ export function ModsPageClient({
         onNsfwModeChange={setNsfwMode}
         directOnly={directOnly}
         onDirectOnlyChange={setDirectOnly}
+        nsfwOnly={nsfwOnly}
+        onNsfwOnlyChange={setNsfwOnly}
         activeCharacter={activeCharacter}
         activeQuery={initialQuery || undefined}
       />
@@ -92,6 +95,7 @@ export function ModsPageClient({
             initialMods={initialMods}
             nsfwMode={nsfwMode}
             directOnly={directOnly}
+            nsfwOnly={nsfwOnly}
             onCardClick={openDrawer}
           />
         </Suspense>

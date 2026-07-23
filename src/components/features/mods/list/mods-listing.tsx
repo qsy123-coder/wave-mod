@@ -16,6 +16,7 @@ type PageProps = {
 };
 
 const sortOptions: { label: string; value: ModSort }[] = [
+  { label: "默认", value: "default" },
   { label: "最新", value: "latest" },
   { label: "热度", value: "hot" },
   { label: "收藏", value: "favorites" },

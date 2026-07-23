@@ -58,10 +58,11 @@ type ModsInfiniteGridProps = {
   sort: ModSort;
   nsfwMode?: "show" | "blur" | "hide";
   directOnly?: boolean;
+  nsfwOnly?: boolean;
   onCardClick?: (modId: string) => void;
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, onCardClick }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const initialPage: PaginatedResult<SiteMod> = {
     hasMore: initialMods.length === PAGE_SIZE,
@@ -93,10 +94,11 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   const mods = useMemo(() => {
     let all = data.pages.flatMap((page) => page.items);
+    if (nsfwOnly) all = all.filter((m) => m.nsfw);
     if (nsfwMode === "hide") all = all.filter((m) => !m.nsfw);
     if (directOnly) all = all.filter((m) => m.downloadUrl);
     return all;
-  }, [data.pages, nsfwMode, directOnly]);
+  }, [data.pages, nsfwMode, directOnly, nsfwOnly]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;

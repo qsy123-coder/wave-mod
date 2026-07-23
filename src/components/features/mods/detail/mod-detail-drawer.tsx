@@ -80,6 +80,14 @@ export function ModDetailDrawer({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [lightboxVisible, setLightboxVisible] = useState(false);
 
+  // 打开抽屉时记录一次浏览
+  useEffect(() => {
+    if (!modId) return;
+    fetch(`/api/mods/${modId}/view`, { method: "POST" }).catch(() => {
+      // 静默失败，不影响用户体验
+    });
+  }, [modId]);
+
   const {
     data: mod,
     isLoading,
@@ -290,7 +298,7 @@ export function ModDetailDrawer({
               <SectionHeading
                 extra={
                   <span className="shrink-0 border-[3px] border-black bg-[#ff7a7a] px-2 py-0.5 text-[10px] font-bold tracking-widest text-black shadow-[2px_2px_0px_0px_#000]">
-                    网盘解压码 x77syq
+                    解压码 x77syq
                   </span>
                 }
               >
