@@ -61,9 +61,9 @@ const metaBadgeStyles: Record<MetaBadgeTone, { character: string; version: strin
 };
 
 const textLimits: Record<ModCardVariant, { title: number; description: number }> = {
-  default: { title: 8, description: 36 },
-  home: { title: 8, description: 22 },
-  list: { title: 8, description: 16 },
+  default: { title: 6, description: 36 },
+  home: { title: 6, description: 22 },
+  list: { title: 6, description: 16 },
 };
 
 const variantStyles: Record<
