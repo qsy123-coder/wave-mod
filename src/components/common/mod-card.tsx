@@ -241,8 +241,11 @@ export function ModCard({
       {mediaBottomLeft}
       {showRatingSticker ? <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} className={cn("z-20 shadow-[4px_4px_0px_0px_#000]", ratingStickerClassName)} /> : null}
 
-      {/* 收藏按钮 */}
-      <div className="absolute bottom-12 right-2 z-20">
+      {/* 收藏按钮 — 与评分 sticker 同风格，放在左下角，阻止冒泡避免触发卡片跳转 */}
+      <div
+        className="absolute bottom-2 left-2 z-20 rotate-[-1deg] border-[3px] border-black bg-[#fff8ef] px-1.5 py-1 shadow-[3px_3px_0px_0px_#000]"
+        onClick={(e) => e.stopPropagation()}
+      >
         <FavoriteButton
           compact
           id={mod.id}
@@ -254,6 +257,7 @@ export function ModCard({
           favoriteLabel="已藏"
           unfavoriteLabel="已藏"
           pendingLabel="..."
+          className="!border-0 !shadow-none !h-auto !px-0 !py-0 !text-[11px]"
         />
       </div>
 
