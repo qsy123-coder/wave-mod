@@ -44,6 +44,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps)
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const isZzzRoute = pathname.startsWith("/zenless-zone-zero");
+  const isAdminRoute = pathname.startsWith("/admin");
   const loginHref = "/auth/login?mode=user&next=/favorites";
   const signOutAction = signOutUser.bind(null, "/");
   const games = getEnabledGames();
@@ -104,17 +105,37 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps)
         </MotionReveal>
 
         <nav className="hidden items-center gap-1.5 lg:flex">
-          {siteConfig.primaryNav.map((item, index) => (
-            <MotionReveal key={item.href} delay={0.06 + index * 0.04} rotate={index % 2 === 0 ? 2 : -2}>
-              <Link
-                href={item.href}
-                className={`border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
-                style={{ background: index % 2 === 0 ? "transparent" : "rgba(255,255,255,0.35)" }}
-              >
-                {item.label}
-              </Link>
-            </MotionReveal>
-          ))}
+          {isAdminRoute ? (
+            <>
+              <MotionReveal delay={0.06} rotate={2}>
+                <Link href="/admin/mods" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] rotate-1" style={{ background: "transparent" }}>
+                  管理列表
+                </Link>
+              </MotionReveal>
+              <MotionReveal delay={0.1} rotate={-2}>
+                <Link href="/admin/upload" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] -rotate-1" style={{ background: "rgba(255,255,255,0.35)" }}>
+                  上传页面
+                </Link>
+              </MotionReveal>
+              <MotionReveal delay={0.14} rotate={2}>
+                <Link href="/" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] rotate-1" style={{ background: "transparent" }}>
+                  返回前台
+                </Link>
+              </MotionReveal>
+            </>
+          ) : (
+            siteConfig.primaryNav.map((item, index) => (
+              <MotionReveal key={item.href} delay={0.06 + index * 0.04} rotate={index % 2 === 0 ? 2 : -2}>
+                <Link
+                  href={item.href}
+                  className={`border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
+                  style={{ background: index % 2 === 0 ? "transparent" : "rgba(255,255,255,0.35)" }}
+                >
+                  {item.label}
+                </Link>
+              </MotionReveal>
+            ))
+          )}
         </nav>
         </div>
 
@@ -132,50 +153,70 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps)
         {isZzzRoute && <LayoutStyleToggle variant="neo" />}
 
         <div className="hidden items-center gap-4.5 md:flex">
-          <MotionReveal delay={0.18} rotate={1}>
-            <Link href="/favorites" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
-              <Heart className="size-3.5" />
-              收藏
-            </Link>
-          </MotionReveal>
-          {/* 管理员专属入口：与后台守卫同源判定，非管理员不渲染 */}
-          {isAdmin && (
-            <MotionReveal delay={0.19} rotate={1}>
-              <Link href="/admin/mods" className="neo-button-secondary inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
-                <LayoutDashboard className="size-3.5" />
-                管理列表
+          {/* 前台用户链接：后台路由隐藏 */}
+          {!isAdminRoute && (
+            <>
+              <MotionReveal delay={0.18} rotate={1}>
+                <Link href="/favorites" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                  <Heart className="size-3.5" />
+                  收藏
+                </Link>
+              </MotionReveal>
+              {/* 管理员专属入口：与后台守卫同源判定，非管理员不渲染 */}
+              {isAdmin && (
+                <MotionReveal delay={0.19} rotate={1}>
+                  <Link href="/admin/mods" className="neo-button-secondary inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                    <LayoutDashboard className="size-3.5" />
+                    管理列表
+                  </Link>
+                </MotionReveal>
+              )}
+              {isAdmin && (
+                <MotionReveal delay={0.2} rotate={-1}>
+                  <Link href="/admin/upload" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                    <UploadCloud className="size-3.5" />
+                    上传
               </Link>
             </MotionReveal>
           )}
-          {isAdmin && (
+            </>
+          )}
+          {!isAdminRoute && (
+            <>
+              <MotionReveal delay={0.2} rotate={-1}>
+                {isLoggedIn ? (
+                  <form action={signOutAction}>
+                    <button type="submit" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                      <LogOut className="size-3.5" />
+                      退出
+                    </button>
+                  </form>
+                ) : (
+                  <Link href={loginHref} className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                    <LogIn className="size-3.5" />
+                    登录
+                  </Link>
+                )}
+              </MotionReveal>
+              <MotionReveal delay={0.22} rotate={-1}>
+                <Link href="/mods" className="neo-button-primary inline-flex -rotate-1 items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                  <Sparkles className="size-3.5" />
+                  直链下载
+                </Link>
+              </MotionReveal>
+            </>
+          )}
+          {/* 后台路由：仅显示退出登录 */}
+          {isAdminRoute && (
             <MotionReveal delay={0.2} rotate={-1}>
-              <Link href="/admin/upload" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
-                <UploadCloud className="size-3.5" />
-                上传
-              </Link>
-            </MotionReveal>
-          )}
-          <MotionReveal delay={0.2} rotate={-1}>
-            {isLoggedIn ? (
               <form action={signOutAction}>
                 <button type="submit" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
                   <LogOut className="size-3.5" />
-                  退出
+                  退出登录
                 </button>
               </form>
-            ) : (
-              <Link href={loginHref} className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
-                <LogIn className="size-3.5" />
-                登录
-              </Link>
-            )}
-          </MotionReveal>
-          <MotionReveal delay={0.22} rotate={-1}>
-            <Link href="/mods" className="neo-button-primary inline-flex -rotate-1 items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
-              <Sparkles className="size-3.5" />
-              直链下载
-            </Link>
-          </MotionReveal>
+            </MotionReveal>
+          )}
         </div>
         </div>
 

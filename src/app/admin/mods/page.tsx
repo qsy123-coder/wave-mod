@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Download, Gamepad2, PencilRuler } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { games } from "@/config/games";
 import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { AdminModsToolbar } from "@/components/features/admin/mods/admin-mods-toolbar";
-import { DeleteModButton } from "@/components/features/admin/mods/delete-mod-button";
+import { AdminModsGridClient } from "@/components/features/admin/mods/admin-mods-grid-client";
 import { FixCreatorButton } from "@/components/features/admin/mods/fix-creator-button";
-import { PublishToggleButton } from "@/components/features/admin/mods/publish-toggle-button";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { AdminModsSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
-import { Badge } from "@/components/ui/badge";
 import { defaultCharacterSuggestions } from "@/lib/constants/characters";
 import {
   buildAdminModsHref,
@@ -21,15 +18,29 @@ import {
   ADMIN_SPECIAL_CATEGORIES,
   type AdminModsFilters,
 } from "@/lib/admin/mods-filters";
-import { getAdminMods, type AdminMod } from "@/lib/mods";
+import { getAdminMods } from "@/lib/mods";
 
-/** 侧边栏单项：角色名 → href + count + 是否选中（合并完整角色名单，0 数量也显示） */
+// ==================== 分页常量 ====================
+
+const PAGE_SIZES = [20, 50, 100] as const;
+const DEFAULT_PAGE_SIZE = 20;
+
+function parsePage(raw: string | undefined): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+function parsePageSize(raw: string | undefined): number {
+  const n = Number(raw);
+  return PAGE_SIZES.includes(n as (typeof PAGE_SIZES)[number]) ? n : DEFAULT_PAGE_SIZE;
+}
+
+// ==================== 侧边栏 ====================
+
 function buildSidebarItems(filters: AdminModsFilters, characterCounts: Record<string, number>) {
-  // 合并实际有用数据的角色 + 完整角色名单，确保删完数据后角色仍显示
   const mergedNames = Array.from(new Set([...Object.keys(characterCounts), ...defaultCharacterSuggestions]));
   const characterNames = sortAdminCharacterNames(mergedNames);
 
-  // 特殊分类（Skins / Other/Misc / UI）
   const specialItems = ADMIN_SPECIAL_CATEGORIES.filter((c) => characterNames.includes(c)).map((c) => ({
     label: c,
     href: buildAdminModsHref({ ...filters, character: c }),
@@ -37,7 +48,6 @@ function buildSidebarItems(filters: AdminModsFilters, characterCounts: Record<st
     isActive: c === filters.character,
   }));
 
-  // 普通角色（排除特殊分类名）
   const regularItems = characterNames
     .filter((n) => !ADMIN_SPECIAL_CATEGORIES.includes(n as (typeof ADMIN_SPECIAL_CATEGORIES)[number]))
     .map((name) => ({
@@ -50,61 +60,89 @@ function buildSidebarItems(filters: AdminModsFilters, characterCounts: Record<st
   return { specialItems, regularItems, all: [...specialItems, ...regularItems] };
 }
 
-function AdminModsCards({ mods }: { mods: AdminMod[] }) {
-  const gameNameMap = new Map<string, string>(games.map((game) => [game.key, game.name]));
+// ==================== 分页器 ====================
 
-  if (mods.length === 0) return null;
+function AdminPagination({
+  currentPage,
+  totalPages,
+  pageSize,
+  buildHref,
+}: {
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  buildHref: (page: number, ps?: number) => string;
+}) {
+  if (totalPages <= 1) return null;
+
+  const pages: (number | "...")[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (currentPage > 3) pages.push("...");
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push("...");
+    pages.push(totalPages);
+  }
+
+  const btnBase = "flex size-8 items-center justify-center border-[3px] border-black text-xs font-black shadow-[3px_3px_0_0_#000] transition hover:-translate-y-0.5";
 
   return (
-    <div className="grid gap-4">
-      {mods.map((mod, index) => (
-        <MotionReveal key={mod.id} delay={0.08 + index * 0.03} y={22} rotate={index % 2 === 0 ? 1 : -1}>
-          <article className="neo-card neo-card-lift bg-[var(--neo-panel)] p-4 text-black">
-            <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr_0.7fr_auto] lg:items-center">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-black leading-tight">{mod.title}</h2>
-                <p className="text-sm font-bold leading-7 text-black/75">{mod.description}</p>
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-black/55">
-                  {new Date(mod.createdAt).toLocaleDateString("zh-CN")}
-                </p>
-              </div>
+    <div className="flex items-center justify-center gap-1.5 pt-2">
+      {currentPage > 1 ? (
+        <Link href={buildHref(currentPage - 1)} className={`${btnBase} bg-white`} aria-label="上一页">
+          <ChevronLeft className="size-3.5" />
+        </Link>
+      ) : (
+        <span className={`${btnBase} bg-white opacity-30`}>
+          <ChevronLeft className="size-3.5" />
+        </span>
+      )}
 
-              <div className="flex flex-wrap gap-2">
-                <Badge className="neo-sticker -rotate-2 bg-[var(--neo-secondary)] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-[var(--neo-secondary)]">
-                  <Gamepad2 className="mr-1 size-3.5" />{gameNameMap.get(mod.gameKey) ?? mod.gameKey}
-                </Badge>
-                <Badge className="neo-sticker rotate-1 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-white">
-                  {mod.character}
-                </Badge>
-                <Badge className="neo-sticker rotate-2 bg-[var(--neo-accent)] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-[var(--neo-accent)]">
-                  {mod.version}
-                </Badge>
-              </div>
+      {pages.map((p, i) =>
+        p === "..." ? (
+          <span key={`ellipsis-${i}`} className="px-1 text-xs font-black">...</span>
+        ) : (
+          <Link
+            key={p}
+            href={buildHref(p)}
+            className={p === currentPage ? `${btnBase} bg-[var(--neo-accent)]` : `${btnBase} bg-white`}
+          >
+            {p}
+          </Link>
+        ),
+      )}
 
-              <div className="flex flex-wrap gap-2">
-                <Badge className={`neo-sticker justify-center px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-inherit ${mod.isPublished ? "bg-[var(--neo-muted)]" : "bg-white"}`}>
-                  {mod.isPublished ? "已发布" : "草稿"}
-                </Badge>
-                <Badge className="neo-sticker justify-center bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-white">
-                  <Download className="mr-1 size-3.5" />下载 {mod.downloads}
-                </Badge>
-              </div>
+      {currentPage < totalPages ? (
+        <Link href={buildHref(currentPage + 1)} className={`${btnBase} bg-white`} aria-label="下一页">
+          <ChevronRight className="size-3.5" />
+        </Link>
+      ) : (
+        <span className={`${btnBase} bg-white opacity-30`}>
+          <ChevronRight className="size-3.5" />
+        </span>
+      )}
 
-              <div className="flex flex-wrap gap-2 lg:justify-end">
-                <Link href={`/admin/mods/${mod.id}/edit`} className="neo-button-outline inline-flex items-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]">
-                  <PencilRuler className="size-4" />
-                  编辑
-                </Link>
-                <PublishToggleButton id={mod.id} isPublished={mod.isPublished} title={mod.title} />
-                <DeleteModButton id={mod.id} title={mod.title} />
-              </div>
-            </div>
-          </article>
-        </MotionReveal>
-      ))}
+      {/* 每页条数选择 */}
+      <div className="ml-4 flex items-center gap-1 border-[3px] border-black bg-white px-2 py-2 shadow-[3px_3px_0_0_#000]">
+        {PAGE_SIZES.map((size) => (
+          <Link
+            key={size}
+            href={buildHref(1, size)}
+            className={`px-1.5 text-[10px] font-black ${size === pageSize ? "bg-black text-white" : "text-black/55 hover:text-black"}`}
+          >
+            {size}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
+
+// ==================== 空状态 ====================
 
 function AdminModsEmpty({ hasActiveFilters }: { hasActiveFilters: boolean }) {
   return (
@@ -115,13 +153,8 @@ function AdminModsEmpty({ hasActiveFilters }: { hasActiveFilters: boolean }) {
             <>
               <p className="neo-label text-black/60">筛选结果为空</p>
               <h2 className="mt-2 text-3xl font-black">没有符合当前筛选条件的 MOD。</h2>
-              <p className="mt-4 text-sm font-bold leading-7 text-black/75">
-                调整筛选条件或清除全部筛选试试。
-              </p>
-              <Link
-                href="/admin/mods"
-                className="neo-button-outline mt-4 inline-flex items-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
-              >
+              <p className="mt-4 text-sm font-bold leading-7 text-black/75">调整筛选条件或清除全部筛选试试。</p>
+              <Link href="/admin/mods" className="neo-button-outline mt-4 inline-flex items-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]">
                 清除筛选
               </Link>
             </>
@@ -129,9 +162,7 @@ function AdminModsEmpty({ hasActiveFilters }: { hasActiveFilters: boolean }) {
             <>
               <p className="neo-label text-black/60">管理列表为空</p>
               <h2 className="mt-2 text-3xl font-black">你还没有发布任何 MOD。</h2>
-              <p className="mt-4 text-sm font-bold leading-7 text-black/75">
-                去上传页面新增一条内容后，这里会自动显示真实数据库记录。
-              </p>
+              <p className="mt-4 text-sm font-bold leading-7 text-black/75">去上传页面新增一条内容后，这里会自动显示真实数据库记录。</p>
             </>
           )}
         </div>
@@ -140,15 +171,18 @@ function AdminModsEmpty({ hasActiveFilters }: { hasActiveFilters: boolean }) {
   );
 }
 
-type SearchParams = { character?: string; game?: string; query?: string; sort?: string; status?: string };
+// ==================== 主内容 ====================
+
+type SearchParams = { character?: string; game?: string; query?: string; sort?: string; status?: string; page?: string; pageSize?: string };
 
 async function AdminModsContent({ searchParams }: { searchParams: Promise<SearchParams> }) {
   await requireAdminUser("/admin/mods");
 
   const params = (await searchParams) ?? {};
   const filters = parseAdminModsSearchParams(params);
+  const page = parsePage(params.page);
+  const pageSize = parsePageSize(params.pageSize);
 
-  // 角色计数需要不受 character 筛选影响的全量（侧边栏展示每个角色在当前游戏/状态/关键词下的库存）
   const [mods, fullMods] = await Promise.all([
     getAdminMods(filters),
     filters.character ? getAdminMods({ ...filters, character: undefined }) : Promise.resolve(null),
@@ -162,9 +196,30 @@ async function AdminModsContent({ searchParams }: { searchParams: Promise<Search
     filters.gameKey || filters.query || filters.character || (filters.status && filters.status !== "all"),
   );
 
+  // 分页
+  const totalPages = Math.max(1, Math.ceil(mods.length / pageSize));
+  const start = (page - 1) * pageSize;
+  const pagedMods = mods.slice(start, start + pageSize);
+
+  // 构建分页 href（保留筛选条件）
+  function buildPageHref(p: number, ps?: number) {
+    const nextFilters = { ...filters };
+    const resolvedSize = ps ?? pageSize;
+    const params = new URLSearchParams();
+    if (nextFilters.gameKey) params.set("game", nextFilters.gameKey);
+    if (nextFilters.status && nextFilters.status !== "all") params.set("status", nextFilters.status);
+    if (nextFilters.sort && nextFilters.sort !== "latest") params.set("sort", nextFilters.sort);
+    if (nextFilters.query) params.set("query", nextFilters.query);
+    if (nextFilters.character) params.set("character", nextFilters.character);
+    if (p > 1) params.set("page", String(p));
+    if (resolvedSize !== DEFAULT_PAGE_SIZE) params.set("pageSize", String(resolvedSize));
+    const qs = params.toString();
+    return qs ? `/admin/mods?${qs}` : "/admin/mods";
+  }
+
   return (
     <div className="flex gap-6">
-      {/* 左侧角色边栏 — 参照 mods-listing.tsx 布局 */}
+      {/* 左侧角色边栏 */}
       <div className="hidden w-[240px] shrink-0 lg:flex">
         <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <CharacterSidebar
@@ -182,16 +237,29 @@ async function AdminModsContent({ searchParams }: { searchParams: Promise<Search
         <AdminModsToolbar filters={filters} />
         <p className="text-xs font-black uppercase tracking-[0.14em] text-black/55">
           共 {mods.length} 条{mods.length !== totalCount ? ` / 分站合计 ${totalCount}` : ""}
+          {totalPages > 1 ? ` · 第 ${page}/${totalPages} 页` : ""}
         </p>
-        {mods.length === 0 ? (
+
+        {pagedMods.length === 0 ? (
           <AdminModsEmpty hasActiveFilters={hasActiveFilters} />
         ) : (
-          <AdminModsCards mods={mods} />
+          <>
+            <AdminModsGridClient mods={pagedMods} />
+
+            <AdminPagination
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              buildHref={buildPageHref}
+            />
+          </>
         )}
       </div>
     </div>
   );
 }
+
+// ==================== 页面入口 ====================
 
 export default function AdminModsPage({
   searchParams,
@@ -199,7 +267,7 @@ export default function AdminModsPage({
   searchParams?: Promise<SearchParams>;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <MotionReveal delay={0.04} rotate={-1}>
         <section className="inline-block border-4 border-black px-5 py-4 shadow-[8px_8px_0px_0px_#000]" style={{ background: "var(--neo-secondary)" }}>
           <p className="neo-label text-black/60">Admin Mods</p>

@@ -40,6 +40,9 @@ type ModCardProps = {
   mediaBottomLeft?: ReactNode;
   showRatingSticker?: boolean;
   ratingStickerClassName?: string;
+  showCheckbox?: boolean;
+  checkboxChecked?: boolean;
+  onCheckboxChange?: (checked: boolean) => void;
   bodyAfterDescription?: ReactNode;
   bodyBottom?: ReactNode;
   actions?: ReactNode;
@@ -157,6 +160,9 @@ export function ModCard({
   mediaBottomLeft,
   showRatingSticker = true,
   ratingStickerClassName,
+  showCheckbox = false,
+  checkboxChecked = false,
+  onCheckboxChange,
   bodyAfterDescription,
   bodyBottom,
   actions,
@@ -259,7 +265,23 @@ export function ModCard({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,transparent_18%,rgba(0,0,0,0.16)_55%,rgba(0,0,0,0.42)_100%)] transition-opacity duration-500 group-hover/mod-card:opacity-90" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/18 to-black/8" />
 
-      {topLeftContent ? <div className={cn(styles.topLeft, mediaTopLeftClassName)}>{topLeftContent}</div> : null}
+      {/* 批量操作复选框 */}
+      {showCheckbox ? (
+        <div className="absolute left-2 top-2 z-30" onClick={(e) => e.stopPropagation()}>
+          <label className="flex size-4 cursor-pointer items-center justify-center border-2 border-black bg-white shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5">
+            <input
+              type="checkbox"
+              checked={checkboxChecked}
+              onChange={(e) => onCheckboxChange?.(e.target.checked)}
+              className="sr-only"
+            />
+            {checkboxChecked ? (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+            ) : null}
+          </label>
+        </div>
+      ) : null}
+      {topLeftContent ? <div className={cn(styles.topLeft, showCheckbox && "left-7", mediaTopLeftClassName)}>{topLeftContent}</div> : null}
       {topRightContent ? <div className={cn("z-20", mediaTopRightClassName)}>{topRightContent}</div> : null}
       {mediaBottomLeft}
       {showRatingSticker ? <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} className={cn("z-20 shadow-[4px_4px_0px_0px_#000]", ratingStickerClassName)} /> : null}
