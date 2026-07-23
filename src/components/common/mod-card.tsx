@@ -1,9 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowUpRight, Eye, Heart, Star } from "lucide-react";
+import { ArrowUpRight, Eye, Heart } from "lucide-react";
 
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
+import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
 import type { SiteMod } from "@/lib/mods";
 import { cn } from "@/lib/utils";
@@ -238,9 +239,16 @@ export function ModCard({
       {topLeftContent ? <div className={cn(styles.topLeft, mediaTopLeftClassName)}>{topLeftContent}</div> : null}
       {topRightContent ? <div className={cn("z-20", mediaTopRightClassName)}>{topRightContent}</div> : null}
       {mediaBottomLeft}
+      {showRatingSticker ? <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} className={cn("z-20 shadow-[4px_4px_0px_0px_#000]", ratingStickerClassName)} /> : null}
+
+      <CardFavoriteButton
+        modId={mod.id}
+        isFavorited={mod.isFavorited ?? false}
+        isLoggedIn={isLoggedIn}
+      />
+
       <div className={cn(styles.content, contentClassName)}>
-        <div className="flex items-end justify-between gap-2">
-          <div className="min-w-0 space-y-1.5">
+        <div className="max-w-sm space-y-1.5">
           {canUseInnerLinks && linkMode === "split" ? ( 
             <Link href={resolvedHref} className={styles.titleLinkWrap}>
               {titleAndDescription}
@@ -260,25 +268,6 @@ export function ModCard({
           ) : null}
           {bodyBottom}
           {actions}
-          </div>
-          {/* 右侧：收藏 + 评分 上下排列 */}
-          <div className="flex shrink-0 flex-col items-center gap-0.5">
-            <CardFavoriteButton
-              modId={mod.id}
-              isFavorited={mod.isFavorited ?? false}
-              isLoggedIn={isLoggedIn}
-              inline
-            />
-            {showRatingSticker ? (
-              <div className="border-[2px] border-black bg-[#ffd84f] px-1 py-0.5 shadow-[1px_1px_0px_0px_#000]">
-                <div className="flex items-center gap-0.5 text-black">
-                  <Star className="size-2 fill-[#ff7a00] text-[#ff7a00]" />
-                  <span className="text-[9px] font-black leading-none">{mod.ratingAverage.toFixed(1)}</span>
-                </div>
-                <p className="text-[6px] font-black uppercase tracking-[0.14em] text-black/70">{mod.ratingCount} 评</p>
-              </div>
-            ) : null}
-          </div>
         </div>
       </div>
     </div>
