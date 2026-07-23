@@ -102,6 +102,7 @@ export function ModsPageClient({
             nsfwMode={nsfwMode}
             directOnly={directOnly}
             nsfwOnly={nsfwOnly}
+            isLoggedIn={isLoggedIn}
             onCountChange={setGridCount}
             onCardClick={openDrawer}
           />

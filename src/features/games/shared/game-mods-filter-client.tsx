@@ -16,6 +16,7 @@ type Props = {
   serverTotalCount: number;
   sortOptions: { label: string; value: ModSort }[];
   sortHrefs: Record<string, string>;
+  isLoggedIn?: boolean;
 };
 
 export function GameModsFilterClient({
@@ -27,6 +28,7 @@ export function GameModsFilterClient({
   serverTotalCount,
   sortOptions,
   sortHrefs,
+  isLoggedIn = false,
 }: Props) {
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
@@ -58,6 +60,7 @@ export function GameModsFilterClient({
       />
 
       <ModsInfiniteGrid
+        isLoggedIn={isLoggedIn}
         onCountChange={setGridCount}
         sort={initialSort}
         character={initialCharacter}

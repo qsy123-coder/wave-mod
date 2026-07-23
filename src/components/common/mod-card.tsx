@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ArrowUpRight, Eye, Heart } from "lucide-react";
 
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
+import { FavoriteButton } from "@/components/features/mods/detail/favorite-button";
 import { Badge } from "@/components/ui/badge";
 import type { SiteMod } from "@/lib/mods";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ type ModCardProps = {
   bodyAfterDescription?: ReactNode;
   bodyBottom?: ReactNode;
   actions?: ReactNode;
+  isLoggedIn?: boolean;
   onCardClick?: (modId: string) => void;
 };
 
@@ -158,6 +160,7 @@ export function ModCard({
   bodyAfterDescription,
   bodyBottom,
   actions,
+  isLoggedIn = false,
   onCardClick,
 }: ModCardProps) {
   const badgeTone = metaBadgeStyles[metaBadgeTone];
@@ -237,6 +240,22 @@ export function ModCard({
       {topRightContent ? <div className={cn("z-20", mediaTopRightClassName)}>{topRightContent}</div> : null}
       {mediaBottomLeft}
       {showRatingSticker ? <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} className={cn("z-20 shadow-[4px_4px_0px_0px_#000]", ratingStickerClassName)} /> : null}
+
+      {/* 收藏按钮 */}
+      <div className="absolute bottom-12 right-2 z-20">
+        <FavoriteButton
+          compact
+          id={mod.id}
+          isFavorited={mod.isFavorited ?? false}
+          isLoggedIn={isLoggedIn}
+          nextPath={`/mods/${mod.id}`}
+          favoriteCount={mod.favorites}
+          loginLabel="收藏"
+          favoriteLabel="已藏"
+          unfavoriteLabel="已藏"
+          pendingLabel="..."
+        />
+      </div>
 
       <div className={cn(styles.content, contentClassName)}>
         <div className="max-w-sm space-y-1.5">
