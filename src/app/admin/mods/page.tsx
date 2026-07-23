@@ -12,6 +12,7 @@ import { CharacterSidebar } from "@/components/features/mods/list/character-side
 import { AdminModsSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
+import { defaultCharacterSuggestions } from "@/lib/constants/characters";
 import {
   buildAdminModsHref,
   getAdminCharacterCounts,
@@ -22,9 +23,11 @@ import {
 } from "@/lib/admin/mods-filters";
 import { getAdminMods, type AdminMod } from "@/lib/mods";
 
-/** 侧边栏单项：角色名 → href + count + 是否选中 */
+/** 侧边栏单项：角色名 → href + count + 是否选中（合并完整角色名单，0 数量也显示） */
 function buildSidebarItems(filters: AdminModsFilters, characterCounts: Record<string, number>) {
-  const characterNames = sortAdminCharacterNames(Object.keys(characterCounts));
+  // 合并实际有用数据的角色 + 完整角色名单，确保删完数据后角色仍显示
+  const mergedNames = Array.from(new Set([...Object.keys(characterCounts), ...defaultCharacterSuggestions]));
+  const characterNames = sortAdminCharacterNames(mergedNames);
 
   // 特殊分类（Skins / Other/Misc / UI）
   const specialItems = ADMIN_SPECIAL_CATEGORIES.filter((c) => characterNames.includes(c)).map((c) => ({
