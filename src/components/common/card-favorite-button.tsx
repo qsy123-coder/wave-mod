@@ -21,7 +21,7 @@ export function CardFavoriteButton({ modId, isFavorited, isLoggedIn }: Props) {
     setOptimistic(isFavorited);
   }, [isFavorited]);
 
-  const sharedClass = "absolute bottom-12 right-2 z-20 inline-flex items-center gap-0.5 border-[2.5px] border-black bg-[#fff8ef] px-1 py-0.5 shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5";
+  const sharedClass = "absolute bottom-12 right-2 z-20 inline-flex items-center gap-0.5 border-[2.5px] border-black bg-[#fff8ef] px-1.5 py-1 shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5";
 
   if (!isLoggedIn) {
     return (
