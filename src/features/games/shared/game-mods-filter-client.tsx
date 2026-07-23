@@ -13,6 +13,7 @@ type Props = {
   initialCharacter?: string;
   initialQuery?: string;
   initialMods: SiteMod[];
+  serverTotalCount: number;
   sortOptions: { label: string; value: ModSort }[];
   sortHrefs: Record<string, string>;
 };
@@ -23,13 +24,17 @@ export function GameModsFilterClient({
   initialCharacter,
   initialQuery,
   initialMods,
+  serverTotalCount,
   sortOptions,
   sortHrefs,
 }: Props) {
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
   const [nsfwOnly, setNsfwOnly] = useState(false);
-  const [modCount, setModCount] = useState(initialMods.length);
+  // 默认用服务端的全量计数；客户端筛选激活后由 grid 回调更新
+  const [gridCount, setGridCount] = useState<number | null>(null);
+
+  const modCount = gridCount ?? serverTotalCount;
 
   return (
     <>
@@ -51,7 +56,7 @@ export function GameModsFilterClient({
       />
 
       <ModsInfiniteGrid
-        onCountChange={setModCount}
+        onCountChange={setGridCount}
         sort={initialSort}
         character={initialCharacter}
         gameKey={game.key}

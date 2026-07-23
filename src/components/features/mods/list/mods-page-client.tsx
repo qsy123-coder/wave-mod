@@ -15,6 +15,7 @@ type ModsPageClientProps = {
   sortOptions: { label: string; value: ModSort }[];
   sortHrefs: Record<string, string>;
   initialMods: SiteMod[];
+  serverTotalCount?: number;
   character?: string;
   gameKey?: string;
   activeCharacter?: string;
@@ -37,6 +38,7 @@ export function ModsPageClient({
   gameKey,
   activeCharacter,
   openModId: initialModId,
+  serverTotalCount,
   admin = false,
   currentUserId,
   currentUserName,
@@ -45,7 +47,8 @@ export function ModsPageClient({
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
   const [nsfwOnly, setNsfwOnly] = useState(false);
-  const [modCount, setModCount] = useState(initialMods.length);
+  const [gridCount, setGridCount] = useState<number | null>(null);
+  const modCount = gridCount ?? serverTotalCount ?? initialMods.length;
   const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
 
   // 同步浏览器历史：点击卡片时 pushState，浏览器后退/前进时 popstate
@@ -98,7 +101,7 @@ export function ModsPageClient({
             nsfwMode={nsfwMode}
             directOnly={directOnly}
             nsfwOnly={nsfwOnly}
-            onCountChange={setModCount}
+            onCountChange={setGridCount}
             onCardClick={openDrawer}
           />
         </Suspense>

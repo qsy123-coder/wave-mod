@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import { ModsPageSkeleton } from "@/components/layout/data-skeletons";
-import { getAvailableCharacters, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
+import { getAvailableCharacters, getPublicMods, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 import { createPublicReadClient, getCurrentUser, isAdminUser } from "@/lib/supabase/server";
 
 type PageProps = {
@@ -100,7 +100,13 @@ async function ModsListingContent({ searchParams, openModId }: PageProps) {
     sortHrefs[opt.value] = buildModsHref(opt.value, currentCharacter, currentQuery);
   }
 
-  const initialMods = (await getPublicModsPage(1, 16, { sort: currentSort, character: currentCharacter, query: currentQuery })).items;
+  const serverFilters = { sort: currentSort, character: currentCharacter, query: currentQuery };
+  const [firstPage, allFilteredMods] = await Promise.all([
+    getPublicModsPage(1, 16, serverFilters),
+    getPublicMods(undefined, serverFilters),
+  ]);
+  const initialMods = firstPage.items;
+  const serverTotalCount = allFilteredMods.length;
 
   return (
     <>
@@ -123,6 +129,7 @@ async function ModsListingContent({ searchParams, openModId }: PageProps) {
           sortOptions={sortOptions}
           sortHrefs={sortHrefs}
           initialMods={initialMods}
+          serverTotalCount={serverTotalCount}
           character={currentCharacter}
           activeCharacter={currentCharacter}
           openModId={openModId}

@@ -48,11 +48,16 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
   const currentSort = parseModSort(params.sort);
   const currentCharacter = parseCharacterFilter(params.character);
   const currentQuery = parseModQuery(params.query);
-  const [availableCharacters, counts, firstPage] = await Promise.all([
+  const serverFilters = { sort: currentSort, character: currentCharacter, query: currentQuery, gameKey: game.key };
+  const [availableCharacters, counts, firstPage, allFilteredMods] = await Promise.all([
     getAvailableCharacters(game.key),
     getCharacterCounts(game.key),
-    getPublicModsPage(1, 16, { sort: currentSort, character: currentCharacter, query: currentQuery, gameKey: game.key }),
+    getPublicModsPage(1, 16, serverFilters),
+    getPublicMods(undefined, serverFilters),
   ]);
+
+  // 服务端筛选后的总 MOD 数（不含客户端 NSFW/直链筛选）
+  const totalModCount = allFilteredMods.length;
 
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
 
@@ -93,6 +98,7 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
           initialCharacter={currentCharacter}
           initialQuery={currentQuery}
           initialMods={firstPage.items}
+          serverTotalCount={totalModCount}
           sortOptions={sortOptions}
           sortHrefs={sortHrefs}
         />
