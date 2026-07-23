@@ -32,7 +32,7 @@ export default async function GameLayout({ children, params }: GameLayoutProps) 
   // 鸣潮分站 — 褐色斑点背景
   if (game.key === "wuthering-waves") {
     return (
-      <div className="wuwa-skin-scope min-h-screen bg-[#2a1f14] bg-[radial-gradient(circle,rgba(180,140,100,0.18)_1.2px,transparent_1.3px),radial-gradient(circle,rgba(180,140,100,0.10)_0.8px,transparent_0.9px)] bg-[size:20px_20px,32px_32px] bg-[position:0_0,10px_10px]">
+      <div className="wuwa-skin-scope min-h-screen bg-[#8B7355] bg-[radial-gradient(circle,rgba(255,255,255,0.18)_1.2px,transparent_1.3px),radial-gradient(circle,rgba(255,255,255,0.10)_0.8px,transparent_0.9px)] bg-[size:20px_20px,32px_32px] bg-[position:0_0,10px_10px]">
         <LayoutStyleTransition layoutStyle={layoutStyle}>
           {children}
         </LayoutStyleTransition>
