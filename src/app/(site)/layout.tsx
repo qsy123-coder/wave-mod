@@ -10,7 +10,7 @@ export default function SiteLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="min-h-screen" style={{ background: "var(--neo-dark)" }}>
+    <div className="min-h-screen bg-[#8B7355] bg-[radial-gradient(circle,rgba(255,255,255,0.18)_1.2px,transparent_1.3px),radial-gradient(circle,rgba(255,255,255,0.10)_0.8px,transparent_0.9px)] bg-[size:20px_20px,32px_32px] bg-[position:0_0,10px_10px]">
       <Suspense fallback={<SiteHeaderSkeleton />}>
         <SiteHeader />
       </Suspense>

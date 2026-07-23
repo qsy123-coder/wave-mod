@@ -13,7 +13,7 @@ export function WutheringWavesHomePage({ data }: WutheringWavesHomePageProps) {
   ).slice(0, 8);
 
   return (
-    <div className="min-h-screen text-white">
+    <div className="min-h-screen bg-[#0a0c10] text-white">
       <WuwaHomeNav />
       <WuwaHeroCarousel mods={featuredMods} />
       <WuwaStatsBar />
