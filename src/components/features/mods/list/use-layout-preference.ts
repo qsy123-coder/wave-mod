@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export type LayoutMode = "grid" | "masonry";
 
 const STORAGE_KEY = "mod-layout-preference";
 
-/** 从 localStorage 读取布局偏好（仅在客户端调用） */
 function readPreference(): LayoutMode {
   if (typeof window === "undefined") return "grid";
   const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -14,7 +13,6 @@ function readPreference(): LayoutMode {
   return "grid";
 }
 
-/** 写入 localStorage */
 function writePreference(mode: LayoutMode) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, mode);
@@ -22,8 +20,14 @@ function writePreference(mode: LayoutMode) {
 
 /** 布局偏好 Hook：localStorage 持久化 + 状态管理 */
 export function useLayoutPreference(): [LayoutMode, (mode: LayoutMode) => void] {
-  // lazy initializer 在客户端首次渲染时同步读取 localStorage，避免 effect 中的 setState
-  const [mode, setMode] = useState<LayoutMode>(() => readPreference());
+  // 初始固定为 "grid" 匹配 SSR，避免 hydration mismatch
+  const [mode, setMode] = useState<LayoutMode>("grid");
+
+  // hydration 后从 localStorage 读取用户偏好（SSR hydration 标准模式，需 suppress setState-in-effect 规则）
+  useEffect(() => {
+    // eslint-disable-next-line
+    setMode(readPreference());
+  }, []);
 
   const setAndPersist = useCallback((next: LayoutMode) => {
     setMode(next);
