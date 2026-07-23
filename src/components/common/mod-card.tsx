@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, useTransition, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ArrowUpRight, Eye, Heart } from "lucide-react";
 
+import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
 import type { SiteMod } from "@/lib/mods";
@@ -128,49 +128,6 @@ function shortenText(text: string, max: number) {
   }
 
   return `${text.slice(0, max).trimEnd()}...`;
-}
-
-function CardFavoriteButton({ modId, isFavorited, isLoggedIn }: { modId: string; isFavorited: boolean; isLoggedIn: boolean }) {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
-  const [optimistic, setOptimistic] = useState(isFavorited);
-
-  if (!isLoggedIn) {
-    return (
-      <Link
-        href={`/auth/login?next=${encodeURIComponent(`/mods/${modId}`)}&mode=user`}
-        className="absolute bottom-12 right-2 z-20 inline-flex size-7 items-center justify-center border-[2.5px] border-black bg-[#fff8ef] shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Heart className="size-3.5 text-black/50" />
-      </Link>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className="absolute bottom-12 right-2 z-20 inline-flex size-7 items-center justify-center border-[2.5px] border-black bg-[#fff8ef] shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5"
-      onClick={(e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        const prev = optimistic;
-        setOptimistic(!prev);
-        startTransition(async () => {
-          try {
-            const formData = new FormData();
-            formData.set("id", modId);
-            await import("@/actions/mods/favorite-actions").then((m) => m.toggleFavoriteAction(formData));
-            router.refresh();
-          } catch {
-            setOptimistic(prev);
-          }
-        });
-      }}
-    >
-      <Heart className={`size-3.5 ${optimistic ? "fill-[#ff7a7a] text-[#ff7a7a]" : "text-black/50"}`} />
-    </button>
-  );
 }
 
 export function ModCard({
