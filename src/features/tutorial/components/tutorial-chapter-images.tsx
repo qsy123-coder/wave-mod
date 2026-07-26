@@ -99,8 +99,8 @@ export function TutorialChapterImages({
                 alt={img.alt}
                 width={800}
                 height={0}
+                unoptimized
                 className="h-auto w-full"
-                sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
                 priority={i < 3}
               />
             </button>
