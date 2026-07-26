@@ -1,11 +1,18 @@
 import { z } from "zod";
 
 // --- Tool entry for Chapter 00 ---
+export const cloudUrlsSchema = z.object({
+  baidu: z.string().optional(),
+  quark: z.string().optional(),
+}).optional();
+export type CloudUrls = z.infer<typeof cloudUrlsSchema>;
+
 export const toolEntrySchema = z.object({
   name: z.string().min(1, "工具名称不能为空"),
   url: z.string().min(1, "链接不能为空"),
   description: z.string().optional(),
   required: z.boolean().optional(),
+  cloudUrls: cloudUrlsSchema,
 });
 export type ToolEntry = z.infer<typeof toolEntrySchema>;
 
