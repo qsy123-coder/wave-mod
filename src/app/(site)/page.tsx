@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { ArrowRight, Clock3, Crown, Flame, Sparkles, Star, Trophy } from "lucide-react";
 
 import { CharacterTagCollapse } from "@/components/common/character-tag-collapse";
+import { FirstVisitDialog } from "@/components/common/first-visit-dialog";
 import { ModCard } from "@/components/common/mod-card";
 import { HeroCarousel } from "@/components/features/home/hero-carousel";
 import { FeaturedCarouselSkeleton, ModGridSkeleton } from "@/components/layout/data-skeletons";
@@ -202,6 +203,7 @@ function HomeCharacterSectionSkeleton() {
 export default function HomePage() {
   return (
     <div className="flex flex-col gap-10 py-8 lg:py-10">
+      <FirstVisitDialog />
       <section className="relative overflow-hidden border-4 border-black bg-[var(--neo-panel)] px-5 py-6 shadow-[12px_12px_0px_0px_#000] sm:px-6 lg:px-8 lg:py-8">
         <div className="neo-grid absolute inset-0 opacity-40" />
         <div className="absolute -left-4 top-6 h-14 w-14 rotate-12 border-4 border-black bg-[var(--neo-secondary)]" />

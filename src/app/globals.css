@@ -144,6 +144,7 @@
 
   html {
     @apply bg-background font-sans text-foreground;
+    scroll-behavior: smooth;
   }
 
   body {
