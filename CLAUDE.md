@@ -129,6 +129,12 @@ npm run test         # 测试
 npm run db:push      # Prisma 同步
 ```
 
+## 质量检查策略（重要）
+
+- **提交前**：必须执行完整质量门禁（`npm run lint` + `npx tsc --noEmit` + `npm run build`）
+- **每次任务结束后**：只做必要检查——确认 `npm run build` 通过即可（保证网站能打开）。不要每次都跑 lint 和 tsc，浪费时间
+- **开发过程中**：改了代码后跑一次 `npm run build` 验证编译通过即可，不要每改一个文件就跑全量检查
+
 ## 提交前质量门禁（强制）
 
 **每次提交/合并到 main 前必须执行以下检查，CI 必须绿：**
