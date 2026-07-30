@@ -170,6 +170,21 @@
     background: var(--neo-secondary);
     color: #000000;
   }
+
+  .scrollbar-minimal {
+    scrollbar-width: thin;
+    scrollbar-color: #000 transparent;
+  }
+  .scrollbar-minimal::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar-minimal::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-minimal::-webkit-scrollbar-thumb {
+    background: #000;
+    border-radius: 0;
+  }
 }
 
 @layer utilities {

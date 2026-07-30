@@ -95,7 +95,7 @@ export function ModsPageClient({
         onLayoutChange={setLayoutMode}
       />
 
-      <div className="flex-1 overflow-y-auto pt-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+      <div className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
         <Suspense fallback={<ModGridSkeleton count={10} />}>
           <ModsInfiniteGrid
             sort={sort as ModSort}
