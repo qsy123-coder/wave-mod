@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { LoaderCircle, Lock, Search } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -127,6 +127,115 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
+  // ==================== 瀑布流 JS 布局 ====================
+
+  const isMasonry = layoutMode === "masonry";
+
+  // 容器宽度 → 列数
+  const masonryRef = useRef<HTMLElement | null>(null);
+  const [colCount, setColCount] = useState(3);
+
+  useEffect(() => {
+    if (!isMasonry) return;
+    const el = masonryRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry?.contentRect.width ?? 0;
+      if (w > 0) setColCount(Math.max(1, Math.floor(w / 220)));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isMasonry]);
+
+  // 列归属记忆：mod.id → 列索引，保证已有卡片零抖动
+  const colMap = useRef<Map<string, number>>(new Map());
+
+  // 分配卡片到各列
+  const columns = useMemo(() => {
+    if (!isMasonry) return [];
+    const cols: SiteMod[][] = Array.from({ length: colCount }, () => []);
+    const seen = new Set<string>();
+
+    for (const mod of mods) {
+      seen.add(mod.id);
+      const prev = colMap.current.get(mod.id);
+      if (prev !== undefined && prev < colCount) {
+        cols[prev].push(mod);
+        continue;
+      }
+      // 新卡片 → 最短列
+      let shortest = 0;
+      for (let i = 1; i < cols.length; i++) {
+        if (cols[i].length < cols[shortest].length) shortest = i;
+      }
+      cols[shortest].push(mod);
+      colMap.current.set(mod.id, shortest);
+    }
+
+    // 清理已移出列表的卡片
+    if (colMap.current.size > seen.size * 2) {
+      for (const id of colMap.current.keys()) {
+        if (!seen.has(id)) colMap.current.delete(id);
+      }
+    }
+
+    return cols;
+  }, [mods, colCount, isMasonry]);
+
+  // mod.id → 全局索引（用于动画序号）
+  const modIndex = useMemo(() => {
+    const m = new Map<string, number>();
+    mods.forEach((mod, i) => m.set(mod.id, i));
+    return m;
+  }, [mods]);
+
+  // 卡片渲染函数（grid/masonry 共用）
+  const renderCard = useCallback(
+    (mod: SiteMod, idx: number) => (
+      <ModCard
+        mod={mod}
+        href={gameKey ? `/${gameKey}/mods/${mod.id}` : `/mods/${mod.id}`}
+        onCardClick={onCardClick}
+        isLoggedIn={isLoggedIn}
+        variant="list"
+        className="bg-[#fff8ef] p-2.5"
+        imageAspectClassName={isMasonry ? "auto" : "aspect-[5/6] sm:aspect-[4/5]"}
+        imagePriority={idx < 4}
+        imageFetchPriority={idx < 4 ? "high" : "auto"}
+        imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+        imageClassName={mod.nsfw && nsfwMode === "blur" ? "blur-xl" : undefined}
+        mediaTopRight={
+          mod.nsfw || mod.downloadUrl ? (
+            <div className="flex items-center gap-1">
+              {mod.nsfw ? (
+                <span className="inline-flex items-center border-2 border-black bg-[#bcaeff] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
+                  NSFW
+                </span>
+              ) : null}
+              {mod.downloadUrl ? (
+                <span className="inline-flex items-center border-2 border-black bg-[#4ade80] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
+                  直链下载
+                </span>
+              ) : null}
+            </div>
+          ) : undefined
+        }
+        mediaTopRightClassName="absolute right-2 top-4"
+        mediaBottomLeft={
+          mod.nsfw && nsfwMode === "blur" ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+              <Lock className="size-8 text-white drop-shadow-[2px_2px_0px_#000]" />
+              <span className="border-2 border-black bg-black/70 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#ff7a7a] shadow-[2px_2px_0px_0px_#000]">
+                可能含18+内容
+              </span>
+            </div>
+          ) : undefined
+        }
+      />
+    ),
+    [gameKey, onCardClick, isLoggedIn, isMasonry, nsfwMode],
+  );
+
   if (!isLoading && mods.length === 0) {
     return (
       <MotionReveal delay={0.16} y={24} rotate={1}>
@@ -141,75 +250,44 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
     );
   }
 
-  const isMasonry = layoutMode === "masonry";
-
   return (
     <div className="space-y-5">
-      <section
-        className={
-          isMasonry
-            ? "columns-[220px] gap-4 [column-fill:balance]"
-            : "grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5"
-        }
-      >
-        {mods.map((mod, index) => {
-          const card = (
-            <ModCard
-              mod={mod}
-              href={gameKey ? `/${gameKey}/mods/${mod.id}` : `/mods/${mod.id}`}
-              onCardClick={onCardClick}
-              isLoggedIn={isLoggedIn}
-              variant="list"
-              className="bg-[#fff8ef] p-2.5"
-              imageAspectClassName={isMasonry ? "auto" : "aspect-[5/6] sm:aspect-[4/5]"}
-              imagePriority={index < 4}
-              imageFetchPriority={index < 4 ? "high" : "auto"}
-              imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
-              imageClassName={mod.nsfw && nsfwMode === "blur" ? "blur-xl" : undefined}
-              mediaTopRight={mod.nsfw || mod.downloadUrl ? (
-                <div className="flex items-center gap-1">
-                  {mod.nsfw ? (
-                    <span className="inline-flex items-center border-2 border-black bg-[#bcaeff] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
-                      NSFW
-                    </span>
-                  ) : null}
-                  {mod.downloadUrl ? (
-                    <span className="inline-flex items-center border-2 border-black bg-[#4ade80] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
-                      直链下载
-                    </span>
-                  ) : null}
-                </div>
-              ) : undefined}
-              mediaTopRightClassName="absolute right-2 top-4"
-              mediaBottomLeft={mod.nsfw && nsfwMode === "blur" ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-                  <Lock className="size-8 text-white drop-shadow-[2px_2px_0px_#000]" />
-                  <span className="border-2 border-black bg-black/70 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#ff7a7a] shadow-[2px_2px_0px_0px_#000]">
-                    可能含18+内容
-                  </span>
-                </div>
-              ) : undefined}
-            />
-          );
-
-          // 瀑布流模式：需要 break-inside-avoid 防止卡片在列中被截断
-          if (isMasonry) {
-            return (
-              <div key={`${mod.id}-${index}`} className="break-inside-avoid mb-4">
-                <MotionReveal delay={0.03 + (index % 8) * 0.02} y={14} rotate={index % 2 === 0 ? -1 : 1}>
-                  {card}
-                </MotionReveal>
-              </div>
-            );
-          }
-
-          return (
-            <MotionReveal key={`${mod.id}-${index}`} delay={0.03 + (index % 8) * 0.02} y={14} rotate={index % 2 === 0 ? -1 : 1}>
-              {card}
+      {isMasonry ? (
+        /* 瀑布流：JS 列分配 + flex 列容器，零抖动 */
+        <section ref={masonryRef} className="flex gap-4">
+          {columns.map((col, colIdx) => (
+            <div key={colIdx} className="flex flex-1 flex-col gap-4">
+              {col.map((mod) => {
+                const idx = modIndex.get(mod.id) ?? 0;
+                return (
+                  <MotionReveal
+                    key={mod.id}
+                    delay={0.03 + (idx % 8) * 0.02}
+                    y={14}
+                    rotate={idx % 2 === 0 ? -1 : 1}
+                  >
+                    {renderCard(mod, idx)}
+                  </MotionReveal>
+                );
+              })}
+            </div>
+          ))}
+        </section>
+      ) : (
+        /* 网格：CSS grid 不变 */
+        <section className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
+          {mods.map((mod, index) => (
+            <MotionReveal
+              key={`${mod.id}-${index}`}
+              delay={0.03 + (index % 8) * 0.02}
+              y={14}
+              rotate={index % 2 === 0 ? -1 : 1}
+            >
+              {renderCard(mod, index)}
             </MotionReveal>
-          );
-        })}
-      </section>
+          ))}
+        </section>
+      )}
 
       {error ? (
         <div className="border-4 border-black bg-[#ffb5c3] px-5 py-4 text-sm font-black text-black shadow-[6px_6px_0px_0px_#000]">
