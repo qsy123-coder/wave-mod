@@ -21,11 +21,11 @@ function writePreference(mode: LayoutMode) {
 }
 
 function readColumns(): MasonryColumns {
-  if (typeof window === "undefined") return 3;
+  if (typeof window === "undefined") return 5;
   const stored = window.localStorage.getItem(COLUMNS_KEY);
   const n = Number(stored);
   if (n === 3 || n === 4 || n === 5 || n === 6) return n;
-  return 3;
+  return 5;
 }
 
 function writeColumns(cols: MasonryColumns) {
@@ -37,7 +37,7 @@ function writeColumns(cols: MasonryColumns) {
 export function useLayoutPreference() {
   // 初始固定为 "masonry" 匹配 SSR，避免 hydration mismatch
   const [mode, setMode] = useState<LayoutMode>("masonry");
-  const [masonryColumns, setMasonryColumns] = useState<MasonryColumns>(3);
+  const [masonryColumns, setMasonryColumns] = useState<MasonryColumns>(5);
 
   // hydration 后从 localStorage 读取用户偏好（SSR hydration 标准模式，需 suppress setState-in-effect 规则）
   useEffect(() => {

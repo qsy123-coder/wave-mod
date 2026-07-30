@@ -134,7 +134,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   // 列数：用户手动选择优先，否则自动根据容器宽度计算
   const masonryRef = useRef<HTMLElement | null>(null);
-  const [autoColCount, setAutoColCount] = useState(3);
+  const [autoColCount, setAutoColCount] = useState(5);
   const colCount = masonryColumns ?? autoColCount;
 
   useEffect(() => {

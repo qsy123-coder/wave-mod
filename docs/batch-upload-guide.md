@@ -162,14 +162,32 @@ export function isSupabaseStorageUrl(url: string): boolean;
 export function toSupabaseRenderUrl(url: string, options?: { width?: number; quality?: number }): string;
 ```
 
+## 预览图 WebP 转换规则（强制）
+
+**批量上传脚本已内置 WebP 自动转换**，无需再单独运行转换脚本。转换参数：
+
+- **宽度**: 750px（保留比例，不放大）
+- **格式**: WebP
+- **质量**: 80%
+- **效果**: PNG 2-3MB → WebP 40-70KB (减小 97-99%)；JPG 也可减小 70-90%
+
+脚本 `scripts/batch-upload-multi-char.mjs` 在 `uploadPreviewImage()` 中使用 Sharp 将原始图片（.jpg/.png）统一转为 `.webp` 后上传到 Supabase Storage，不依赖 Supabase 付费 render/image API。
+
+### 存量图片转换
+
+对于已上传的 PNG/JPG 图片，可用独立脚本转换：
+
+**文件**: `scripts/convert-images-to-webp.mjs`
+
+**用法**: `node scripts/convert-images-to-webp.mjs`
+
 ## 批量上传检查清单
 
 使用批量上传脚本前，确认以下事项：
 
 - [ ] 源文件夹包含两个 CSV 文件（百度网盘 + 夸克网盘）
-- [ ] CSV 文件名与子文件夹名一一对应（.exe 文件名 = 文件夹名）
-- [ ] 每个子文件夹有预览图（`preview.png` 或命名 PNG）
+- [ ] CSV 文件名与 .exe 文件名一一对应（去掉 .exe 后匹配）
+- [ ] 每个 .exe 有匹配的预览图（同名的 `.jpg` 或 `.png`）
 - [ ] `.env.local` 中 `SUPABASE_SERVICE_ROLE_KEY` 已配置
-- [ ] 确认 `CHAR_NAME`、`GAME_KEY`、`NSFW`、`is_published` 等参数
-- [ ] 上传后重启 dev server 或等待缓存过期
-- [ ] 上传后运行 WebP 转换脚本优化图片大小
+- [ ] 确认角色配置（`name`、`storage_key`(ASCII)、`game_key`、`subdirs`）
+- [ ] 上传后重启 dev server 或等待缓存过期（`"use cache"` + `cacheLife`）

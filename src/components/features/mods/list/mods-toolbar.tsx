@@ -71,7 +71,7 @@ export function ModsToolbar({
   className,
   layoutMode = "grid",
   onLayoutChange,
-  masonryColumns = 3,
+  masonryColumns = 5,
   onMasonryColumnsChange,
 }: ModsToolbarProps) {
   const router = useRouter();
