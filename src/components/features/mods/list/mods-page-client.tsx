@@ -6,7 +6,7 @@ import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-dr
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar, type NsfwMode } from "@/components/features/mods/list/mods-toolbar";
 import { useLayoutPreference } from "@/components/features/mods/list/use-layout-preference";
-import { ModGridSkeleton } from "@/components/layout/data-skeletons";
+import { ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import type { ModSort, SiteMod } from "@/lib/mods";
 
@@ -116,27 +116,29 @@ export function ModsPageClient({
         onFilterChange={startLoading}
       />
 
-      <div className="relative flex-1 overflow-y-auto pt-4 scrollbar-minimal">
-        <ModsInfiniteGrid
-          sort={sort as ModSort}
-          character={character}
-          gameKey={gameKey}
-          query={initialQuery || undefined}
-          initialMods={initialMods}
-          nsfwMode={nsfwMode}
-          directOnly={directOnly}
-          nsfwOnly={nsfwOnly}
-          isLoggedIn={isLoggedIn}
-          layoutMode={layoutMode}
-          masonryColumns={masonryColumns}
-          onCountChange={setGridCount}
-          onCardClick={openDrawer}
-        />
-        {/* 筛选/排序加载覆盖层——不影响 ModsInfiniteGrid 内部逻辑 */}
-        {isLoading && (
-          <div className="absolute inset-0 z-10">
-            <ModGridSkeleton count={10} />
-          </div>
+      <div className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
+        {isLoading ? (
+          <section className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <ModCardSkeleton key={i} />
+            ))}
+          </section>
+        ) : (
+          <ModsInfiniteGrid
+            sort={sort as ModSort}
+            character={character}
+            gameKey={gameKey}
+            query={initialQuery || undefined}
+            initialMods={initialMods}
+            nsfwMode={nsfwMode}
+            directOnly={directOnly}
+            nsfwOnly={nsfwOnly}
+            isLoggedIn={isLoggedIn}
+            layoutMode={layoutMode}
+            masonryColumns={masonryColumns}
+            onCountChange={setGridCount}
+            onCardClick={openDrawer}
+          />
         )}
       </div>
 
