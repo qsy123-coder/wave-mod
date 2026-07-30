@@ -65,6 +65,14 @@ export function ModsPageClient({
     window.history.pushState(null, "", "/mods");
   }, []);
 
+  // 锁定 body 滚动，仅在 mod 列表内部滚动
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   useEffect(() => {
     const handlePopState = () => {
       const match = window.location.pathname.match(/^\/mods\/(.+)$/);
