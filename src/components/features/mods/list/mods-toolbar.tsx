@@ -2,7 +2,7 @@
 
 import { ChevronDown, Columns2, LayoutGrid, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { cn } from "@/lib/utils";
@@ -84,6 +84,10 @@ export function ModsToolbar({
   const [nsfwOpen, setNsfwOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
 
+  // 本地 sort state：点击时立即更新，服务端数据到达时同步
+  const [localSort, setLocalSort] = useState(sort);
+  useEffect(() => { setLocalSort(sort); }, [sort]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
@@ -116,6 +120,7 @@ export function ModsToolbar({
   };
 
   const handleSortSelect = (value: string) => {
+    setLocalSort(value);
     const href = sortHrefs[value];
     if (href) {
       onFilterChange?.();
@@ -129,8 +134,8 @@ export function ModsToolbar({
   const isFilterActive = directOnly || nsfwOnly;
   const isNsfwActive = nsfwMode !== "blur";
   const nsfwLabel = nsfwModeOptions.find((o) => o.key === nsfwMode)?.label ?? "模糊 NSFW";
-  const sortLabel = sortOptions.find((o) => o.value === sort)?.label ?? "默认";
-  const isSortActive = sort !== "latest" && sort !== "default";
+  const sortLabel = sortOptions.find((o) => o.value === localSort)?.label ?? "默认";
+  const isSortActive = localSort !== "latest" && localSort !== "default";
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2 border-4 border-black bg-[#fff8ef] p-3 shadow-[6px_6px_0px_0px_#000]", className)}>
@@ -236,7 +241,7 @@ export function ModsToolbar({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-36 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
           {sortOptions.map((opt, index) => {
-            const isActive = opt.value === sort;
+            const isActive = opt.value === localSort;
             const colors = ["bg-white", "bg-[#ffd84f]", "bg-[#ff7a7a]", "bg-[#bcaeff]", "bg-[#4ade80]"];
             return (
               <DropdownMenuItem
