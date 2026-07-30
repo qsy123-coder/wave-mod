@@ -106,7 +106,10 @@ export function ModsPageClient({
       />
 
       <div className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
-        <Suspense fallback={<ModGridSkeleton count={10} />}>
+        <Suspense
+          key={`${sort}-${character ?? ""}-${initialQuery ?? ""}`}
+          fallback={<ModGridSkeleton count={10} />}
+        >
           <ModsInfiniteGrid
             sort={sort as ModSort}
             character={character}
