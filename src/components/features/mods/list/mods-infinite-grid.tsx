@@ -272,9 +272,14 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
         <section ref={masonryRef} className="flex gap-4">
           {columns.map((col, colIdx) => (
             <div key={colIdx} className="flex flex-1 flex-col gap-4">
-              {col.map((mod) => {
+              {col.flatMap((mod, i) => {
                 const idx = modIndex.get(mod.id) ?? 0;
-                return (
+                const items: React.ReactNode[] = [];
+                // 在第一列的倒数第 2 张之前插入哨兵，提前触发无限滚动
+                if (colIdx === 0 && i === Math.max(0, col.length - 2) && hasNextPage) {
+                  items.push(<div key="sentinel" ref={sentinelRef} className="min-h-1" />);
+                }
+                items.push(
                   <MotionReveal
                     key={mod.id}
                     delay={0.03 + (idx % 8) * 0.02}
@@ -284,6 +289,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
                     {renderCard(mod, idx)}
                   </MotionReveal>
                 );
+                return items;
               })}
               {/* 加载中骨架：每列底部多个占位卡片，填满可视区域 */}
               {isFetchingNextPage
@@ -299,16 +305,24 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
       ) : (
         /* 网格：CSS grid 不变 */
         <section className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
-          {mods.map((mod, index) => (
-            <MotionReveal
-              key={`${mod.id}-${index}`}
-              delay={0.03 + (index % 8) * 0.02}
-              y={14}
-              rotate={index % 2 === 0 ? -1 : 1}
-            >
-              {renderCard(mod, index)}
-            </MotionReveal>
-          ))}
+          {mods.flatMap((mod, index) => {
+            const items: React.ReactNode[] = [];
+            // 列表超过 10 张时，在倒数第 6 张前插哨兵提前触发加载
+            if (mods.length > 10 && index === mods.length - 6 && hasNextPage) {
+              items.push(<div key="sentinel" ref={sentinelRef} className="min-h-1" />);
+            }
+            items.push(
+              <MotionReveal
+                key={`${mod.id}-${index}`}
+                delay={0.03 + (index % 8) * 0.02}
+                y={14}
+                rotate={index % 2 === 0 ? -1 : 1}
+              >
+                {renderCard(mod, index)}
+              </MotionReveal>
+            );
+            return items;
+          })}
           {/* 加载中骨架：多行占位卡片，填满下方空白 */}
           {isFetchingNextPage
             ? Array.from({ length: 15 }).map((_, i) => (
@@ -320,21 +334,20 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
         </section>
       )}
 
+      {!hasNextPage && !isFetchingNextPage ? (
+        <div className="flex items-center justify-center py-4">
+          <div className="inline-flex items-center gap-3 border-4 border-black bg-[#ffd84f] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
+            <Search className="size-4" />
+            已经翻到底了，试试切换角色或搜索关键词
+          </div>
+        </div>
+      ) : null}
+
       {error ? (
         <div className="border-4 border-black bg-[#ffb5c3] px-5 py-4 text-sm font-black text-black shadow-[6px_6px_0px_0px_#000]">
           MOD 列表加载失败，请稍后重试。
         </div>
       ) : null}
-
-      {/* 哨兵元素：触发无限滚动，骨架卡片上方已显示加载状态 */}
-      <div ref={sentinelRef} className="flex min-h-14 items-center justify-center">
-        {!hasNextPage ? (
-          <div className="inline-flex items-center gap-3 border-4 border-black bg-[#ffd84f] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
-            <Search className="size-4" />
-            已经翻到底了，试试切换角色或搜索关键词
-          </div>
-        ) : null}
-      </div>
     </div>
   );
 }
