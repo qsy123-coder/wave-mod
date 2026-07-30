@@ -5,6 +5,7 @@ import { Lock, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
+import type { MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { ModSort, PaginatedResult, SiteMod } from "@/lib/mods";
@@ -64,7 +65,7 @@ type ModsInfiniteGridProps = {
   onCountChange?: (count: number) => void;
   isLoggedIn?: boolean;
   layoutMode?: "grid" | "masonry";
-  masonryColumns?: number;
+  masonryColumns?: MasonryColumns;
 };
 
 export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {

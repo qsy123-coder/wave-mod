@@ -3,6 +3,8 @@
 import { ChevronDown, Columns2, LayoutGrid, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+import type { MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -31,8 +33,8 @@ type ModsToolbarProps = {
   className?: string;
   layoutMode?: "grid" | "masonry";
   onLayoutChange?: (mode: "grid" | "masonry") => void;
-  masonryColumns?: number;
-  onMasonryColumnsChange?: (cols: number) => void;
+  masonryColumns?: MasonryColumns;
+  onMasonryColumnsChange?: (cols: MasonryColumns) => void;
 };
 
 const filterOptions = [
