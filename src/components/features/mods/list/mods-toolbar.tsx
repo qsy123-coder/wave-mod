@@ -31,6 +31,8 @@ type ModsToolbarProps = {
   className?: string;
   layoutMode?: "grid" | "masonry";
   onLayoutChange?: (mode: "grid" | "masonry") => void;
+  masonryColumns?: number;
+  onMasonryColumnsChange?: (cols: number) => void;
 };
 
 const filterOptions = [
@@ -69,6 +71,8 @@ export function ModsToolbar({
   className,
   layoutMode = "grid",
   onLayoutChange,
+  masonryColumns = 3,
+  onMasonryColumnsChange,
 }: ModsToolbarProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
@@ -250,8 +254,31 @@ export function ModsToolbar({
 
       {/* 布局切换 */}
       {onLayoutChange ? (
-        <div className="ml-auto flex items-center gap-0.5 border-4 border-black bg-white shadow-[4px_4px_0px_0px_#000]">
-          <button
+        <div className="ml-auto flex items-center gap-0.5">
+          {/* 瀑布流列数选择器 */}
+          {layoutMode === "masonry" && onMasonryColumnsChange ? (
+            <div className="mr-2 flex items-center gap-0.5 border-4 border-black bg-white shadow-[4px_4px_0px_0px_#000]">
+              {([3, 4, 5, 6] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => onMasonryColumnsChange(n)}
+                  className={cn(
+                    "px-1.5 py-1 text-xs font-black transition",
+                    masonryColumns === n
+                      ? "bg-black text-white"
+                      : "text-black/40 hover:text-black"
+                  )}
+                  aria-label={`${n} 列`}
+                  title={`${n} 列`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="flex items-center gap-0.5 border-4 border-black bg-white shadow-[4px_4px_0px_0px_#000]">
+            <button
             type="button"
             onClick={() => onLayoutChange("grid")}
             className={cn(
@@ -279,6 +306,7 @@ export function ModsToolbar({
           >
             <Columns2 className="size-4" />
           </button>
+        </div>
         </div>
       ) : null}
 

@@ -63,9 +63,10 @@ type ModsInfiniteGridProps = {
   onCountChange?: (count: number) => void;
   isLoggedIn?: boolean;
   layoutMode?: "grid" | "masonry";
+  masonryColumns?: number;
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "masonry" }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const initialPage: PaginatedResult<SiteMod> = {
     hasMore: initialMods.length === PAGE_SIZE,
@@ -131,21 +132,22 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   const isMasonry = layoutMode === "masonry";
 
-  // 容器宽度 → 列数
+  // 列数：用户手动选择优先，否则自动根据容器宽度计算
   const masonryRef = useRef<HTMLElement | null>(null);
-  const [colCount, setColCount] = useState(3);
+  const [autoColCount, setAutoColCount] = useState(3);
+  const colCount = masonryColumns ?? autoColCount;
 
   useEffect(() => {
-    if (!isMasonry) return;
+    if (!isMasonry || masonryColumns) return;
     const el = masonryRef.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
       const w = entry?.contentRect.width ?? 0;
-      if (w > 0) setColCount(Math.max(1, Math.floor(w / 220)));
+      if (w > 0) setAutoColCount(Math.max(1, Math.floor(w / 220)));
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [isMasonry]);
+  }, [isMasonry, masonryColumns]);
 
   // 列归属记忆：mod.id → 列索引，保证已有卡片零抖动
   const colMap = useRef<Map<string, number>>(new Map());

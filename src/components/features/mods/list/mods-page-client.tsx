@@ -49,7 +49,7 @@ export function ModsPageClient({
   const [directOnly, setDirectOnly] = useState(false);
   const [nsfwOnly, setNsfwOnly] = useState(false);
   const [gridCount, setGridCount] = useState<number | null>(null);
-  const [layoutMode, setLayoutMode] = useLayoutPreference();
+  const { mode: layoutMode, setMode: setLayoutMode, masonryColumns, setMasonryColumns } = useLayoutPreference();
   const hasClientFilter = nsfwMode !== "blur" || nsfwOnly || directOnly;
   const modCount = hasClientFilter ? (gridCount ?? (serverTotalCount ?? initialMods.length)) : (serverTotalCount ?? initialMods.length);
   const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
@@ -101,6 +101,8 @@ export function ModsPageClient({
         modCount={modCount}
         layoutMode={layoutMode}
         onLayoutChange={setLayoutMode}
+        masonryColumns={masonryColumns}
+        onMasonryColumnsChange={setMasonryColumns}
       />
 
       <div className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
@@ -116,6 +118,7 @@ export function ModsPageClient({
             nsfwOnly={nsfwOnly}
             isLoggedIn={isLoggedIn}
             layoutMode={layoutMode}
+            masonryColumns={masonryColumns}
             onCountChange={setGridCount}
             onCardClick={openDrawer}
           />
