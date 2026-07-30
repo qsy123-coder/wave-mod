@@ -128,3 +128,23 @@ npm run lint         # 代码检查
 npm run test         # 测试
 npm run db:push      # Prisma 同步
 ```
+
+## 提交前质量门禁（强制）
+
+**每次提交/合并到 main 前必须执行以下检查，CI 必须绿：**
+
+1. **Lint 检查**: `npm run lint` — 零 error（warnings 可接受但不鼓励增加）
+2. **类型检查**: `npx tsc --noEmit` — 零错误
+3. **构建检查**: `npm run build` — 必须成功
+4. **CI 验证**: push 后等待 GitHub Actions `Quality Checks` workflow 通过
+
+**工作流**:
+```
+代码 → Lint → TypeCheck → 自检清单 → Commit → Push → 等待 CI 绿 → 合并 main
+```
+
+**Claude 执行规范**:
+- 每次 commit 前必须执行 `npm run lint` + `npx tsc --noEmit`，有 error 必须修复
+- 如果 lint error 来自**未修改**的文件，视为已有问题，必须一并修复
+- push 后必须等待 CI 完成，确认 success 后才能告知用户"完成"
+- CI 失败时必须查看日志、修复、重新 push，直到通过
