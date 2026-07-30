@@ -262,7 +262,6 @@ export function ModCard({
           </>
         )}
       </div>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,transparent_18%,rgba(0,0,0,0.16)_55%,rgba(0,0,0,0.42)_100%)] transition-opacity duration-500 group-hover/mod-card:opacity-90" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/18 to-black/8" />
 
       {/* 批量操作复选框 */}

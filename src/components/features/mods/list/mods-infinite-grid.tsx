@@ -65,7 +65,7 @@ type ModsInfiniteGridProps = {
   layoutMode?: "grid" | "masonry";
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "grid" }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "masonry" }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const initialPage: PaginatedResult<SiteMod> = {
     hasMore: initialMods.length === PAGE_SIZE,

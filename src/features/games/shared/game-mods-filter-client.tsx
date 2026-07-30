@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { GameConfig } from "@/config/games";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar, type NsfwMode } from "@/components/features/mods/list/mods-toolbar";
+import { useLayoutPreference } from "@/components/features/mods/list/use-layout-preference";
 import type { ModSort, SiteMod } from "@/lib/mods";
 
 type Props = {
@@ -35,6 +36,7 @@ export function GameModsFilterClient({
   const [nsfwOnly, setNsfwOnly] = useState(false);
   // 默认用服务端的全量计数；客户端筛选激活后由 grid 回调更新
   const [gridCount, setGridCount] = useState<number | null>(null);
+  const [layoutMode, setLayoutMode] = useLayoutPreference();
 
   // 仅当客户端筛选激活时使用 grid 的过滤后数量，否则用服务端全量
   const hasClientFilter = nsfwMode !== "blur" || nsfwOnly || directOnly;
@@ -57,6 +59,8 @@ export function GameModsFilterClient({
         activeCharacter={initialCharacter}
         activeQuery={initialQuery}
         modCount={modCount}
+        layoutMode={layoutMode}
+        onLayoutChange={setLayoutMode}
       />
 
       <ModsInfiniteGrid
@@ -70,6 +74,7 @@ export function GameModsFilterClient({
         nsfwMode={nsfwMode}
         directOnly={directOnly}
         nsfwOnly={nsfwOnly}
+        layoutMode={layoutMode}
       />
     </>
   );
