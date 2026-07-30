@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useState, type ReactNode } from "react";
-import { ArrowUpRight, Eye, Heart } from "lucide-react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
+import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
@@ -231,6 +231,28 @@ export function ModCard({
     [],
   );
 
+  // 图片加载失败自动重试（指数退避：1s → 2s → 4s，最多 3 次）
+  const retryCount = useRef(0);
+  const maxRetries = 3;
+  const [imageError, setImageError] = useState(false);
+  const [retryTimestamp, setRetryTimestamp] = useState(0);
+
+  const handleImageError = useCallback(() => {
+    if (retryCount.current < maxRetries) {
+      const delay = Math.pow(2, retryCount.current) * 1000;
+      retryCount.current += 1;
+      setTimeout(() => setRetryTimestamp(Date.now()), delay);
+    } else {
+      setImageError(true);
+    }
+  }, []);
+
+  // 图片 URL 附加重试参数绕过缓存
+  const imageSrc = retryTimestamp > 0
+    ? `${mod.coverImage}${mod.coverImage.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`
+    : mod.coverImage;
+  const isUnoptimized = mod.coverImage?.includes("supabase.co") ?? false;
+
   const media = (
     <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>
       <div
@@ -244,37 +266,44 @@ export function ModCard({
         style={isAutoAspect ? { aspectRatio: imageRatio ? String(imageRatio) : "3/4" } : undefined}
       >
         {/* 模糊放大背景图，填充 object-contain 产生的空白区域 */}
-        {isAutoAspect ? (
+        {imageError ? (
+          <div className="flex h-full min-h-[120px] items-center justify-center">
+            <ImageOff className="size-8 text-white/30" />
+          </div>
+        ) : isAutoAspect ? (
           <Image
-            src={mod.coverImage}
+            src={imageSrc}
             alt={mod.title}
             fill
-            unoptimized={mod.coverImage?.includes("supabase.co")}
+            unoptimized={isUnoptimized}
             priority={imagePriority}
             fetchPriority={imageFetchPriority}
             sizes={imageSizes}
             onLoad={handleImageLoad}
+            onError={handleImageError}
             className={cn("object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
           />
         ) : (
           <>
             <Image
-              src={mod.coverImage}
+              src={imageSrc}
               alt=""
               fill
-              unoptimized={mod.coverImage?.includes("supabase.co")}
+              unoptimized={isUnoptimized}
               sizes={imageSizes}
+              onError={handleImageError}
               className="scale-110 object-cover blur-xl"
               aria-hidden="true"
             />
             <Image
-              src={mod.coverImage}
+              src={imageSrc}
               alt={mod.title}
               fill
-              unoptimized={mod.coverImage?.includes("supabase.co")}
+              unoptimized={isUnoptimized}
               priority={imagePriority}
               fetchPriority={imageFetchPriority}
               sizes={imageSizes}
+              onError={handleImageError}
               className={cn("object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
             />
           </>
