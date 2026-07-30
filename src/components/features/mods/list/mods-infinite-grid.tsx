@@ -66,10 +66,9 @@ type ModsInfiniteGridProps = {
   isLoggedIn?: boolean;
   layoutMode?: "grid" | "masonry";
   masonryColumns?: MasonryColumns;
-  isLoading?: boolean;
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns, isLoading: isNavigating = false }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const initialPage: PaginatedResult<SiteMod> = {
@@ -246,26 +245,6 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
     ),
     [gameKey, onCardClick, isLoggedIn, isMasonry, nsfwMode],
   );
-
-  if (isNavigating) {
-    return layoutMode === "masonry" ? (
-      <section className="flex gap-4">
-        {Array.from({ length: 4 }).map((_, ci) => (
-          <div key={ci} className="flex flex-1 flex-col gap-4">
-            {Array.from({ length: 4 }).map((_, si) => (
-              <MasonryCardSkeleton key={si} index={ci * 4 + si} />
-            ))}
-          </div>
-        ))}
-      </section>
-    ) : (
-      <section className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <ModCardSkeleton key={i} />
-        ))}
-      </section>
-    );
-  }
 
   if (!isLoading && mods.length === 0) {
     return (

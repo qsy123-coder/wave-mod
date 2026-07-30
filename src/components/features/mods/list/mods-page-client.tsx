@@ -6,6 +6,7 @@ import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-dr
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar, type NsfwMode } from "@/components/features/mods/list/mods-toolbar";
 import { useLayoutPreference } from "@/components/features/mods/list/use-layout-preference";
+import { ModGridSkeleton } from "@/components/layout/data-skeletons";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import type { ModSort, SiteMod } from "@/lib/mods";
 
@@ -115,7 +116,7 @@ export function ModsPageClient({
         onFilterChange={startLoading}
       />
 
-      <div className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
+      <div className="relative flex-1 overflow-y-auto pt-4 scrollbar-minimal">
         <ModsInfiniteGrid
           sort={sort as ModSort}
           character={character}
@@ -130,8 +131,13 @@ export function ModsPageClient({
           masonryColumns={masonryColumns}
           onCountChange={setGridCount}
           onCardClick={openDrawer}
-          isLoading={isLoading}
         />
+        {/* 筛选/排序加载覆盖层——不影响 ModsInfiniteGrid 内部逻辑 */}
+        {isLoading && (
+          <div className="absolute inset-0 z-10">
+            <ModGridSkeleton count={10} />
+          </div>
+        )}
       </div>
 
       {drawerModId && (
