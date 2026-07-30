@@ -297,7 +297,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
         </div>
       ) : null}
 
-      <div ref={sentinelRef} className="flex min-h-14 items-center justify-center">
+      <div ref={sentinelRef} className="sticky bottom-0 z-10 flex min-h-14 items-center justify-center bg-[#3a2418]/90 py-2 backdrop-blur-sm">
         {hasNextPage ? (
           <div className="inline-flex items-center gap-3 border-4 border-black bg-white px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
             <LoaderCircle className={`size-4 ${isFetchingNextPage ? "animate-spin" : ""}`} />
