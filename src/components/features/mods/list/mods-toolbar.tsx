@@ -35,6 +35,7 @@ type ModsToolbarProps = {
   onLayoutChange?: (mode: "grid" | "masonry") => void;
   masonryColumns?: MasonryColumns;
   onMasonryColumnsChange?: (cols: MasonryColumns) => void;
+  onFilterChange?: () => void;
 };
 
 const filterOptions = [
@@ -75,6 +76,7 @@ export function ModsToolbar({
   onLayoutChange,
   masonryColumns = 5,
   onMasonryColumnsChange,
+  onFilterChange,
 }: ModsToolbarProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
@@ -115,7 +117,10 @@ export function ModsToolbar({
 
   const handleSortSelect = (value: string) => {
     const href = sortHrefs[value];
-    if (href) router.push(href);
+    if (href) {
+      onFilterChange?.();
+      router.push(href);
+    }
     setSortOpen(false);
   };
 

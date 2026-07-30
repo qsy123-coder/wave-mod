@@ -1,13 +1,12 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar, type NsfwMode } from "@/components/features/mods/list/mods-toolbar";
 import { useLayoutPreference } from "@/components/features/mods/list/use-layout-preference";
-import { ModGridSkeleton } from "@/components/layout/data-skeletons";
+import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import type { ModSort, SiteMod } from "@/lib/mods";
 
 type ModsPageClientProps = {
@@ -22,7 +21,6 @@ type ModsPageClientProps = {
   gameKey?: string;
   activeCharacter?: string;
   openModId?: string;
-  // drawer user props
   admin?: boolean;
   currentUserId?: string;
   currentUserName?: string;
@@ -46,10 +44,17 @@ export function ModsPageClient({
   currentUserName,
   isLoggedIn = false,
 }: ModsPageClientProps) {
-  // 用 URL searchParams 生成 key：URL 变化时客户端立即感知，Suspense 马上展示骨架屏
-  const searchParams = useSearchParams();
-  const contentKey = `${searchParams.get("sort") ?? ""}-${searchParams.get("character") ?? ""}-${searchParams.get("query") ?? ""}`;
-  console.log("[ModsPageClient] contentKey =", contentKey, "| props sort =", sort, "character =", character);
+  const { isLoading, startLoading, stopLoading } = useNavigationLoading();
+
+  // 服务端数据到达时（props 变化）自动结束加载状态
+  const prevParamsRef = useRef(`${sort}-${character}-${initialQuery}`);
+  useEffect(() => {
+    const current = `${sort}-${character}-${initialQuery}`;
+    if (prevParamsRef.current !== current) {
+      prevParamsRef.current = current;
+      stopLoading();
+    }
+  }, [sort, character, initialQuery, stopLoading]);
 
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
@@ -60,7 +65,6 @@ export function ModsPageClient({
   const modCount = hasClientFilter ? (gridCount ?? (serverTotalCount ?? initialMods.length)) : (serverTotalCount ?? initialMods.length);
   const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
 
-  // 同步浏览器历史：点击卡片时 pushState，浏览器后退/前进时 popstate
   const openDrawer = useCallback((modId: string) => {
     setDrawerModId(modId);
     window.history.pushState(null, "", `/mods/${modId}`);
@@ -71,7 +75,6 @@ export function ModsPageClient({
     window.history.pushState(null, "", "/mods");
   }, []);
 
-  // 锁定 body 滚动，仅在 mod 列表内部滚动
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => {
@@ -109,25 +112,26 @@ export function ModsPageClient({
         onLayoutChange={setLayoutMode}
         masonryColumns={masonryColumns}
         onMasonryColumnsChange={setMasonryColumns}
+        onFilterChange={startLoading}
       />
 
       <div className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
         <ModsInfiniteGrid
-            key={contentKey}
-            sort={sort as ModSort}
-            character={character}
-            gameKey={gameKey}
-            query={initialQuery || undefined}
-            initialMods={initialMods}
-            nsfwMode={nsfwMode}
-            directOnly={directOnly}
-            nsfwOnly={nsfwOnly}
-            isLoggedIn={isLoggedIn}
-            layoutMode={layoutMode}
-            masonryColumns={masonryColumns}
-            onCountChange={setGridCount}
-            onCardClick={openDrawer}
-          />
+          sort={sort as ModSort}
+          character={character}
+          gameKey={gameKey}
+          query={initialQuery || undefined}
+          initialMods={initialMods}
+          nsfwMode={nsfwMode}
+          directOnly={directOnly}
+          nsfwOnly={nsfwOnly}
+          isLoggedIn={isLoggedIn}
+          layoutMode={layoutMode}
+          masonryColumns={masonryColumns}
+          onCountChange={setGridCount}
+          onCardClick={openDrawer}
+          isLoading={isLoading}
+        />
       </div>
 
       {drawerModId && (

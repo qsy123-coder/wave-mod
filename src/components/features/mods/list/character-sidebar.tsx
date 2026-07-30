@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import { getCharacterImagePath } from "@/lib/constants/character-images";
 
 export type CharacterSidebarItem = {
@@ -35,6 +37,17 @@ export function CharacterSidebar({
   characters,
   className,
 }: CharacterSidebarProps) {
+  const router = useRouter();
+  const { startLoading } = useNavigationLoading();
+
+  const handleClick = useCallback(
+    (href: string) => {
+      startLoading();
+      router.push(href);
+    },
+    [router, startLoading],
+  );
+
   const specialCategories = characters.filter((c) =>
     ["Skins", "Other/Misc", "UI"].includes(c.label)
   );
@@ -45,10 +58,11 @@ export function CharacterSidebar({
   return (
     <aside className={cn("flex shrink-0 flex-col gap-1.5 border-4 border-black bg-[#fff8ef] p-2.5 shadow-[6px_6px_0px_0px_#000]", className)}>
       {/* 全部 */}
-      <Link
-        href={allHref}
+      <button
+        type="button"
+        onClick={() => handleClick(allHref)}
         className={cn(
-          "border-[3px] border-black px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
+          "border-[3px] border-black px-2.5 py-1.5 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
           isAllActive
             ? "bg-[#ff7a7a] text-black"
             : "bg-white text-black/75"
@@ -56,18 +70,19 @@ export function CharacterSidebar({
       >
         {allLabel}
         <span className="ml-1 text-[9px] opacity-50">{allCount}</span>
-      </Link>
+      </button>
 
       {/* 特殊分类 */}
       {specialCategories.map((item, i) => {
         const avatarPath = getCharacterImagePath(item.label);
 
         return (
-          <Link
+          <button
             key={item.label}
-            href={item.href}
+            type="button"
+            onClick={() => handleClick(item.href)}
             className={cn(
-              "flex items-center gap-2 border-[3px] border-black px-2.5 py-2 text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
+              "flex items-center gap-2 border-[3px] border-black px-2.5 py-2 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
               item.isActive
                 ? "bg-[#ff7a7a] text-black"
                 : cn("bg-white text-black/75", tagColors[i % tagColors.length])
@@ -85,7 +100,7 @@ export function CharacterSidebar({
             ) : null}
             {item.label}
             <span className="ml-1 text-[9px] opacity-50">{item.count}</span>
-          </Link>
+          </button>
         );
       })}
 
@@ -98,11 +113,12 @@ export function CharacterSidebar({
           const avatarPath = getCharacterImagePath(item.label);
 
           return (
-            <Link
+            <button
               key={item.label}
-              href={item.href}
+              type="button"
+              onClick={() => handleClick(item.href)}
               className={cn(
-                "flex items-center gap-2 border-[3px] border-black px-2.5 py-2 text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
+                "flex items-center gap-2 border-[3px] border-black px-2.5 py-2 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
                 item.isActive
                   ? "bg-[#ff7a7a] text-black"
                   : cn("bg-white text-black/75", tagColors[i % tagColors.length])
@@ -120,7 +136,7 @@ export function CharacterSidebar({
               ) : null}
               {item.label}
               <span className="ml-1 text-[9px] opacity-50">{item.count}</span>
-            </Link>
+            </button>
           );
         })}
       </div>

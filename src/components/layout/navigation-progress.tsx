@@ -1,23 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 
 /**
  * 页面顶部导航进度条
  *
- * 监听 URL 变化，每次变化时挂载新的动画实例。分阶段动画后自动淡出。
- * 骨架屏由 ModsPageClient 内层 Suspense key 机制独立处理。
+ * 与 NavigationLoadingContext 同步：loading 开始时动画启动，loading 结束时完成并淡出。
+ * 不再依赖固定定时器。
  */
 export function NavigationProgress() {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const routeKey = `${pathname}?${searchParams}`;
-
-  return <ProgressBar key={routeKey} />;
-}
-
-function ProgressBar() {
+  const { isLoading } = useNavigationLoading();
   const barRef = useRef<HTMLDivElement>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -25,37 +18,37 @@ function ProgressBar() {
     const bar = barRef.current;
     if (!bar) return;
 
-    // 分阶段动画
-    const animate = (width: string, delay: number) =>
-      setTimeout(() => { if (bar) bar.style.width = width; }, delay);
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
 
-    timers.current = [
-      animate("25%", 60),
-      animate("60%", 400),
-      animate("85%", 1200),
-      // 完成并淡出
-      setTimeout(() => {
-        if (bar) {
-          bar.style.width = "100%";
-          bar.style.opacity = "0";
-        }
-      }, 2500),
-    ];
+    if (isLoading) {
+      // 启动动画
+      bar.style.width = "0%";
+      bar.style.opacity = "1";
+      timers.current.push(
+        setTimeout(() => { bar.style.width = "25%"; }, 60),
+        setTimeout(() => { bar.style.width = "60%"; }, 400),
+        setTimeout(() => { bar.style.width = "85%"; }, 1200),
+      );
+    } else {
+      // 完成动画
+      bar.style.width = "100%";
+      timers.current.push(
+        setTimeout(() => { bar.style.opacity = "0"; }, 300),
+      );
+    }
 
     return () => timers.current.forEach(clearTimeout);
-  }, []);
+  }, [isLoading]);
 
   return (
-    <div
-      className="pointer-events-none fixed inset-x-0 top-0 z-[9999]"
-      role="progressbar"
-    >
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[9999]" role="progressbar">
       <div
         ref={barRef}
         className="h-[3px] bg-gradient-to-r from-primary via-primary/80 to-primary/60"
         style={{
           width: "0%",
-          opacity: 1,
+          opacity: 0,
           transition: "width 0.5s ease-out, opacity 0.3s ease-out",
         }}
       />

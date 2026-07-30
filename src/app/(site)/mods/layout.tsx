@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 
+import { NavigationLoadingProvider } from "@/components/layout/navigation-loading-context";
 import { NavigationProgress } from "@/components/layout/navigation-progress";
 
 export default function ModsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
+    <NavigationLoadingProvider>
       <Suspense fallback={null}>
         <NavigationProgress />
       </Suspense>
@@ -13,6 +14,6 @@ export default function ModsLayout({ children }: { children: React.ReactNode }) 
           {children}
         </div>
       </div>
-    </>
+    </NavigationLoadingProvider>
   );
 }

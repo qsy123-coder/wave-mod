@@ -66,17 +66,11 @@ type ModsInfiniteGridProps = {
   isLoggedIn?: boolean;
   layoutMode?: "grid" | "masonry";
   masonryColumns?: MasonryColumns;
+  isLoading?: boolean;
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns, isLoading: isNavigating = false }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  // 组件挂载时短暂展示骨架屏（由父组件 key 驱动重新挂载）
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setReady(true), 250);
-    return () => clearTimeout(t);
-  }, []);
 
   const initialPage: PaginatedResult<SiteMod> = {
     hasMore: initialMods.length === PAGE_SIZE,
@@ -92,7 +86,6 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
     error,
     fetchNextPage,
     hasNextPage,
-    isFetching,
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
@@ -106,8 +99,6 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
     },
     refetchOnWindowFocus: false,
   });
-
-  console.log("[ModsInfiniteGrid] isLoading =", isLoading, "isFetching =", isFetching, "isFetchingNextPage =", isFetchingNextPage, "mods.length =", data?.pages?.flatMap((p: PaginatedResult<SiteMod>) => p.items).length ?? 0, "|\nsort =", sort, "character =", character);
 
   const mods = useMemo(() => {
     let all = data.pages.flatMap((page) => page.items);
@@ -256,7 +247,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
     [gameKey, onCardClick, isLoggedIn, isMasonry, nsfwMode],
   );
 
-  if (!ready) {
+  if (isNavigating) {
     return layoutMode === "masonry" ? (
       <section className="flex gap-4">
         {Array.from({ length: 4 }).map((_, ci) => (
