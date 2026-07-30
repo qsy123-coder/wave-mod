@@ -43,6 +43,36 @@ export function FeaturedCarouselSkeleton() {
   );
 }
 
+/** 单个 mod 卡片骨架 — 用于瀑布流/网格占位 */
+export function ModCardSkeleton({ aspectClass = "aspect-[4/5]" }: { aspectClass?: string }) {
+  return (
+    <article className="neo-card neo-card-lift h-full bg-[#fff8ef] p-2.5">
+      <div className="relative overflow-hidden border-4 border-black bg-black">
+        <div className={`w-full animate-pulse bg-[var(--neo-muted)] ${aspectClass}`} />
+        <div className="absolute left-2 top-2 flex gap-1">
+          <SkeletonBar className="h-6 w-14 bg-[var(--neo-secondary)]" />
+          <SkeletonBar className="h-6 w-8 bg-[var(--neo-accent)]" />
+        </div>
+      </div>
+      <div className="space-y-2 px-1 pb-1 pt-3 text-black">
+        <SkeletonBar className="h-6 w-3/4" />
+        <div className="flex gap-2">
+          <SkeletonBar className="h-3 w-12" />
+          <SkeletonBar className="h-3 w-10" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/** 瀑布流骨架卡片 — 随机高度，模拟真实瀑布流 */
+const MASONRY_HEIGHTS = ["aspect-[3/4]", "aspect-[4/5]", "aspect-[5/6]", "aspect-[2/3]", "aspect-[3/5]"];
+
+export function MasonryCardSkeleton({ index }: { index: number }) {
+  const aspect = MASONRY_HEIGHTS[index % MASONRY_HEIGHTS.length];
+  return <ModCardSkeleton aspectClass={aspect} />;
+}
+
 export function ModGridSkeleton({ count = 6 }: { count?: number }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

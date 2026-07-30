@@ -1,10 +1,11 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { LoaderCircle, Lock, Search } from "lucide-react";
+import { Lock, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
+import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { ModSort, PaginatedResult, SiteMod } from "@/lib/mods";
 
@@ -272,6 +273,12 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
                   </MotionReveal>
                 );
               })}
+              {/* 加载中骨架：每列底部一个占位卡片 */}
+              {isFetchingNextPage ? (
+                <MotionReveal key={`skel-${colIdx}`} delay={0.05} y={10}>
+                  <MasonryCardSkeleton index={colIdx} />
+                </MotionReveal>
+              ) : null}
             </div>
           ))}
         </section>
@@ -288,6 +295,14 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
               {renderCard(mod, index)}
             </MotionReveal>
           ))}
+          {/* 加载中骨架：一行 5 个占位卡片 */}
+          {isFetchingNextPage
+            ? Array.from({ length: 5 }).map((_, i) => (
+                <MotionReveal key={`skel-${i}`} delay={0.05 + i * 0.02} y={10}>
+                  <ModCardSkeleton />
+                </MotionReveal>
+              ))
+            : null}
         </section>
       )}
 
@@ -297,18 +312,14 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
         </div>
       ) : null}
 
+      {/* 哨兵元素：触发无限滚动，骨架卡片上方已显示加载状态 */}
       <div ref={sentinelRef} className="flex min-h-14 items-center justify-center">
-        {hasNextPage ? (
-          <div className="inline-flex items-center gap-3 border-4 border-black bg-white px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
-            <LoaderCircle className={`size-4 ${isFetchingNextPage ? "animate-spin" : ""}`} />
-            {isFetchingNextPage ? "正在加载更多 MOD" : "继续下滑，自动加载更多"}
-          </div>
-        ) : (
+        {!hasNextPage ? (
           <div className="inline-flex items-center gap-3 border-4 border-black bg-[#ffd84f] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
             <Search className="size-4" />
             已经翻到底了，试试切换角色或搜索关键词
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
