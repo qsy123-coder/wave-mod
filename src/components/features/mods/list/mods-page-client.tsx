@@ -49,6 +49,7 @@ export function ModsPageClient({
   // 用 URL searchParams 生成 key：URL 变化时客户端立即感知，Suspense 马上展示骨架屏
   const searchParams = useSearchParams();
   const contentKey = `${searchParams.get("sort") ?? ""}-${searchParams.get("character") ?? ""}-${searchParams.get("query") ?? ""}`;
+  console.log("[ModsPageClient] contentKey =", contentKey, "| props sort =", sort, "character =", character);
 
   const [nsfwMode, setNsfwMode] = useState<NsfwMode>("blur");
   const [directOnly, setDirectOnly] = useState(false);
@@ -111,8 +112,8 @@ export function ModsPageClient({
       />
 
       <div className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
-        <Suspense key={contentKey} fallback={<ModGridSkeleton count={10} />}>
-          <ModsInfiniteGrid
+        <ModsInfiniteGrid
+            key={contentKey}
             sort={sort as ModSort}
             character={character}
             gameKey={gameKey}
@@ -127,7 +128,6 @@ export function ModsPageClient({
             onCountChange={setGridCount}
             onCardClick={openDrawer}
           />
-        </Suspense>
       </div>
 
       {drawerModId && (
