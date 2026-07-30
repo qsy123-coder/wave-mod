@@ -124,7 +124,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
           void fetchNextPage();
         }
       },
-      { rootMargin: "480px 0px" },
+      { rootMargin: "800px 0px" },
     );
 
     observer.observe(sentinel);
