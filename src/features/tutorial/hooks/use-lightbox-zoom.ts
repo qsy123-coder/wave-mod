@@ -34,6 +34,7 @@ export function useLightboxZoom() {
       offsetY: offset.y,
     };
   }, [scale, offset]);
+  // eslint-disable-next-line react-hooks/refs -- syncRef reads ref as side effect of state change, not for rendering
   syncRef();
 
   // Native wheel handler — call from addEventListener("wheel", ..., { passive: false })

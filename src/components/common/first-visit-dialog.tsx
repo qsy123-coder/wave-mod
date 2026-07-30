@@ -11,12 +11,14 @@ export function FirstVisitDialog() {
   const router = useRouter();
 
   useEffect(() => {
-    try {
-      const dismissed = localStorage.getItem(STORAGE_KEY);
-      if (dismissed !== "true") {
-        setVisible(true);
-      }
-    } catch { /* ignore */ }
+    queueMicrotask(() => {
+      try {
+        const dismissed = localStorage.getItem(STORAGE_KEY);
+        if (dismissed !== "true") {
+          setVisible(true);
+        }
+      } catch { /* ignore */ }
+    });
   }, []);
 
   if (!visible) return null;

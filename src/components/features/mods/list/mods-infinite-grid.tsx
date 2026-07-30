@@ -154,7 +154,8 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
   // 列归属记忆：mod.id → 列索引，保证已有卡片零抖动
   const colMap = useRef<Map<string, number>>(new Map());
 
-  // 分配卡片到各列
+  // 分配卡片到各列（colMap 是为零抖动设计的渲染期缓存，需 suppress refs 规则）
+  /* eslint-disable react-hooks/refs */
   const columns = useMemo(() => {
     if (!isMasonry) return [];
     const cols: SiteMod[][] = Array.from({ length: colCount }, () => []);
@@ -176,15 +177,19 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
       colMap.current.set(mod.id, shortest);
     }
 
-    // 清理已移出列表的卡片
-    if (colMap.current.size > seen.size * 2) {
-      for (const id of colMap.current.keys()) {
-        if (!seen.has(id)) colMap.current.delete(id);
-      }
-    }
-
     return cols;
   }, [mods, colCount, isMasonry]);
+  /* eslint-enable react-hooks/refs */
+
+  // 清理已移出列表的卡片（ref 操作必须在 effect 中）
+  useEffect(() => {
+    const modIds = new Set(mods.map((m) => m.id));
+    if (colMap.current.size > modIds.size * 2) {
+      for (const id of colMap.current.keys()) {
+        if (!modIds.has(id)) colMap.current.delete(id);
+      }
+    }
+  }, [mods]);
 
   // mod.id → 全局索引（用于动画序号）
   const modIndex = useMemo(() => {

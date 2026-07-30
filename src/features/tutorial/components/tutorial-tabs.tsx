@@ -38,16 +38,18 @@ export function TutorialTabs({ chapters, imageBasePath }: TutorialTabsProps) {
 
   // Read saved position on mount
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved: SavedPosition = JSON.parse(raw);
-        if (saved.chapterId && typeof saved.imageIndex === "number") {
-          setResumeTarget(saved);
-          setShowResumeBanner(true);
+    queueMicrotask(() => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const saved: SavedPosition = JSON.parse(raw);
+          if (saved.chapterId && typeof saved.imageIndex === "number") {
+            setResumeTarget(saved);
+            setShowResumeBanner(true);
+          }
         }
-      }
-    } catch { /* ignore */ }
+      } catch { /* ignore */ }
+    });
   }, []);
 
   const handleChange = useCallback((id: string) => {
