@@ -4,8 +4,22 @@
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-06-09",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "route": {
+    "pattern": "wave-mod.top/*",
+    "zone_name": "wave-mod.top"
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "vars": {
+    "NEXT_PUBLIC_SITE_URL": "https://wave-mod.top",
+    "ENABLE_SUPABASE_PHONE_OTP": "true",
+    "ALIYUN_DYPNS_ENDPOINT": "dypnsapi.aliyuncs.com",
+    "ALIYUN_DYSMS_ENDPOINT": "dysmsapi.aliyuncs.com",
+    "ALIYUN_SMS_ENDPOINT": "dypnsapi.aliyuncs.com",
+    "ALIYUN_OSS_REGION": "oss-cn-hangzhou",
+    "ALIYUN_OSS_BUCKET": "wave-mod",
+    "ALIYUN_OSS_ENDPOINT": "https://oss-cn-hangzhou.aliyuncs.com"
   }
 }

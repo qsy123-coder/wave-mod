@@ -1,10 +1,9 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
-
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { generateSecureBase64Url } from "@/lib/crypto";
 import { logger } from "@/lib/logger";
 import { sendAliyunDypnsVerifyCode, verifyAliyunDypnsCode } from "@/lib/sms/aliyun-dypns";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -92,7 +91,7 @@ function getSupabasePhoneVariants(phone: string) {
 }
 
 function createTemporaryPhonePassword() {
-  return `${randomBytes(24).toString("base64url")}Aa1!`;
+  return `${generateSecureBase64Url(24)}Aa1!`;
 }
 
 async function findPhoneUser(phone: string) {

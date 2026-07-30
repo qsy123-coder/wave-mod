@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Cloudflare build artifacts
+    ".open-next/**",
+    "cloudflare-worker.js",
     // Utility scripts — standalone Node.js tools, not part of Next.js app
     "scripts/**",
   ]),

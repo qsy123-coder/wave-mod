@@ -1,9 +1,8 @@
-import crypto from "node:crypto";
-
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdminUser } from "@/actions/auth/auth-actions";
+import { hmacSha1Base64, utf8ToBase64 } from "@/lib/crypto";
 import { buildOssObjectKey } from "@/lib/oss/path";
 import {
   buildOssPublicUrl,
@@ -25,7 +24,7 @@ const requestSchema = z.object({
   modId: z.string().trim().min(1, "缺少上传标识。"),
 });
 
-function buildFormDataFields({
+async function buildFormDataFields({
   accessKeyId,
   bucket,
   contentType,
@@ -49,11 +48,12 @@ function buildFormDataFields({
     ],
   };
 
-  const encodedPolicy = Buffer.from(JSON.stringify(policy)).toString("base64");
-  const signature = crypto
-    .createHmac("sha1", process.env.ALIYUN_OSS_ACCESS_KEY_SECRET ?? "")
-    .update(encodedPolicy)
-    .digest("base64");
+  // Web Crypto API — 兼容 Node.js 和 Cloudflare Workers
+  const encodedPolicy = utf8ToBase64(JSON.stringify(policy));
+  const signature = await hmacSha1Base64(
+    process.env.ALIYUN_OSS_ACCESS_KEY_SECRET ?? "",
+    encodedPolicy,
+  );
 
   return {
     OSSAccessKeyId: accessKeyId,
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     maxFileSize,
     objectKey,
     publicUrl: buildOssPublicUrl({ bucket: env.bucket, endpoint: env.endpoint, objectKey }),
-    uploadFields: buildFormDataFields({
+    uploadFields: await buildFormDataFields({
       accessKeyId: env.accessKeyId,
       bucket: env.bucket,
       contentType,

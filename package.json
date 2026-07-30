@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "cf:build": "node scripts/cf-build.mjs",
+    "cf:deploy": "npm run cf:build && npx wrangler deploy",
+    "vc:deploy": "vercel deploy"
   },
   "dependencies": {
     "@alicloud/credentials": "^2.4.4",
@@ -38,7 +41,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^1.19.11",
+    "@opennextjs/cloudflare": "^1.20.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -51,6 +54,6 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.7",
-    "wrangler": "^4.99.0"
+    "wrangler": "^4.114.0"
   }
 }

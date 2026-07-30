@@ -1,7 +1,6 @@
-import { randomBytes } from "node:crypto";
-
 import { type NextRequest, NextResponse } from "next/server";
 
+import { generateSecureBase64Url } from "@/lib/crypto";
 import { logger } from "@/lib/logger";
 import { verifyAliyunDypnsCode } from "@/lib/sms/aliyun-dypns";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -31,7 +30,7 @@ function toSupabasePhone(phone: string) {
 }
 
 function createTemporaryPhonePassword() {
-  return `${randomBytes(24).toString("base64url")}Aa1!`;
+  return `${generateSecureBase64Url(24)}Aa1!`;
 }
 
 async function upsertPhoneUserForPasswordLogin(phone: string, password: string) {
