@@ -113,14 +113,19 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
+    console.log("[IntersectionObserver] setup | sentinel =", !!sentinel, "| hasNextPage =", hasNextPage, "| isFetchingNextPage =", isFetchingNextPage);
 
     if (!sentinel || !hasNextPage) {
+      console.log("[IntersectionObserver] skipped: sentinel=", !!sentinel, "hasNextPage=", hasNextPage);
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting && !isFetchingNextPage) {
+        const entry = entries[0];
+        console.log("[IntersectionObserver] isIntersecting =", entry?.isIntersecting, "| intersectionRatio =", entry?.intersectionRatio, "| boundingClientRect.bottom =", entry?.boundingClientRect?.bottom, "| rootBounds.bottom =", entry?.rootBounds?.bottom);
+        if (entry?.isIntersecting && !isFetchingNextPage) {
+          console.log("[IntersectionObserver] triggering fetchNextPage");
           void fetchNextPage();
         }
       },
