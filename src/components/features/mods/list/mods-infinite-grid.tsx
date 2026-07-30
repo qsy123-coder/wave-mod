@@ -273,12 +273,14 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
                   </MotionReveal>
                 );
               })}
-              {/* 加载中骨架：每列底部一个占位卡片 */}
-              {isFetchingNextPage ? (
-                <MotionReveal key={`skel-${colIdx}`} delay={0.05} y={10}>
-                  <MasonryCardSkeleton index={colIdx} />
-                </MotionReveal>
-              ) : null}
+              {/* 加载中骨架：每列底部多个占位卡片，填满可视区域 */}
+              {isFetchingNextPage
+                ? Array.from({ length: Math.ceil(16 / colCount) }).map((_, si) => (
+                    <MotionReveal key={`skel-${colIdx}-${si}`} delay={0.05 + si * 0.03} y={10}>
+                      <MasonryCardSkeleton index={colIdx * 3 + si} />
+                    </MotionReveal>
+                  ))
+                : null}
             </div>
           ))}
         </section>
@@ -295,9 +297,9 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
               {renderCard(mod, index)}
             </MotionReveal>
           ))}
-          {/* 加载中骨架：一行 5 个占位卡片 */}
+          {/* 加载中骨架：多行占位卡片，填满下方空白 */}
           {isFetchingNextPage
-            ? Array.from({ length: 5 }).map((_, i) => (
+            ? Array.from({ length: 15 }).map((_, i) => (
                 <MotionReveal key={`skel-${i}`} delay={0.05 + i * 0.02} y={10}>
                   <ModCardSkeleton />
                 </MotionReveal>
