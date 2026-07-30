@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { ArrowUpRight, Eye, Heart } from "lucide-react";
 
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
@@ -217,26 +217,42 @@ export function ModCard({
 
   const isAutoAspect = imageAspectClassName === "auto";
 
+  // 瀑布流：图片 onLoad 读取真实尺寸，锁定容器 aspect-ratio，防止黑屏抖动
+  const [imageRatio, setImageRatio] = useState<number | null>(null);
+  const handleImageLoad = useCallback(
+    (e: React.SyntheticEvent<HTMLImageElement>) => {
+      const img = e.currentTarget;
+      if (img.naturalWidth && img.naturalHeight) {
+        setImageRatio(img.naturalWidth / img.naturalHeight);
+      }
+    },
+    [],
+  );
+
   const media = (
     <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>
-      <div className={cn(
-        "relative w-full",
-        isAutoAspect ? "h-auto" : "min-h-72 aspect-[4/5] sm:aspect-[3/4] xl:aspect-[4/5]",
-        !isAutoAspect && imageAspectClassName
-      )}>
+      <div
+        className={cn(
+          "relative w-full transition-[aspect-ratio] duration-300",
+          isAutoAspect
+            ? "h-auto"
+            : "min-h-72 aspect-[4/5] sm:aspect-[3/4] xl:aspect-[4/5]",
+          !isAutoAspect && imageAspectClassName,
+        )}
+        style={isAutoAspect ? { aspectRatio: imageRatio ? String(imageRatio) : "3/4" } : undefined}
+      >
         {/* 模糊放大背景图，填充 object-contain 产生的空白区域 */}
         {isAutoAspect ? (
           <Image
             src={mod.coverImage}
             alt={mod.title}
-            width={800}
-            height={600}
+            fill
             unoptimized={mod.coverImage?.includes("supabase.co")}
             priority={imagePriority}
             fetchPriority={imageFetchPriority}
             sizes={imageSizes}
-            style={{ width: "100%", height: "auto" }}
-            className={cn("block object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
+            onLoad={handleImageLoad}
+            className={cn("object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
           />
         ) : (
           <>
