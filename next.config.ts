@@ -52,6 +52,10 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   images: {
     unoptimized: true,
+    // opennextjs-cloudflare 构建时会覆盖 unoptimized 为 false，
+    // 用 custom loader 强制跳过 /_next/image 代理
+    loader: "custom",
+    loaderFile: "./src/lib/image-loader.ts",
     remotePatterns: [
       {
         protocol: "https",
