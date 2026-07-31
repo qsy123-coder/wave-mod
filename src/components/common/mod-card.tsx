@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
@@ -223,12 +223,22 @@ export function ModCard({
   const handleImageLoad = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
       const img = e.currentTarget;
+      console.log(
+        `[ModCard] 图片加载成功 mod="${mod.title}" url="${img.src}" size=${img.naturalWidth}x${img.naturalHeight}`,
+      );
       if (img.naturalWidth && img.naturalHeight) {
         setImageRatio(img.naturalWidth / img.naturalHeight);
       }
     },
-    [],
+    [mod.title],
   );
+
+  // DEBUG: 输出图片 URL 用于排查线上问题
+  useEffect(() => {
+    console.log(
+      `[ModCard] 渲染 mod="${mod.title}" id="${mod.id}" coverImage="${mod.coverImage}" images=${JSON.stringify(mod.images?.slice?.(0, 3))}`,
+    );
+  }, [mod.title, mod.id, mod.coverImage, mod.images]);
 
   // 图片加载失败自动重试（指数退避：1s → 2s → 4s，最多 3 次）
   const retryCount = useRef(0);
@@ -236,15 +246,24 @@ export function ModCard({
   const [imageError, setImageError] = useState(false);
   const [retryTimestamp, setRetryTimestamp] = useState(0);
 
-  const handleImageError = useCallback(() => {
-    if (retryCount.current < maxRetries) {
-      const delay = Math.pow(2, retryCount.current) * 1000;
-      retryCount.current += 1;
-      setTimeout(() => setRetryTimestamp(Date.now()), delay);
-    } else {
-      setImageError(true);
-    }
-  }, []);
+  const handleImageError = useCallback(
+    (e: React.SyntheticEvent<HTMLImageElement>) => {
+      const img = e.currentTarget;
+      console.error(
+        `[ModCard] 图片加载失败 mod="${mod.title}" id="${mod.id}" url="${img.src}" naturalWidth=${img.naturalWidth} naturalHeight=${img.naturalHeight} complete=${img.complete} retry=${retryCount.current}/${maxRetries}`,
+      );
+      if (retryCount.current < maxRetries) {
+        const delay = Math.pow(2, retryCount.current) * 1000;
+        retryCount.current += 1;
+        console.log(`[ModCard] 将在 ${delay}ms 后重试 (第 ${retryCount.current} 次)`);
+        setTimeout(() => setRetryTimestamp(Date.now()), delay);
+      } else {
+        console.error(`[ModCard] 已达最大重试次数，显示占位图 mod="${mod.title}"`);
+        setImageError(true);
+      }
+    },
+    [mod.title, mod.id],
+  );
 
   // 图片 URL 附加重试参数绕过缓存
   const imageSrc = retryTimestamp > 0
