@@ -17,7 +17,7 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import type { SiteMod } from "@/lib/mods";
-
+import { isExternalStorageUrl } from "@/lib/storage/shared";
 
 type HeroCarouselProps = {
   mods: SiteMod[];
@@ -83,6 +83,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                       src={mod.coverImage}
                       alt={mod.title}
                       fill
+                      unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
                       priority={index === 0}
                       fetchPriority={index === 0 ? "high" : "auto"}
                       sizes="(max-width: 1024px) 100vw, 58vw"

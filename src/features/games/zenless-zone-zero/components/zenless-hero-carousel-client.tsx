@@ -7,7 +7,7 @@ import { ArrowRight, Bell, ChevronLeft, ChevronRight, Download, Sparkles } from 
 
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { GameConfig } from "@/config/games";
-
+import { isExternalStorageUrl } from "@/lib/storage/shared";
 
 export type ZenlessHeroSlide = {
   character: string;
@@ -57,6 +57,7 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
             src={activeSlide.coverImage}
             alt={activeSlide.title}
             fill
+            unoptimized={isExternalStorageUrl(activeSlide.coverImage ?? "")}
             priority
             sizes="100vw"
             className="object-cover object-center transition-transform duration-700 ease-out"

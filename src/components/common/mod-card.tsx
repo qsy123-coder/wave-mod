@@ -9,6 +9,7 @@ import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
 import type { SiteMod } from "@/lib/mods";
+import { isExternalStorageUrl } from "@/lib/storage/shared";
 import { cn } from "@/lib/utils";
 
 type MetaBadgeTone = "default" | "site";
@@ -233,18 +234,11 @@ export function ModCard({
 
   // 图片加载失败自动重试（指数退避：1s → 2s → 4s，最多 3 次）
   const retryCount = useRef(0);
-  const maxRetries = 1; // 调试：只重试 1 次
+  const maxRetries = 3;
   const [imageError, setImageError] = useState(false);
   const [retryTimestamp, setRetryTimestamp] = useState(0);
-  const [debugUrl, setDebugUrl] = useState(""); // 调试：记录失败的 URL
-
-  // 图片 URL 附加重试参数绕过缓存
-  const imageSrc = retryTimestamp > 0
-    ? `${mod.coverImage}${mod.coverImage.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`
-    : mod.coverImage;
 
   const handleImageError = useCallback(() => {
-    setDebugUrl(imageSrc);
     if (retryCount.current < maxRetries) {
       const delay = Math.pow(2, retryCount.current) * 1000;
       retryCount.current += 1;
@@ -252,7 +246,13 @@ export function ModCard({
     } else {
       setImageError(true);
     }
-  }, [imageSrc, maxRetries]);
+  }, []);
+
+  // 图片 URL 附加重试参数绕过缓存
+  const imageSrc = retryTimestamp > 0
+    ? `${mod.coverImage}${mod.coverImage.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`
+    : mod.coverImage;
+  const isUnoptimized = isExternalStorageUrl(mod.coverImage ?? "");
 
   const media = (
     <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>
@@ -268,20 +268,15 @@ export function ModCard({
       >
         {/* 模糊放大背景图，填充 object-contain 产生的空白区域 */}
         {imageError ? (
-          <div className="flex h-full min-h-[120px] flex-col items-center justify-center gap-2 px-4 py-2">
+          <div className="flex h-full min-h-[120px] items-center justify-center">
             <ImageOff className="size-8 text-white/30" />
-            <p className="text-center text-[9px] leading-tight text-red-400 break-all line-clamp-3">{debugUrl || imageSrc}</p>
           </div>
-        ) : debugUrl ? (
-          <div className="absolute inset-0 z-50 flex items-end bg-black/60 p-2">
-            <p className="text-[8px] leading-tight text-yellow-400 break-all line-clamp-2">{debugUrl}</p>
-          </div>
-        ) : null}
-        {!imageError && isAutoAspect ? (
+        ) : isAutoAspect ? (
           <Image
             src={imageSrc}
             alt={mod.title}
             fill
+            unoptimized={isUnoptimized}
             priority={imagePriority}
             fetchPriority={imageFetchPriority}
             sizes={imageSizes}
@@ -295,6 +290,7 @@ export function ModCard({
               src={imageSrc}
               alt=""
               fill
+              unoptimized={isUnoptimized}
               sizes={imageSizes}
               onError={handleImageError}
               className="scale-110 object-cover blur-xl"
@@ -304,6 +300,7 @@ export function ModCard({
               src={imageSrc}
               alt={mod.title}
               fill
+              unoptimized={isUnoptimized}
               priority={imagePriority}
               fetchPriority={imageFetchPriority}
               sizes={imageSizes}

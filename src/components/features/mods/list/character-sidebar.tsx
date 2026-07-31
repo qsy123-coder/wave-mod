@@ -94,6 +94,7 @@ export function CharacterSidebar({
                 alt={item.label}
                 width={32}
                 height={32}
+                unoptimized
                 className="size-8 shrink-0 rounded-full border-2 border-black object-cover"
               />
             ) : null}
@@ -129,6 +130,7 @@ export function CharacterSidebar({
                   alt={item.label}
                   width={32}
                   height={32}
+                  unoptimized
                   className="size-8 shrink-0 rounded-full border-2 border-black object-cover"
                 />
               ) : null}
