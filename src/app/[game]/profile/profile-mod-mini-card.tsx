@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Download, Heart, Star } from "lucide-react";
 
 import type { CreatorProfile } from "@/lib/mods";
-import { isExternalStorageUrl } from "@/lib/storage/shared";
+
 
 import { compact } from "./profile-shared";
 
@@ -32,7 +32,6 @@ export function ProfileModMiniCard({
           fill
           sizes={large ? "600px" : "280px"}
           className="object-cover transition duration-300 group-hover:scale-105"
-          unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
         />
         <span
           className={`absolute left-1.5 top-1.5 border border-black px-1.5 py-0.5 text-[8px] font-black uppercase ${tone}`}

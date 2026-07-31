@@ -7,7 +7,7 @@ import { Crown, ShieldCheck, TrendingDown, TrendingUp } from "lucide-react";
 
 import type { GameConfig } from "@/config/games";
 import type { SiteMod, TopCreator } from "@/lib/mods";
-import { isExternalStorageUrl } from "@/lib/storage/shared";
+
 
 const panel =
   "border-4 border-black bg-white/30 shadow-[5px_5px_0px_0px_#000]";
@@ -79,7 +79,7 @@ function ModRow({
     >
       <RankBadge rank={rank} />
       <span className="relative size-7 sm:size-8 shrink-0 overflow-hidden border-2 border-black bg-black">
-        <Image src={mod.coverImage} alt={mod.title} fill sizes="32px" className="object-cover" unoptimized={isExternalStorageUrl(mod.coverImage ?? "")} />
+        <Image src={mod.coverImage} alt={mod.title} fill sizes="32px" className="object-cover" />
       </span>
       <div className="min-w-0">
         <p className="truncate text-[10px] sm:text-[11px] font-black text-black group-hover:text-[var(--neo-accent)] transition">

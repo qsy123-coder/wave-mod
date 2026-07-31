@@ -172,7 +172,7 @@ export function BatchEditModal({ selectedIds, onClose, onComplete }: BatchEditMo
                 >
                   <div className="relative size-12 shrink-0 overflow-hidden border-2 border-black bg-black">
                     {mod.coverImage ? (
-                      <Image src={mod.coverImage} alt={mod.title} fill unoptimized className="object-cover" sizes="48px" />
+                      <Image src={mod.coverImage} alt={mod.title} fill className="object-cover" sizes="48px" />
                     ) : (
                       <div className="flex size-full items-center justify-center text-[8px] font-black text-white/40">无图</div>
                     )}

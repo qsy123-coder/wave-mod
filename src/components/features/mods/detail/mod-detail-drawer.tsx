@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import type { SiteMod } from "@/lib/mods";
-import { isExternalStorageUrl } from "@/lib/storage/shared";
+
 import { cn } from "@/lib/utils";
 
 import { CommentsPanel } from "./comments-panel";
@@ -331,7 +331,6 @@ export function ModDetailDrawer({
                           alt={`${mod.title} 预览 ${index + 1}`}
                           width={320}
                           height={0}
-                          unoptimized={isExternalStorageUrl(src ?? "")}
                           sizes="320px"
                           className="h-auto max-h-72 w-auto max-w-[280px] object-contain"
                         />

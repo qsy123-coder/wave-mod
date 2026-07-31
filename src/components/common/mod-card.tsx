@@ -9,7 +9,6 @@ import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
 import type { SiteMod } from "@/lib/mods";
-import { isExternalStorageUrl } from "@/lib/storage/shared";
 import { cn } from "@/lib/utils";
 
 type MetaBadgeTone = "default" | "site";
@@ -252,7 +251,6 @@ export function ModCard({
   const imageSrc = retryTimestamp > 0
     ? `${mod.coverImage}${mod.coverImage.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`
     : mod.coverImage;
-  const isUnoptimized = isExternalStorageUrl(mod.coverImage ?? "");
 
   const media = (
     <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>
@@ -276,7 +274,6 @@ export function ModCard({
             src={imageSrc}
             alt={mod.title}
             fill
-            unoptimized={isUnoptimized}
             priority={imagePriority}
             fetchPriority={imageFetchPriority}
             sizes={imageSizes}
@@ -290,7 +287,6 @@ export function ModCard({
               src={imageSrc}
               alt=""
               fill
-              unoptimized={isUnoptimized}
               sizes={imageSizes}
               onError={handleImageError}
               className="scale-110 object-cover blur-xl"
@@ -300,7 +296,6 @@ export function ModCard({
               src={imageSrc}
               alt={mod.title}
               fill
-              unoptimized={isUnoptimized}
               priority={imagePriority}
               fetchPriority={imageFetchPriority}
               sizes={imageSizes}

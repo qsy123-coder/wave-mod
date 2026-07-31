@@ -62,7 +62,6 @@ function TutorialImageCard({
         alt={img.alt}
         width={800}
         height={0}
-        unoptimized
         loading={priority ? undefined : "lazy"}
         onLoad={() => setLoaded(true)}
         className={`h-auto w-full transition-opacity duration-300 ${

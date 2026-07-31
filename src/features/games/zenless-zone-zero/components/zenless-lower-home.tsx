@@ -12,7 +12,7 @@ import {
 
 import multiAgentPlaceholder from "../../../../../bg-zzz/多人占位.png";
 import pinkWideBackground from "../../../../../bg-zzz/长图粉色.png";
-import { isExternalStorageUrl } from "@/lib/storage/shared";
+
 
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { GameConfig } from "@/config/games";
@@ -155,7 +155,6 @@ function ZenlessFeaturedCard({
           sizes="210px"
           className="scale-110 object-cover blur-xl"
           aria-hidden="true"
-          unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
         />
         <Image
           src={mod.coverImage}
@@ -163,7 +162,6 @@ function ZenlessFeaturedCard({
           fill
           sizes="210px"
           className="object-contain object-center transition duration-500 group-hover:scale-105"
-          unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
         <span

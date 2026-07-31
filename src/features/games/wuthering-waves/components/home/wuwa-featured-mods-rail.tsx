@@ -6,7 +6,7 @@ import { useRef } from "react";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 
 import type { SiteMod } from "@/lib/mods-domain/types";
-import { isExternalStorageUrl } from "@/lib/storage/shared";
+
 
 const tagColors: Record<string, string> = {
   HOT: "bg-orange-500",
@@ -48,7 +48,6 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
           sizes="224px"
           className="scale-110 object-cover blur-xl"
           aria-hidden="true"
-          unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
         />
         <Image
           src={mod.coverImage}
@@ -56,7 +55,6 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
           fill
           sizes="224px"
           className="object-contain object-center transition-transform duration-500 group-hover:scale-105"
-          unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
         <div className="absolute left-2 top-2">
