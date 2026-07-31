@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Autoplay from "embla-carousel-autoplay";
-import Image from "next/image";
+
 import Link from "next/link";
 import { ArrowUpRight, Pause, Play, Star } from "lucide-react";
 
@@ -17,7 +17,7 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import type { SiteMod } from "@/lib/mods";
-import { isExternalStorageUrl } from "@/lib/storage/shared";
+
 
 type HeroCarouselProps = {
   mods: SiteMod[];
@@ -79,15 +79,12 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
               <CarouselItem key={mod.id} className="pl-0">
                 <Link href={`/mods/${mod.id}`} className="group block">
                   <div className="relative h-[500px] w-full overflow-hidden border-4 border-black bg-black md:h-[560px]">
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={mod.coverImage}
                       alt={mod.title}
-                      fill
-                      unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
-                      priority={index === 0}
-                      fetchPriority={index === 0 ? "high" : "auto"}
-                      sizes="(max-width: 1024px) 100vw, 58vw"
-                      className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
+                      loading={index === 0 ? "eager" : "lazy"}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
                     />
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,transparent_18%,rgba(0,0,0,0.16)_55%,rgba(0,0,0,0.42)_100%)] transition-opacity duration-500 group-hover:opacity-90" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/68 via-black/18 to-black/8" />
