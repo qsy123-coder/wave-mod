@@ -238,8 +238,13 @@ export function ModCard({
   const [retryTimestamp, setRetryTimestamp] = useState(0);
   const [debugUrl, setDebugUrl] = useState(""); // 调试：记录失败的 URL
 
+  // 图片 URL 附加重试参数绕过缓存
+  const imageSrc = retryTimestamp > 0
+    ? `${mod.coverImage}${mod.coverImage.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`
+    : mod.coverImage;
+
   const handleImageError = useCallback(() => {
-    setDebugUrl(imageSrc); // 记录当前尝试的 URL
+    setDebugUrl(imageSrc);
     if (retryCount.current < maxRetries) {
       const delay = Math.pow(2, retryCount.current) * 1000;
       retryCount.current += 1;
@@ -247,12 +252,7 @@ export function ModCard({
     } else {
       setImageError(true);
     }
-  }, []);
-
-  // 图片 URL 附加重试参数绕过缓存
-  const imageSrc = retryTimestamp > 0
-    ? `${mod.coverImage}${mod.coverImage.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`
-    : mod.coverImage;
+  }, [imageSrc, maxRetries]);
 
   const media = (
     <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>
