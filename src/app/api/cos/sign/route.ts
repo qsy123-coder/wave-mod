@@ -1,38 +1,89 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { buildCosObjectKey, buildCosPublicUrl, COS_STS_DURATION_SECONDS } from "@/lib/cos/shared";
 import { getServerCosEnv } from "@/lib/cos/server-config";
 
-const requestSchema = z.object({
-  character: z.string().trim().min(1, "请选择角色后再上传。"),
-  contentType: z.string().trim().min(1, "缺少文件类型。"),
-  fileSize: z.number().int().positive("缺少文件大小。"),
-  filename: z.string().trim().min(1, "缺少文件名。"),
-  modId: z.string().trim().min(1, "缺少上传标识。"),
-});
+const requestSchema = {
+  safeParse(data: unknown) {
+    if (!data || typeof data !== "object") return { success: false as const, error: "无效请求体" };
+    const d = data as Record<string, unknown>;
+    const issues: string[] = [];
+    const character = typeof d.character === "string" ? d.character.trim() : "";
+    const contentType = typeof d.contentType === "string" ? d.contentType.trim() : "";
+    const fileSize = typeof d.fileSize === "number" ? d.fileSize : 0;
+    const filename = typeof d.filename === "string" ? d.filename.trim() : "";
+    const modId = typeof d.modId === "string" ? d.modId.trim() : "";
 
-function buildStsPolicy(appId: string, bucket: string, region: string, objectKey: string) {
-  return {
-    version: "2.0",
-    statement: [
-      {
-        effect: "allow",
-        action: ["name/cos:PutObject"],
-        resource: [`qcs::cos:${region}:uid/${appId}:${bucket}/${objectKey}`],
-      },
-    ],
-  };
-}
+    if (!character) issues.push("请选择角色后再上传。");
+    if (!contentType) issues.push("缺少文件类型。");
+    if (!fileSize) issues.push("缺少文件大小。");
+    if (!filename) issues.push("缺少文件名。");
+    if (!modId) issues.push("缺少上传标识。");
+    if (issues.length > 0) return { success: false as const, error: issues[0] };
 
-/** 从 bucket 名称中提取 AppId（格式：{name}-{appid}，如 my-bucket-1250000000） */
-function extractAppId(bucket: string): string {
-  const match = bucket.match(/-(\d{10,})$/);
-  if (!match) {
-    throw new Error(`无法从 bucket 名称 "${bucket}" 中提取 AppId，预期格式：{name}-{appid}`);
+    return { success: true as const, data: { character, contentType, fileSize, filename, modId } };
+  },
+};
+
+/** 发送 TC3-HMAC-SHA256 签名的请求到腾讯云 STS API */
+async function callStsApi(
+  crypto: typeof import("node:crypto"),
+  secretId: string,
+  secretKey: string,
+  region: string,
+  actionParams: Record<string, unknown>,
+) {
+  const service = "sts";
+  const host = "sts.tencentcloudapi.com";
+  const algorithm = "TC3-HMAC-SHA256";
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const date = new Date(timestamp * 1000).toISOString().slice(0, 10);
+
+  const payload = JSON.stringify(actionParams);
+  const ct = "application/json; charset=utf-8";
+
+  // Step 1: 构造规范请求
+  const canonicalHeaders = `content-type:${ct}\nhost:${host}\n`;
+  const signedHeaders = "content-type;host";
+  const hashedPayload = crypto.createHash("sha256").update(payload).digest("hex");
+  const canonicalRequest = `POST\n/\n\n${canonicalHeaders}\n${signedHeaders}\n${hashedPayload}`;
+
+  // Step 2: 构造待签名字符串
+  const hashedCanonical = crypto.createHash("sha256").update(canonicalRequest).digest("hex");
+  const credentialScope = `${date}/${service}/tc3_request`;
+  const stringToSign = `${algorithm}\n${timestamp}\n${credentialScope}\n${hashedCanonical}`;
+
+  // Step 3: 计算签名
+  const kDate = crypto.createHmac("sha256", `TC3${secretKey}`).update(date).digest();
+  const kService = crypto.createHmac("sha256", kDate).update(service).digest();
+  const kSigning = crypto.createHmac("sha256", kService).update("tc3_request").digest();
+  const signature = crypto.createHmac("sha256", kSigning).update(stringToSign).digest("hex");
+
+  const authorization = `${algorithm} Credential=${secretId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  // Step 4: 发送请求
+  const res = await fetch(`https://${host}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": ct,
+      "X-TC-Action": "GetFederationToken",
+      "X-TC-Version": "2018-08-13",
+      "X-TC-Timestamp": String(timestamp),
+      "X-TC-Region": region,
+      Authorization: authorization,
+    },
+    body: payload,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("[cos] STS API error:", text);
+    throw new Error(`STS API 返回 ${res.status}`);
   }
-  return match[1];
+
+  return res.json();
 }
 
 export async function POST(request: Request) {
@@ -67,16 +118,14 @@ export async function POST(request: Request) {
   const parsed = requestSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { ok: false, error: parsed.error.issues[0]?.message ?? "上传参数无效。" },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
   }
 
   const { character, contentType, fileSize, filename, modId } = parsed.data;
 
-  // 仅支持图片类型
-  const isImage = ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(contentType.trim().toLowerCase());
+  const isImage = ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(
+    contentType.trim().toLowerCase(),
+  );
   if (!isImage) {
     return NextResponse.json(
       { ok: false, error: "COS 仅支持 PNG/JPEG/WebP/GIF 图片上传。" },
@@ -84,39 +133,48 @@ export async function POST(request: Request) {
     );
   }
 
-  const appId = extractAppId(env.bucket);
   const objectKey = buildCosObjectKey({ character, modId, filename });
 
-  const policy = buildStsPolicy(appId, env.bucket, env.region, objectKey);
+  // 从 bucket 名称提取 appId（格式 {name}-{appid}）
+  const match = env.bucket.match(/-(\d{10,})$/);
+  const appId = match ? match[1] : "";
 
-  // 动态导入 ESM STS 客户端避免 Turbopack 解析问题
-  const { sts } = await import("tencentcloud-sdk-nodejs-sts");
-
-  const StsClient = sts.v20180813.Client;
-
-  const client = new StsClient({
-    credential: {
-      secretId: env.secretId,
-      secretKey: env.secretKey,
-    },
-    region: env.region,
-    profile: {
-      httpProfile: { endpoint: "sts.tencentcloudapi.com" },
-    },
-  });
+  // STS 权限策略：仅允许上传到指定对象
+  const policyObj = {
+    version: "2.0",
+    statement: [
+      {
+        effect: "allow",
+        action: ["name/cos:PutObject"],
+        resource: [`qcs::cos:${env.region}:uid/${appId}:${env.bucket}/${objectKey}`],
+      },
+    ],
+  };
 
   try {
-    const result = await client.GetFederationToken({
-      Name: `cos-upload-${modId}`,
-      Policy: JSON.stringify(policy),
+    const crypto = await import("node:crypto");
+
+    const result = await callStsApi(crypto, env.secretId, env.secretKey, env.region, {
+      Name: `cos-upload-${modId}-${Date.now()}`,
+      Policy: JSON.stringify(policyObj),
       DurationSeconds: COS_STS_DURATION_SECONDS,
     });
 
-    const credentials = result.Credentials!;
-    const expiredTime = result.ExpiredTime!;
+    const response = result?.Response;
+    if (response?.Error) {
+      return NextResponse.json(
+        { ok: false, error: response.Error.Message as string },
+        { status: 500 },
+      );
+    }
 
-    // 将 Unix 时间戳转换为秒
-    const expiredTimestamp = Math.floor(new Date(expiredTime).getTime() / 1000);
+    const credentials = response?.Credentials;
+    const expiredTime = response?.ExpiredTime;
+    if (!credentials || !expiredTime) {
+      return NextResponse.json({ ok: false, error: "STS 返回数据不完整" }, { status: 500 });
+    }
+
+    const expiredTimestamp = Math.floor(expiredTime as number);
     const startTimestamp = Math.floor(Date.now() / 1000);
 
     return NextResponse.json({
@@ -126,9 +184,9 @@ export async function POST(request: Request) {
       bucket: env.bucket,
       region: env.region,
       credentials: {
-        tmpSecretId: credentials.TmpSecretId!,
-        tmpSecretKey: credentials.TmpSecretKey!,
-        sessionToken: credentials.Token!,
+        tmpSecretId: credentials.TmpSecretId,
+        tmpSecretKey: credentials.TmpSecretKey,
+        sessionToken: credentials.Token,
         startTime: startTimestamp,
         expiredTime: expiredTimestamp,
       },
