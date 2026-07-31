@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { ClientProviders } from "@/components/layout/client-providers";
-import { DebugBanner } from "@/components/common/debug-banner";
 import { LayoutStyleProvider } from "@/components/layout/layout-style-provider";
 import { NavigationLoader } from "@/components/layout/navigation-loader";
 import { ThemeProvider } from "@/components/layout/theme-provider";
@@ -42,7 +41,6 @@ export default function RootLayout({
             </ClientProviders>
           </LayoutStyleProvider>
         </ThemeProvider>
-        <DebugBanner />
       </body>
     </html>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
@@ -218,61 +218,33 @@ export function ModCard({
 
   const isAutoAspect = imageAspectClassName === "auto";
 
-  // DEBUG: 页面上可见的调试信息
-  const [debugStatus, setDebugStatus] = useState<string>("init");
-  const [debugExtra, setDebugExtra] = useState<string>("");
-
   // 瀑布流：图片 onLoad 读取真实尺寸，锁定容器 aspect-ratio，防止黑屏抖动
   const [imageRatio, setImageRatio] = useState<number | null>(null);
   const handleImageLoad = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
       const img = e.currentTarget;
-      const msg = `OK ${img.naturalWidth}x${img.naturalHeight}`;
-      console.log(`[ModCard] 图片加载成功 mod="${mod.title}" url="${img.src}" size=${img.naturalWidth}x${img.naturalHeight}`);
       if (img.naturalWidth && img.naturalHeight) {
         setImageRatio(img.naturalWidth / img.naturalHeight);
       }
-      setDebugStatus(msg);
-      setDebugExtra("");
     },
-    [mod.title],
+    [],
   );
-
-  // DEBUG: 输出图片 URL 用于排查线上问题
-  useEffect(() => {
-    const host = typeof window !== "undefined" ? window.location.hostname : "ssr";
-    const shortUrl = (mod.coverImage ?? "").slice(0, 60);
-    console.log(`[ModCard] 渲染 mod="${mod.title}" id="${mod.id}" host="${host}" coverImage="${mod.coverImage}"`);
-    setDebugStatus(`URL: ${shortUrl}...`);
-    setDebugExtra(`host: ${host}`);
-  }, [mod.title, mod.id, mod.coverImage]);
 
   // 图片加载失败自动重试（指数退避：1s → 2s → 4s，最多 3 次）
   const retryCount = useRef(0);
-  const maxRetries = 1;
+  const maxRetries = 3;
   const [imageError, setImageError] = useState(false);
   const [retryTimestamp, setRetryTimestamp] = useState(0);
 
-  const handleImageError = useCallback(
-    (e: React.SyntheticEvent<HTMLImageElement>) => {
-      const img = e.currentTarget;
-      console.error(
-        `[ModCard] 图片加载失败 mod="${mod.title}" id="${mod.id}" url="${img.src}" naturalWidth=${img.naturalWidth} naturalHeight=${img.naturalHeight} complete=${img.complete} retry=${retryCount.current}/${maxRetries}`,
-      );
-      if (retryCount.current < maxRetries) {
-        const delay = Math.pow(2, retryCount.current) * 1000;
-        retryCount.current += 1;
-        console.log(`[ModCard] 将在 ${delay}ms 后重试 (第 ${retryCount.current} 次)`);
-        setDebugStatus(`ERR retry ${retryCount.current}/${maxRetries} in ${delay}ms`);
-        setTimeout(() => setRetryTimestamp(Date.now()), delay);
-      } else {
-        console.error(`[ModCard] 已达最大重试次数，显示占位图 mod="${mod.title}"`);
-        setDebugStatus(`FAILED nw=${img.naturalWidth} nh=${img.naturalHeight} cmp=${img.complete}`);
-        setImageError(true);
-      }
-    },
-    [mod.title, mod.id],
-  );
+  const handleImageError = useCallback(() => {
+    if (retryCount.current < maxRetries) {
+      const delay = Math.pow(2, retryCount.current) * 1000;
+      retryCount.current += 1;
+      setTimeout(() => setRetryTimestamp(Date.now()), delay);
+    } else {
+      setImageError(true);
+    }
+  }, []);
 
   // 图片 URL 附加重试参数绕过缓存
   const imageSrc = retryTimestamp > 0
@@ -301,8 +273,7 @@ export function ModCard({
           <img
             src={imageSrc}
             alt={mod.title}
-            loading="eager"
-            referrerPolicy="no-referrer"
+            loading={imagePriority ? "eager" : "lazy"}
             onLoad={handleImageLoad}
             onError={handleImageError}
             className={cn("absolute inset-0 h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
@@ -313,8 +284,7 @@ export function ModCard({
             <img
               src={imageSrc}
               alt=""
-              loading="eager"
-              referrerPolicy="no-referrer"
+              loading="lazy"
               onError={handleImageError}
               className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
               aria-hidden="true"
@@ -332,16 +302,6 @@ export function ModCard({
         )}
       </div>
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/18 to-black/8" />
-      {/* DEBUG: 页面上可见的状态文字 */}
-      <div style={{
-        position:"absolute", top:2, left:2, zIndex:30,
-        background:"rgba(255,255,0,0.92)", color:"#000",
-        fontSize:9, fontFamily:"monospace", padding:"1px 4px",
-        maxWidth:"100%", wordBreak:"break-all", lineHeight:1.3,
-        border:"1px solid red",
-      }}>
-        {debugStatus}<br/>{debugExtra}
-      </div>
 
       {/* 批量操作复选框 */}
       {showCheckbox ? (
