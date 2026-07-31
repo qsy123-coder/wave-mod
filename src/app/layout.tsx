@@ -6,6 +6,7 @@ import { LayoutStyleProvider } from "@/components/layout/layout-style-provider";
 import { NavigationLoader } from "@/components/layout/navigation-loader";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { DiagBanner } from "@/components/common/diag-banner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default function RootLayout({
                 <NavigationLoader />
               </Suspense>
               <Toaster position="top-center" richColors />
+              <DiagBanner />
             </ClientProviders>
           </LayoutStyleProvider>
         </ThemeProvider>
