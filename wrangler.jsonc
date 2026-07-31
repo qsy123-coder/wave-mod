@@ -21,6 +21,8 @@
     "ALIYUN_OSS_ENDPOINT": "https://oss-cn-hangzhou.aliyuncs.com",
     "ALIYUN_DYPNS_ENDPOINT": "dypnsapi.aliyuncs.com",
     "ALIYUN_DYSMS_ENDPOINT": "dysmsapi.aliyuncs.com",
-    "ALIYUN_SMS_ENDPOINT": "dypnsapi.aliyuncs.com"
+    "ALIYUN_SMS_ENDPOINT": "dypnsapi.aliyuncs.com",
+    "COS_BUCKET": "wave-mod-preview-1327973389",
+    "COS_REGION": "ap-guangzhou"
   }
 }
