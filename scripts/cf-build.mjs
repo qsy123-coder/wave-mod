@@ -41,6 +41,25 @@ try {
 
   writeFileSync(HANDLER_FILE, handler, "utf-8");
   log("Patch applied successfully.");
+
+  // 4. 修补 worker.js：/next/image → 302 重定向到原始 URL
+  //    绕过 Cloudflare SSRF 防护 (CVE-2025-6087)
+  log("Patching worker.js to redirect /_next/image...");
+  const WORKER_FILE = join(ROOT, ".open-next", "worker.js");
+  let worker = readFileSync(WORKER_FILE, "utf-8");
+
+  // 替换 /_next/image handler：提取 url 参数，302 重定向到原始图片
+  const nextImageMatch = /return await handleImageRequest\(url,\s*request\.headers,\s*env\);/g;
+  worker = worker.replace(nextImageMatch,
+    `const rawUrl = url.searchParams.get("url");
+    if (rawUrl) {
+      try { new URL(rawUrl); return Response.redirect(rawUrl, 302); } catch {}
+    }
+    return new Response('"url" parameter is not allowed', { status: 400 });`
+  );
+
+  writeFileSync(WORKER_FILE, worker, "utf-8");
+  log("Worker.js /_next/image redirect patch applied.");
 } finally {
   // 4. 恢复 proxy.ts
   log("Restoring proxy.ts...");
