@@ -49,6 +49,11 @@ const nextConfig: NextConfig = {
       },
       ...supabaseStoragePatterns,
       ...ossRemotePatterns,
+      // 腾讯云 COS 公开域名：https://{bucket}.cos.{region}.myqcloud.com
+      {
+        protocol: "https" as const,
+        hostname: "**.cos.**.myqcloud.com",
+      },
     ],
   },
 };

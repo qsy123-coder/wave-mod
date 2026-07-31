@@ -1,3 +1,5 @@
+import { isCosStorageUrl } from "@/lib/cos/shared";
+
 export const STORAGE_BUCKET = "mod-assets";
 
 export const STORAGE_IMAGE_CONTENT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
@@ -75,4 +77,14 @@ export function toSupabaseRenderUrl(
  */
 export function isSupabaseStorageUrl(url: string): boolean {
   return url.includes("/storage/v1/object/public/");
+}
+
+/**
+ * 判断 URL 是否来自外部存储（Supabase Storage 或腾讯云 COS）。
+ * 这些外部 URL 不需要 Next.js Image Optimization，因为：
+ * - Supabase Storage 有自带的 render/image 转换 API
+ * - 腾讯云 COS 使用原图直出（CDN 加速）
+ */
+export function isExternalStorageUrl(url: string): boolean {
+  return isSupabaseStorageUrl(url) || isCosStorageUrl(url);
 }
