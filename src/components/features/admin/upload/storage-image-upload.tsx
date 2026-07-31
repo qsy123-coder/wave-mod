@@ -65,6 +65,66 @@ async function getCosSign(body: {
 }
 
 /**
+ * 将图片转为 WebP（Canvas API，客户端转换）。
+ * 已是 WebP 或 GIF（动图）则跳过，保持原样。
+ *
+ * @param file 原始图片文件
+ * @param quality WebP 质量 0-1，默认 0.85
+ * @returns 转换后的 File（扩展名改为 .webp）
+ */
+async function convertToWebP(file: File, quality = 0.85): Promise<File> {
+  // 已是 WebP/GIF，不转换
+  if (file.type === "image/webp" || file.type === "image/gif") {
+    return file;
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file); // 降级：原样上传
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file); // 降级
+            return;
+          }
+
+          const originalName = file.name.replace(/\.[^.]+$/, "");
+          const webpFile = new File([blob], `${originalName}.webp`, {
+            type: "image/webp",
+          });
+          resolve(webpFile);
+        },
+        "image/webp",
+        quality,
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file); // 转换失败，原样上传
+    };
+
+    img.src = url;
+  });
+}
+
+/**
  * 上传单张图片到 COS
  */
 function uploadToCos(file: File, sign: CosSignResult, onProgress?: (pct: number) => void): Promise<string> {
@@ -146,18 +206,20 @@ export function StorageImageUpload({ defaultCharacter, onUploaded }: StorageImag
       const uploadedUrls: string[] = [];
 
       for (const [index, file] of fileList.entries()) {
+        // 0. 转为 WebP（PNG/JPEG → WebP，GIF/已有 WebP 跳过）
+        const converted = await convertToWebP(file, 0.85);
         let url: string | null = null;
 
         // 1. 尝试上传到 COS（主存储）
         try {
           const sign = await getCosSign({
             character,
-            contentType: file.type || "image/webp",
-            fileSize: file.size,
-            filename: file.name,
+            contentType: converted.type || "image/webp",
+            fileSize: converted.size,
+            filename: converted.name,
             modId: uploadSeed,
           });
-          url = await uploadToCos(file, sign, (pct) => {
+          url = await uploadToCos(converted, sign, (pct) => {
             // COS 上传进度（约占每张图进度的 90%，留 10% 给 Supabase 备份）
             const perFileWeight = 100 / fileList.length;
             const base = index * perFileWeight;
@@ -169,8 +231,8 @@ export function StorageImageUpload({ defaultCharacter, onUploaded }: StorageImag
           console.warn("[storage-image-upload] COS 上传失败，降级到 Supabase：", message);
         }
 
-        // 2. 上传到 Supabase Storage（备份）
-        const supabaseUrl = await uploadToSupabase(file, character, uploadSeed, index);
+        // 2. 上传到 Supabase Storage（备份，也用转换后的文件）
+        const supabaseUrl = await uploadToSupabase(converted, character, uploadSeed, index);
 
         // 3. 确定最终使用的 URL（COS 优先，降级到 Supabase）
         if (url) {
@@ -180,7 +242,7 @@ export function StorageImageUpload({ defaultCharacter, onUploaded }: StorageImag
           uploadedUrls.push(supabaseUrl);
           toast.warning("部分图片未能上传到 COS，已使用 Supabase 存储。");
         } else {
-          throw new Error(`图片 ${file.name} 上传失败：COS 和 Supabase 均不可用。`);
+          throw new Error(`图片 ${converted.name} 上传失败：COS 和 Supabase 均不可用。`);
         }
 
         // 更新总体进度
