@@ -1,54 +1,74 @@
-"use client";
-
-import { useEffect, useState } from "react";
-
 /**
- * 诊断组件：用普通 <img> 标签直接加载 COS 图片，
- * 绕过 Next.js <Image> 组件，显示成功/失败状态。
- * 部署后可用手机直接看到诊断结果。
+ * 诊断面板：纯 HTML + 内联 JS，不依赖 React hydration。
+ * 放在页面最顶部，手机端也能看到。
  */
 export function DiagBanner() {
-  const [results, setResults] = useState<Array<{ url: string; status: string }>>([]);
-
-  useEffect(() => {
-    // 取当前页面可见的 MOD 图片 URL，或者用占位测试
-    const imgs = document.querySelectorAll("img[src*='myqcloud'], img[src*='aliyuncs'], img[src*='supabase']");
-    const urls = Array.from(imgs).map((img) => (img as HTMLImageElement).src).slice(0, 3);
-
-    if (urls.length === 0) {
-      // 页面没有可见图片，说明 Next.js <Image> 根本没生成 <img>
-      setResults([{ url: "NO_IMG_TAGS_FOUND", status: "NO_IMG" }]);
-      return;
-    }
-
-    const testResults = urls.map((url) => {
-      const img = new Image();
-      img.src = url;
-      const result = { url, status: "loading" };
-      img.onload = () => {
-        setResults((prev) => prev.map((r) => (r.url === url ? { ...r, status: "OK" } : r)));
-      };
-      img.onerror = () => {
-        setResults((prev) => prev.map((r) => (r.url === url ? { ...r, status: "FAIL" } : r)));
-      };
-      return result;
-    });
-    setResults(testResults);
-  }, []);
-
   return (
-    <div style={{
-      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 99999,
-      background: "#000", color: "#0f0", fontSize: "10px", fontFamily: "monospace",
-      padding: "4px 8px", maxHeight: "30vh", overflow: "auto", borderTop: "2px solid #333",
-    }}>
-      <b>DIAG</b>{" "}
-      {results.length === 0 && "scanning..."}
-      {results.map((r, i) => (
-        <div key={i} style={{ color: r.status === "OK" ? "#0f0" : r.status === "FAIL" ? "#f00" : r.status === "NO_IMG" ? "#ff0" : "#888", wordBreak: "break-all", marginTop: 2 }}>
-          [{r.status}] {r.url.slice(0, 80)}...
-        </div>
-      ))}
-    </div>
+    <>
+      {/* 诊断面板 - 内联样式确保手机可见 */}
+      <div
+        id="__diag_bar"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 999999,
+          background: "#111",
+          color: "#0f0",
+          fontSize: "11px",
+          fontFamily: "monospace",
+          padding: "6px 10px",
+          minHeight: "28px",
+          lineHeight: 1.4,
+          borderBottom: "2px solid #0f0",
+        }}
+      >
+        <span id="__diag_text">🔍 诊断中...</span>
+      </div>
+      {/* 给页面留出空间 */}
+      <div style={{ height: "40px" }} />
+      {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (function() {
+              var el = document.getElementById('__diag_text');
+              if (!el) return;
+              var lines = [];
+              var total = 0, ok = 0, fail = 0;
+
+              // 每 500ms 扫描一次页面上的 img 标签
+              var check = function() {
+                var imgs = document.querySelectorAll('img[src]');
+                var newTotal = imgs.length;
+                var newOk = 0, newFail = 0;
+                var sample = '';
+
+                for (var i = 0; i < Math.min(imgs.length, 5); i++) {
+                  if (imgs[i].complete && imgs[i].naturalWidth > 0) newOk++;
+                  else if (imgs[i].complete && imgs[i].naturalWidth === 0) newFail++;
+                  if (sample === '' && imgs[i].src.length > 0) {
+                    sample = imgs[i].src.substring(0, 80);
+                  }
+                }
+
+                if (newTotal !== total || newOk !== ok || newFail !== fail) {
+                  total = newTotal; ok = newOk; fail = newFail;
+                  var text = total + '张图 | ✅' + ok + ' ❌' + fail;
+                  if (total === 0) text = '⚠ 页面上没有 <img> 标签';
+                  if (sample) text += ' | ' + sample;
+                  el.textContent = text;
+                  el.style.color = fail > 0 ? '#f55' : total === 0 ? '#ff0' : '#0f0';
+                }
+              };
+
+              setInterval(check, 500);
+              check();
+            })();
+          `,
+        }}
+      />
+    </>
   );
 }

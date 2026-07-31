@@ -31,6 +31,7 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
     >
       <body className="min-h-full bg-background text-foreground">
+        <DiagBanner />
         <ThemeProvider>
           <LayoutStyleProvider>
             <ClientProviders>
@@ -39,7 +40,6 @@ export default function RootLayout({
                 <NavigationLoader />
               </Suspense>
               <Toaster position="top-center" richColors />
-              <DiagBanner />
             </ClientProviders>
           </LayoutStyleProvider>
         </ThemeProvider>
