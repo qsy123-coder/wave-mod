@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
@@ -9,7 +8,6 @@ import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
 import type { SiteMod } from "@/lib/mods";
-import { isExternalStorageUrl } from "@/lib/storage/shared";
 import { cn } from "@/lib/utils";
 
 type MetaBadgeTone = "default" | "site";
@@ -252,7 +250,6 @@ export function ModCard({
   const imageSrc = retryTimestamp > 0
     ? `${mod.coverImage}${mod.coverImage.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`
     : mod.coverImage;
-  const isUnoptimized = isExternalStorageUrl(mod.coverImage ?? "");
 
   const media = (
     <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>
@@ -272,40 +269,33 @@ export function ModCard({
             <ImageOff className="size-8 text-white/30" />
           </div>
         ) : isAutoAspect ? (
-          <Image
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={imageSrc}
             alt={mod.title}
-            fill
-            unoptimized={isUnoptimized}
-            priority={imagePriority}
-            fetchPriority={imageFetchPriority}
-            sizes={imageSizes}
+            loading={imagePriority ? "eager" : "lazy"}
             onLoad={handleImageLoad}
             onError={handleImageError}
-            className={cn("object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
+            className={cn("absolute inset-0 h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
           />
         ) : (
           <>
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={imageSrc}
               alt=""
-              fill
-              unoptimized={isUnoptimized}
-              sizes={imageSizes}
+              loading="lazy"
               onError={handleImageError}
-              className="scale-110 object-cover blur-xl"
+              className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
               aria-hidden="true"
             />
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={imageSrc}
               alt={mod.title}
-              fill
-              unoptimized={isUnoptimized}
-              priority={imagePriority}
-              fetchPriority={imageFetchPriority}
-              sizes={imageSizes}
+              loading={imagePriority ? "eager" : "lazy"}
               onError={handleImageError}
-              className={cn("object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
+              className={cn("absolute inset-0 h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
             />
           </>
         )}

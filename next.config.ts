@@ -52,8 +52,6 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   images: {
     unoptimized: true,
-    loader: "custom",
-    loaderFile: "./src/lib/custom-image-loader.ts",
     remotePatterns: [
       {
         protocol: "https",
