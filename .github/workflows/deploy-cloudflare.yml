@@ -26,6 +26,12 @@ jobs:
         run: npm ci
 
       - name: Build for Cloudflare
+        env:
+          COS_BUCKET: wave-mod-preview-1327973389
+          COS_REGION: ap-guangzhou
+          ALIYUN_OSS_BUCKET: wave-mod
+          ALIYUN_OSS_ENDPOINT: https://oss-cn-hangzhou.aliyuncs.com
+          ALIYUN_OSS_REGION: oss-cn-hangzhou
         run: node scripts/cf-build.mjs
 
       - name: Deploy to Cloudflare Workers

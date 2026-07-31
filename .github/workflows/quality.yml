@@ -32,6 +32,11 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+      COS_BUCKET: wave-mod-preview-1327973389
+      COS_REGION: ap-guangzhou
+      ALIYUN_OSS_BUCKET: wave-mod
+      ALIYUN_OSS_ENDPOINT: https://oss-cn-hangzhou.aliyuncs.com
+      ALIYUN_OSS_REGION: oss-cn-hangzhou
 
     steps:
       - name: Checkout repository
