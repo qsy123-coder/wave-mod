@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { isExternalStorageUrl } from "@/lib/storage/shared";
 import {
   Download,
   LoaderCircle,
@@ -338,7 +339,7 @@ function RatingSidebar({
                   fill
                   sizes="52px"
                   className="object-cover transition duration-300 group-hover:scale-110"
-                  unoptimized={item.coverImage?.includes("supabase.co")}
+                  unoptimized={isExternalStorageUrl(item.coverImage ?? "")}
                 />
               </div>
               <div className="min-w-0">

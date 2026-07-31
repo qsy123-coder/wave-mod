@@ -13,6 +13,7 @@ import {
 import { ModCard } from "@/components/common/mod-card";
 import { DownloadButton } from "@/components/features/mods/detail/download-button";
 import { FavoriteButton } from "@/components/features/mods/detail/favorite-button";
+import { isExternalStorageUrl } from "@/lib/storage/shared";
 import { LikeButton } from "@/components/features/mods/detail/like-button";
 import { MiniRatingControl, RatingPanel } from "@/components/features/mods/detail/rating-panel";
 import type { GameConfig } from "@/config/games";
@@ -160,7 +161,7 @@ export function ZenlessRightRail({
               fill
               sizes="40px"
               className="object-cover"
-              unoptimized={mod.coverImage?.includes("supabase.co")}
+              unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
             />
           </div>
           <div>
@@ -238,7 +239,7 @@ export function ZenlessScreenshots({ mod }: { mod: SiteMod }) {
               fill
               sizes="(max-width: 768px) 45vw, 150px"
               className="object-cover"
-              unoptimized={image?.includes("supabase.co")}
+              unoptimized={isExternalStorageUrl(image ?? "")}
             />
           </a>
         ))}

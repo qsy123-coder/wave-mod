@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 
 import type { GameConfig } from "@/config/games";
 import type { CreatorProfile, FavoriteMod } from "@/lib/mods";
+import { isExternalStorageUrl } from "@/lib/storage/shared";
 
 import { compact, panel } from "./profile-shared";
 import type { StatItem } from "./profile-shared";
@@ -319,7 +320,7 @@ export function ProfileContent({
                               fill
                               sizes="48px"
                               className="object-cover"
-                              unoptimized={mod.coverImage?.includes("supabase.co")}
+                              unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
                             />
                           </div>
                           <div>

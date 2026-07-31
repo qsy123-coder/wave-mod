@@ -80,11 +80,21 @@ export function isSupabaseStorageUrl(url: string): boolean {
 }
 
 /**
- * 判断 URL 是否来自外部存储（Supabase Storage 或腾讯云 COS）。
+ * 判断 URL 是否来自外部存储（Supabase Storage、腾讯云 COS 或阿里云 OSS）。
  * 这些外部 URL 不需要 Next.js Image Optimization，因为：
  * - Supabase Storage 有自带的 render/image 转换 API
  * - 腾讯云 COS 使用原图直出（CDN 加速）
+ * - 阿里云 OSS 使用原图直出（CDN 加速）
  */
 export function isExternalStorageUrl(url: string): boolean {
-  return isSupabaseStorageUrl(url) || isCosStorageUrl(url);
+  return isSupabaseStorageUrl(url) || isCosStorageUrl(url) || isAliyunOssUrl(url);
+}
+
+/**
+ * 判断 URL 是否是阿里云 OSS 的公开对象地址。
+ * 格式：https://{bucket}.oss-{region}.aliyuncs.com/{path}
+ *      https://{bucket}.oss-cn-shanghai.aliyuncs.com/{path}
+ */
+function isAliyunOssUrl(url: string): boolean {
+  return url.includes(".oss-") && url.includes(".aliyuncs.com/");
 }

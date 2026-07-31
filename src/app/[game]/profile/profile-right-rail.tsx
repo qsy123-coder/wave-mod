@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Crown, Medal, ShieldCheck, Sparkles, Trophy } from "lucide-react";
 
 import type { CreatorProfile } from "@/lib/mods";
+import { isExternalStorageUrl } from "@/lib/storage/shared";
 
 import { compact, panel } from "./profile-shared";
 
@@ -89,7 +90,7 @@ export function ProfileRightRail({
                         fill
                         sizes="20px"
                         className="object-cover"
-                        unoptimized={supporterMod.coverImage?.includes("supabase.co")}
+                        unoptimized={isExternalStorageUrl(supporterMod.coverImage ?? "")}
                       />
                     ) : (
                       <span className="flex size-full items-center justify-center text-[8px] font-black text-black">
