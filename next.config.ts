@@ -51,7 +51,7 @@ const nextConfig: NextConfig = {
   },
   reactCompiler: true,
   images: {
-    contentDispositionType: "inline",
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
