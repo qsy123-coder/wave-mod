@@ -61,7 +61,19 @@ try {
   writeFileSync(WORKER_FILE, worker, "utf-8");
   log("Worker.js /_next/image redirect patch applied.");
 
-  // 5. 修补 worker.js：HTML 响应添加 Cache-Control: no-store 防止 CF CDN 缓存
+  // 5. 修补 worker.js：apex 域名 301 重定向到 www，避免 CDN/缓存不一致
+  log("Patching worker.js: wave-mod.top → www.wave-mod.top 301 redirect...");
+  worker = worker.replace(
+    "const url = new URL(request.url);",
+    `const url = new URL(request.url);
+            if (url.hostname === "wave-mod.top") {
+                return Response.redirect(\`https://www.wave-mod.top\${url.pathname}\${url.search}\`, 301);
+            }`
+  );
+  writeFileSync(WORKER_FILE, worker, "utf-8");
+  log("Worker.js apex→www redirect patch applied.");
+
+  // 7. 修补 worker.js：HTML 响应添加 Cache-Control: no-store 防止 CF CDN 缓存
   log("Patching worker.js to add Cache-Control: no-store for HTML...");
 
   // 把 return runWithCloudflareRequestContext 改为 const __resp = await ...
