@@ -59,10 +59,61 @@
 | `nsfw` | 手动指定 | `true` / `false` |
 | `is_published` | 手动指定 | `true` / `false` |
 | `is_available` | 固定值 | `true` |
-| `images` | 预览图上传 | Supabase Storage URL 数组，至少 1 张 |
+| `images` | 预览图上传 | **腾讯云 COS URL** 数组，至少 1 张（上传时自动转 WebP q=85） |
 | `xxmi_install_guide` | 固定值 | 项目默认 XXMI 安装说明 |
 | `mod_author_url` | JASM config | `.JASM_ModConfig.json` 中的 `modUrl` 字段 |
 | `created_by` | `null` | 批量上传无特定上传者 |
+
+## 图片存储架构（2026-07 更新）
+
+### 当前方案：腾讯云 COS（主）+ Supabase Storage（备份）
+
+```
+管理员上传图片
+  → 客户端 Canvas API 转 WebP (q=85)
+  → /api/cos/sign (STS 临时密钥)
+  → cos-js-sdk-v5 直传 COS（主存储）
+  → Supabase Storage 备份
+  → 数据库存储 COS URL
+
+用户浏览
+  → next/image + isExternalStorageUrl()
+  → COS CDN 域名（国内 <1s 加载）
+```
+
+### 存储路径
+
+```
+COS:  https://{bucket}.cos.{region}.myqcloud.com/mods/{character}/{modId}/{filename}
+Supabase (备份): https://{ref}.supabase.co/storage/v1/object/public/mod-assets/mods/{character}/{modId}/{filename}
+```
+
+### 环境变量
+
+```bash
+COS_SECRET_ID=     # 腾讯云 API 密钥 SecretId
+COS_SECRET_KEY=    # 腾讯云 API 密钥 SecretKey
+COS_BUCKET=        # Bucket 名称，如 wave-mod-preview-1327973389
+COS_REGION=        # 地域，如 ap-guangzhou
+```
+
+### 存量图片迁移
+
+已用 `scripts/migrate-to-cos.mjs` 将 Supabase Storage 上的图片批量迁移到 COS。脚本特性：
+- 幂等（已迁移的 COS URL 自动跳过）
+- 断点续传（中断后重跑不重复）
+- 重试机制（下载失败 3 次指数退避重试）
+
+```bash
+# 预览
+node scripts/migrate-to-cos.mjs --dry-run
+
+# 按角色迁移
+node scripts/migrate-to-cos.mjs --character=爱弥斯
+
+# 全部迁移
+node scripts/migrate-to-cos.mjs
+```
 
 ## 脚本说明
 
@@ -74,7 +125,7 @@
 1. 解析百度网盘 + 夸克网盘 CSV，按文件名（去 `.exe`）匹配合并
 2. 从文件名解析 title 和 version（去掉角色前缀）
 3. 读取 `.JASM_ModConfig.json` 获取 customName 和 authorUrl
-4. 上传 `preview.png` 到 Supabase Storage (`mod-assets` bucket)
+4. 上传预览图（Sharp 转 WebP q=80 → 上传到 Supabase Storage）
 5. 批量 `INSERT` 到 `mods` 表
 
 **运行**: `node scripts/batch-upload-aemeath-mods.mjs`
@@ -83,20 +134,20 @@
 - 依赖 `.env.local` 中的 `SUPABASE_SERVICE_ROLE_KEY`
 - 源文件夹路径硬编码在脚本中，复用需修改 `SOURCE_DIR`
 - CSV2 解析用状态机处理多行引号字段，复用需确认 CSV 格式一致
-- `preview.png` 可能不存在（部分 mod 用命名 PNG 如 `{mod名称}.png`），需要后续补传
+- 预览图上传到 Supabase Storage 后，如需转 COS，运行 `scripts/migrate-to-cos.mjs`
 
-### 2. 图片 WebP 转换脚本
+### 2. 图片 WebP 转换
 
-**文件**: `scripts/convert-images-to-webp.mjs`
+**新上传**：`StorageImageUpload` 组件（管理后台）内置客户端转换：
+- PNG/JPEG → Canvas API 转 WebP（**质量 85%**）
+- 已有 WebP 和 GIF 跳过转换
+- 无需依赖 Sharp 或服务端处理
 
-**功能**:
-1. 查询指定 character 的所有 mod
-2. 下载原始 PNG → Sharp 转 WebP（750px 宽, 80% 质量）→ 上传到 Supabase Storage
-3. 更新数据库 `images` 字段
+**存量图片**：`scripts/convert-images-to-webp.mjs`
+- 下载原始 PNG → Sharp 转 WebP（750px 宽, 80% 质量）→ 上传
+- 注意：此脚本上传到 Supabase Storage，后续需运行 `migrate-to-cos.mjs`
 
 **运行**: `node scripts/convert-images-to-webp.mjs`
-
-**效果**: PNG 2-3MB → WebP 40-70KB (减小 97-99%)
 
 ### 3. 补充缺失图片脚本
 
@@ -106,41 +157,29 @@
 
 ## 图片显示问题排查
 
-### 问题 1: `/_next/image` 返回 500
+### 问题 1: `/_next/image` 返回 400/500
 
-**现象**: 浏览器中 Supabase Storage 图片不显示，Network 面板显示 `/_next/image?url=...` 返回 500。
+**现象**: 浏览器中外链图片不显示，Network 面板显示 `/_next/image?url=...` 返回错误。
 
-**根因**: Next.js 的 `/_next/image` 代理端点无法正确代理 Supabase Storage URL（开发模式下 7 秒超时返回 500）。
+**根因**: Next.js 的 `/_next/image` 代理端点要求 `remotePatterns` 白名单 + `unoptimized` 标记。外部存储 URL（如 COS、Supabase）不应走 Next.js 优化器。
 
-**解决方案**: 在所有使用 `next/image` 渲染 mod 封面图的组件中，对 Supabase 图片添加 `unoptimized` 属性：
+**解决方案**: 使用 `isExternalStorageUrl()` 统一判断：
 
 ```tsx
+import { isExternalStorageUrl } from "@/lib/storage/shared";
+
 <Image
   src={mod.coverImage}
-  unoptimized={mod.coverImage?.includes("supabase.co")}
+  unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
   ...
 />
 ```
 
-**已修复的组件**（共 14 个）:
-- `src/components/common/mod-card.tsx`
-- `src/components/features/home/hero-carousel.tsx`
-- `src/features/games/wuthering-waves/components/home/wuwa-hero-carousel.tsx`
-- `src/features/games/wuthering-waves/components/home/wuwa-featured-mods-rail.tsx`
-- `src/features/games/zenless-zone-zero/components/zenless-mods-card.tsx`
-- `src/features/games/zenless-zone-zero/components/zenless-hero-carousel-client.tsx`
-- `src/features/games/zenless-zone-zero/components/zenless-lower-home.tsx`
-- `src/features/games/zenless-zone-zero/components/zenless-mod-detail-parts.tsx`
-- `src/features/games/zenless-zone-zero/components/zenless-comments-section.tsx`
-- `src/features/games/zenless-zone-zero/components/zenless-ranking-sidebar-right.tsx`
-- `src/features/games/zenless-zone-zero/components/zenless-ranking-leaderboard.tsx`
-- `src/app/[game]/profile/profile-content.tsx`
-- `src/app/[game]/profile/profile-right-rail.tsx`
-- `src/app/[game]/profile/profile-mod-mini-card.tsx`
+该函数覆盖 Supabase Storage 和 腾讯云 COS 两类外链 URL。
 
 ### 问题 2: 图片文件太大加载慢
 
-**解决方案**: 用 Sharp 将 PNG 转为 WebP。Supabase 的 `render/image` 转换 API 是付费功能（`FeatureNotEnabled`），需用本地脚本处理。
+**解决方案**: 上传时自动转 WebP（质量 85%）。效果：PNG 2-3MB → WebP 40-200KB（减小 90-97%）。
 
 ### 问题 3: 直接写数据库后页面不显示新 Mod
 
@@ -148,38 +187,46 @@
 
 **解决方案**: 重启 Next.js dev server，或等待缓存过期（几分钟）。
 
+### 问题 4: COS 图片国内加载慢
+
+**现象**: 之前使用 Supabase Storage（海外服务器），国内用户图片加载 >3s。
+
+**解决方案**: 已迁移到腾讯云 COS（国内 CDN 节点），加载时间 <1s。详见 PRD: `docs/migrate-to-tencent-cos-prd.md`
+
 ## 工具函数
 
-### Supabase Storage URL 工具
+### COS / Supabase URL 工具
 
-**文件**: `src/lib/storage/shared.ts`
+**文件**: `src/lib/cos/shared.ts` + `src/lib/storage/shared.ts`
 
 ```typescript
-// 判断是否是 Supabase Storage 的公开 object URL
+// 判断是否是腾讯云 COS 公开 URL
+export function isCosStorageUrl(url: string): boolean;
+
+// 判断是否是 Supabase Storage 公开 URL
 export function isSupabaseStorageUrl(url: string): boolean;
 
-// 将公开 object URL 转换为 render/image 转换 URL（需开通付费功能）
-export function toSupabaseRenderUrl(url: string, options?: { width?: number; quality?: number }): string;
+// 统一判断外部存储 URL（COS + Supabase），用于 next/image unoptimized
+export function isExternalStorageUrl(url: string): boolean;
 ```
 
-## 预览图 WebP 转换规则（强制）
+## 预览图 WebP 转换规则
 
-**批量上传脚本已内置 WebP 自动转换**，无需再单独运行转换脚本。转换参数：
+### 管理后台上传（StorageImageUpload 组件）
 
+- **方式**: 客户端 Canvas API，上传前实时转换
+- **格式**: WebP
+- **质量**: 85%（肉眼与 PNG 无差别）
+- **跳过**: 已有 WebP、GIF 动图保持原样
+- **降级**: 转换失败时自动降级为原图上传
+
+### 批量上传脚本
+
+- **方式**: Sharp（服务端转换）
 - **宽度**: 750px（保留比例，不放大）
 - **格式**: WebP
 - **质量**: 80%
-- **效果**: PNG 2-3MB → WebP 40-70KB (减小 97-99%)；JPG 也可减小 70-90%
-
-脚本 `scripts/batch-upload-multi-char.mjs` 在 `uploadPreviewImage()` 中使用 Sharp 将原始图片（.jpg/.png）统一转为 `.webp` 后上传到 Supabase Storage，不依赖 Supabase 付费 render/image API。
-
-### 存量图片转换
-
-对于已上传的 PNG/JPG 图片，可用独立脚本转换：
-
-**文件**: `scripts/convert-images-to-webp.mjs`
-
-**用法**: `node scripts/convert-images-to-webp.mjs`
+- **效果**: PNG 2-3MB → WebP 40-70KB (减小 97-99%)
 
 ## 批量上传检查清单
 
@@ -189,5 +236,7 @@ export function toSupabaseRenderUrl(url: string, options?: { width?: number; qua
 - [ ] CSV 文件名与 .exe 文件名一一对应（去掉 .exe 后匹配）
 - [ ] 每个 .exe 有匹配的预览图（同名的 `.jpg` 或 `.png`）
 - [ ] `.env.local` 中 `SUPABASE_SERVICE_ROLE_KEY` 已配置
+- [ ] `.env.local` 中 COS 相关环境变量已配置（`COS_SECRET_ID` 等）
 - [ ] 确认角色配置（`name`、`storage_key`(ASCII)、`game_key`、`subdirs`）
 - [ ] 上传后重启 dev server 或等待缓存过期（`"use cache"` + `cacheLife`）
+- [ ] 上传到 Supabase 后如需 CDN 加速，运行 `node scripts/migrate-to-cos.mjs`
