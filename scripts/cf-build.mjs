@@ -60,8 +60,39 @@ try {
 
   writeFileSync(WORKER_FILE, worker, "utf-8");
   log("Worker.js /_next/image redirect patch applied.");
+
+  // 5. 修补 worker.js：HTML 响应添加 Cache-Control: no-store 防止 CF CDN 缓存
+  log("Patching worker.js to add Cache-Control: no-store for HTML...");
+
+  // 把 return runWithCloudflareRequestContext 改为 const __resp = await ...
+  worker = worker.replace(
+    "return runWithCloudflareRequestContext(request, env, ctx,",
+    "const __resp = await runWithCloudflareRequestContext(request, env, ctx,"
+  );
+
+  // 在 fetch handler 末尾 return 之前注入缓存头检查
+  worker = worker.replace(
+    /(return handler\(reqOrResp, env, ctx, request\.signal\);)\s*\}\);\s*\},\s*\};/s,
+    `$1
+        });
+        if (__resp instanceof Response) {
+            const __ct = __resp.headers.get("content-type") || "";
+            if (__ct.includes("text/html")) {
+                const __h = new Headers(__resp.headers);
+                __h.set("Cache-Control", "no-store, max-age=0, must-revalidate");
+                __h.set("CDN-Cache-Control", "no-store");
+                return new Response(__resp.body, { status: __resp.status, statusText: __resp.statusText, headers: __h });
+            }
+        }
+        return __resp;
+    },
+};`
+  );
+
+  writeFileSync(WORKER_FILE, worker, "utf-8");
+  log("Worker.js no-cache patch applied.");
 } finally {
-  // 4. 恢复 proxy.ts
+  // 5. 恢复 proxy.ts
   log("Restoring proxy.ts...");
   renameSync(PROXY_BACKUP, PROXY_FILE);
 }
