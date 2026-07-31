@@ -274,6 +274,7 @@ export function ModCard({
             src={imageSrc}
             alt={mod.title}
             loading={imagePriority ? "eager" : "lazy"}
+            referrerPolicy="no-referrer"
             onLoad={handleImageLoad}
             onError={handleImageError}
             className={cn("absolute inset-0 h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
@@ -285,6 +286,7 @@ export function ModCard({
               src={imageSrc}
               alt=""
               loading="lazy"
+              referrerPolicy="no-referrer"
               onError={handleImageError}
               className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
               aria-hidden="true"

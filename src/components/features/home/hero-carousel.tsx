@@ -84,6 +84,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                       src={mod.coverImage}
                       alt={mod.title}
                       loading={index === 0 ? "eager" : "lazy"}
+                      referrerPolicy="no-referrer"
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
                     />
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,transparent_18%,rgba(0,0,0,0.16)_55%,rgba(0,0,0,0.42)_100%)] transition-opacity duration-500 group-hover:opacity-90" />
