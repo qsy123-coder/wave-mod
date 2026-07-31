@@ -242,7 +242,7 @@ export function ModCard({
 
   // 图片加载失败自动重试（指数退避：1s → 2s → 4s，最多 3 次）
   const retryCount = useRef(0);
-  const maxRetries = 3;
+  const maxRetries = 1;
   const [imageError, setImageError] = useState(false);
   const [retryTimestamp, setRetryTimestamp] = useState(0);
 
@@ -292,7 +292,8 @@ export function ModCard({
           <img
             src={imageSrc}
             alt={mod.title}
-            loading={imagePriority ? "eager" : "lazy"}
+            loading="eager"
+            referrerPolicy="no-referrer"
             onLoad={handleImageLoad}
             onError={handleImageError}
             className={cn("absolute inset-0 h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
@@ -303,7 +304,8 @@ export function ModCard({
             <img
               src={imageSrc}
               alt=""
-              loading="lazy"
+              loading="eager"
+              referrerPolicy="no-referrer"
               onError={handleImageError}
               className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
               aria-hidden="true"
@@ -312,7 +314,8 @@ export function ModCard({
             <img
               src={imageSrc}
               alt={mod.title}
-              loading={imagePriority ? "eager" : "lazy"}
+              loading="eager"
+              referrerPolicy="no-referrer"
               onError={handleImageError}
               className={cn("absolute inset-0 h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
             />
