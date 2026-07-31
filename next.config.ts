@@ -26,6 +26,19 @@ const ossRemotePatterns = [
   },
 ].filter((pattern): pattern is { protocol: "https"; hostname: string } => Boolean(pattern));
 
+// COS 域名：{bucket}.cos.{region}.myqcloud.com
+const cosBucket = process.env.COS_BUCKET?.trim();
+const cosRegion = process.env.COS_REGION?.trim();
+const cosBucketHost = cosBucket && cosRegion ? `${cosBucket}.cos.${cosRegion}.myqcloud.com` : null;
+const cosRemotePatterns = [
+  cosBucketHost
+    ? {
+        protocol: "https" as const,
+        hostname: cosBucketHost,
+      }
+    : null,
+].filter((pattern): pattern is { protocol: "https"; hostname: string } => Boolean(pattern));
+
 const nextConfig: NextConfig = {
   async redirects() {
     return [
@@ -50,10 +63,7 @@ const nextConfig: NextConfig = {
       ...supabaseStoragePatterns,
       ...ossRemotePatterns,
       // 腾讯云 COS 公开域名：https://{bucket}.cos.{region}.myqcloud.com
-      {
-        protocol: "https" as const,
-        hostname: "**.cos.**.myqcloud.com",
-      },
+      ...cosRemotePatterns,
     ],
   },
 };
