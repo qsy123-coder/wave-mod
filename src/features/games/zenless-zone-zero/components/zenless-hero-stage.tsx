@@ -1,5 +1,5 @@
 import type { GameConfig } from "@/config/games";
-import { ZenlessHeroCarouselClient, type ZenlessHeroSlide } from "@/features/games/zenless-zone-zero/components/zenless-hero-carousel-client";
+import { ZenlessHeroCarouselClient, type ZenlessHeroCopy, type ZenlessHeroSlide } from "@/features/games/zenless-zone-zero/components/zenless-hero-carousel-client";
 import type { SiteMod } from "@/lib/mods";
 
 const fallbackSlides: ZenlessHeroSlide[] = [
@@ -24,14 +24,26 @@ const slideDescriptions = [
   "精选绝区零 MOD 内容入口，后续接入真实 ZZZ 数据后自动替换展示。",
 ];
 
-function createZenlessSlides(game: GameConfig, mods: SiteMod[]): ZenlessHeroSlide[] {
-  if (mods.length === 0) return fallbackSlides;
+type SlideDefaults = { titles: string[]; characters: string[]; descriptions: string[] };
+
+function createZenlessSlides(
+  game: GameConfig,
+  mods: SiteMod[],
+  defaults?: SlideDefaults,
+  fb?: ZenlessHeroSlide[],
+): ZenlessHeroSlide[] {
+  const titles = defaults?.titles ?? slideTitles;
+  const characters = defaults?.characters ?? slideCharacters;
+  const descriptions = defaults?.descriptions ?? slideDescriptions;
+  const fallback = fb ?? fallbackSlides;
+
+  if (mods.length === 0) return fallback;
 
   return mods.map((mod, index) => ({
     id: mod.id,
-    title: slideTitles[index % slideTitles.length],
-    character: slideCharacters[index % slideCharacters.length],
-    description: slideDescriptions[index % slideDescriptions.length],
+    title: titles[index % titles.length],
+    character: characters[index % characters.length],
+    description: descriptions[index % descriptions.length],
     coverImage: mod.coverImage,
     href: `${game.nav.mods}/${mod.id}`,
     version: mod.version || "v1.0",
@@ -41,10 +53,13 @@ function createZenlessSlides(game: GameConfig, mods: SiteMod[]): ZenlessHeroSlid
 type ZenlessHeroStageProps = {
   game: GameConfig;
   mods: SiteMod[];
+  slideDefaults?: SlideDefaults;
+  fallbackSlides?: ZenlessHeroSlide[];
+  copy?: ZenlessHeroCopy;
+  className?: string;
 };
 
-export function ZenlessHeroStage({ game, mods }: ZenlessHeroStageProps) {
-  const slides = createZenlessSlides(game, mods);
-
-  return <ZenlessHeroCarouselClient game={game} slides={slides} />;
+export function ZenlessHeroStage({ game, mods, slideDefaults, fallbackSlides: fb, copy, className }: ZenlessHeroStageProps) {
+  const slides = createZenlessSlides(game, mods, slideDefaults, fb);
+  return <ZenlessHeroCarouselClient game={game} slides={slides} copy={copy} className={className} />;
 }

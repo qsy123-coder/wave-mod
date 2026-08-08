@@ -16,6 +16,7 @@ import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import { HomeHeaderGlass } from "@/components/features/home/home-header-glass";
 import { getDefaultGame } from "@/config/games";
+import { getCharacterImagePath } from "@/lib/constants/character-images";
 import { ZenlessHeroStage } from "@/features/games/zenless-zone-zero/components/zenless-hero-stage";
 import { ZenlessLowerHome } from "@/features/games/zenless-zone-zero/components/zenless-lower-home";
 import { HeroCarousel } from "@/components/features/home/hero-carousel";
@@ -84,7 +85,8 @@ const wuwaCopy = {
 };
 
 async function HomeWuwaSection() {
-  const game = getDefaultGame(); // wuthering-waves
+  const rawGame = getDefaultGame(); // wuthering-waves
+  const game = { ...rawGame, nav: { ...rawGame.nav, mods: "/mods", guide: "/guide" } };
   const [featuredMods, latestMods, topCreators, characters, allMods] =
     await Promise.all([
       getFeaturedMods(6, game.key),
@@ -114,8 +116,9 @@ async function HomeWuwaSection() {
   // 基于真实角色列表生成分类
   const categories = characters.slice(0, 6).map((name) => {
     const count = allMods.filter((m) => m.character === name).length;
+    const avatar = getCharacterImagePath(name);
     return {
-      icon: "👤",
+      avatar,
       name: `${name}外观`,
       query: name,
       count: `${count}`,
@@ -142,7 +145,7 @@ async function HomeWuwaSection() {
         mods={featuredMods}
         slideDefaults={wuwaSlideDefaults}
         copy={wuwaCopy}
-        className="!h-[44vh] !min-h-0"
+        className="!h-[44vh] !min-h-0 !pt-[30px]"
       />
       {/* 内容区：与区域 1 等宽，填满剩余空间（ZenlessLowerHome 自带 px，此处仅约束宽度） */}
       <div className="mx-auto w-full max-w-[1680px]">
@@ -255,7 +258,7 @@ export default function HomePage() {
         <section
           id="snap-section-2"
           className="h-full w-full overflow-hidden max-md:h-auto"
-          style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
+          style={{ scrollSnapAlign: "start", scrollSnapStop: "always",scrollMarginTop:"6vh" }}
         >
           <Suspense fallback={<WuwaSectionSkeleton />}>
             <HomeWuwaSection />

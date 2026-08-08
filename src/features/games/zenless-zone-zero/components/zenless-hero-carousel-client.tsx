@@ -19,12 +19,28 @@ export type ZenlessHeroSlide = {
   version: string;
 };
 
+export type ZenlessHeroCopy = {
+  badge?: string;
+  headingLine1?: string;
+  headingLine2?: string;
+  subtitle?: string;
+  fallbackDesc?: string;
+  browseLabel?: string;
+  guideLabel?: string;
+  updateBadge?: string;
+  featuredSuffix?: string;
+  exploreLabel?: string;
+};
+
 type ZenlessHeroCarouselClientProps = {
   game: GameConfig;
   slides: ZenlessHeroSlide[];
+  copy?: ZenlessHeroCopy;
+  className?: string;
 };
 
-export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselClientProps) {
+export function ZenlessHeroCarouselClient({ game, slides, copy, className }: ZenlessHeroCarouselClientProps) {
+  const c = copy;
   const [current, setCurrent] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const total = slides.length;
@@ -49,7 +65,7 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
   }, [total]);
 
   return (
-    <section className="relative h-[55vh] min-h-[470px] bg-transparent pt-[58px] text-white">
+    <section className={`relative h-[55vh] min-h-[470px] bg-transparent pt-[58px] text-white ${className ?? ""}`}>
       <div className="absolute inset-x-0 -bottom-20 -top-10 overflow-hidden">
         {activeSlide.coverImage ? (
           <Image
@@ -106,17 +122,17 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
         }
       `}</style>
 
-      <div className="relative z-10 mx-auto grid h-full w-full max-w-[1500px] grid-cols-1 items-center gap-2 px-4 pb-16 pt-2 sm:px-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:px-6 xl:grid-cols-[minmax(0,1fr)_310px] 2xl:px-4">
+      <div className="relative z-10 mx-auto grid h-full w-full max-w-[1500px] grid-cols-1 items-center gap-2 px-4 pb-16 pt-2 sm:px-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-6 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:px-4">
         <div className="max-w-2xl pt-1">
           <MotionReveal delay={0.02} rotate={-2}>
             <div className="mb-2 inline-flex -rotate-1 items-center gap-2 border-4 border-black bg-[var(--neo-accent)] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-black shadow-[5px_5px_0px_0px_#000]">
-              <Sparkles className="size-3.5" /> Shape Your New Eridu
+              <Sparkles className="size-3.5" /> {c?.badge ?? "Shape Your New Eridu"}
             </div>
           </MotionReveal>
 
           <MotionReveal delay={0.08} y={28}>
             <h1 className="tahoe-glass-text max-w-xl text-[2.35rem] font-black uppercase leading-[0.86] tracking-tight sm:text-5xl lg:text-[2.45rem] xl:text-[3.05rem]">
-              Zenless Zone Zero<br />Mod Hub
+              {c?.headingLine1 ?? "Zenless Zone Zero"}<br />{c?.headingLine2 ?? "Mod Hub"}
             </h1>
           </MotionReveal>
 
@@ -127,9 +143,9 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
               }`}
               style={{ transitionDelay: "250ms" }}
             >
-              <p className="mt-2 max-w-md text-sm font-black text-white/90 sm:text-base">Explore. Customize. Download Fast.</p>
+              <p className="mt-2 max-w-md text-sm font-black text-white/90 sm:text-base">{c?.subtitle ?? "Explore. Customize. Download Fast."}</p>
               <p className="mt-1.5 max-w-lg border-4 border-black bg-white/92 px-4 py-2.5 text-xs font-bold leading-5 text-black shadow-[5px_5px_0px_0px_#000] sm:text-[13px]">
-                {activeSlide.description || "围绕绝区零代理人 MOD 构建的高速直链分站，保留本站硬边框、强阴影与高对比游戏风格。"}
+                {activeSlide.description || c?.fallbackDesc || "围绕绝区零代理人 MOD 构建的高速直链分站。"}
               </p>
             </div>
           </MotionReveal>
@@ -142,12 +158,12 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
           >
             <MotionReveal delay={0.22} rotate={-1}>
               <Link href={game.nav.mods} className="neo-button-primary inline-flex items-center gap-2 px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.14em]">
-                Browse Mods<ArrowRight className="size-4" />
+                {c?.browseLabel ?? "Browse Mods"}<ArrowRight className="size-4" />
               </Link>
             </MotionReveal>
             <MotionReveal delay={0.26} rotate={1}>
               <Link href={game.nav.guide} className="neo-button-secondary inline-flex items-center gap-2 px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.14em]">
-                XXMI Guide<Download className="size-4" />
+                {c?.guideLabel ?? "XXMI Guide"}<Download className="size-4" />
               </Link>
             </MotionReveal>
           </div>
@@ -156,12 +172,12 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
         <MotionReveal delay={0.18} y={32} rotate={1} className="hidden lg:block">
           <aside className="rotate-1 border-4 border-black bg-[var(--neo-panel)] p-3 text-black shadow-[8px_8px_0px_0px_#000]">
             <div className="mb-3 inline-flex items-center gap-2 border-4 border-black bg-[var(--neo-secondary)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] shadow-[4px_4px_0px_0px_#000]">
-              <Bell className="size-3.5" /> New Update&nbsp; {activeSlide.version}
+              <Bell className="size-3.5" /> {c?.updateBadge ?? "New Update"}&nbsp; {activeSlide.version}
             </div>
-            <h2 className="text-2xl font-black uppercase leading-none text-black">{activeSlide.character}<br />Featured</h2>
+            <h2 className="text-2xl font-black uppercase leading-none text-black">{activeSlide.character}<br />{c?.featuredSuffix ?? "Featured"}</h2>
             <p className="mt-3 line-clamp-3 text-xs font-bold leading-6 text-black/72">{activeSlide.title}</p>
             <Link href={activeSlide.href} className="neo-button-outline mt-3 inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em]">
-              Explore Now<ArrowRight className="size-4" />
+              {c?.exploreLabel ?? "Explore Now"}<ArrowRight className="size-4" />
             </Link>
           </aside>
         </MotionReveal>
