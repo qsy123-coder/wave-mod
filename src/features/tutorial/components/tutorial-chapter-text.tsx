@@ -75,7 +75,7 @@ export function TutorialChapterText({ chapter }: TutorialChapterTextProps) {
     return null;
   }
 
-  const packUrl = "https://github.com/qsy123-coder/wave-mod/releases/download/v1.0/mod-tools.zip";
+  const packUrl = "/api/tutorial/download";
   const cloudUrls = tools.find((t) => t.required && t.cloudUrls)?.cloudUrls;
 
   return (
@@ -107,8 +107,7 @@ export function TutorialChapterText({ chapter }: TutorialChapterTextProps) {
               {packUrl && (
                 <a
                   href={packUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  download="教程.zip"
                   className="inline-flex items-center gap-1.5 border-4 border-black px-3 py-2 font-black uppercase tracking-[0.1em] text-black shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
                   style={{ background: "var(--neo-accent)" }}
                 >
