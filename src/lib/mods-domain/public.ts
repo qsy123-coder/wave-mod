@@ -69,28 +69,37 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
   let allRows: Record<string, unknown>[] = [];
   let from = 0;
   const batchSize = 1000;
+  let pageNum = 0;
   while (true) {
+    pageNum++;
     const { data, error } = await supabase
       .from("mods")
-      .select(publicModColumns)
+      .select(publicModColumns, { count: "exact", head: false })
       .eq("is_published", true)
       .eq("game_key", gameKey)
       .order("created_at", { ascending: false })
       .range(from, from + batchSize - 1);
 
+    console.log(`[getPublicMods] page=${pageNum} from=${from} got=${data?.length ?? 0} error=${error?.message ?? "none"}`);
+
     if (error) {
       logger.warn("[mods] getPublicMods failed, fallback to empty list", { error: error.message });
+      console.log(`[getPublicMods] ERROR: ${error.message}`);
       return [] satisfies SiteMod[];
     }
 
     if (!data || data.length === 0) break;
     allRows = allRows.concat(data);
+    console.log(`[getPublicMods] total accumulated: ${allRows.length}`);
     if (data.length < batchSize) break;
     from += batchSize;
   }
 
+  console.log(`[getPublicMods] FINAL total rows: ${allRows.length}`);
   const mods = applyModQueryFilters((allRows ?? []).map((row) => mapMod(row as ModRow)), filters);
+  console.log(`[getPublicMods] after filter/map: ${mods.length}`);
   const sortedMods = sort === "hot" ? sortModsByHot(mods) : applyModSort(sort)(mods);
+  console.log(`[getPublicMods] FINAL sorted: ${sortedMods.length}, limit=${limit}`);
 
   return typeof limit === "number" ? sortedMods.slice(0, limit) : sortedMods;
 }
