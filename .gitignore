@@ -41,6 +41,9 @@ yarn-error.log*
 # local tutorial videos (hosted on COS)
 /public/video/
 
+# troubleshooting images (hosted on COS)
+/content/troubleshooting/images/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

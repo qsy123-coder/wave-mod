@@ -6,6 +6,7 @@ export const siteConfig = {
     { label: "角色分类", href: "/mods" },
     { label: "图库", href: "/gallery" },
     { label: "先看我", href: "/guide" },
+    { label: "问题解答", href: "/troubleshooting" },
     { label: "支持本站", href: "/support" },
   ],
   supportLinks: [

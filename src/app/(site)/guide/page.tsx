@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { tutorialConfig } from "@/features/tutorial/config";
 import { TutorialTabs } from "@/features/tutorial/components/tutorial-tabs";
@@ -96,6 +97,15 @@ export default async function GuidePage() {
           <div className="mt-1 flex items-center gap-2 text-2xl font-bold leading-6 text-black/70">
             <span>每节图文教程下方</span>
             <VideoHintBanner />
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-sm font-bold text-black/60">
+            <span>遇到无法解决的问题？</span>
+            <Link
+              href="/troubleshooting"
+              className="inline-flex items-center gap-1 border-[2px] border-black px-2 py-0.5 text-xs font-black text-black transition hover:bg-[var(--neo-accent)]"
+            >
+              查看问题解答 →
+            </Link>
           </div>
         </section>
       </MotionReveal>
