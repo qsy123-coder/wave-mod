@@ -9,6 +9,7 @@ import { VideoHintBanner } from "@/features/tutorial/components/video-hint-banne
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { AdminToolbar } from "./admin-toolbar";
 import { TextChapterEditorModal } from "./text-chapter-editor-modal";
+import { ChapterEditorModal } from "./chapter-editor-modal";
 import type { TextChapterData } from "./text-chapter-editor-modal";
 import {
   saveDraft,
@@ -102,6 +103,9 @@ export function TutorialAdminClient({
   const [textEditorChapterId, setTextEditorChapterId] = useState<string | null>(null);
   const [textEditorData, setTextEditorData] = useState<TextChapterData | null>(null);
 
+  // ── Chapter key + title editor modal ──
+  const [chapterEditorId, setChapterEditorId] = useState<string | null>(null);
+
   const hasDraft = draft !== null;
 
   // ── Mark changes ──
@@ -140,22 +144,28 @@ export function TutorialAdminClient({
     [markChanged],
   );
 
-  // ── Chapter edit (title via prompt) ──
-  const handleEditChapterTitle = useCallback(
+  // ── Chapter edit (key + title via modal, replacing old window.prompt) ──
+  const handleEditChapter = useCallback(
     (chapterId: string) => {
-      const ch = chapters.find((c) => c.id === chapterId);
-      if (!ch) return;
-      const newTitle = window.prompt("编辑章节标题", ch.title);
-      if (newTitle && newTitle.trim() && newTitle.trim() !== ch.title) {
-        setChapters((prev) =>
-          prev.map((c) =>
-            c.id === chapterId ? { ...c, title: newTitle.trim() } : c,
-          ),
-        );
-        markChanged();
-      }
+      setChapterEditorId(chapterId);
     },
-    [chapters, markChanged],
+    [],
+  );
+
+  const handleSaveChapterEditor = useCallback(
+    (newKey: string, newTitle: string) => {
+      if (!chapterEditorId) return;
+      setChapters((prev) =>
+        prev.map((c) =>
+          c.id === chapterEditorId
+            ? { ...c, id: newKey, title: newTitle }
+            : c,
+        ),
+      );
+      setChapterEditorId(null);
+      markChanged();
+    },
+    [chapterEditorId, markChanged],
   );
 
   // ── Chapter edit (video URL) ──
@@ -678,7 +688,7 @@ export function TutorialAdminClient({
           imageBasePath={imageBasePath}
           editable
           onReorder={handleReorder}
-          onEditChapter={handleEditChapterTitle}
+          onEditChapter={handleEditChapter}
           onDeleteChapter={handleDeleteChapter}
           onAddChapter={handleAddChapter}
           onEditChapterVideo={handleEditChapterVideo}
@@ -701,6 +711,20 @@ export function TutorialAdminClient({
           }}
         />
       )}
+
+      {/* Chapter key + title editor modal */}
+      {chapterEditorId &&
+        (() => {
+          const ch = chapters.find((c) => c.id === chapterEditorId);
+          return ch ? (
+            <ChapterEditorModal
+              chapterKey={ch.id}
+              chapterTitle={ch.title}
+              onSave={handleSaveChapterEditor}
+              onClose={() => setChapterEditorId(null)}
+            />
+          ) : null;
+        })()}
 
       {/* Chapter video URL editor modal */}
       {editingChapterVideo && (
