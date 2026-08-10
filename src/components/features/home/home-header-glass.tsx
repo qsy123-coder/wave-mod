@@ -31,5 +31,15 @@ export function HomeHeaderGlass() {
     return () => observer.disconnect();
   }, []);
 
-  return null;
+  return (
+    <style>{`
+      html[data-header-glass] header[class*="sticky"] {
+        background: transparent !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom-color: transparent !important;
+        transition: background 0.35s ease, border-bottom-color 0.35s ease, backdrop-filter 0.35s ease;
+      }
+    `}</style>
+  );
 }

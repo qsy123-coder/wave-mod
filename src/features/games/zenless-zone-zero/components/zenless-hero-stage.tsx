@@ -57,9 +57,13 @@ type ZenlessHeroStageProps = {
   fallbackSlides?: ZenlessHeroSlide[];
   copy?: ZenlessHeroCopy;
   className?: string;
+  imageTopClass?: string;
+  imageShiftPx?: number;
+  imagePosition?: string;
+  fullscreen?: boolean;
 };
 
-export function ZenlessHeroStage({ game, mods, slideDefaults, fallbackSlides: fb, copy, className }: ZenlessHeroStageProps) {
+export function ZenlessHeroStage({ game, mods, slideDefaults, fallbackSlides: fb, copy, className, imageTopClass, imageShiftPx, imagePosition, fullscreen }: ZenlessHeroStageProps) {
   const slides = createZenlessSlides(game, mods, slideDefaults, fb);
-  return <ZenlessHeroCarouselClient game={game} slides={slides} copy={copy} className={className} />;
+  return <ZenlessHeroCarouselClient game={game} slides={slides} copy={copy} className={className} imageTopClass={imageTopClass} imageShiftPx={imageShiftPx} imagePosition={imagePosition} fullscreen={fullscreen} />;
 }

@@ -139,15 +139,19 @@ async function HomeWuwaSection() {
 
   return (
     <div className="flex min-h-full flex-col">
-      {/* 大屏轮播：从 className 源头设置 h-[40vh]，底部渐变自然过渡 */}
+      {/* 轮播图：fullscreen 模式下图片用 fixed 定位做全屏背景 */}
       <ZenlessHeroStage
         game={game}
         mods={featuredMods}
         slideDefaults={wuwaSlideDefaults}
         copy={wuwaCopy}
         className="!h-[44vh] !min-h-0 !pt-[30px]"
+        imageTopClass="-top-45"
+        imageShiftPx={200}
+        imagePosition="50% 35%"
+        fullscreen
       />
-      {/* 内容区：与区域 1 等宽，填满剩余空间（ZenlessLowerHome 自带 px，此处仅约束宽度） */}
+      {/* 下方内容：原有布局不变 */}
       <div className="mx-auto w-full max-w-[1680px]">
         <ZenlessLowerHome
           game={game}
