@@ -35,14 +35,14 @@ const stats = [
   { icon: Zap, value: "Daily", label: "每日更新" },
 ] as const;
 
-const categories = [
-  { icon: "👤", name: "代理人外观", query: "角色", count: "1,323" },
-  { icon: "🧥", name: "服装皮肤", query: "皮肤", count: "986" },
-  { icon: "⚔️", name: "武器替换", query: "武器", count: "652" },
-  { icon: "🖥️", name: "UI 视觉", query: "UI", count: "412" },
-  { icon: "🎮", name: "玩法增强", query: "玩法", count: "231" },
-  { icon: "🎵", name: "音效语音", query: "音效", count: "143" },
-] as const;
+const categories: LowerHomeCategory[] = [
+  { avatar: null, icon: "👤", name: "代理人外观", query: "角色", count: "1,323" },
+  { avatar: null, icon: "🧥", name: "服装皮肤", query: "皮肤", count: "986" },
+  { avatar: null, icon: "⚔️", name: "武器替换", query: "武器", count: "652" },
+  { avatar: null, icon: "🖥️", name: "UI 视觉", query: "UI", count: "412" },
+  { avatar: null, icon: "🎮", name: "玩法增强", query: "玩法", count: "231" },
+  { avatar: null, icon: "🎵", name: "音效语音", query: "音效", count: "143" },
+];
 
 const creators = [
   { name: "NewEriduLab", followers: "10.5K" },
@@ -87,10 +87,11 @@ const fallbackUpdates = [
   },
 ] as const;
 
-function ZenlessStatsBar() {
+function ZenlessStatsBar({ stats: sOverride }: { stats?: LowerHomeStats }) {
+  const s = sOverride ?? stats;
   return (
     <div
-      className="group/stats relative grid overflow-hidden border-2 border-black bg-white py-0 text-black shadow-[7px_7px_0px_0px_#000] transition-all duration-300 ease-out hover:py-20 sm:grid-cols-5"
+      className="group/stats relative grid overflow-hidden border-2 border-black bg-white py-0 text-black shadow-[7px_7px_0px_0px_#000] sm:grid-cols-5"
       style={{
         backgroundImage: `url(${multiAgentPlaceholder})`,
         backgroundPosition: `center ${statsBackgroundPositionY}%`,
@@ -99,7 +100,7 @@ function ZenlessStatsBar() {
       }}
     >
       <div className="absolute inset-0 bg-white/8" />
-      {stats.map(({ icon: Icon, label, value }, index) => {
+      {s.map(({ icon: Icon, label, value }, index) => {
         // const dividerClass = index > 0 ? "border-t-4 sm:border-l-4 sm:border-t-0" : "";
         // const toneClass = index % 3 === 0 ? "bg-[var(--neo-accent)]/76" : index % 3 === 1 ? "bg-white/78" : "bg-[var(--neo-muted)]/76";
 
@@ -134,13 +135,16 @@ function ZenlessFeaturedCard({
   game,
   index,
   mod,
+  displayMods: dms,
 }: {
   game: GameConfig;
   index: number;
   mod: SiteMod;
+  displayMods?: LowerHomeDisplayMod[];
 }) {
   const tag = ["HOT", "TRENDING", "NEW", "AGENT"][index % 4];
-  const display = displayMods[index % displayMods.length];
+  const dm = dms ?? displayMods;
+  const display = dm[index % dm.length];
 
   return (
     <Link
@@ -173,10 +177,10 @@ function ZenlessFeaturedCard({
       </div>
       <div className="space-y-1.5 p-2.5">
         <p className="text-[9px] font-black uppercase tracking-[0.16em] text-black/55">
-          {display.character}
+          {mod.character || display.character}
         </p>
         <h3 className="line-clamp-1 text-xs font-black uppercase leading-tight text-black">
-          {display.title}
+          {mod.title || display.title}
         </h3>
         <div className="flex items-center justify-between text-[10px] font-black text-black/68">
           <span className="inline-flex items-center gap-1">
@@ -193,16 +197,18 @@ function ZenlessFeaturedCard({
 function ZenlessFeaturedMods({
   game,
   mods,
+  displayMods: dmsOverride,
 }: {
   game: GameConfig;
   mods: SiteMod[];
+  displayMods?: LowerHomeDisplayMod[];
 }) {
   return (
     <section className="space-y-2">
       <div className="flex items-center gap-3">
         <MotionReveal delay={0.08} rotate={-1}>
           <h2 className="shrink-0 border-4 border-black bg-[var(--neo-secondary)] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-black shadow-[5px_5px_0px_0px_#000]">
-            Featured Mods
+            精选 MOD
           </h2>
         </MotionReveal>
         <div className="h-px flex-1 bg-white/65 shadow-[0_1px_0px_#000]" />
@@ -211,7 +217,7 @@ function ZenlessFeaturedMods({
             href={game.nav.mods}
             className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-white underline decoration-[var(--neo-accent)] decoration-4 underline-offset-4"
           >
-            View All
+            查看全部
           </Link>
         </MotionReveal>
       </div>
@@ -224,6 +230,7 @@ function ZenlessFeaturedMods({
                 game={game}
                 index={index}
                 mod={mod}
+                displayMods={dmsOverride}
               />
             ))}
             {mods.slice(0, 6).map((mod, index) => (
@@ -248,35 +255,41 @@ function ZenlessFeaturedMods({
 function ZenlessLatestUpdates({
   game,
   mods,
+  displayMods: dmsOverride,
+  fallbackUpdates: fbOverride,
 }: {
   game: GameConfig;
   mods: SiteMod[];
+  displayMods?: LowerHomeDisplayMod[];
+  fallbackUpdates?: LowerHomeUpdate[];
 }) {
+  const dms = dmsOverride ?? displayMods;
+  const fb = fbOverride ?? fallbackUpdates;
   const updates =
     mods.length > 0
       ? mods.slice(0, 4).map((mod, index) => {
-          const display = displayMods[index % displayMods.length];
+          const display = dms[index % dms.length];
 
           return {
-            title: display.title,
-            desc: display.character || "代理人 MOD",
+            title: mod.title || display.title,
+            desc: mod.character || display.character || "代理人 MOD",
             time: index === 0 ? "Just now" : `${index + 2}h ago`,
             badge: index === 0 ? "NEW" : null,
           };
         })
-      : fallbackUpdates;
+      : fb;
 
   return (
     <section className="border-4 border-black bg-[var(--neo-panel)] p-3 text-black shadow-[7px_7px_0px_0px_#000]">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-xs font-black uppercase tracking-[0.16em]">
-          Latest Updates
+          最新更新
         </h3>
         <Link
           href={`${game.nav.mods}?sort=latest`}
           className="text-[9px] font-black uppercase tracking-[0.14em] underline decoration-2"
         >
-          View All
+          查看全部
         </Link>
       </div>
       <div className="space-y-2">
@@ -311,28 +324,33 @@ function ZenlessLatestUpdates({
   );
 }
 
-function ZenlessPopularCategories({ game }: { game: GameConfig }) {
+function ZenlessPopularCategories({ game, categories: catsOverride }: { game: GameConfig; categories?: LowerHomeCategory[] }) {
+  const cats = catsOverride ?? categories;
   return (
     <section className="border-4 border-black bg-white p-3 text-black shadow-[7px_7px_0px_0px_#000]">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-xs font-black uppercase tracking-[0.16em]">
-          Popular Categories
+          热门分类
         </h3>
         <Link
           href={game.nav.mods}
           className="text-[9px] font-black uppercase tracking-[0.14em] underline decoration-2"
         >
-          View All
+          查看全部
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        {categories.map((category, index) => (
+        {cats.map((category, index) => (
           <Link
             key={category.name}
             href={`${game.nav.mods}?query=${encodeURIComponent(category.query)}`}
             className={`flex items-center gap-2 border-2 border-black px-2 py-1.5 shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 ${index % 3 === 0 ? "bg-[var(--neo-accent)]" : index % 3 === 1 ? "bg-[var(--neo-secondary)]" : "bg-[var(--neo-muted)]"}`}
           >
-            <span className="text-sm">{category.icon}</span>
+            {category.avatar ? (
+              <Image src={category.avatar} alt={category.name} width={28} height={28} unoptimized className="size-7 shrink-0 rounded-full border-2 border-black object-cover" />
+            ) : (
+              <span className="text-sm">{category.icon ?? "👤"}</span>
+            )}
             <span className="min-w-0">
               <span className="block truncate text-[10px] font-black leading-tight">
                 {category.name}
@@ -351,7 +369,7 @@ function ZenlessPopularCategories({ game }: { game: GameConfig }) {
 function ZenlessCreatorCta() {
   return (
     <div
-      className="group/creator relative flex min-h-12 items-center justify-between gap-3 overflow-hidden border-4 border-black bg-[var(--neo-muted)] px-4 py-2 text-black shadow-[7px_7px_0px_0px_#000] transition-all duration-300 ease-out hover:min-h-24 hover:px-5 hover:py-20"
+      className="group/creator relative flex min-h-10 items-center justify-between gap-3 overflow-hidden border-4 border-black bg-[var(--neo-muted)] px-4 py-2 text-black shadow-[7px_7px_0px_0px_#000]"
       style={{
         backgroundImage: `url(${pinkWideBackground})`,
         backgroundPosition: `center ${creatorBackgroundPositionY}%`,
@@ -362,10 +380,10 @@ function ZenlessCreatorCta() {
       <div className="absolute inset-0 bg-[var(--neo-muted)]/45" />
       <div className="relative z-10 transition-all duration-300 ease-out group-hover/creator:-translate-y-1 group-hover/creator:scale-95 group-hover/creator:opacity-90">
         <h3 className="text-[8px] font-black uppercase leading-tight">
-          Create. Share. Inspire.
+          创作 · 分享 · 启发
         </h3>
         <p className="mt-1 text-[10px] font-bold text-black/62">
-          成为创作者，分享你的新艾利都 MOD。
+          成为创作者，分享你的鸣潮 MOD。
         </p>
       </div>
       <Link
@@ -373,20 +391,21 @@ function ZenlessCreatorCta() {
         className="neo-button-primary relative z-10 inline-flex shrink-0 items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition-all duration-300 ease-out group-hover/creator:translate-y-1 group-hover/creator:scale-90 group-hover/creator:px-3 group-hover/creator:py-1.5"
       >
         <Upload className="size-2.5" />
-        Upload
+        发布 MOD
       </Link>
     </div>
   );
 }
 
-function ZenlessCreatorsBar() {
+function ZenlessCreatorsBar({ creators: cOverride }: { creators?: LowerHomeCreator[] }) {
+  const c = cOverride ?? creators;
   return (
     <div className="flex items-center gap-3 overflow-hidden border-4 border-black bg-white px-3 py-2 text-black shadow-[7px_7px_0px_0px_#000]">
       <p className="shrink-0 text-[9px] font-black uppercase tracking-[0.2em] text-black/55">
-        Trusted by Creators
+        创作者
       </p>
       <div className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {creators.map((creator, index) => (
+        {c.map((creator, index) => (
           <div key={creator.name} className="flex shrink-0 items-center gap-2">
             <div
               className={`flex size-7 items-center justify-center rounded-full border-2 border-black text-[10px] font-black ${index % 3 === 0 ? "bg-[var(--neo-accent)]" : index % 3 === 1 ? "bg-[var(--neo-secondary)]" : "bg-[var(--neo-muted)]"}`}
@@ -409,38 +428,54 @@ function ZenlessCreatorsBar() {
   );
 }
 
+type LowerHomeStats = Array<{ icon: React.ComponentType<{ className?: string }>; value: string; label: string }>;
+type LowerHomeCategory = { icon?: string; avatar?: string | null; name: string; query: string; count: string };
+type LowerHomeCreator = { name: string; followers: string };
+type LowerHomeDisplayMod = { character: string; title: string };
+type LowerHomeUpdate = { title: string; desc: string; time: string; badge: string | null };
+
 type ZenlessLowerHomeProps = {
   game: GameConfig;
   latestMods: SiteMod[];
   mods: SiteMod[];
+  stats?: LowerHomeStats;
+  categories?: LowerHomeCategory[];
+  creators?: LowerHomeCreator[];
+  displayMods?: LowerHomeDisplayMod[];
+  fallbackUpdates?: LowerHomeUpdate[];
 };
 
 export function ZenlessLowerHome({
   game,
   latestMods,
   mods,
+  stats: statsOverride,
+  categories: categoriesOverride,
+  creators: creatorsOverride,
+  displayMods: displayModsOverride,
+  fallbackUpdates: fallbackUpdatesOverride,
 }: ZenlessLowerHomeProps) {
   return (
     <section className="relative z-10 -mt-14 px-4 pb-6 pt-0 text-white sm:px-5 lg:px-6 2xl:px-4">
       <div className="mx-auto grid max-w-[1500px] gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-3">
           <MotionReveal delay={0.04} y={24} rotate={-1}>
-            <ZenlessStatsBar />
+            <ZenlessStatsBar stats={statsOverride} />
           </MotionReveal>
-          <ZenlessFeaturedMods game={game} mods={mods} />
+          <ZenlessFeaturedMods game={game} mods={mods} displayMods={displayModsOverride} />
           <MotionReveal delay={0.22} y={24} rotate={1}>
             <ZenlessCreatorCta />
           </MotionReveal>
           <MotionReveal delay={0.26} y={20} rotate={-1}>
-            <ZenlessCreatorsBar />
+            <ZenlessCreatorsBar creators={creatorsOverride} />
           </MotionReveal>
         </div>
         <aside className="grid gap-3 lg:auto-rows-max">
           <MotionReveal delay={0.18} y={26} rotate={1}>
-            <ZenlessLatestUpdates game={game} mods={latestMods} />
+            <ZenlessLatestUpdates game={game} mods={latestMods} displayMods={displayModsOverride} fallbackUpdates={fallbackUpdatesOverride} />
           </MotionReveal>
           <MotionReveal delay={0.24} y={26} rotate={-1}>
-            <ZenlessPopularCategories game={game} />
+            <ZenlessPopularCategories game={game} categories={categoriesOverride} />
           </MotionReveal>
         </aside>
       </div>
