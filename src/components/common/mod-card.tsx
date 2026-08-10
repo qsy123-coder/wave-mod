@@ -86,9 +86,9 @@ const variantStyles: Record<
   }
 > = {
   default: {
-    title: "line-clamp-2 max-w-[13rem] text-[0.9rem] font-black uppercase leading-[1.04] tracking-[0.16em] text-white/50 group-hover/mod-card:text-white transition-colors",
-    description: "hidden max-w-[14rem] text-[11px] font-bold leading-4 text-white/76 md:block",
-    content: "absolute inset-x-0 bottom-0 px-4 pb-4 pt-24 text-white",
+    title: "line-clamp-2 max-w-[13rem] text-[0.9rem] font-black uppercase leading-[1.04] tracking-[0.16em] text-black/60 group-hover/mod-card:text-black transition-colors",
+    description: "hidden max-w-[14rem] text-[11px] font-bold leading-4 text-black/70 md:block",
+    content: "absolute inset-x-0 bottom-0 px-4 pb-4 pt-24 text-black",
     tagWrap: "hidden flex-wrap gap-1.5 md:flex",
     titleLinkWrap: "block space-y-2",
     detailLink:
@@ -99,9 +99,9 @@ const variantStyles: Record<
     defaultTopRight: null,
   },
   home: {
-    title: "line-clamp-2 max-w-[13rem] text-[0.85rem] font-black uppercase leading-[1.03] tracking-[0.16em] text-white/50 group-hover/mod-card:text-white transition-colors",
-    description: "hidden max-w-[14rem] text-[11px] font-bold leading-4 text-white/72 md:block",
-    content: "absolute inset-x-0 bottom-0 px-4 pb-4 pt-24 text-white",
+    title: "line-clamp-2 max-w-[13rem] text-[0.85rem] font-black uppercase leading-[1.03] tracking-[0.16em] text-black/60 group-hover/mod-card:text-black transition-colors",
+    description: "hidden max-w-[14rem] text-[11px] font-bold leading-4 text-black/70 md:block",
+    content: "absolute inset-x-0 bottom-0 px-4 pb-4 pt-24 text-black",
     tagWrap: "hidden",
     titleLinkWrap: "block space-y-1",
     detailLink:
@@ -112,9 +112,9 @@ const variantStyles: Record<
     defaultTopRight: null,
   },
   list: {
-    title: "line-clamp-1 max-w-[10.5rem] text-[0.75rem] font-black uppercase leading-[1.02] tracking-[0.16em] text-white/50 group-hover/mod-card:text-white transition-colors",
-    description: "hidden max-w-[10.5rem] text-[10px] font-bold leading-3 text-white/66 md:block",
-    content: "absolute inset-x-0 bottom-0 px-2.5 pb-2.5 pt-20 text-white",
+    title: "line-clamp-1 max-w-[10.5rem] text-[0.75rem] font-black uppercase leading-[1.02] tracking-[0.16em] text-black/60 group-hover/mod-card:text-black transition-colors",
+    description: "hidden max-w-[10.5rem] text-[10px] font-bold leading-3 text-black/66 md:block",
+    content: "absolute inset-x-0 bottom-0 px-2.5 pb-2.5 pt-20 text-black",
     tagWrap: "hidden",
     titleLinkWrap: "block space-y-1",
     detailLink:
@@ -196,7 +196,7 @@ export function ModCard({
   );
 
   const compactStats = showInteractionBar ? (
-    <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-white/55">
+    <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-black/55">
       <span className="inline-flex items-center gap-1">
         <Eye className="size-3.5" />{mod.views}
       </span>
@@ -303,8 +303,6 @@ export function ModCard({
           </>
         )}
       </div>
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/18 to-black/8" />
-
       {/* 批量操作复选框 */}
       {showCheckbox ? (
         <div className="absolute left-2 top-2 z-30" onClick={(e) => e.stopPropagation()}>

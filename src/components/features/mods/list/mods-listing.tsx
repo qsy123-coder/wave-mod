@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import { ModsPageSkeleton } from "@/components/layout/data-skeletons";
-import { getCharacterSuggestions, getPublicMods, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
+import { getCharacterSuggestions, getPublicMods, getPublicModsPage, normalizeCharacterName, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 import { getCurrentUser, isAdminUser } from "@/lib/supabase/server";
 
 type PageProps = {
@@ -38,7 +38,7 @@ async function getCharacterCounts(): Promise<Record<string, number>> {
     const allMods = await getPublicMods();
     const counts: Record<string, number> = {};
     for (const mod of allMods) {
-      const c = (mod.character ?? "").trim();
+      const c = normalizeCharacterName(mod.character ?? "");
       if (c) counts[c] = (counts[c] || 0) + 1;
     }
     return counts;

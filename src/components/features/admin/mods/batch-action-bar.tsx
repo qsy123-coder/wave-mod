@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LoaderCircle, PencilRuler, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { LoaderCircle, PencilRuler, Trash2, CheckCircle, XCircle, Star, StarOff } from "lucide-react";
 
-import { batchDeleteMods, batchPublishMods, type BatchResult } from "@/actions/admin/batch-actions";
+import { batchDeleteMods, batchFeatureMods, batchPublishMods, type BatchResult } from "@/actions/admin/batch-actions";
 import { BatchEditModal } from "./batch-edit-modal";
 
 type BatchActionBarProps = {
@@ -50,6 +50,15 @@ export function BatchActionBar({ selectedIds, onClearSelection }: BatchActionBar
     onClearSelection();
   };
 
+  const handleFeature = async (feature: boolean) => {
+    setLoading(true);
+    setResult(null);
+    const res = await batchFeatureMods(selectedIds, feature);
+    setResult(res);
+    setLoading(false);
+    onClearSelection();
+  };
+
   const handleEditComplete = (res: BatchResult) => {
     setResult(res);
     setShowEditModal(false);
@@ -81,6 +90,14 @@ export function BatchActionBar({ selectedIds, onClearSelection }: BatchActionBar
                 <button type="button" onClick={() => handlePublish(false)} disabled={loading}
                   className="inline-flex items-center gap-1.5 border-[3px] border-black bg-[#ffd84f] px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 disabled:opacity-40">
                   <XCircle className="size-3.5" />批量下线
+                </button>
+                <button type="button" onClick={() => handleFeature(true)} disabled={loading}
+                  className="inline-flex items-center gap-1.5 border-[3px] border-black bg-[#bcaeff] px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 disabled:opacity-40">
+                  <Star className="size-3.5" />批量推荐
+                </button>
+                <button type="button" onClick={() => handleFeature(false)} disabled={loading}
+                  className="inline-flex items-center gap-1.5 border-[3px] border-black bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 disabled:opacity-40">
+                  <StarOff className="size-3.5" />取消推荐
                 </button>
                 <button type="button" onClick={handleDelete} disabled={loading}
                   className="inline-flex items-center gap-1.5 border-[3px] border-black bg-[#ff7a7a] px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 disabled:opacity-40">

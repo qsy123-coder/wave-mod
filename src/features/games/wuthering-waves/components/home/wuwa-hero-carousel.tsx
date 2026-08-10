@@ -34,8 +34,6 @@ export function WuwaHeroCarousel({ mods }: { mods: SiteMod[] }) {
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/20" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
       </div>
 
       <div className="relative flex h-full max-w-7xl flex-col justify-center px-6 pt-14 md:px-10 lg:px-16">

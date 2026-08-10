@@ -4,13 +4,13 @@ import type { GameConfig } from "@/config/games";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
 import { ModGridSkeleton } from "@/components/layout/data-skeletons";
-import { getAvailableCharacters, getPublicMods, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
+import { getAvailableCharacters, getPublicMods, getPublicModsPage, normalizeCharacterName, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 
 async function getCharacterCounts(gameKey: string): Promise<Record<string, number>> {
   const allMods = await getPublicMods(undefined, { gameKey });
   const counts: Record<string, number> = {};
   for (const mod of allMods) {
-    const c = (mod.character ?? "").trim();
+    const c = normalizeCharacterName(mod.character ?? "");
     if (c) counts[c] = (counts[c] || 0) + 1;
   }
   const total = Object.values(counts).reduce((a, b) => a + b, 0);

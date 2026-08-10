@@ -12,6 +12,45 @@ export type BatchResult = {
   failed: { id: string; title: string; error: string }[];
 };
 
+/** 批量切换推荐状态 */
+export async function batchFeatureMods(
+  ids: string[],
+  isFeatured: boolean,
+): Promise<BatchResult> {
+  await requireAdminUser("/admin/mods");
+
+  const supabase = createAdminClient();
+  const result: BatchResult = { success: 0, failed: [] };
+
+  if (!supabase) {
+    return { success: 0, failed: ids.map((id) => ({ id, title: "", error: "数据库连接失败" })) };
+  }
+
+  for (const id of ids) {
+    try {
+      const { error } = await supabase
+        .from("mods")
+        .update({ is_featured: isFeatured })
+        .eq("id", id);
+
+      if (error) {
+        result.failed.push({ id, title: "", error: error.message });
+      } else {
+        result.success++;
+      }
+    } catch (err) {
+      result.failed.push({
+        id,
+        title: "",
+        error: err instanceof Error ? err.message : "未知错误",
+      });
+    }
+  }
+
+  revalidatePath("/admin/mods");
+  return result;
+}
+
 /** 批量切换发布状态 */
 export async function batchPublishMods(
   ids: string[],

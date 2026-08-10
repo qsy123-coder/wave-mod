@@ -17,7 +17,7 @@ export const characters = [
   "丹瑾",
   "安可",
   "绯雪",
-  "嘉贝丽娜",
+  "嘉贝莉娜",
   "爱弥斯",
   "尤诺",
   "鉴心",
@@ -51,6 +51,11 @@ export const characters = [
   "渊武",
   "赞妮",
   "折枝",
+  "景燃",
+  "清宵",
+  "穗穗",
+  "锁暝",
+  "心月狐",
 ] as const;
 
 export const defaultCharacterSuggestions = [...characters] as string[];

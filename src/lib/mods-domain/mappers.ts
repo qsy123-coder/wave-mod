@@ -27,6 +27,7 @@ export const publicModColumns = `
   rating_count,
   rating_average,
   is_published,
+  is_featured,
   created_at
 `;
 
@@ -57,6 +58,7 @@ export function mapMod(row: ModRow): SiteMod {
     version: row.version,
     videoUrl: row.video_url,
     views: row.views ?? 0,
+    isFeatured: row.is_featured ?? false,
     xxmiInstallGuide: row.xxmi_install_guide,
   };
 }

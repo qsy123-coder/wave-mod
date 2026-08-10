@@ -165,7 +165,6 @@ function ZenlessFeaturedCard({
           className="object-contain object-center transition duration-500 group-hover:scale-105"
           unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
         <span
           className={`absolute left-2 top-2 border-2 border-black px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] ${index % 3 === 0 ? "bg-[var(--neo-accent)]" : index % 3 === 1 ? "bg-[var(--neo-secondary)]" : "bg-[var(--neo-muted)]"}`}
         >

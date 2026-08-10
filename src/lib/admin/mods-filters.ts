@@ -4,6 +4,7 @@ import { games } from "@/config/games";
 import {
   applyModQueryFilters,
   applyModSort,
+  normalizeCharacterName,
   parseCharacterFilter,
   parseModQuery,
   sortModsByHot,
@@ -126,7 +127,7 @@ export function applyAdminModsView<T extends SiteMod>(
 export function getAdminCharacterCounts(mods: AdminMod[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const mod of mods) {
-    const name = mod.character?.trim();
+    const name = normalizeCharacterName(mod.character ?? "");
     if (name) {
       counts[name] = (counts[name] || 0) + 1;
     }

@@ -5,7 +5,7 @@ import type { GameConfig } from "@/config/games";
 import { ModCard } from "@/components/common/mod-card";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
-import { getFeaturedMods, getLatestMods, getTopRatedMods, type SiteMod } from "@/lib/mods";
+import { getFeaturedMods, getLatestMods, getPublicMods, getTopRatedMods, type SiteMod } from "@/lib/mods";
 
 function GameModStrip({ accent, href, mods, title }: { accent: string; href: string; mods: SiteMod[]; title: string }) {
   return (
@@ -40,8 +40,9 @@ function GameModStrip({ accent, href, mods, title }: { accent: string; href: str
 }
 
 export async function DefaultGameHomePage({ game }: { game: GameConfig }) {
-  const [featuredMods, latestMods, topRatedMods] = await Promise.all([
-    getFeaturedMods(3, game.key),
+  const [featuredMods, hotMods, latestMods, topRatedMods] = await Promise.all([
+    getFeaturedMods(6, game.key),
+    getPublicMods(3, { gameKey: game.key, sort: "hot" }),
     getLatestMods(3, game.key),
     getTopRatedMods(3, game.key),
   ]);
@@ -86,7 +87,10 @@ export async function DefaultGameHomePage({ game }: { game: GameConfig }) {
         </section>
       </MotionReveal>
 
-      <GameModStrip accent={game.theme.primary} href={`${game.nav.mods}?sort=hot`} mods={featuredMods} title={`${game.name} 热门推荐`} />
+      {featuredMods.length > 0 ? (
+        <GameModStrip accent={game.theme.primary} href={`${game.nav.mods}?sort=hot`} mods={featuredMods} title={`${game.name} 推荐精选`} />
+      ) : null}
+      <GameModStrip accent={game.theme.primary} href={`${game.nav.mods}?sort=hot`} mods={hotMods} title={`${game.name} 热门推荐`} />
       <GameModStrip accent={game.theme.muted} href={`${game.nav.mods}?sort=rating`} mods={topRatedMods} title={`${game.name} 高评分`} />
       <GameModStrip accent={game.theme.accent} href={game.nav.mods} mods={latestMods} title={`${game.name} 最新发布`} />
 

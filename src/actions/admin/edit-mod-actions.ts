@@ -122,6 +122,7 @@ export async function getEditableMod(id: string) {
       rating_count,
       rating_average,
       is_published,
+      is_featured,
       created_at
     `)
     .eq("id", parsedId.data)
@@ -143,6 +144,7 @@ export async function getEditableMod(id: string) {
     gameVersion: data.game_version,
     id: data.id,
     images: data.images ?? [],
+    isFeatured: data.is_featured ?? false,
     isPublished: data.is_published,
     likes: data.likes_count ?? 0,
     modAuthorUrl: data.mod_author_url,

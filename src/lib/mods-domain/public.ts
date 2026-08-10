@@ -105,7 +105,23 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
 }
 
 export async function getFeaturedMods(limit: number, gameKey = defaultGameKey) {
-  return getPublicMods(limit, { gameKey, sort: "hot" });
+  // 获取手动推荐的 mod（is_featured = true），按创建时间倒序
+  const supabase = createPublicReadClient();
+  const { data, error } = await supabase
+    .from("mods")
+    .select(publicModColumns)
+    .eq("is_published", true)
+    .eq("game_key", gameKey)
+    .eq("is_featured", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    logger.warn("[mods] getFeaturedMods failed, fallback to empty list", { error: error.message });
+    return [] satisfies SiteMod[];
+  }
+
+  return (data ?? []).map((row) => mapMod(row as ModRow));
 }
 
 export async function getWeeklyHotMods(limit: number, gameKey = defaultGameKey) {

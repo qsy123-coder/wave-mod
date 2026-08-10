@@ -58,7 +58,6 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
           className="object-contain object-center transition-transform duration-500 group-hover:scale-105"
           unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
         <div className="absolute left-2 top-2">
           <ModTag label={tag} />
         </div>

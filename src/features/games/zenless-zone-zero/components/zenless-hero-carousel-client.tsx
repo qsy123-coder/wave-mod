@@ -65,8 +65,6 @@ export function ZenlessHeroCarouselClient({ game, slides }: ZenlessHeroCarouselC
         ) : (
           <div className="h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
         )}
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.86)_0%,rgba(0,0,0,0.5)_36%,rgba(0,0,0,0.14)_70%,rgba(0,0,0,0.74)_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(0deg,var(--zzz-hero-bg,#3a2418)_0%,rgba(var(--zzz-hero-bg-rgb,58,36,24),0.98)_14%,rgba(var(--zzz-hero-bg-rgb,58,36,24),0.78)_28%,rgba(var(--zzz-hero-bg-rgb,58,36,24),0.38)_44%,rgba(0,0,0,0.08)_62%,rgba(0,0,0,0.34)_100%)]" />
         <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(to_bottom,transparent_0%,rgba(var(--zzz-hero-bg-rgb,58,36,24),0.62)_44%,var(--zzz-hero-bg,#3a2418)_82%,var(--zzz-hero-bg,#3a2418)_100%)]" />
         <div className="neo-grid absolute inset-0 opacity-[0.16] mix-blend-screen" />
       </div>

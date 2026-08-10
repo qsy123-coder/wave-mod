@@ -19,6 +19,7 @@ export type SiteMod = {
   id: string;
   images: string[];
   isFavorited?: boolean;
+  isFeatured: boolean;
   isLiked?: boolean;
   likes: number;
   modAuthorUrl: string | null;

@@ -87,12 +87,11 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                       referrerPolicy="no-referrer"
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
                     />
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,transparent_18%,rgba(0,0,0,0.16)_55%,rgba(0,0,0,0.42)_100%)] transition-opacity duration-500 group-hover:opacity-90" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/68 via-black/18 to-black/8" />
+
 
                     <div className="absolute left-3 top-3 z-20 flex flex-wrap gap-2">
                       <Badge className="neo-sticker -rotate-2 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-black hover:bg-[var(--neo-secondary)]" style={{ background: "var(--neo-secondary)" }}>
-                        热门 MOD
+                        推荐 MOD
                       </Badge>
                       <Badge className={`neo-sticker px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-black hover:bg-inherit ${index % 2 === 0 ? "rotate-2" : ""}`} style={{ background: index % 2 === 0 ? "var(--neo-accent)" : "var(--neo-muted)" }}>
                         {mod.character}
@@ -144,7 +143,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
               ))}
             </div>
             <div className="inline-flex items-center gap-2 border-4 border-black bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-black shadow-[4px_4px_0px_0px_#000]">
-              <span className="text-black/55">热门精选</span>
+              <span className="text-black/55">推荐精选</span>
               <span>{String(current + 1).padStart(2, "0")}</span>
               <span className="text-black/45">/</span>
               <span>{String(mods.length).padStart(2, "0")}</span>
