@@ -11,19 +11,32 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 export async function getAvailableCharacters(gameKey = defaultGameKey) {
   try {
     const supabase = createPublicReadClient();
-    const { data, error } = await supabase
-      .from("mods")
-      .select("character")
-      .eq("is_published", true)
-      .eq("game_key", gameKey);
 
-    if (error) {
-      return defaultCharacterSuggestions;
+    // 分页获取所有角色（解决 Supabase 默认 1,000 行限制）
+    let allData: { character: string }[] = [];
+    let from = 0;
+    const batchSize = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from("mods")
+        .select("character")
+        .eq("is_published", true)
+        .eq("game_key", gameKey)
+        .range(from, from + batchSize - 1);
+
+      if (error) {
+        return defaultCharacterSuggestions;
+      }
+
+      if (!data || data.length === 0) break;
+      allData = allData.concat(data);
+      if (data.length < batchSize) break;
+      from += batchSize;
     }
 
     const dynamicCharacters = Array.from(
       new Set(
-        (data ?? [])
+        (allData ?? [])
           .map((row) => normalizeCharacterName(String(row.character ?? "")))
           .filter(Boolean),
       ),
@@ -51,18 +64,30 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
     return [] satisfies SiteMod[];
   }
 
-  const { data, error } = await supabase
-    .from("mods")
-    .select(publicModColumns)
-    .eq("is_published", true)
-    .eq("game_key", gameKey);
+  // 分页获取所有 mods（解决 Supabase 默认 1,000 行限制）
+  let allRows: Record<string, unknown>[] = [];
+  let from = 0;
+  const batchSize = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from("mods")
+      .select(publicModColumns)
+      .eq("is_published", true)
+      .eq("game_key", gameKey)
+      .range(from, from + batchSize - 1);
 
-  if (error) {
-    logger.warn("[mods] getPublicMods failed, fallback to empty list", { error: error.message });
-    return [] satisfies SiteMod[];
+    if (error) {
+      logger.warn("[mods] getPublicMods failed, fallback to empty list", { error: error.message });
+      return [] satisfies SiteMod[];
+    }
+
+    if (!data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if (data.length < batchSize) break;
+    from += batchSize;
   }
 
-  const mods = applyModQueryFilters((data ?? []).map((row) => mapMod(row as ModRow)), filters);
+  const mods = applyModQueryFilters((allRows ?? []).map((row) => mapMod(row as ModRow)), filters);
   const sortedMods = sort === "hot" ? sortModsByHot(mods) : applyModSort(sort)(mods);
 
   return typeof limit === "number" ? sortedMods.slice(0, limit) : sortedMods;

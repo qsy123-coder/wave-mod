@@ -15,30 +15,43 @@ export async function getAdminMods(filters: AdminModsFilters = {}) {
     return [] satisfies AdminMod[];
   }
 
-  let query = supabase
-    .from("mods")
-    .select(publicModColumns);
+  // 分页获取所有 mods（解决 Supabase 默认 1,000 行限制）
+  let allRows: Record<string, unknown>[] = [];
+  let from = 0;
+  const batchSize = 1000;
+  while (true) {
+    let batchQuery = supabase
+      .from("mods")
+      .select(publicModColumns);
 
-  // SQL 级过滤：游戏
-  if (filters.gameKey) {
-    query = query.eq("game_key", filters.gameKey);
+    // SQL 级过滤：游戏
+    if (filters.gameKey) {
+      batchQuery = batchQuery.eq("game_key", filters.gameKey);
+    }
+
+    // SQL 级过滤：发布状态
+    if (filters.status === "published") {
+      batchQuery = batchQuery.eq("is_published", true);
+    } else if (filters.status === "draft") {
+      batchQuery = batchQuery.eq("is_published", false);
+    }
+
+    const { data, error } = await batchQuery
+      .order("created_at", { ascending: false })
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      logger.error("[mods] getAdminMods failed", { error: error.message });
+      return [] satisfies AdminMod[];
+    }
+
+    if (!data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if (data.length < batchSize) break;
+    from += batchSize;
   }
 
-  // SQL 级过滤：发布状态（all 时不设条件，取回全部含草稿）
-  if (filters.status === "published") {
-    query = query.eq("is_published", true);
-  } else if (filters.status === "draft") {
-    query = query.eq("is_published", false);
-  }
-
-  const { data, error } = await query.order("created_at", { ascending: false });
-
-  if (error) {
-    logger.error("[mods] getAdminMods failed", { error: error.message });
-    return [] satisfies AdminMod[];
-  }
-
-  const mods = (data ?? []).map((row) => {
+  const mods = (allRows ?? []).map((row) => {
     const typedRow = row as ModRow;
     return {
       ...mapMod(typedRow),
