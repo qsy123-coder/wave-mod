@@ -26,9 +26,13 @@
 
 ## Q35 · 游戏内左上角有红字报错怎么办？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image55.png)
+
 **解决方法**
 
 1. 打开 XXMI 右上角「设置」→「WWMI」→ 勾选「静音报错」。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image56.png)
 
 ---
 
@@ -37,6 +41,8 @@
 本文档由 **B站可可HXL** 独立编写与维护，旨在为鸣潮 Mod 玩家提供全面的问题解答。
 
 如果你觉得本文档对你有帮助，欢迎扫描下方赞赏码支持作者，你的支持是持续更新的最大动力！
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image57.jpeg)
 
 **联系方式**
 

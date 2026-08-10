@@ -1,5 +1,13 @@
 ## Q5 · 点击启动进入游戏直接闪退，或 XXMI 弹窗加载失败？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image6.jpeg)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image7.jpeg)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image8.png)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image9.png)
+
 **解决方法**
 
 1. 先确保你的鸣潮不是 WeGame 版本，如果是请换官服。（账号数据是互通的，放心！）WeGame 用不了 Mod。
@@ -8,23 +16,40 @@
 
 3. 点击 XXMI 右上角「设置」→「WWMI」，将「XXMI 延迟」数值调大再试。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image10.png)
+
 4. 点击 XXMI 右上角「设置」→「通用」，将「超时」数值调大再试。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image11.png)
 
 5. 点击 XXMI 右上角「设置」→「通用」→「启动方式」，三个选项都试一遍。
 
 > **注意**：Manual 选项可能导致远距离视角贴图错误，不建议选择。Manual 选项需要在 XXMI 里点击「启动」后，再手动打开游戏启动器点击「进入游戏」。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image12.png)
+
 6. 点击 XXMI 右上角「设置」→「通用」→「进程优先级」，六个选项都试一遍。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image13.png)
 
 > 部分人每次加载 Mod 进入游戏都要重新调整一次进程优先级。
 
 7. 点击「启动」旁边的三个点 →「修复 WWMI」试试。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image14.png)
+
 8. 确保后台鸣潮完全关闭，且没有大型软件在运行。然后进入游戏设置，将「各向异性采样」改成「1x」。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image15.png)
 
 9. **N 卡用户**：右键桌面打开 NVIDIA 控制面板。
    - [方案 A] 点击「管理显示设置」，选择「Optimus」→ 点击「应用」。如果还不行，换其他选项逐个试。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image16.png)
+
    - [方案 B] 点击「管理 Surround.PhysX」，在「PhysX 设置」中逐个尝试三个选项（每次改完点「应用」），重启电脑后再试。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image17.png)
 
 10. **A 卡用户**：右键桌面打开 A 卡控制面板 →「游戏」→ 选择「鸣潮」→ 将「游戏体验」改为「性能」（或「HYPR-RX」，闪电图标），改完后应该就能进了。
 
@@ -34,6 +59,8 @@
 
 ## Q6 · 游戏闪退并出现弹窗显示 UE4 崩溃？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image18.jpeg)
+
 **解决方法**
 
 1. 排查是否某个 Mod 导致，把 Mods 清空再试。如果确定是某个 Mod，把它的文件名改成英文（不要有中文）即可。
@@ -42,7 +69,11 @@
 
 3. 点击 XXMI 右上角「设置」→「WWMI」，将「XXMI 延迟」数值调大。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image10.png)
+
 4. 在 XXMI「设置」→「通用」中，找到与显存相关的红框选项，按需取消勾选或调整。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image19.png)
 
 5. 尝试更换显卡驱动版本。
 
@@ -60,6 +91,8 @@
 
 ## Q8 · 进入游戏时弹出 ACE 安全中心弹窗？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image20.jpeg)
+
 **解决方法**
 
 1. 如果是 WeGame 版鸣潮，请换官方启动器（账号数据互通）。
@@ -74,6 +107,8 @@
 
 ## Q9 · 游戏内出现弹窗显示"参数获取异常"？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image21.jpeg)
+
 **解决方法**
 
 1. 尝试多重启几次游戏或电脑。
@@ -86,8 +121,14 @@
 
 ## Q10 · XXMI 一直显示"正在等待 Client-Win64-shipping.exe 启动…"？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image22.png)
+
 **解决方法**
 
 1. 确保 XXMI「设置」→「通用」中的「启动方式」不是「Manual」。Manual 需要先点 XXMI 的「启动」再手动点游戏启动器。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image12.png)
+
 2. 在 XXMI「设置」→「通用」→「进程优先级」，改为「Realtime」试试。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image23.png)

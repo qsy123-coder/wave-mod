@@ -6,6 +6,8 @@
 
 2. 反虚化 Mod 有开关键，按 `\` 键切换（位置在 Enter 键上方，Backspace 键下方）。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image34.jpeg)
+
 3. 如果发光效果不生效，去整合包下载「发光前置修复工具」修复。
 
 ---
@@ -24,7 +26,13 @@
 
 **解决方法**
 
-1. 如果你按教程加载进入游戏但所有 Mod 完全不生效，按 F10 左上角也没绿色字符：点击 XXMI 右上角「设置」→「高级」→ 勾选「自定义启动」→ 将注入方式改为「Inject」。如果还不行，打开 NVIDIA App →「图形」→「程序设置」→ 选择「鸣潮」→ 关闭「AI 插帧」。
+1. 如果你按教程加载进入游戏但所有 Mod 完全不生效，按 F10 左上角也没绿色字符：点击 XXMI 右上角「设置」→「高级」→ 勾选「自定义启动」→ 将注入方式改为「Inject」。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image35.png)
+
+如果还不行，打开 NVIDIA App →「图形」→「程序设置」→ 选择「鸣潮」→ 关闭「AI 插帧」。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image36.png)
 
 2. XXMI 加载器的 Mod 需要解压成文件夹后放入 Mods 才能生效，不要直接放压缩包或 exe 文件。
 
@@ -36,9 +44,15 @@
 
 5. 如果搭配 JASM 管理器，确保 JASM 绑定的 WWMI 路径与 XXMI 绑定的 WWMI 路径是同一个文件夹。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image37.png)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image38.png)
+
 > XXMI 可直接点路径右边「浏览」改路径；JASM 改路径方法见 Q31。
 
 6. 检查 Mod 文件夹内的文件占用是否为 0KB，如果是则解压有问题，重新解压。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image39.png)
 
 7. **UI 类 Mod 不生效**：尝试按切换键，还不行就算了。部分 UI 类 Mod 因分辨率不同导致不生效，也可能是坏了。
 
@@ -71,3 +85,5 @@
 **解决方法**
 
 1. 打开 NVIDIA App →「图形」→「程序设置」→ 选择「鸣潮」→ 关闭「AI 插帧」。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image36.png)

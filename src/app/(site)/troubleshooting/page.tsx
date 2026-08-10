@@ -31,11 +31,11 @@ export default function TroubleshootingPage() {
   }));
 
   return (
-    <div className="flex flex-col gap-6 py-6 lg:py-8">
-      {/* Page header */}
+    <div className="py-6 lg:py-8">
+      {/* Yellow header card + neo panel merged together */}
       <section
-        className="border-4 border-black px-4 py-2.5 shadow-[6px_6px_0px_0px_#000]"
-        style={{ background: "var(--neo-secondary)" }}
+        className="border-4 border-b-0 border-black px-4 py-2.5 shadow-[6px_6px_0px_0px_#000]"
+        style={{ background: "var(--neo-panel)" }}
       >
         <p className="text-xs font-black uppercase tracking-[0.16em] text-black/60">
           {troubleshootingConfig.subtitle}
@@ -45,7 +45,6 @@ export default function TroubleshootingPage() {
         </h1>
       </section>
 
-      {/* TOC + Content */}
       <TroubleshootingContent categories={categories} />
     </div>
   );

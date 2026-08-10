@@ -6,11 +6,17 @@
 
 2. 找到里面的 ini 文件并打开。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image40.png)
+
 3. 查找类似 `key = 5` 的代码，`key=` 后面的数字就是切换键。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image41.png)
 
 4. 将 `=` 后面的数字改为你想要的键位，比如改为 6 就改成 `key = 6`。
 
 5. 改完后一定记得保存文件。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image42.png)
 
 > **键位参考**：小键盘数字键要加 num 前缀，如小键盘 1 改为 `key = num1`。
 >
@@ -26,7 +32,13 @@
 
 **解决方法**
 
-1. 搭配 JASM 管理器时：打开单个角色管理界面 → 点击「自动同步」。然后到「模组预设」界面，勾选「切换预设时自动同步 Mod 首选项」。
+1. 搭配 JASM 管理器时：打开单个角色管理界面 → 点击「自动同步」。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image43.png)
+
+然后到「模组预设」界面，勾选「切换预设时自动同步 Mod 首选项」。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image44.png)
 
 2. 尝试将 Mod 文件名改短，然后游戏内切换到喜欢的形态，按 F10 保存。
 
@@ -56,6 +68,8 @@
 
 1. 打开角色分区 → 点击左上角「显示」→ 取消勾选「单选模式」。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image45.png)
+
 ---
 
 ## Q29 · 怎么在游戏内快速取消启用所有 Mod？
@@ -67,6 +81,8 @@
 ---
 
 ## Q30 · 游戏内出现写满英文的黑色弹窗怎么关闭？
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image46.png)
 
 **解决方法**
 
@@ -82,7 +98,11 @@
 
 1. JASM 主界面左下角点击「设置」。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image47.png)
+
 2. 点击「浏览」重新选择路径，设置完后点击「更新路径」。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image48.png)
 
 ---
 
@@ -92,14 +112,26 @@
 
 1. 点击 JASM 左下角「设置」→「同步游戏数据」。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image49.png)
+
 > 如果设置里没有这个按钮，说明 JASM 版本旧了，去整合包换新版。
 >
 > 如果一直同步不完成，可以挂个梯子：[梯子链接](https://wwww.qumianq.xyz/#/register?code=OHpLpXgg)
 
 2. 也可以手动创建：点击 JASM 左上角角色管理器（铅笔图标）→ 点击「+」。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image50.png)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image51.png)
+
 3. 按界面标注填写信息。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image52.png)
 
 4. 点击右下角按钮创建分区。
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image53.png)
+
 5. 如需删除此分区：进入该角色管理界面，右上角有删除按钮。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image54.png)

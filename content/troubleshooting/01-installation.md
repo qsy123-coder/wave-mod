@@ -1,5 +1,9 @@
 ## Q1 · 有弹窗显示软件包下载失败？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image1.jpeg)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image2.jpeg)
+
 **解决方法**
 
 1. 挂梯子更新即可。
@@ -28,6 +32,8 @@
 
 ## Q3 · 安装 XXMI 时弹出"缺少 C++"的弹窗？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image3.jpeg)
+
 **解决方法**
 
 1. 复制下方链接去浏览器，转存下载里面的程序，双击安装即可。
@@ -39,6 +45,10 @@
 ---
 
 ## Q4 · 安装 XXMI 时出现安装失败的弹窗？
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image4.jpeg)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image5.jpeg)
 
 **解决方法**
 

@@ -1,5 +1,9 @@
 ## Q11 · 角色模型贴图错误？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image24.png)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image25.png)
+
 **解决方法**
 
 1. 如果角色界面正常但大世界中贴图错误，先确保 XXMI 所有组件为最新版。
@@ -13,6 +17,8 @@
 4. 版本更新会导致部分角色贴图错误，去整合包下载最新版修复工具修复。
 
 5. 部分 Mod 需要安装「反虚化 + 发光前置」才能正常显示。还不行的话，用修复工具勾选「应用稳定纹理」后点击「一键修复」。
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image26.png)
 
 6. 游戏设置中将「画面细节」调成「极高」。
 
@@ -33,6 +39,12 @@
 ---
 
 ## Q13 · 角色模型变成不规则几何体、有倒刺、疯狂闪屏或抽搐？
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image27.png)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image28.jpeg)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image29.jpeg)
 
 **解决方法**
 
@@ -58,6 +70,8 @@
 
 ## Q15 · 尤诺 Mod 头皮会秃？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image30.png)
+
 **解决方法**
 
 1. 打开该 Mod 文件夹中的 ini 文件，查找 `cs-cb8=ref vs-cb3` 这一行。
@@ -80,6 +94,10 @@
 
 ## Q17 · 游戏界面出现角色或怪物剪影？
 
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image31.png)
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image32.png)
+
 **解决方法**
 
 1. 某两个 Mod 冲突了，自行筛查后删除其中一个即可。
@@ -87,6 +105,8 @@
 ---
 
 ## Q18 · 角色模型扭曲怎么办？
+
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image33.png)
 
 **解决方法**
 
