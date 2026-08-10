@@ -4,7 +4,7 @@ import { CharacterSidebar } from "@/components/features/mods/list/character-side
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import { ModsPageSkeleton } from "@/components/layout/data-skeletons";
 import { getCharacterSuggestions, getPublicMods, getPublicModsPage, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
-import { createPublicReadClient, getCurrentUser, isAdminUser } from "@/lib/supabase/server";
+import { getCurrentUser, isAdminUser } from "@/lib/supabase/server";
 
 type PageProps = {
   searchParams?: Promise<{
@@ -34,17 +34,11 @@ function buildModsHref(sort: ModSort, character?: string, query?: string) {
 
 async function getCharacterCounts(): Promise<Record<string, number>> {
   try {
-    const supabase = createPublicReadClient();
-    const { data, error } = await supabase
-      .from("mods")
-      .select("character")
-      .eq("is_published", true);
-
-    if (error || !data) return {};
-
+    // 使用 getPublicMods 获取全部 mod（已内置分页，不受 Supabase 1,000 行限制）
+    const allMods = await getPublicMods();
     const counts: Record<string, number> = {};
-    for (const row of data) {
-      const c = String(row.character ?? "").trim();
+    for (const mod of allMods) {
+      const c = (mod.character ?? "").trim();
       if (c) counts[c] = (counts[c] || 0) + 1;
     }
     return counts;
