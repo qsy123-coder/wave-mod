@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2 } from "lucide-react";
+import { Heart, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2, BookOpen } from "lucide-react";
 
 import { getEnabledGames } from "@/config/games";
 import { signOutUser } from "@/actions/auth/auth-actions";
@@ -115,6 +115,11 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps)
               <MotionReveal delay={0.1} rotate={-2}>
                 <Link href="/admin/upload" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] -rotate-1" style={{ background: "rgba(255,255,255,0.35)" }}>
                   上传页面
+                </Link>
+              </MotionReveal>
+              <MotionReveal delay={0.12} rotate={3}>
+                <Link href="/admin/tutorial" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] rotate-2" style={{ background: "rgba(255,255,255,0.2)" }}>
+                  教程管理
                 </Link>
               </MotionReveal>
               <MotionReveal delay={0.14} rotate={2}>
@@ -303,6 +308,14 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps)
                     >
                       <UploadCloud className="size-4" />
                       上传
+                    </Link>
+                    <Link
+                      href="/admin/tutorial"
+                      onClick={() => setMobileOpen(false)}
+                      className="neo-button-secondary inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
+                    >
+                      <BookOpen className="size-4" />
+                      教程管理
                     </Link>
                   </>
                 )}

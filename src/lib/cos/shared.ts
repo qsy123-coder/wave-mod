@@ -65,6 +65,39 @@ export function buildCosObjectKey({
   return `mods/${safeChar}/${modId}/${base || "mod-image"}${ext}`;
 }
 
+/**
+ * 构建教程图片的 COS 对象路径。
+ * 格式：tutorial/{chapter-key}/{modId}/{filename}
+ */
+export function buildTutorialObjectKey({
+  chapterKey,
+  modId,
+  filename,
+}: {
+  chapterKey: string;
+  modId: string;
+  filename: string;
+}) {
+  const safeChapter = chapterKey
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 10) || "00";
+
+  const lastDot = filename.lastIndexOf(".");
+  const ext = lastDot >= 0 ? filename.slice(lastDot).toLowerCase() : "";
+  const base =
+    (lastDot >= 0 ? filename.slice(0, lastDot) : filename)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 48);
+
+  return `tutorial/${safeChapter}/${modId}/${base || "step-image"}${ext}`;
+}
+
 export function formatCosFileSize(bytes: number) {
   if (bytes >= 1024 * 1024 * 1024) {
     return `${Math.round((bytes / 1024 / 1024 / 1024) * 10) / 10}GB`;

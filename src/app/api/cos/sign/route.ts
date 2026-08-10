@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireAdminUser } from "@/actions/auth/auth-actions";
-import { buildCosObjectKey, buildCosPublicUrl, COS_STS_DURATION_SECONDS } from "@/lib/cos/shared";
+import { buildCosObjectKey, buildCosPublicUrl, buildTutorialObjectKey, COS_STS_DURATION_SECONDS } from "@/lib/cos/shared";
 import { getServerCosEnv } from "@/lib/cos/server-config";
 
 const requestSchema = {
@@ -9,20 +9,24 @@ const requestSchema = {
     if (!data || typeof data !== "object") return { success: false as const, error: "无效请求体" };
     const d = data as Record<string, unknown>;
     const issues: string[] = [];
+    const prefix = (typeof d.prefix === "string" ? d.prefix.trim() : "") || "mods";
     const character = typeof d.character === "string" ? d.character.trim() : "";
+    const chapterKey = typeof d.chapterKey === "string" ? d.chapterKey.trim() : "";
     const contentType = typeof d.contentType === "string" ? d.contentType.trim() : "";
     const fileSize = typeof d.fileSize === "number" ? d.fileSize : 0;
     const filename = typeof d.filename === "string" ? d.filename.trim() : "";
     const modId = typeof d.modId === "string" ? d.modId.trim() : "";
 
-    if (!character) issues.push("请选择角色后再上传。");
+    if (!["mods", "tutorial"].includes(prefix)) issues.push("prefix 必须为 mods 或 tutorial。");
+    if (prefix === "mods" && !character) issues.push("请选择角色后再上传。");
+    if (prefix === "tutorial" && !chapterKey) issues.push("缺少章节标识。");
     if (!contentType) issues.push("缺少文件类型。");
     if (!fileSize) issues.push("缺少文件大小。");
     if (!filename) issues.push("缺少文件名。");
     if (!modId) issues.push("缺少上传标识。");
     if (issues.length > 0) return { success: false as const, error: issues[0] };
 
-    return { success: true as const, data: { character, contentType, fileSize, filename, modId } };
+    return { success: true as const, data: { prefix, character, chapterKey, contentType, fileSize, filename, modId } };
   },
 };
 
@@ -121,19 +125,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
   }
 
-  const { character, contentType, fileSize, filename, modId } = parsed.data;
+  const { prefix, character, chapterKey, contentType, fileSize, filename, modId } = parsed.data;
 
   const isImage = ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(
     contentType.trim().toLowerCase(),
   );
-  if (!isImage) {
+  const isVideo =
+    prefix === "tutorial" &&
+    ["video/mp4", "video/webm", "video/x-matroska", "video/quicktime"].includes(
+      contentType.trim().toLowerCase(),
+    );
+  if (!isImage && !isVideo) {
     return NextResponse.json(
-      { ok: false, error: "COS 仅支持 PNG/JPEG/WebP/GIF 图片上传。" },
+      { ok: false, error: prefix === "tutorial"
+        ? "仅支持 PNG/JPEG/WebP/GIF 图片和 MP4/WebM/MKV/MOV 视频上传。"
+        : "COS 仅支持 PNG/JPEG/WebP/GIF 图片上传。" },
       { status: 400 },
     );
   }
 
-  const objectKey = buildCosObjectKey({ character, modId, filename });
+  const objectKey =
+    prefix === "tutorial"
+      ? buildTutorialObjectKey({ chapterKey, modId, filename })
+      : buildCosObjectKey({ character, modId, filename });
 
   // 从 bucket 名称提取 appId（格式 {name}-{appid}）
   const match = env.bucket.match(/-(\d{10,})$/);

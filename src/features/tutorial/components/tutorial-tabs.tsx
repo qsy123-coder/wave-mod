@@ -2,16 +2,29 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, Tv, X } from "lucide-react";
 
 import type { Chapter } from "../types";
 import { TutorialNav } from "./tutorial-nav";
 import { TutorialChapterText } from "./tutorial-chapter-text";
 import { TutorialChapterImages } from "./tutorial-chapter-images";
+import { TutorialVideoLightbox } from "./tutorial-video-lightbox";
 
 type TutorialTabsProps = {
   chapters: Chapter[];
   imageBasePath: string;
+  // ── Admin edit props (all optional — omit for normal user mode) ──
+  editable?: boolean;
+  onReorder?: (fromIndex: number, toIndex: number) => void;
+  onEditChapter?: (chapterId: string) => void;
+  onDeleteChapter?: (chapterId: string) => void;
+  onAddChapter?: () => void;
+  onEditChapterVideo?: (chapterId: string) => void;
+  onDeleteImage?: (chapterId: string, index: number) => void;
+  onMoveImage?: (chapterId: string, index: number, direction: "up" | "down") => void;
+  onUploadImage?: (chapterId: string, file: File) => Promise<void>;
+  onUploadVideo?: (chapterId: string, file: File) => Promise<void>;
+  onEditTextChapter?: (chapterId: string) => void;
 };
 
 const STORAGE_KEY = "wavemod-tutorial-last-position";
@@ -25,13 +38,31 @@ interface SavedPosition {
  * Client Component — manages active tab state.
  * Tab bar is always visible; only the content area below scrolls.
  * Shows a resume banner if a saved browsing position exists.
+ * Video lightbox is rendered at this level to avoid stacking-context
+ * traps from framer-motion's motion.section.
  */
-export function TutorialTabs({ chapters, imageBasePath }: TutorialTabsProps) {
+export function TutorialTabs({
+  chapters,
+  imageBasePath,
+  editable,
+  onReorder,
+  onEditChapter,
+  onDeleteChapter,
+  onAddChapter,
+  onEditChapterVideo,
+  onDeleteImage,
+  onMoveImage,
+  onUploadImage,
+  onUploadVideo,
+  onEditTextChapter,
+}: TutorialTabsProps) {
   const [activeId, setActiveId] = useState(chapters[0]?.id ?? "00");
-  // null = no auto-open; number = auto-open lightbox at this index
   const [autoOpenIndex, setAutoOpenIndex] = useState<number | null>(null);
   const [resumeTarget, setResumeTarget] = useState<SavedPosition | null>(null);
   const [showResumeBanner, setShowResumeBanner] = useState(false);
+
+  // ── Video lightbox — state lives here so it renders outside motion.section ──
+  const [videoLightboxChapter, setVideoLightboxChapter] = useState<Chapter | null>(null);
 
   const activeChapter =
     chapters.find((ch) => ch.id === activeId) ?? chapters[0];
@@ -86,12 +117,18 @@ export function TutorialTabs({ chapters, imageBasePath }: TutorialTabsProps) {
   const resumeChapter = chapters.find((ch) => ch.id === resumeTarget?.chapterId);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* Tab bar */}
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* Tab bar — z-[140] stays above the video lightbox */}
       <TutorialNav
         chapters={chapters}
         activeId={activeId}
         onChange={handleChange}
+        draggable={editable}
+        onReorder={onReorder}
+        onEditChapter={onEditChapter}
+        onDeleteChapter={onDeleteChapter}
+        onAddChapter={onAddChapter}
+        onEditChapterVideo={onEditChapterVideo}
       />
 
       {/* Resume banner */}
@@ -125,7 +162,7 @@ export function TutorialTabs({ chapters, imageBasePath }: TutorialTabsProps) {
       )}
 
       {/* Scrollable content area with fade transition */}
-      <div className="min-h-0 flex-1 overflow-y-auto pb-16 pt-6">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-12 pt-6">
         <AnimatePresence mode="wait">
           <motion.section
             key={activeChapter.id}
@@ -137,7 +174,26 @@ export function TutorialTabs({ chapters, imageBasePath }: TutorialTabsProps) {
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
             {activeChapter.type === "text" ? (
-              <TutorialChapterText chapter={activeChapter} />
+              <TutorialChapterText
+                chapter={activeChapter}
+                editable={editable}
+                onEditIntro={
+                  editable && onEditTextChapter
+                    ? () => onEditTextChapter(activeChapter.id)
+                    : undefined
+                }
+                onEditTools={
+                  editable && onEditTextChapter
+                    ? () => onEditTextChapter(activeChapter.id)
+                    : undefined
+                }
+                onUploadVideo={
+                  editable && onUploadVideo
+                    ? (file: File) => onUploadVideo(activeChapter.id, file)
+                    : undefined
+                }
+                hasVideo={!!activeChapter.video}
+              />
             ) : (
               <TutorialChapterImages
                 key={activeChapter.id}
@@ -146,11 +202,58 @@ export function TutorialTabs({ chapters, imageBasePath }: TutorialTabsProps) {
                 onNextChapter={goNextChapter}
                 autoOpenLightbox={autoOpenIndex}
                 onAutoOpenDone={() => setAutoOpenIndex(null)}
+                editable={editable}
+                onDeleteImage={
+                  editable && onDeleteImage
+                    ? (index: number) => onDeleteImage(activeChapter.id, index)
+                    : undefined
+                }
+                onMoveImage={
+                  editable && onMoveImage
+                    ? (index: number, direction: "up" | "down") =>
+                        onMoveImage(activeChapter.id, index, direction)
+                    : undefined
+                }
+                onUploadImage={
+                  editable && onUploadImage
+                    ? (file: File) => onUploadImage(activeChapter.id, file)
+                    : undefined
+                }
+                onUploadVideo={
+                  editable && onUploadVideo
+                    ? (file: File) => onUploadVideo(activeChapter.id, file)
+                    : undefined
+                }
+                hasVideo={!!activeChapter.video}
               />
             )}
           </motion.section>
         </AnimatePresence>
       </div>
+
+      {/* Floating video button — absolute positioned, doesn't consume layout space */}
+      {activeChapter.video && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setVideoLightboxChapter(activeChapter)}
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-black/20 bg-white/70 px-8 py-4.5 text-lg font-bold text-black/70 shadow-sm backdrop-blur transition hover:bg-white/90 hover:text-black hover:shadow-md"
+          >
+            <Tv className="size-4" />
+            观看该章节视频
+          </button>
+        </div>
+      )}
+
+      {/* Video lightbox — rendered OUTSIDE motion.section to avoid stacking-context trap */}
+      {videoLightboxChapter?.video && (
+        <TutorialVideoLightbox
+          video={videoLightboxChapter.video}
+          chapterId={videoLightboxChapter.id}
+          chapterTitle={videoLightboxChapter.title}
+          onClose={() => setVideoLightboxChapter(null)}
+        />
+      )}
     </div>
   );
 }

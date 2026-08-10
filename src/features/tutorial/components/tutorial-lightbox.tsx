@@ -185,6 +185,7 @@ export function TutorialLightbox({
             key={activeIndex}
             src={activeImage.src}
             alt={activeImage.alt}
+            referrerPolicy="no-referrer"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

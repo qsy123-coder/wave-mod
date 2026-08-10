@@ -38,6 +38,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local tutorial videos (hosted on COS)
+/public/video/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

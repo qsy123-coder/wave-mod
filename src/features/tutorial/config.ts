@@ -10,6 +10,7 @@ const rawConfig: TutorialConfig = {
       id: "00",
       title: "需要的工具和软件",
       type: "text",
+      video: { src: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/00/00-1.mp4" },
       intro: "以下的 JASM mod 管理器、XXMI 启动器和鸣潮 mod 修复工具为必须下载的工具（三个工具已打包在同一个压缩包内）。如果你已有压缩工具，压缩工具按需下载，教程里用到的压缩工具为 360 压缩。",
       tools: [
         {
@@ -57,24 +58,28 @@ const rawConfig: TutorialConfig = {
       id: "01",
       title: "工具的解压",
       type: "images",
+      video: { src: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/01/8f6eb499-ce24-42bf-b582-60bd22204f6e/01-1.mp4" },
       images: ["0.webp", "1.webp", "1-1.webp", "1-2.webp", "2.webp"],
     },
     {
       id: "02",
       title: "XXMI 的安装以及 mod 导入",
       type: "images",
+      video: { src: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/02/02-1.mp4" },
       images: Array.from({ length: 36 }, (_, i) => `${i + 3}.webp`),
     },
     {
       id: "03",
       title: "游戏内 mod 效果以及修复器的使用",
       type: "images",
+      video: { src: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/03/03-1.mp4" },
       images: [...Array.from({ length: 9 }, (_, i) => `${i + 39}.webp`), "76.webp"],
     },
     {
       id: "04",
       title: "JASM mod 管理器的安装以及 mod 导入",
       type: "images",
+      video: { src: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/04/04-1.mp4" },
       images: Array.from({ length: 28 }, (_, i) => `${i + 48}.webp`),
     },
   ],

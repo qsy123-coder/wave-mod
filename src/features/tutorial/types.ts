@@ -16,6 +16,13 @@ export const toolEntrySchema = z.object({
 });
 export type ToolEntry = z.infer<typeof toolEntrySchema>;
 
+// --- Video config ---
+export const videoConfigSchema = z.object({
+  src: z.string().min(1, "视频路径不能为空"),
+  poster: z.string().optional(),
+});
+export type VideoConfig = z.infer<typeof videoConfigSchema>;
+
 // --- Chapter definition ---
 export const chapterSchema = z.object({
   id: z.string(),
@@ -24,6 +31,7 @@ export const chapterSchema = z.object({
   intro: z.string().optional(),
   images: z.array(z.string()).optional(),
   tools: z.array(toolEntrySchema).optional(),
+  video: videoConfigSchema.optional(),
 });
 export type Chapter = z.infer<typeof chapterSchema>;
 

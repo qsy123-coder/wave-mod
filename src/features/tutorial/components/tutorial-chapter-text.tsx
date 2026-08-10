@@ -1,12 +1,18 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Download, ExternalLink } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { ChevronDown, Download, ExternalLink, Pencil, Video } from "lucide-react";
 
 import type { Chapter, CloudUrls } from "../types";
 
 type TutorialChapterTextProps = {
   chapter: Chapter;
+  // ── Admin edit props (omit for normal mode) ──
+  editable?: boolean;
+  onEditIntro?: () => void;
+  onEditTools?: () => void;
+  onUploadVideo?: (file: File) => Promise<void>;
+  hasVideo?: boolean;
 };
 
 const CLOUD_LABELS: Record<keyof NonNullable<CloudUrls>, string> = {
@@ -68,10 +74,35 @@ function CloudDriveDropdown({ urls }: { urls: NonNullable<CloudUrls> }) {
   );
 }
 
-export function TutorialChapterText({ chapter }: TutorialChapterTextProps) {
+export function TutorialChapterText({
+  chapter,
+  editable = false,
+  onEditIntro,
+  onEditTools,
+  onUploadVideo,
+  hasVideo,
+}: TutorialChapterTextProps) {
   const tools = chapter.tools ?? [];
+  const optionalTools = tools.filter((t) => !t.required);
 
-  if (tools.length === 0) {
+  // ── Video upload state ──
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleVideoUpload = useCallback(
+    async (file: File) => {
+      if (!onUploadVideo) return;
+      setUploadingVideo(true);
+      try {
+        await onUploadVideo(file);
+      } finally {
+        setUploadingVideo(false);
+      }
+    },
+    [onUploadVideo],
+  );
+
+  if (tools.length === 0 && !editable) {
     return null;
   }
 
@@ -81,101 +112,178 @@ export function TutorialChapterText({ chapter }: TutorialChapterTextProps) {
   return (
     <div className="space-y-4">
       {/* Intro section */}
-      {chapter.intro && (
+      {(chapter.intro || editable) && (
         <div
-          className="border-4 border-black px-3 py-2 shadow-[6px_6px_0px_0px_#000]"
+          className="relative border-4 border-black px-3 py-2 shadow-[6px_6px_0px_0px_#000]"
           style={{ background: "var(--neo-panel)" }}
         >
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-            <div>
-              <p className="inline-block border-[3px] border-black px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.14em] shadow-[2px_2px_0px_0px_#000]" style={{ background: "var(--neo-accent)" }}>
-                必需下载
-              </p>
-              <ol className="mt-2 space-y-1 text-sm font-bold leading-7 text-black/80" style={{ listStyle: "decimal", paddingLeft: "1.5em" }}>
-                <li className="pl-0.5">
-                  以下的 JASM mod 管理器、XXMI 启动器和鸣潮 mod 修复工具为必须下载的工具，三个工具已打包在同一个压缩包内。
-                </li>
-                <li className="pl-0.5">
-                  点击右侧
-                  <span className="inline-block border-[2px] border-black px-1.5 py-0 text-xs font-black" style={{ background: "var(--neo-accent)" }}>下载工具包</span>
-                  即可一次性下载全部，无需分别下载下方工具。如果直链下载较慢可开启梯子加速。
-                </li>
-              </ol>
-            </div>
-            {/* Download buttons */}
-            <div className="flex shrink-0 items-center gap-2">
-              {packUrl && (
-                <a
-                  href={packUrl}
-                  download="教程.zip"
-                  className="inline-flex items-center gap-1.5 border-4 border-black px-3 py-2 font-black uppercase tracking-[0.1em] text-black shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-                  style={{ background: "var(--neo-accent)" }}
+          {/* Admin edit buttons */}
+          {editable && (
+            <div className="absolute -right-1 -top-1 z-10 flex items-center gap-0.5 rounded border border-black/20 bg-white/90 p-0.5 shadow-sm backdrop-blur">
+              {onEditIntro && (
+                <button
+                  type="button"
+                  onClick={onEditIntro}
+                  className="rounded p-0.5 text-black/50 hover:bg-[var(--neo-accent)] hover:text-black"
+                  aria-label="编辑说明文字"
+                  title="编辑说明文字"
                 >
-                  <Download className="size-3.5" />
-                  <span className="text-xs">下载工具包</span>
-                </a>
+                  <Pencil className="size-3" />
+                </button>
               )}
-              {cloudUrls && <CloudDriveDropdown urls={cloudUrls} />}
-            </div>
-          </div>
-
-          <div className="mt-2 border-t-[3px] border-black pt-2">
-            <p className="text-xs font-bold leading-6 text-black/60">
-              <span className="mr-1 font-black">3.</span>
-              如果你已有压缩工具，压缩工具按需下载即可。教程里用到的压缩工具为 360 压缩。
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Tool list — 2 columns */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {tools.map((tool, index) => {
-          const isRequired = tool.required;
-          const bg = ["var(--neo-accent)", "var(--neo-secondary)", "var(--neo-muted)"][index % 3];
-
-          return (
-            <div
-              key={tool.name}
-              className="flex items-center justify-between gap-3 border-4 border-black p-4 shadow-[6px_6px_0px_0px_#000]"
-              style={{ background: bg }}
-            >
-              <div className="flex items-center gap-3">
-                <span
-                  className="shrink-0 border-[3px] border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] shadow-[2px_2px_0px_0px_#000]"
-                  style={{
-                    background: isRequired ? "var(--neo-accent)" : "#fff",
-                    color: isRequired ? "#000" : "var(--neo-ink)",
-                  }}
+              {onEditTools && (
+                <button
+                  type="button"
+                  onClick={onEditTools}
+                  className="rounded p-0.5 text-black/50 hover:bg-[var(--neo-accent)] hover:text-black"
+                  aria-label="编辑工具列表"
+                  title="编辑工具列表"
                 >
-                  {isRequired ? "必需" : "可选"}
-                </span>
+                  <Pencil className="size-3" />
+                  <span className="ml-0.5 text-[9px] font-bold">工具</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Empty state for admin mode */}
+          {editable && !chapter.intro && tools.length === 0 && (
+            <div className="py-4 text-center">
+              <p className="text-sm font-bold text-black/40">
+                点击上方编辑按钮添加说明文字和工具下载条目
+              </p>
+            </div>
+          )}
+
+          {chapter.intro && (
+            <>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
                 <div>
-                  <p className="text-lg font-black text-black">{tool.name}</p>
-                  {tool.description && (
-                    <p className="mt-1 text-sm font-bold leading-6 text-black/70">
-                      {tool.description}
-                    </p>
+                  <ol
+                    className="mt-2 space-y-1 text-sm font-bold leading-7 text-black/80"
+                    style={{ listStyle: "decimal", paddingLeft: "1.5em" }}
+                  >
+                    <li className="pl-0.5">
+                      <p
+                        className="mr-2 inline-block border-[3px] border-black px-1.5 text-[11px] font-black uppercase tracking-[0.14em] shadow-[2px_2px_0px_0px_#000]"
+                        style={{ background: "var(--neo-accent)" }}
+                      >
+                        必需下载
+                      </p>
+                      JASM mod 管理器、XXMI 启动器和鸣潮 mod 修复工具为必须下载的工具，这三个工具点击右侧的
+                      <span
+                        className="inline-block border-[2px] border-black px-1.5 py-0 text-xs font-black"
+                        style={{ background: "var(--neo-accent)" }}
+                      >
+                        下载工具包
+                      </span>
+                      即可全部下载。
+                    </li>
+                    <li className="pl-0.5">
+                      如果点击右侧的
+                      <span
+                        className="inline-block border-[2px] border-black px-1.5 py-0 text-xs font-black"
+                        style={{ background: "var(--neo-accent)" }}
+                      >
+                        下载工具包
+                      </span>后下载较慢
+                      ，可开启梯子加速。
+                    </li>
+                  </ol>
+                </div>
+                {/* Download buttons */}
+                <div className="flex shrink-0 items-center gap-2">
+                  {packUrl && (
+                    <a
+                      href={packUrl}
+                      download="教程.zip"
+                      className="inline-flex items-center gap-1.5 border-4 border-black px-3 py-2 font-black uppercase tracking-[0.1em] text-black shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                      style={{ background: "var(--neo-accent)" }}
+                    >
+                      <Download className="size-3.5" />
+                      <span className="text-xs">下载工具包</span>
+                    </a>
                   )}
+                  {cloudUrls && <CloudDriveDropdown urls={cloudUrls} />}
                 </div>
               </div>
 
-              {/* Optional tools: official site link only */}
-              {!isRequired && tool.url !== "#" && (
-                <a
-                  href={tool.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="neo-button-outline inline-flex shrink-0 items-center gap-1.5 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-black no-underline transition hover:-translate-y-0.5"
-                >
-                  <ExternalLink className="size-3.5" />
-                  官网
-                </a>
+              {/* Optional tools — compact inline links */}
+              {optionalTools.length > 0 && (
+                <div className="mt-2 border-t-[3px] border-black pt-2">
+                  <p className="text-[14px] font-bold leading-6 text-black">
+                    <span className="ml-1.5">3.</span>
+                    <span
+                      className="mr-1 inline-block border-[2px] border-black px-1.5 py-0 text-xs font-black"
+                      style={{ background: "var(--neo-accent)" }}
+                    >
+                      可选{" "}
+                    </span>
+                    如果你已有压缩工具则按需下载。教程里用到的是 360 压缩：
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-2">
+                    {optionalTools.map((tool) =>
+                      tool.url !== "#" ? (
+                        <a
+                          key={tool.name}
+                          href={tool.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 border-[2px] border-black bg-white px-2.5 py-1 text-xs font-bold text-black transition hover:bg-[var(--neo-secondary)]"
+                        >
+                          <ExternalLink className="size-3" />
+                          {tool.name}
+                        </a>
+                      ) : null,
+                    )}
+                  </div>
+                </div>
               )}
+            </>
+          )}
+
+          {/* Video upload section — only in admin mode */}
+          {editable && onUploadVideo && (
+            <div className="mt-3 border-t-[3px] border-black pt-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 border-[3px] border-black bg-white px-4 py-2 text-sm font-black shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[1px] active:translate-y-[1px] active:shadow-none hover:bg-[var(--neo-secondary)]">
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/mp4,video/webm,video/x-matroska,video/quicktime"
+                    className="hidden"
+                    disabled={uploadingVideo}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleVideoUpload(file);
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                  {uploadingVideo ? (
+                    <>
+                      <div className="size-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+                      <span>上传中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Video className="size-4" />
+                      <span>上传视频</span>
+                    </>
+                  )}
+                </label>
+                {hasVideo && (
+                  <span className="text-xs font-bold text-green-600">已有视频（重新上传会覆盖）</span>
+                )}
+                {!hasVideo && !uploadingVideo && (
+                  <span className="text-xs font-bold text-black/40">上传章节视频教程（MP4/WebM）</span>
+                )}
+              </div>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

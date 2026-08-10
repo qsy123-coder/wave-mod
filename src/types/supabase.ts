@@ -348,6 +348,141 @@ export type Database = {
           },
         ];
       };
+      tutorial_configs: {
+        Row: {
+          id: string;
+          title: string;
+          subtitle: string;
+          image_base_path: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          title: string;
+          subtitle: string;
+          image_base_path: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          subtitle?: string;
+          image_base_path?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      tutorial_chapters: {
+        Row: {
+          id: string;
+          config_id: string;
+          sort_order: number;
+          chapter_key: string;
+          title: string;
+          type: string;
+          intro: string | null;
+          video_src: string | null;
+          video_poster: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          config_id: string;
+          sort_order?: number;
+          chapter_key: string;
+          title: string;
+          type: string;
+          intro?: string | null;
+          video_src?: string | null;
+          video_poster?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          config_id?: string;
+          sort_order?: number;
+          chapter_key?: string;
+          title?: string;
+          type?: string;
+          intro?: string | null;
+          video_src?: string | null;
+          video_poster?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      tutorial_images: {
+        Row: {
+          id: string;
+          chapter_id: string;
+          sort_order: number;
+          url: string;
+          filename: string;
+          alt: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          chapter_id: string;
+          sort_order?: number;
+          url: string;
+          filename: string;
+          alt?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          chapter_id?: string;
+          sort_order?: number;
+          url?: string;
+          filename?: string;
+          alt?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      tutorial_tools: {
+        Row: {
+          id: string;
+          chapter_id: string;
+          sort_order: number;
+          name: string;
+          url: string;
+          description: string | null;
+          required: boolean;
+          cloud_baidu: string | null;
+          cloud_quark: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          chapter_id: string;
+          sort_order?: number;
+          name: string;
+          url: string;
+          description?: string | null;
+          required?: boolean;
+          cloud_baidu?: string | null;
+          cloud_quark?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          chapter_id?: string;
+          sort_order?: number;
+          name?: string;
+          url?: string;
+          description?: string | null;
+          required?: boolean;
+          cloud_baidu?: string | null;
+          cloud_quark?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

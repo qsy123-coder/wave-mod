@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { SiteFooter } from "@/components/layout/site-footer";
+import { ConditionalFooter } from "@/components/layout/conditional-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteHeaderSkeleton } from "@/components/layout/site-header-skeleton";
 
@@ -15,7 +15,7 @@ export default function SiteLayout({
         <SiteHeader />
       </Suspense>
       <main className="mx-auto w-full max-w-[1680px] px-4 sm:px-5 lg:px-6">{children}</main>
-      <SiteFooter />
+      <ConditionalFooter />
     </div>
   );
 }
