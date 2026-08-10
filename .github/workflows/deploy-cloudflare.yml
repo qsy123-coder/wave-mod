@@ -1,9 +1,11 @@
 name: Deploy to Cloudflare Workers
 
 on:
-  push:
-    branches:
-      - main
+  # Disabled auto-deploy on push — Worker exceeds 3 MiB free tier limit.
+  # Keep manual trigger for future use.
+  # push:
+  #   branches:
+  #     - main
   workflow_dispatch:
 
 jobs:
