@@ -13,6 +13,8 @@ async function getCharacterCounts(gameKey: string): Promise<Record<string, numbe
     const c = (mod.character ?? "").trim();
     if (c) counts[c] = (counts[c] || 0) + 1;
   }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  console.log(`[getCharacterCounts] gameKey=${gameKey} characters=${Object.keys(counts).length} total=${total} allMods.length=${allMods.length}`);
   return counts;
 }
 import { GameModsFilterClient } from "./game-mods-filter-client";
@@ -49,6 +51,7 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
   const currentCharacter = parseCharacterFilter(params.character);
   const currentQuery = parseModQuery(params.query);
   const serverFilters = { sort: currentSort, character: currentCharacter, query: currentQuery, gameKey: game.key };
+  console.log(`[DefaultGameModsPage] character="${currentCharacter}" query="${currentQuery}" sort="${currentSort}" gameKey="${game.key}"`);
   const [availableCharacters, counts, firstPage, allFilteredMods] = await Promise.all([
     getAvailableCharacters(game.key),
     getCharacterCounts(game.key),
@@ -58,6 +61,7 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
 
   // 服务端筛选后的总 MOD 数（不含客户端 NSFW/直链筛选）
   const totalModCount = allFilteredMods.length;
+  console.log(`[DefaultGameModsPage] availableCharacters=${availableCharacters.length} totalModCount=${totalModCount} firstPage=${firstPage.items.length}`);
 
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
 
