@@ -28,9 +28,9 @@ export function ChapterEditorModal({
   const handleSave = () => {
     let valid = true;
 
-    // Validate key: must be digits only, 1-4 chars
-    if (!/^\d{1,4}$/.test(key.trim())) {
-      setKeyError("编号必须为数字（如 00、01）");
+    // Validate key: digits only (e.g. 00) or section-sub format (e.g. 03-1)
+    if (!/^\d{1,4}(-\d{1,4})?$/.test(key.trim())) {
+      setKeyError("编号格式：数字（如 00、01）或 数字-数字（如 03-1）");
       valid = false;
     } else {
       setKeyError("");

@@ -86,7 +86,7 @@ export const saveChapterSchema = z.object({
   chapter_key: z
     .string()
     .min(1, "章节标识不能为空")
-    .regex(/^\d{2}$/, "章节标识必须为两位数字（如 00, 01）"),
+    .regex(/^\d{2}(-\d+)?$/, "章节标识必须为两位数字（如 00, 01）或包含子章节（如 03-1）"),
   title: z.string().min(1, "章节标题不能为空"),
   type: z.enum(["text", "images"]),
   intro: z.string().optional(),
