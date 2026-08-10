@@ -39,6 +39,7 @@ function makeMod(overrides: Partial<AdminMod> = {}): AdminMod {
     ratingCount: 4,
     ratingAverage: 4.2,
     createdAt: new Date("2026-01-01").toISOString(),
+    isFeatured: false,
     isPublished: true,
   };
   return { ...defaults, ...overrides };

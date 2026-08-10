@@ -36,6 +36,7 @@ function createMod(overrides: Partial<SiteMod>): SiteMod {
     videoUrl: null,
     views: 0,
     xxmiInstallGuide: "默认安装说明",
+    isFeatured: false,
     ...overrides,
   };
 }
