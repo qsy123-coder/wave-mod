@@ -48,9 +48,9 @@ export function applyModQueryFilters(mods: SiteMod[], filters: Pick<PublicModsFi
   if (filters.character) {
     if (filters.character === "Skins") {
       // Skins 分类 = 展示所有角色 MOD，排除 UI / Other/Misc 等非角色分类
-      nextMods = nextMods.filter((mod) => !NON_CHARACTER_CATEGORIES.has(mod.character));
+      nextMods = nextMods.filter((mod) => !NON_CHARACTER_CATEGORIES.has(normalizeCharacterName(mod.character ?? "")));
     } else {
-      nextMods = nextMods.filter((mod) => mod.character === filters.character);
+      nextMods = nextMods.filter((mod) => normalizeCharacterName(mod.character ?? "") === filters.character);
     }
   }
 
