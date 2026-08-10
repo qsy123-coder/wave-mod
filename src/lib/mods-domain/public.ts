@@ -22,6 +22,7 @@ export async function getAvailableCharacters(gameKey = defaultGameKey) {
         .select("character")
         .eq("is_published", true)
         .eq("game_key", gameKey)
+        .order("id", { ascending: true })
         .range(from, from + batchSize - 1);
 
       if (error) {
@@ -74,6 +75,7 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
       .select(publicModColumns)
       .eq("is_published", true)
       .eq("game_key", gameKey)
+      .order("created_at", { ascending: false })
       .range(from, from + batchSize - 1);
 
     if (error) {
