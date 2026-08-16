@@ -21,7 +21,7 @@ import { getAdminMods } from "@/lib/mods";
 // ==================== 分页常量 ====================
 
 const PAGE_SIZES = [20, 50, 100] as const;
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 100;
 
 function parsePage(raw: string | undefined): number {
   const n = Number(raw);
