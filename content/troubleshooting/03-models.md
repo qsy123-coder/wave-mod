@@ -1,14 +1,12 @@
 ## Q11 · 角色模型贴图错误？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image24.png)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image25.webp)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image25.png)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image26.webp)
 
 **解决方法**
 
 1. 如果角色界面正常但大世界中贴图错误，先确保 XXMI 所有组件为最新版。
-
-> 3.5 版本临时补充：[查看频道](https://pd.qq.com/s/6s28xrpjn)
 
 2. 游戏内设置中，将「图形预设」调成「均衡」，还不行就继续调高。
 
@@ -18,7 +16,7 @@
 
 5. 部分 Mod 需要安装「反虚化 + 发光前置」才能正常显示。还不行的话，用修复工具勾选「应用稳定纹理」后点击「一键修复」。
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image26.png)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image27.webp)
 
 6. 游戏设置中将「画面细节」调成「极高」。
 
@@ -40,11 +38,11 @@
 
 ## Q13 · 角色模型变成不规则几何体、有倒刺、疯狂闪屏或抽搐？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image27.png)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image28.webp)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image28.jpeg)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image29.webp)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image29.jpeg)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image30.webp)
 
 **解决方法**
 
@@ -70,7 +68,7 @@
 
 ## Q15 · 尤诺 Mod 头皮会秃？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image30.png)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image31.webp)
 
 **解决方法**
 
@@ -94,9 +92,9 @@
 
 ## Q17 · 游戏界面出现角色或怪物剪影？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image31.png)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image32.webp)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image32.png)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image33.webp)
 
 **解决方法**
 
@@ -106,7 +104,7 @@
 
 ## Q18 · 角色模型扭曲怎么办？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image33.png)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image34.webp)
 
 **解决方法**
 

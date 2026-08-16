@@ -1,8 +1,8 @@
 ## Q1 · 有弹窗显示软件包下载失败？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image1.jpeg)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image1.webp)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image2.jpeg)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image2.webp)
 
 **解决方法**
 
@@ -12,9 +12,7 @@
 
 > 复制该链接到 Edge 浏览器即可打开。
 
-2. 也可以看我 B 站教程视频（不需要梯子也可以更新）：
-
-[B 站视频教程](https://www.bilibili.com/video/BV1SYjA6NE8q/)
+2. 也可以看本站“先看我”页面的教程视频（不需要梯子也可以更新）。
 
 ---
 
@@ -22,17 +20,15 @@
 
 **解决方法**
 
-1. 具体请查看频道帖子：
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image3.webp)
 
-[频道帖子](https://pd.qq.com/s/h5zv7rrn9)
-
-> 复制链接到浏览器打开。
+> 根据图片指示做即可，用到的解压工具：[wave-mod.top/guide](https://www.wave-mod.top/guide)。
 
 ---
 
 ## Q3 · 安装 XXMI 时弹出"缺少 C++"的弹窗？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image3.jpeg)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image4.webp)
 
 **解决方法**
 
@@ -46,9 +42,9 @@
 
 ## Q4 · 安装 XXMI 时出现安装失败的弹窗？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image4.jpeg)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image5.webp)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image5.jpeg)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image6.webp)
 
 **解决方法**
 

@@ -26,27 +26,22 @@
 
 ## Q35 · 游戏内左上角有红字报错怎么办？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image55.png)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image56.webp)
 
 **解决方法**
 
 1. 打开 XXMI 右上角「设置」→「WWMI」→ 勾选「静音报错」。
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image56.png)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image57.webp)
 
 ---
 
 ## 附录 · 关于本文档
 
-本文档由 **B站可可HXL** 独立编写与维护，旨在为鸣潮 Mod 玩家提供全面的问题解答。
+本文档由 **可可HXL** 独立编写与维护，旨在为鸣潮 Mod 玩家提供全面的问题解答。
 
 如果你觉得本文档对你有帮助，欢迎扫描下方赞赏码支持作者，你的支持是持续更新的最大动力！
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image57.jpeg)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image58.webp)
 
-**联系方式**
-
-- QQ 群：799191082
-- 鸣潮 Mod 频道：[https://pd.qq.com/s/91nsbwdwg?b=9](https://pd.qq.com/s/91nsbwdwg?b=9)
-- B 站主页：可可 HXL
-- 持续更新链接：[百度网盘](https://pan.baidu.com/s/19dVLA-Xq0UxWS2Uxk2PxzA?pwd=keke) 提取码：keke
+← 微信扫描二维码赞助作者
