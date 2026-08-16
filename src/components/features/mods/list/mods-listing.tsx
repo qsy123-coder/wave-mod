@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
+import { BodyScrollLock } from "@/components/layout/body-scroll-lock";
 import { ModsPageSkeleton } from "@/components/layout/data-skeletons";
 import { getCharacterSuggestions, getPublicMods, getPublicModsPage, normalizeCharacterName, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 import { getCurrentUser, isAdminUser } from "@/lib/supabase/server";
@@ -143,8 +144,12 @@ async function ModsListingContent({ searchParams, openModId }: PageProps) {
 
 export function ModsListing({ searchParams, openModId }: PageProps) {
   return (
-    <Suspense fallback={<ModsPageSkeleton />}>
-      <ModsListingContent searchParams={searchParams} openModId={openModId} />
-    </Suspense>
+    <>
+      {/* 骨架屏阶段也锁定 body 滚动，避免加载时仍可滑动 */}
+      <BodyScrollLock />
+      <Suspense fallback={<ModsPageSkeleton />}>
+        <ModsListingContent searchParams={searchParams} openModId={openModId} />
+      </Suspense>
+    </>
   );
 }

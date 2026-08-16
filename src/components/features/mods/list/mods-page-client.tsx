@@ -77,13 +77,6 @@ export function ModsPageClient({
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
-
-  useEffect(() => {
     const handlePopState = () => {
       const match = window.location.pathname.match(/^\/mods\/(.+)$/);
       setDrawerModId(match ? match[1] : null);
