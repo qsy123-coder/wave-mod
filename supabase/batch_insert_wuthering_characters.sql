@@ -4,7 +4,7 @@
 
 INSERT INTO public.mods (title, character, version, game_version, game_key, description, download_url, images, nsfw, xxmi_install_guide, drive_links)
 VALUES
-  ('漂泊者 · MOD', '漂泊者', '未标注', '未标注', 'wuthering-waves', '漂泊者主题角色外观 MOD。', null, '{}', false, '1. 下载并解压对应 MOD 压缩包。\n2. 打开 XXMI Launcher，确认当前游戏版本与 MOD 版本匹配。\n3. 将 MOD 文件夹复制到 XXMI Mods 目录。\n4. 返回启动器启用对应角色模组后进入游戏检查效果。', '[]'),
+  ('男漂 · MOD', '男漂', '未标注', '未标注', 'wuthering-waves', '男漂主题角色外观 MOD。', null, '{}', false, '1. 下载并解压对应 MOD 压缩包。\n2. 打开 XXMI Launcher，确认当前游戏版本与 MOD 版本匹配。\n3. 将 MOD 文件夹复制到 XXMI Mods 目录。\n4. 返回启动器启用对应角色模组后进入游戏检查效果。', '[]'),
   ('鉴心 · MOD', '鉴心', '未标注', '未标注', 'wuthering-waves', '鉴心主题角色外观 MOD。', null, '{}', false, '1. 下载并解压对应 MOD 压缩包。\n2. 打开 XXMI Launcher，确认当前游戏版本与 MOD 版本匹配。\n3. 将 MOD 文件夹复制到 XXMI Mods 目录。\n4. 返回启动器启用对应角色模组后进入游戏检查效果。', '[]'),
   ('忌炎 · MOD', '忌炎', '未标注', '未标注', 'wuthering-waves', '忌炎主题角色外观 MOD。', null, '{}', false, '1. 下载并解压对应 MOD 压缩包。\n2. 打开 XXMI Launcher，确认当前游戏版本与 MOD 版本匹配。\n3. 将 MOD 文件夹复制到 XXMI Mods 目录。\n4. 返回启动器启用对应角色模组后进入游戏检查效果。', '[]'),
   ('凌阳 · MOD', '凌阳', '未标注', '未标注', 'wuthering-waves', '凌阳主题角色外观 MOD。', null, '{}', false, '1. 下载并解压对应 MOD 压缩包。\n2. 打开 XXMI Launcher，确认当前游戏版本与 MOD 版本匹配。\n3. 将 MOD 文件夹复制到 XXMI Mods 目录。\n4. 返回启动器启用对应角色模组后进入游戏检查效果。', '[]'),

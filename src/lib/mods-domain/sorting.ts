@@ -87,8 +87,6 @@ export function normalizeCharacterName(value: string) {
   // 角色名别名映射：规范化数据库中的变体名到标准名
   const CHARACTER_ALIASES: Record<string, string> = {
     "陆赫斯": "路赫斯",
-    "女漂": "漂泊者",
-    "男漂": "漂泊者",
     "反虚化，ui界面，场景，葫芦，特效等": "UI",
   };
   const trimmed = value.trim();
