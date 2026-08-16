@@ -3,9 +3,7 @@ import { Suspense } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { requireAdminUser } from "@/actions/auth/auth-actions";
-import { AdminModsToolbar } from "@/components/features/admin/mods/admin-mods-toolbar";
-import { AdminModsGridClient } from "@/components/features/admin/mods/admin-mods-grid-client";
-import { FixCreatorButton } from "@/components/features/admin/mods/fix-creator-button";
+import { AdminModsListClient } from "@/components/features/admin/mods/admin-mods-list-client";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { AdminModsSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -218,10 +216,10 @@ async function AdminModsContent({ searchParams }: { searchParams: Promise<Search
   }
 
   return (
-    <div className="flex gap-6">
-      {/* 左侧角色边栏 */}
-      <div className="hidden w-[240px] shrink-0 lg:flex">
-        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+    <div className="flex gap-6 lg:min-h-0 lg:flex-1">
+      {/* 左侧角色边栏：独立滚动，不随右侧 mod 一起滚动 */}
+      <div className="hidden w-[240px] shrink-0 flex-col lg:flex">
+        <div className="min-h-0 flex-1 overflow-y-auto pb-4" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <CharacterSidebar
             allLabel="全部"
             allHref={buildAdminModsHref({ ...filters, character: undefined })}
@@ -232,28 +230,27 @@ async function AdminModsContent({ searchParams }: { searchParams: Promise<Search
         </div>
       </div>
 
-      {/* 右侧主内容区 */}
-      <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-hidden">
-        <AdminModsToolbar filters={filters} />
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-black/55">
-          共 {mods.length} 条{mods.length !== totalCount ? ` / 分站合计 ${totalCount}` : ""}
-          {totalPages > 1 ? ` · 第 ${page}/${totalPages} 页` : ""}
-        </p>
-
-        {pagedMods.length === 0 ? (
-          <AdminModsEmpty hasActiveFilters={hasActiveFilters} />
-        ) : (
-          <>
-            <AdminModsGridClient mods={pagedMods} />
-
+      {/* 右侧主内容区：独立滚动，顶部筛选卡片 sticky 固定 */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto pb-4">
+        <AdminModsListClient
+          filters={filters}
+          countLabel={
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-black/55">
+              共 {mods.length} 条{mods.length !== totalCount ? ` / 分站合计 ${totalCount}` : ""}
+              {totalPages > 1 ? ` · 第 ${page}/${totalPages} 页` : ""}
+            </p>
+          }
+          mods={pagedMods}
+          pagination={
             <AdminPagination
               currentPage={page}
               totalPages={totalPages}
               pageSize={pageSize}
               buildHref={buildPageHref}
             />
-          </>
-        )}
+          }
+          emptyState={<AdminModsEmpty hasActiveFilters={hasActiveFilters} />}
+        />
       </div>
     </div>
   );
@@ -267,17 +264,7 @@ export default function AdminModsPage({
   searchParams?: Promise<SearchParams>;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-      <MotionReveal delay={0.04} rotate={-1}>
-        <section className="inline-block border-4 border-black px-5 py-4 shadow-[8px_8px_0px_0px_#000]" style={{ background: "var(--neo-secondary)" }}>
-          <p className="neo-label text-black/60">Admin Mods</p>
-          <h1 className="mt-2 text-4xl font-black text-black">后台 MOD 管理列表</h1>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <FixCreatorButton />
-          </div>
-        </section>
-      </MotionReveal>
-
+    <div className="mx-auto flex w-full max-w-[1680px] flex-col px-4 pt-5 sm:px-6 lg:h-[calc(100vh-100px)] lg:px-8">
       <Suspense fallback={<AdminModsSkeleton />}>
         <AdminModsContent searchParams={searchParams!} />
       </Suspense>

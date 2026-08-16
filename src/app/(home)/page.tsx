@@ -14,7 +14,6 @@ import { FirstVisitDialog } from "@/components/common/first-visit-dialog";
 import { FeaturedCarouselSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
-import { HomeHeaderGlass } from "@/components/features/home/home-header-glass";
 import { getDefaultGame } from "@/config/games";
 import { getCharacterImagePath } from "@/lib/constants/character-images";
 import { ZenlessHeroStage } from "@/features/games/zenless-zone-zero/components/zenless-hero-stage";
@@ -184,7 +183,6 @@ export default function HomePage() {
   return (
     <>
       <FirstVisitDialog />
-      <HomeHeaderGlass />
       <SnapContainer>
         {/* 区域 1: 现有 Hero（垂直居中，上下各 15vh 留白） */}
         <section
