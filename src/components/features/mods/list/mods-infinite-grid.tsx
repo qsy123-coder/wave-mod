@@ -157,19 +157,28 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
     return () => ro.disconnect();
   }, [isMasonry, masonryColumns]);
 
-  // 列归属记忆：mod.id → 列索引，保证已有卡片零抖动
-  const colMap = useRef<Map<string, number>>(new Map());
+  // 列归属记忆：mod.id → 列索引，列数不变时保证已有卡片零抖动。
+  // 额外记录该记忆对应的列数；列数切换时重建，否则旧列分配会残留，导致新增列空置。
+  const colMapRef = useRef<{ colCount: number; map: Map<string, number> }>({
+    colCount: -1,
+    map: new Map(),
+  });
 
-  // 分配卡片到各列（colMap 是为零抖动设计的渲染期缓存，需 suppress refs 规则）
+  // 分配卡片到各列（colMapRef 是为零抖动设计的渲染期缓存，需 suppress refs 规则）
   /* eslint-disable react-hooks/refs */
   const columns = useMemo(() => {
     if (!isMasonry) return [];
+    // 列数变化 → 重置列归属记忆，全部卡片重新按最短列分配
+    if (colMapRef.current.colCount !== colCount) {
+      colMapRef.current = { colCount, map: new Map() };
+    }
+    const colMap = colMapRef.current.map;
     const cols: SiteMod[][] = Array.from({ length: colCount }, () => []);
     const seen = new Set<string>();
 
     for (const mod of mods) {
       seen.add(mod.id);
-      const prev = colMap.current.get(mod.id);
+      const prev = colMap.get(mod.id);
       if (prev !== undefined && prev < colCount) {
         cols[prev].push(mod);
         continue;
@@ -180,7 +189,7 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
         if (cols[i].length < cols[shortest].length) shortest = i;
       }
       cols[shortest].push(mod);
-      colMap.current.set(mod.id, shortest);
+      colMap.set(mod.id, shortest);
     }
 
     return cols;
@@ -189,10 +198,11 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   // 清理已移出列表的卡片（ref 操作必须在 effect 中）
   useEffect(() => {
+    const colMap = colMapRef.current.map;
     const modIds = new Set(mods.map((m) => m.id));
-    if (colMap.current.size > modIds.size * 2) {
-      for (const id of colMap.current.keys()) {
-        if (!modIds.has(id)) colMap.current.delete(id);
+    if (colMap.size > modIds.size * 2) {
+      for (const id of colMap.keys()) {
+        if (!modIds.has(id)) colMap.delete(id);
       }
     }
   }, [mods]);

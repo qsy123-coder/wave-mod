@@ -7,6 +7,7 @@ import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
+import { normalizeCharacterName } from "@/lib/mods-domain/sorting";
 import type { SiteMod } from "@/lib/mods";
 import { cn } from "@/lib/utils";
 
@@ -181,7 +182,7 @@ export function ModCard({
   const metaBadges = showMetaBadges ? (
     <>
       <Badge className={cn("neo-sticker -rotate-2 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em]", badgeTone.character)}>
-        {mod.character}
+        {normalizeCharacterName(mod.character ?? "")}
       </Badge>
       {extraMetaBadges}
     </>
@@ -218,16 +219,31 @@ export function ModCard({
 
   const isAutoAspect = imageAspectClassName === "auto";
 
-  // 瀑布流：图片 onLoad 读取真实尺寸，锁定容器 aspect-ratio，防止黑屏抖动
+  // 瀑布流：读取图片真实宽高，锁定容器 aspect-ratio。
+  // object-contain 落在 bg-black 容器上，若容器宽高比 ≠ 图片宽高比，两侧/上下会留黑边。
+  // 刷新命中缓存时，load 事件可能在 React 水合前就已触发，onLoad 不会再被调用，
+  // 因此额外用 ref 回调兜底：挂载时若 img.complete 已为 true，直接读取 naturalWidth/Height。
   const [imageRatio, setImageRatio] = useState<number | null>(null);
+
+  const readImageRatio = useCallback((img: HTMLImageElement | null) => {
+    if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      setImageRatio(img.naturalWidth / img.naturalHeight);
+    }
+  }, []);
+
   const handleImageLoad = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
-      const img = e.currentTarget;
-      if (img.naturalWidth && img.naturalHeight) {
-        setImageRatio(img.naturalWidth / img.naturalHeight);
-      }
+      readImageRatio(e.currentTarget);
     },
-    [],
+    [readImageRatio],
+  );
+
+  // ref 回调：元素挂载时，若图片已完成加载（缓存命中），同步读取尺寸
+  const handleImageRef = useCallback(
+    (img: HTMLImageElement | null) => {
+      if (img && img.complete) readImageRatio(img);
+    },
+    [readImageRatio],
   );
 
   // 图片加载失败自动重试（指数退避：1s → 2s → 4s，最多 3 次）
@@ -275,6 +291,7 @@ export function ModCard({
             alt={mod.title}
             loading={imagePriority ? "eager" : "lazy"}
             referrerPolicy="no-referrer"
+            ref={handleImageRef}
             onLoad={handleImageLoad}
             onError={handleImageError}
             className={cn("absolute inset-0 h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
