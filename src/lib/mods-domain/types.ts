@@ -20,6 +20,7 @@ export type SiteMod = {
   images: string[];
   isFavorited?: boolean;
   isFeatured: boolean;
+  featuredOrder?: number | null;
   isLiked?: boolean;
   likes: number;
   modAuthorUrl: string | null;

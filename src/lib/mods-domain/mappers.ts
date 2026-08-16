@@ -59,6 +59,7 @@ export function mapMod(row: ModRow): SiteMod {
     videoUrl: row.video_url,
     views: row.views ?? 0,
     isFeatured: row.is_featured ?? false,
+    featuredOrder: row.featured_order ?? null,
     xxmiInstallGuide: row.xxmi_install_guide,
   };
 }

@@ -189,6 +189,7 @@ export type Database = {
           images: string[];
           is_available: boolean;
           is_featured?: boolean;
+          featured_order?: number | null;
           is_published: boolean;
           likes_count: number;
           mod_author_url: string | null;
@@ -218,6 +219,7 @@ export type Database = {
           images?: string[];
           is_available?: boolean;
           is_featured?: boolean;
+          featured_order?: number | null;
           is_published?: boolean;
           likes_count?: number;
           mod_author_url?: string | null;
@@ -247,6 +249,7 @@ export type Database = {
           images?: string[];
           is_available?: boolean;
           is_featured?: boolean;
+          featured_order?: number | null;
           is_published?: boolean;
           likes_count?: number;
           mod_author_url?: string | null;

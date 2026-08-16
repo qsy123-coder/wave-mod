@@ -6,6 +6,7 @@ import { ModCard } from "@/components/common/mod-card";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { BatchActionBar } from "./batch-action-bar";
 import { FixCreatorButton } from "./fix-creator-button";
+import { ManageFeaturedButton } from "./featured-mods-manager";
 import { AdminModsToolbar } from "./admin-mods-toolbar";
 import type { AdminMod } from "@/lib/mods";
 import type { AdminModsFilters } from "@/lib/admin/mods-filters";
@@ -75,6 +76,7 @@ export function AdminModsListClient({
           filters={filters}
           rightSlot={
             <div className="flex items-center gap-2">
+              <ManageFeaturedButton />
               <FixCreatorButton />
               <button
                 type="button"

@@ -39,6 +39,37 @@ export function sortModsByHot(mods: SiteMod[]) {
     .sort((a, b) => calculateHotScore(b) - calculateHotScore(a) || b.ratingAverage - a.ratingAverage || b.views - a.views || Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
+/**
+ * 推荐 mod 排序：featuredOrder 升序（null/undefined 排最后），
+ * 无顺序或顺序相同时按 created_at 倒序兜底。
+ */
+export function sortFeaturedModsByOrder<T extends { featuredOrder?: number | null; createdAt: string }>(mods: T[]): T[] {
+  return mods.slice().sort((a, b) => {
+    const ao = a.featuredOrder ?? null;
+    const bo = b.featuredOrder ?? null;
+    if (ao !== null && bo !== null && ao !== bo) {
+      return ao - bo;
+    }
+    if (ao !== null && bo === null) return -1;
+    if (ao === null && bo !== null) return 1;
+    return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+  });
+}
+
+/** 前台轮播图最多展示的推荐数量；拖拽排序时前 N 位进入轮播，其余为「待轮播」 */
+export const MAX_CAROUSEL_SLOTS = 6;
+
+/**
+ * 把有序 id 列表映射为 featured_order：前 maxSlots 个依次 1..maxSlots，
+ * 其余为 null（「待轮播」：已推荐但暂不进轮播图）。
+ */
+export function buildFeaturedOrderMap(ids: string[], maxSlots: number): Array<{ id: string; featuredOrder: number | null }> {
+  return ids.map((id, index) => ({
+    id,
+    featuredOrder: index < maxSlots ? index + 1 : null,
+  }));
+}
+
 export function applyModQueryFilters(mods: SiteMod[], filters: Pick<PublicModsFilters, "character" | "query">) {
   let nextMods = mods;
 

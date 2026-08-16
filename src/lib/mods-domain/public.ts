@@ -4,7 +4,7 @@ import { defaultGameKey } from "@/config/games";
 import { defaultCharacterSuggestions } from "@/lib/constants/characters";
 import { logger } from "@/lib/logger";
 import { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
-import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, sortModsByHot } from "@/lib/mods-domain/sorting";
+import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
 import type { ModRow, PaginatedResult, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
@@ -105,23 +105,24 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
 }
 
 export async function getFeaturedMods(limit: number, gameKey = defaultGameKey) {
-  // 获取手动推荐的 mod（is_featured = true），按创建时间倒序
+  // 获取手动推荐的 mod（is_featured = true），按 featured_order 升序（null 排最后）+ 创建时间倒序兜底
   const supabase = createPublicReadClient();
   const { data, error } = await supabase
     .from("mods")
-    .select(publicModColumns)
+    .select(`${publicModColumns}, featured_order`)
     .eq("is_published", true)
     .eq("game_key", gameKey)
     .eq("is_featured", true)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("featured_order", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
 
   if (error) {
     logger.warn("[mods] getFeaturedMods failed, fallback to empty list", { error: error.message });
     return [] satisfies SiteMod[];
   }
 
-  return (data ?? []).map((row) => mapMod(row as ModRow));
+  const mods = (data ?? []).map((row) => mapMod(row as ModRow));
+  return sortFeaturedModsByOrder(mods).slice(0, limit);
 }
 
 export async function getWeeklyHotMods(limit: number, gameKey = defaultGameKey) {
