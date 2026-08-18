@@ -11,15 +11,12 @@ export function SiteFooter() {
           <span className="text-[10px] text-black/40">{siteConfig.disclaimer}</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {siteConfig.supportLinks.map((item, index) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={`border-[3px] border-black px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 ${index % 2 === 0 ? "bg-[var(--neo-accent)]" : "bg-white"}`}
-                >
-                  {item.label}
-                </Link>
-          ))}
+          <Link
+            href="/support"
+            className="border-[3px] border-black bg-[var(--neo-accent)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5"
+          >
+            转载声明
+          </Link>
         </div>
       </div>
     </footer>

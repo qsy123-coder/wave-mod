@@ -147,7 +147,7 @@ export function ZenlessRightRail({
             label="Downloads"
             value={compactZenlessNumber(mod.downloads)}
           />
-          <InfoRow label="License" value={mod.nsfw ? "NSFW" : "Free"} />
+          <InfoRow label="License" value="Free" />
           <InfoRow label="Game Version" value={mod.gameVersion} />
           <InfoRow label="Mod Loaders" value="WWMI, Wuthering Waves" />
         </dl>

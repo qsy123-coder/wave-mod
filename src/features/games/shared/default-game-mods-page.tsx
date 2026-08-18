@@ -59,7 +59,7 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
     getPublicMods(undefined, serverFilters),
   ]);
 
-  // 服务端筛选后的总 MOD 数（不含客户端 NSFW/直链筛选）
+  // 服务端筛选后的总 MOD 数（不含客户端直链筛选）
   const totalModCount = allFilteredMods.length;
   console.log(`[DefaultGameModsPage] availableCharacters=${availableCharacters.length} totalModCount=${totalModCount} firstPage=${firstPage.items.length}`);
 

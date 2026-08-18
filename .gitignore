@@ -44,6 +44,15 @@ yarn-error.log*
 # troubleshooting images (hosted on COS)
 /content/troubleshooting/images/
 
+# generated audit artifact (delete after review)
+/preview-audit.html
+
+# downloaded offline mod images (blur & re-upload work)
+/offline-blur-src/
+
+# script runtime logs
+/scripts/logs/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

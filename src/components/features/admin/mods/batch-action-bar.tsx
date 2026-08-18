@@ -9,9 +9,11 @@ import { BatchEditModal } from "./batch-edit-modal";
 type BatchActionBarProps = {
   selectedIds: string[];
   onClearSelection: () => void;
+  /** inline：嵌入白色筛选卡片第二行（无悬浮容器与外框）；默认 floating：页面底部悬浮条 */
+  variant?: "floating" | "inline";
 };
 
-export function BatchActionBar({ selectedIds, onClearSelection }: BatchActionBarProps) {
+export function BatchActionBar({ selectedIds, onClearSelection, variant = "floating" }: BatchActionBarProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BatchResult | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -67,12 +69,10 @@ export function BatchActionBar({ selectedIds, onClearSelection }: BatchActionBar
 
   const hasSelection = selectedIds.length > 0;
 
-  return (
+  const content = (
     <>
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center">
-        <div className="mx-4 mb-4 flex w-full max-w-[1680px] flex-wrap items-center gap-3 border-4 border-black bg-[#fff8ef] px-4 py-3 shadow-[8px_8px_0px_0px_#000]">
-          {/* 有选中：显示操作按钮 */}
-          {hasSelection ? (
+      {/* 有选中：显示操作按钮 */}
+      {hasSelection ? (
             <>
               <span className="text-sm font-black uppercase tracking-[0.14em] text-black">
                 已选 <span className="text-[#ff7a7a]">{selectedIds.length}</span> 个 MOD
@@ -132,9 +132,21 @@ export function BatchActionBar({ selectedIds, onClearSelection }: BatchActionBar
                 关闭
               </button>
             </div>
-          ) : null}
+      ) : null}
+    </>
+  );
+
+  return (
+    <>
+      {variant === "inline" ? (
+        <div className="mt-3 flex w-full flex-wrap items-center gap-3 border-t-4 border-black pt-3">{content}</div>
+      ) : (
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center">
+          <div className="mx-4 mb-4 flex w-full max-w-[1680px] flex-wrap items-center gap-3 border-4 border-black bg-[#fff8ef] px-4 py-3 shadow-[8px_8px_0px_0px_#000]">
+            {content}
+          </div>
         </div>
-      </div>
+      )}
 
       {showEditModal ? (
         <BatchEditModal

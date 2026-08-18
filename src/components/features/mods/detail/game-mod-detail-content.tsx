@@ -86,7 +86,6 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
               <Badge className="neo-sticker -rotate-2 bg-[#ff7a7a] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-[#ff7a7a]">{mod.character}</Badge>
               <Badge className="neo-sticker rotate-2 bg-[#ffd84f] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-[#ffd84f]">{mod.version}</Badge>
               <Badge className="neo-sticker bg-[#bcaeff] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-[#bcaeff]">适配 {mod.gameVersion}</Badge>
-              {mod.nsfw ? <Badge className="neo-sticker bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-black hover:bg-white">NSFW</Badge> : null}
             </div>
           </MotionReveal>
 
@@ -139,7 +138,7 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
                 <div className="space-y-5">
                   <div className="border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000]"><p className="text-sm font-black uppercase tracking-[0.14em]">内容简介</p><p className="mt-4 whitespace-pre-wrap text-sm font-bold leading-8 text-black/80">{mod.description}</p></div>
                 </div>
-                <div className="space-y-4"><div className="border-4 border-black bg-[#ffd84f] p-5 shadow-[6px_6px_0px_0px_#000]"><p className="neo-label text-black/60">Quick Facts</p><dl className="mt-4 space-y-3 text-sm font-black leading-7"><div className="flex items-center justify-between gap-4 border-b-2 border-black/15 pb-2"><dt>角色</dt><dd>{mod.character}</dd></div><div className="flex items-center justify-between gap-4 border-b-2 border-black/15 pb-2"><dt>版本</dt><dd>{mod.version}</dd></div><div className="flex items-center justify-between gap-4 border-b-2 border-black/15 pb-2"><dt>适配</dt><dd>{mod.gameVersion}</dd></div><div className="flex items-center justify-between gap-4"><dt>内容等级</dt><dd>{mod.nsfw ? "NSFW" : "普通"}</dd></div></dl></div></div>
+                <div className="space-y-4"><div className="border-4 border-black bg-[#ffd84f] p-5 shadow-[6px_6px_0px_0px_#000]"><p className="neo-label text-black/60">Quick Facts</p><dl className="mt-4 space-y-3 text-sm font-black leading-7"><div className="flex items-center justify-between gap-4 border-b-2 border-black/15 pb-2"><dt>角色</dt><dd>{mod.character}</dd></div><div className="flex items-center justify-between gap-4 border-b-2 border-black/15 pb-2"><dt>版本</dt><dd>{mod.version}</dd></div><div className="flex items-center justify-between gap-4 border-b-2 border-black/15 pb-2"><dt>适配</dt><dd>{mod.gameVersion}</dd></div><div className="flex items-center justify-between gap-4"><dt>内容等级</dt><dd>普通</dd></div></dl></div></div>
               </div>
             </section>
           </MotionReveal>

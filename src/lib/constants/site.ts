@@ -7,13 +7,8 @@ export const siteConfig = {
     { label: "图库", href: "/gallery" },
     { label: "先看我", href: "/guide" },
     { label: "问题解答", href: "/troubleshooting" },
-    { label: "支持本站", href: "/support" },
-  ],
-  supportLinks: [
-    { label: "Patreon", href: "#" },
-    { label: "爱发电", href: "#" },
-    { label: "微信赞赏", href: "#" },
+    { label: "转载声明", href: "/support" },
   ],
   disclaimer:
-    "本站内容仅供学习与交流用途，与游戏官方无关。请在下载与使用前自行确认版本兼容性。",
+    "本站 MOD 转载自玩家社区，版权归原作者所有。本站与游戏官方无关，内容仅供学习与交流用途，请自行确认版本兼容性。",
 } as const;

@@ -236,11 +236,6 @@ export function ModDetailDrawer({
                 <Badge className="neo-sticker bg-[#bcaeff] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-black hover:bg-[#bcaeff]">
                   适配 {mod.gameVersion}
                 </Badge>
-                {mod.nsfw && (
-                  <Badge className="neo-sticker bg-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-black hover:bg-white">
-                    NSFW
-                  </Badge>
-                )}
               </div>
 
               {/* Stats row: 4 items in one row */}

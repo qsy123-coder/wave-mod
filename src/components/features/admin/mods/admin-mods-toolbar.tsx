@@ -24,6 +24,8 @@ type AdminModsToolbarProps = {
   filters: AdminModsFilters;
   /** 渲染在白色筛选卡片右上角的操作按钮（补齐创作者 / 批量选择） */
   rightSlot?: ReactNode;
+  /** 渲染在白色筛选卡片第二行的内容（批量处理条） */
+  batchRow?: ReactNode;
 };
 
 /** 当前是否至少有一个活跃筛选（排除 always-present 默认值） */
@@ -41,7 +43,7 @@ function gameName(key: string) {
   return match ? match.shortName ?? match.name : key;
 }
 
-export function AdminModsToolbar({ filters, rightSlot }: AdminModsToolbarProps) {
+export function AdminModsToolbar({ filters, rightSlot, batchRow }: AdminModsToolbarProps) {
   const router = useRouter();
   const [sortOpen, setSortOpen] = useState(false);
   const [gameOpen, setGameOpen] = useState(false);
@@ -195,6 +197,9 @@ export function AdminModsToolbar({ filters, rightSlot }: AdminModsToolbarProps) 
           {/* 右上角操作按钮 */}
           {rightSlot ? <div className="flex shrink-0 items-center gap-2">{rightSlot}</div> : null}
         </div>
+
+        {/* 第二行：批量处理条（进入批量选择后出现，空态由组件自行返回 null） */}
+        {batchRow}
       </section>
 
       {/* ====== 激活筛选 chips ====== */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Lock, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
@@ -58,9 +58,7 @@ type ModsInfiniteGridProps = {
   initialMods: SiteMod[];
   query?: string;
   sort: ModSort;
-  nsfwMode?: "show" | "blur" | "hide";
   directOnly?: boolean;
-  nsfwOnly?: boolean;
   onCardClick?: (modId: string) => void;
   onCountChange?: (count: number) => void;
   isLoggedIn?: boolean;
@@ -68,7 +66,7 @@ type ModsInfiniteGridProps = {
   masonryColumns?: MasonryColumns;
 };
 
-export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, nsfwMode = "blur", directOnly = false, nsfwOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort, directOnly = false, onCardClick, onCountChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const initialPage: PaginatedResult<SiteMod> = {
@@ -101,11 +99,9 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
 
   const mods = useMemo(() => {
     let all = data.pages.flatMap((page) => page.items);
-    if (nsfwOnly) all = all.filter((m) => m.nsfw);
-    if (nsfwMode === "hide") all = all.filter((m) => !m.nsfw);
     if (directOnly) all = all.filter((m) => m.downloadUrl);
     return all;
-  }, [data.pages, nsfwMode, directOnly, nsfwOnly]);
+  }, [data.pages, directOnly]);
 
   useEffect(() => {
     onCountChange?.(mods.length);
@@ -228,37 +224,19 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
         imagePriority={idx < 4}
         imageFetchPriority={idx < 4 ? "high" : "auto"}
         imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
-        imageClassName={mod.nsfw && nsfwMode === "blur" ? "blur-xl" : undefined}
         mediaTopRight={
-          mod.nsfw || mod.downloadUrl ? (
+          mod.downloadUrl ? (
             <div className="flex items-center gap-1">
-              {mod.nsfw ? (
-                <span className="inline-flex items-center border-2 border-black bg-[#bcaeff] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
-                  NSFW
-                </span>
-              ) : null}
-              {mod.downloadUrl ? (
-                <span className="inline-flex items-center border-2 border-black bg-[#4ade80] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
-                  直链下载
-                </span>
-              ) : null}
-            </div>
-          ) : undefined
-        }
-        mediaTopRightClassName="absolute right-2 top-4"
-        mediaBottomLeft={
-          mod.nsfw && nsfwMode === "blur" ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-              <Lock className="size-8 text-white drop-shadow-[2px_2px_0px_#000]" />
-              <span className="border-2 border-black bg-black/70 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#ff7a7a] shadow-[2px_2px_0px_0px_#000]">
-                可能含18+内容
+              <span className="inline-flex items-center border-2 border-black bg-[#4ade80] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
+                直链下载
               </span>
             </div>
           ) : undefined
         }
+        mediaTopRightClassName="absolute right-2 top-4"
       />
     ),
-    [gameKey, onCardClick, isLoggedIn, isMasonry, nsfwMode],
+    [gameKey, onCardClick, isLoggedIn, isMasonry],
   );
 
   if (!isLoading && mods.length === 0) {

@@ -24,7 +24,7 @@ const zenlessNavItems = [
   { label: "排行榜", href: "/zenless-zone-zero/ranking" },
   { label: "个人中心", href: "/zenless-zone-zero/profile" },
   { label: "先看我", href: "/zenless-zone-zero/guide" },
-  { label: "支持本站", href: "/zenless-zone-zero/support" },
+  { label: "转载声明", href: "/zenless-zone-zero/support" },
 ] as const;
 
 type ZenlessGlassNavProps = {

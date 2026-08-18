@@ -77,7 +77,7 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
           {mod.title.length > 8 ? `${mod.title.slice(0, 8)}...` : mod.title}
         </h3>
         <p className="mb-2 text-[10px] text-slate-500">
-          By {mod.modAuthorUrl ?? "WaveMod"}
+          By {mod.modAuthorUrl ?? "转载"}
         </p>
         <div className="flex items-center gap-2 text-[10px] text-slate-400">
           <span className="flex items-center gap-0.5">

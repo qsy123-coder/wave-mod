@@ -9,11 +9,11 @@ export function ZenlessModsFooterCta() {
       <MotionReveal delay={0.06} y={20} rotate={-1}>
         <div className="flex min-h-[80px] items-center justify-between gap-4 border-4 border-black bg-[var(--neo-panel)] px-4 py-3 text-black shadow-[6px_6px_0_0_#000]">
           <div className="min-w-0">
-            <p className="truncate text-base font-black">找不到你想要的 MOD？</p>
-            <p className="mt-2 truncate text-xs font-bold text-black/65">提交需求，或推荐创作者加入绝区零分站。</p>
+            <p className="truncate text-base font-black">本站 MOD 转载自玩家社区</p>
+            <p className="mt-2 truncate text-xs font-bold text-black/65">版权归原作者所有，详情请查看转载与版权声明。</p>
           </div>
           <Link href="/zenless-zone-zero/support" className="neo-button-primary inline-flex shrink-0 items-center gap-2 px-4 py-2 text-[10px] font-black uppercase">
-            提交需求<ArrowRight className="size-3.5" />
+            转载声明<ArrowRight className="size-3.5" />
           </Link>
         </div>
       </MotionReveal>

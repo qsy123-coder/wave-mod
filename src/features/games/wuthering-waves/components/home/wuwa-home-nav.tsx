@@ -6,9 +6,8 @@ const navItems = [
   ["/mods", "Browse Mods"],
   ["/mods?character=今汐", "Character Mods"],
   ["/mods?query=weapon", "Weapon Mods"],
-  ["/support", "Community"],
   ["/guide", "Tutorials"],
-  ["/support", "Support Us"],
+  ["/support", "Statement"],
 ] as const;
 
 export function WuwaHomeNav() {

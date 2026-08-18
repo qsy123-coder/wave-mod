@@ -70,10 +70,17 @@ export function AdminModsListClient({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* 顶部筛选卡片（含右上角操作按钮）：sticky 固定，滚动时保持不动（z-50 盖住下方卡片的 z-20/z-30 标签） */}
+      {/* 顶部筛选卡片（含右上角操作按钮 + 批量处理第二行）：sticky 固定，滚动时保持不动（z-50 盖住下方卡片的 z-20/z-30 标签） */}
       <div className="sticky top-0 z-50 bg-[var(--neo-dark)] pb-3">
         <AdminModsToolbar
           filters={filters}
+          batchRow={
+            <BatchActionBar
+              selectedIds={Array.from(selectedIds)}
+              onClearSelection={clearSelection}
+              variant="inline"
+            />
+          }
           rightSlot={
             <div className="flex items-center gap-2">
               <ManageFeaturedButton />
@@ -141,11 +148,6 @@ export function AdminModsListClient({
           {pagination}
         </>
       )}
-
-      <BatchActionBar
-        selectedIds={Array.from(selectedIds)}
-        onClearSelection={clearSelection}
-      />
     </div>
   );
 }
