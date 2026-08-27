@@ -1,0 +1,36 @@
+name: Deploy Hub Page
+
+# 永久发布页中转站：push hub/** 后自动部署到 Cloudflare Pages。
+# 产出 https://wavemod-hub.pages.dev（及已挂载的自定义域名）。
+# 首次运行会自动创建 Pages 项目 wavemod-hub。详见 hub/README.md。
+
+on:
+  push:
+    paths:
+      - 'hub/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hub-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy hub to Cloudflare Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: pages deploy hub/ --project-name=wavemod-hub --branch=main
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
