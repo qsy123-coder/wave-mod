@@ -56,14 +56,13 @@ jobs:
           echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client-17
-          # runner 预装 PG16，apt 装 17 后 alternatives 默认可能仍指向 16，
-          # 导致 pg_dump(17, 写 1.16 格式) 与 pg_restore(16, 读不了 1.16) 版本不匹配。
-          # 强制两者同为 17 并校验一致性，不匹配立即失败。
-          sudo update-alternatives --set pg_dump /usr/lib/postgresql/17/bin/pg_dump || true
-          sudo update-alternatives --set pg_restore /usr/lib/postgresql/17/bin/pg_restore || true
-          pg_dump --version
-          pg_restore --version
-          test "$(pg_dump --version)" = "$(pg_restore --version)" && echo "pg_dump/pg_restore version OK" || { echo "VERSION MISMATCH"; exit 1; }
+          # runner 预装 PG16 的 /usr/bin/pg_dump（PGDG client-17 不注册 alternatives），
+          # 备份脚本通过 env 的 PG_DUMP_PATH/PG_RESTORE_PATH 显式用 17 的二进制。
+          # 这里确认 17 的 pg_dump/pg_restore 存在且版本一致（比较版本号，忽略二进制名）。
+          ls /usr/lib/postgresql/17/bin/pg_dump /usr/lib/postgresql/17/bin/pg_restore
+          /usr/lib/postgresql/17/bin/pg_dump --version
+          /usr/lib/postgresql/17/bin/pg_restore --version
+          test "$(/usr/lib/postgresql/17/bin/pg_dump --version | sed 's/^pg_dump //')" = "$(/usr/lib/postgresql/17/bin/pg_restore --version | sed 's/^pg_restore //')" && echo "pg 17 version OK" || { echo "VERSION MISMATCH"; exit 1; }
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
