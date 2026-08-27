@@ -46,6 +46,7 @@ const TMP_DIR = resolve(BACKUP_ROOT, ".tmp");
 const MANIFEST_PATH = resolve(BACKUP_ROOT, "manifest.json");
 
 const IMG_PREFIXES = ["mods/", "tutorial/"]; // 只备份这些前缀（mods 预览图 + 教程图），不含视频
+const VIDEO_EXT = /\.(mp4|webm|mov|avi|mkv|flv|m4v|ts|3gp)$/i; // 视频扩展名，备份时跳过
 const TABLES = [
   "mods", "profiles", "favorites", "likes", "comments", "comment_reactions", "ratings",
   "tutorial_configs", "tutorial_chapters", "tutorial_images", "tutorial_tools",
@@ -318,21 +319,23 @@ async function downloadObject(obj) {
 /** 图片增量同步：列目录 + 比对，返回完整索引 / 待下载清单 / orphaned */
 async function syncImages({ useMd5 }) {
   console.log("\n── 同步 COS 图片 ──");
-  const remote = [];
+  let remote = [];
   for (const prefix of IMG_PREFIXES) {
     const items = await listAll(prefix);
     remote.push(...items);
     console.log(`  📦 ${prefix} 共 ${items.length} 个对象`);
   }
+  // 过滤：0 字节"文件夹占位对象"（会落盘成文件并堵住同名真实目录）+ 视频（约定只备图片）
+  remote = remote.filter((o) => o.size > 0 && !VIDEO_EXT.test(o.key));
   const totalBytes = remote.reduce((s, o) => s + o.size, 0);
-  console.log(`  📊 远程图片总数: ${remote.length}，总大小: ${(totalBytes / 1024 / 1024).toFixed(1)}MB`);
+  console.log(`  📊 图片对象: ${remote.length}（已过滤 0 字节占位/视频），总大小: ${(totalBytes / 1024 / 1024).toFixed(1)}MB`);
 
   if (remote.length === 0) {
     console.log("  ⚠️ COS 列表为空，跳过图片同步");
     return { remote, toDownload: [], orphaned: [] };
   }
 
-  const localIndex = walkImages();
+  const localIndex = walkImages(IMG_DIR);
   const toDownload = [];
   const localKeys = new Set();
 
@@ -399,7 +402,10 @@ async function tableCounts() {
 // ── 4. GitHub Release（DB_DUMP_MODE=release）──
 
 async function uploadDumpToRelease(dumpFile, retention) {
-  const tag = `db-${timestamp()}`;
+  // tag 从 dump 文件名推导（wavemod-<ts>.dump → db-<ts>），与 restore 脚本的
+  // 回退推断（dbMeta.file → db-<ts>）保持一致，即使 releaseUrl 缺失也能定位
+  const ts = basename(dumpFile).match(/wavemod-(.+)\.dump$/)?.[1] || timestamp();
+  const tag = `db-${ts}`;
   console.log(`\n── 上传 dump 到 GitHub Release ──`);
   await runOut("gh", ["release", "create", tag, "--title", `DB backup ${tag}`, "--notes", "auto", "--target", "main", dumpFile]);
   console.log(`  ✅ release ${tag} 已创建并上传`);
@@ -417,9 +423,9 @@ async function uploadDumpToRelease(dumpFile, retention) {
 }
 
 /** 从 git remote 推导 release URL */
-function releaseUrlOf(tag) {
+async function releaseUrlOf(tag) {
   try {
-    const origin = runOut("git", ["remote", "get-url", "origin"]).trim();
+    const origin = (await runOut("git", ["remote", "get-url", "origin"])).trim();
     const m = origin.match(/github\.com[/:]([^/]+)\/([^/]+?)(\.git)?$/);
     if (m) return `https://github.com/${m[1]}/${m[2]}/releases/tag/${tag}`;
   } catch { /* 忽略，releaseUrl 仅参考信息 */ }
@@ -543,7 +549,7 @@ async function main() {
   // 5. dump 上传 Release
   if (!FLAGS.dryRun && dbInfo && dbDumpMode === "release") {
     const tag = await uploadDumpToRelease(join(DB_DIR, basename(dbInfo.file)), dbRetention);
-    manifest.db.releaseUrl = releaseUrlOf(tag);
+    manifest.db.releaseUrl = await releaseUrlOf(tag);
   }
 
   // 6. 写 manifest

@@ -54,8 +54,10 @@ yarn-error.log*
 /scripts/logs/
 
 # backup runtime artifacts (not committed; backups/images + backups/manifest.json ARE committed)
+# backups/db 下的 dump 走 GitHub Release，不进 git
 /backups/logs/
 /backups/.tmp/
+/backups/db/
 
 # typescript
 *.tsbuildinfo
