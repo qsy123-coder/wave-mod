@@ -53,6 +53,10 @@ yarn-error.log*
 # script runtime logs
 /scripts/logs/
 
+# backup runtime artifacts (not committed; backups/images + backups/manifest.json ARE committed)
+/backups/logs/
+/backups/.tmp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

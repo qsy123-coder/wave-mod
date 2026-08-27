@@ -1,0 +1,68 @@
+name: Daily Offsite Backup
+
+# 每日异地备份：数据库 dump（GitHub Release）+ mod 图片（git 提交）→ 推送到 GitHub。
+# 首次运行前请先在本机跑一次初始化备份并推送（见 docs/disaster-recovery.md），
+# 避免第一次就在云端全量下载 + 提交 300-500MB 图片。
+
+on:
+  schedule:
+    - cron: "0 3 * * *"            # 每天 UTC 03:00 = 北京时间 11:00
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "强制全量重下图片（--full）"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write                  # git push + gh release 需要
+
+concurrency:
+  group: offsite-backup
+  cancel-in-progress: false        # 避免与手动触发重叠
+
+jobs:
+  backup:
+    name: Backup DB + images to GitHub
+    runs-on: ubuntu-latest
+    timeout-minutes: 120           # 首次全量 300-500MB 下载+push 也够
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+      COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
+      COS_BUCKET: wave-mod-preview-1327973389      # 非敏感，硬编码（与 quality.yml 一致）
+      COS_REGION: ap-guangzhou
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}   # manifest 表行数统计
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DB_DUMP_MODE: release        # dump 走 GitHub Release，防 git 历史逐日膨胀
+      DB_RETENTION: "30"
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout (shallow)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1           # 浅克隆已提交图片，供增量比对（size + etag）
+          persist-credentials: true
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          pg_dump --version
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --omit=dev     # 只需 dotenv / cos-nodejs-sdk-v5 / @supabase/supabase-js
+
+      - name: Run backup
+        run: node scripts/backup-to-github.mjs ${{ github.event.inputs.full == 'true' && '--full' || '' }}

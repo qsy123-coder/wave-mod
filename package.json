@@ -10,7 +10,9 @@
     "test": "vitest run",
     "cf:build": "node scripts/cf-build.mjs",
     "cf:deploy": "npm run cf:build && npx wrangler deploy",
-    "vc:deploy": "vercel deploy"
+    "vc:deploy": "vercel deploy",
+    "backup": "node scripts/backup-to-github.mjs",
+    "restore": "node scripts/restore-from-backup.mjs"
   },
   "dependencies": {
     "@alicloud/credentials": "^2.4.4",
