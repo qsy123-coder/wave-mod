@@ -32,4 +32,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          preCommands: |
+            # 新版 wrangler pages deploy 要求项目已存在；首次部署先建项目，已存在则跳过
+            wrangler pages project create wavemod-hub --production-branch=main || echo "project already exists, continuing"
           command: pages deploy hub/ --project-name=wavemod-hub --branch=main
