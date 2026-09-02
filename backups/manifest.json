@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-01T08:09:12.210Z",
+  "generatedAt": "2026-09-02T07:29:03.200Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,13 +8,13 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20260901-080839.dump",
-    "sha256": "f2b6df70fd5fd404129f14d4147ceaaf4891316d8a70c15e855aaefd91a1e3c9",
-    "sizeBytes": 455800,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260901-080839",
+    "file": "db/wavemod-20260902-072825.dump",
+    "sha256": "fdcd4c5241d590fcdffab0eca60031e721fc43447e47d2ba4dbdbcb8db34bbe3",
+    "sizeBytes": 457898,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260902-072825",
     "tableCounts": {
       "mods": 4927,
-      "profiles": 11,
+      "profiles": 13,
       "favorites": 4,
       "likes": 3,
       "comments": 2,
@@ -27,9 +27,9 @@
     }
   },
   "images": {
-    "remoteCount": 4816,
-    "totalBytes": 416259476,
-    "downloadedThisRun": 0,
+    "remoteCount": 4818,
+    "totalBytes": 416722820,
+    "downloadedThisRun": 2,
     "failedThisRun": 1,
     "failures": [
       {
@@ -5092,6 +5092,12 @@
         "etag": "\"a302845e102c648c9b2d8fa1b82c6e44\""
       },
       {
+        "key": "mods/mod/5361a5b0-823d-4e8c-ada5-146de1629bc2/preview.webp",
+        "file": "images/mods/mod/5361a5b0-823d-4e8c-ada5-146de1629bc2/preview.webp",
+        "size": 231672,
+        "etag": "\"9d7250b31193fe374105ddb60aa2a19d\""
+      },
+      {
         "key": "mods/mod/536ff223-1280-452b-94fd-a7d602e7811e/loli-by-tedom-567890.webp",
         "file": "images/mods/mod/536ff223-1280-452b-94fd-a7d602e7811e/loli-by-tedom-567890.webp",
         "size": 51616,
@@ -5228,6 +5234,12 @@
         "file": "images/mods/mod/c23e052b-150d-4116-8daa-47886b4359d8/futa-0.webp",
         "size": 38726,
         "etag": "\"154abedb1c75a105b08846aa09f70879\""
+      },
+      {
+        "key": "mods/mod/c51b6771-c6d9-4162-88b5-8c5fcc29c7e0/preview.webp",
+        "file": "images/mods/mod/c51b6771-c6d9-4162-88b5-8c5fcc29c7e0/preview.webp",
+        "size": 231672,
+        "etag": "\"9d7250b31193fe374105ddb60aa2a19d\""
       },
       {
         "key": "mods/mod/cb693413-9171-4c1f-979e-8fd6fc10cc77/mosaic-preview-_7_.webp",
