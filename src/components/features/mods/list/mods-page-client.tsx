@@ -45,17 +45,18 @@ export function ModsPageClient({
   currentUserName,
   isLoggedIn = false,
 }: ModsPageClientProps) {
-  const { isLoading, startLoading, stopLoading } = useNavigationLoading();
+  const { isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter } = useNavigationLoading();
 
-  // 服务端数据到达时（props 变化）自动结束加载状态
+  // 服务端数据到达时（props 变化）自动结束加载状态，并清空乐观角色以对齐服务端
   const prevParamsRef = useRef(`${sort}-${character}-${initialQuery}`);
   useEffect(() => {
     const current = `${sort}-${character}-${initialQuery}`;
     if (prevParamsRef.current !== current) {
       prevParamsRef.current = current;
       stopLoading();
+      setPendingCharacter(null);
     }
-  }, [sort, character, initialQuery, stopLoading]);
+  }, [sort, character, initialQuery, stopLoading, setPendingCharacter]);
 
   const [directOnly, setDirectOnly] = useState(false);
   const [gridCount, setGridCount] = useState<number | null>(null);
@@ -93,7 +94,7 @@ export function ModsPageClient({
         sortHrefs={sortHrefs}
         directOnly={directOnly}
         onDirectOnlyChange={setDirectOnly}
-        activeCharacter={activeCharacter}
+        activeCharacter={pendingCharacter ?? activeCharacter}
         activeQuery={initialQuery || undefined}
         modCount={modCount}
         layoutMode={layoutMode}

@@ -64,18 +64,27 @@ export function ModsToolbar({
   const [query, setQuery] = useState(initialQuery);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  // 本地已提交搜索词：提交瞬间用于渲染「搜索: xxx」筛选条，随后与服务端 activeQuery 对齐
+  const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
 
   // 本地 sort state：点击时立即更新，服务端数据到达时同步
   const [localSort, setLocalSort] = useState(sort);
   useEffect(() => { setLocalSort(sort); }, [sort]);
+  useEffect(() => { setSubmittedQuery(activeQuery ?? ""); }, [activeQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.trim()) {
-      router.push(`${gameModsPath}?query=${encodeURIComponent(query.trim())}`);
-    } else {
-      router.push(gameModsPath);
-    }
+    // 立即骨架屏 + 筛选条显示搜索词
+    onFilterChange?.();
+    const nextQuery = query.trim();
+    setSubmittedQuery(nextQuery);
+    const params = new URLSearchParams();
+    if (nextQuery) params.set("query", nextQuery);
+    // 保留当前角色 / 排序上下文，避免在角色分类页搜索时跳出该分类
+    if (activeCharacter) params.set("character", activeCharacter);
+    if (sort !== "latest") params.set("sort", sort);
+    const qs = params.toString();
+    router.push(qs ? `${gameModsPath}?${qs}` : gameModsPath);
   };
 
   const handleFilterSelect = (key: string) => {
@@ -121,6 +130,12 @@ export function ModsToolbar({
           placeholder="搜索模组..."
           className="min-w-0 flex-1 bg-transparent text-xs font-black text-black outline-none placeholder:text-black/40"
         />
+        <button
+          type="submit"
+          className="inline-flex shrink-0 items-center gap-1 border-[3px] border-black bg-[#ffd84f] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#000]"
+        >
+          搜索
+        </button>
       </form>
 
       {/* 过滤条件下拉（全部 / 仅直链） */}
@@ -254,7 +269,7 @@ export function ModsToolbar({
       ) : null}
 
       {/* 当前筛选条件 */}
-      {(activeCharacter || activeQuery || isFilterActive || isSortActive) ? (
+      {(activeCharacter || submittedQuery || isFilterActive || isSortActive) ? (
         <div className="flex w-full flex-wrap items-center gap-1.5 border-t-4 border-black pt-2">
           <span className="text-[10px] font-black uppercase tracking-[0.14em] text-black/60">筛选：</span>
           {modCount !== undefined ? (
@@ -267,9 +282,9 @@ export function ModsToolbar({
               角色: {activeCharacter}
             </span>
           ) : null}
-          {activeQuery ? (
+          {submittedQuery ? (
             <span className="inline-flex items-center gap-1 border-[3px] border-black bg-white px-2 py-0.5 text-[10px] font-black uppercase text-black shadow-[2px_2px_0px_0px_#000]">
-              搜索: {activeQuery}
+              搜索: {submittedQuery}
             </span>
           ) : null}
           {isFilterActive ? (

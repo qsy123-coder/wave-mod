@@ -38,14 +38,16 @@ export function CharacterSidebar({
   className,
 }: CharacterSidebarProps) {
   const router = useRouter();
-  const { startLoading } = useNavigationLoading();
+  const { startLoading, setPendingCharacter } = useNavigationLoading();
 
   const handleClick = useCallback(
-    (href: string) => {
+    (href: string, label: string) => {
+      // 乐观角色：立即写入供筛选条即时显示，待服务端 props 到达后再对齐
+      setPendingCharacter(label === allLabel ? null : label);
       startLoading();
       router.push(href);
     },
-    [router, startLoading],
+    [router, startLoading, setPendingCharacter, allLabel],
   );
 
   const specialCategories = characters.filter((c) =>
@@ -60,7 +62,7 @@ export function CharacterSidebar({
       {/* 全部 */}
       <button
         type="button"
-        onClick={() => handleClick(allHref)}
+        onClick={() => handleClick(allHref, allLabel)}
         className={cn(
           "border-[3px] border-black px-2.5 py-1.5 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
           isAllActive
@@ -80,7 +82,7 @@ export function CharacterSidebar({
           <button
             key={item.label}
             type="button"
-            onClick={() => handleClick(item.href)}
+            onClick={() => handleClick(item.href, item.label)}
             className={cn(
               "flex items-center gap-2 border-[3px] border-black px-2.5 py-2 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
               item.isActive
@@ -116,7 +118,7 @@ export function CharacterSidebar({
             <button
               key={item.label}
               type="button"
-              onClick={() => handleClick(item.href)}
+              onClick={() => handleClick(item.href, item.label)}
               className={cn(
                 "flex items-center gap-2 border-[3px] border-black px-2.5 py-2 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
                 item.isActive
