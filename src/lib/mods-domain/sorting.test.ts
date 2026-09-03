@@ -42,9 +42,9 @@ function createMod(overrides: Partial<SiteMod>): SiteMod {
 }
 
 describe("mods-domain sorting helpers", () => {
-  it("parses invalid or missing sort as default", () => {
-    expect(parseModSort(undefined)).toBe("default");
-    expect(parseModSort("unknown")).toBe("default");
+  it("parses invalid or missing sort as latest by default", () => {
+    expect(parseModSort(undefined)).toBe("latest");
+    expect(parseModSort("unknown")).toBe("latest");
     expect(parseModSort("hot")).toBe("hot");
   });
 

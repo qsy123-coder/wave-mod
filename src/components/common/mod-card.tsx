@@ -71,6 +71,10 @@ const textLimits: Record<ModCardVariant, { title: number; description: number }>
   list: { title: 6, description: 16 },
 };
 
+/** 标题白色实心描边：8 方向 text-shadow 勾边，提升在图片上的可读性 */
+const TITLE_TEXT_OUTLINE =
+  "[text-shadow:-1px_-1px_0_#fff,1px_-1px_0_#fff,-1px_1px_0_#fff,1px_1px_0_#fff,-1px_0_0_#fff,1px_0_0_#fff,0_-1px_0_#fff,0_1px_0_#fff]";
+
 const variantStyles: Record<
   ModCardVariant,
   {
@@ -87,7 +91,7 @@ const variantStyles: Record<
   }
 > = {
   default: {
-    title: "line-clamp-2 max-w-[13rem] text-[0.9rem] font-black uppercase leading-[1.04] tracking-[0.16em] text-black/60 group-hover/mod-card:text-black transition-colors",
+    title: "line-clamp-2 max-w-[13rem] text-[0.9rem] font-black uppercase leading-[1.04] tracking-[0.16em] text-black/60 group-hover/mod-card:text-black group-hover/mod-card:line-clamp-none transition-colors",
     description: "hidden max-w-[14rem] text-[11px] font-bold leading-4 text-black/70 md:block",
     content: "absolute inset-x-0 bottom-0 px-4 pb-4 pt-24 text-black",
     tagWrap: "hidden flex-wrap gap-1.5 md:flex",
@@ -100,7 +104,7 @@ const variantStyles: Record<
     defaultTopRight: null,
   },
   home: {
-    title: "line-clamp-2 max-w-[13rem] text-[0.85rem] font-black uppercase leading-[1.03] tracking-[0.16em] text-black/60 group-hover/mod-card:text-black transition-colors",
+    title: "line-clamp-2 max-w-[13rem] text-[0.85rem] font-black uppercase leading-[1.03] tracking-[0.16em] text-black/60 group-hover/mod-card:text-black group-hover/mod-card:line-clamp-none transition-colors",
     description: "hidden max-w-[14rem] text-[11px] font-bold leading-4 text-black/70 md:block",
     content: "absolute inset-x-0 bottom-0 px-4 pb-4 pt-24 text-black",
     tagWrap: "hidden",
@@ -113,7 +117,7 @@ const variantStyles: Record<
     defaultTopRight: null,
   },
   list: {
-    title: "line-clamp-1 max-w-[10.5rem] text-[0.75rem] font-black uppercase leading-[1.02] tracking-[0.16em] text-black/60 group-hover/mod-card:text-black transition-colors",
+    title: "line-clamp-1 max-w-[10.5rem] text-[0.75rem] font-black uppercase leading-[1.02] tracking-[0.16em] text-black/60 group-hover/mod-card:text-black group-hover/mod-card:line-clamp-none transition-colors",
     description: "hidden max-w-[10.5rem] text-[10px] font-bold leading-3 text-black/66 md:block",
     content: "absolute inset-x-0 bottom-0 px-2.5 pb-2.5 pt-20 text-black",
     tagWrap: "hidden",
@@ -174,6 +178,14 @@ export function ModCard({
   const badgeTone = metaBadgeStyles[metaBadgeTone];
   const styles = variantStyles[variant];
   const limits = textLimits[variant];
+
+  // hover 卡片时标题显示全称（默认 6 字缩写）；竖排换行见 styles.title 的 group-hover:line-clamp-none
+  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
+  const cardHoverHandlers = {
+    onMouseEnter: () => setIsTitleExpanded(true),
+    onMouseLeave: () => setIsTitleExpanded(false),
+  };
+  const displayTitle = isTitleExpanded ? mod.title : shortenText(mod.title, limits.title);
   const TitleTag = titleTag;
   const canLink = Boolean(href);
   const canUseInnerLinks = canLink && linkMode !== "card";
@@ -181,7 +193,7 @@ export function ModCard({
 
   const metaBadges = showMetaBadges ? (
     <>
-      <Badge className={cn("neo-sticker -rotate-2 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em]", badgeTone.character)}>
+      <Badge className={cn("neo-sticker -rotate-2 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] max-sm:hidden", badgeTone.character)}>
         {normalizeCharacterName(mod.character ?? "")}
       </Badge>
       {extraMetaBadges}
@@ -192,12 +204,12 @@ export function ModCard({
 
   const titleAndDescription = (
     <>
-      <TitleTag className={cn(styles.title, titleClassName)}>{shortenText(mod.title, limits.title)}</TitleTag>
+      <TitleTag className={cn(styles.title, TITLE_TEXT_OUTLINE, titleClassName)}>{displayTitle}</TitleTag>
     </>
   );
 
   const compactStats = showInteractionBar ? (
-    <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-black/55">
+    <div className="flex flex-wrap items-center gap-1.5 max-sm:hidden px-1.5 py-0.5 text-xs font-bold text-black/80 bg-[#fff8ef]/20">
       <span className="inline-flex items-center gap-1">
         <Eye className="size-3.5" />{mod.views}
       </span>
@@ -337,9 +349,9 @@ export function ModCard({
         </div>
       ) : null}
       {topLeftContent ? <div className={cn(styles.topLeft, showCheckbox && "left-7", mediaTopLeftClassName)}>{topLeftContent}</div> : null}
-      {topRightContent ? <div className={cn("z-20", mediaTopRightClassName)}>{topRightContent}</div> : null}
+      {topRightContent ? <div className={cn("z-20 max-sm:hidden", mediaTopRightClassName)}>{topRightContent}</div> : null}
       {mediaBottomLeft}
-      {showRatingSticker ? <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} className={cn("z-20 shadow-[4px_4px_0px_0px_#000]", ratingStickerClassName)} /> : null}
+      {showRatingSticker ? <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} className={cn("z-20 max-sm:hidden shadow-[4px_4px_0px_0px_#000]", ratingStickerClassName)} /> : null}
 
       <CardFavoriteButton
         modId={mod.id}
@@ -376,7 +388,7 @@ export function ModCard({
   if (canLink && linkMode === "card") {
     if (onCardClick) {
       return (
-        <article className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
+        <article {...cardHoverHandlers} className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
           <button type="button" onClick={() => onCardClick(mod.id)} className="block h-full w-full cursor-pointer text-left">
             {media}
           </button>
@@ -384,7 +396,7 @@ export function ModCard({
       );
     }
     return (
-      <article className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
+      <article {...cardHoverHandlers} className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
         <Link href={resolvedHref} className="block h-full">
           {media}
         </Link>
@@ -393,7 +405,7 @@ export function ModCard({
   }
 
   return (
-    <article className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
+    <article {...cardHoverHandlers} className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
       {media}
     </article>
   );

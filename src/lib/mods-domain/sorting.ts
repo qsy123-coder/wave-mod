@@ -101,7 +101,7 @@ export function applyModQueryFilters(mods: SiteMod[], filters: Pick<PublicModsFi
 }
 
 export function parseModSort(sort: string | undefined): ModSort {
-  return modSortSchema.safeParse(sort).data ?? "default";
+  return modSortSchema.safeParse(sort).data ?? "latest";
 }
 
 export function parseCharacterFilter(character: string | undefined) {
