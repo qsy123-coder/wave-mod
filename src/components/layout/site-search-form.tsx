@@ -34,8 +34,14 @@ export function SiteSearchForm() {
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="搜索角色 / 标题 / 描述 / 标签"
-        className="w-full bg-transparent text-sm font-bold text-black placeholder:text-black/55 outline-none"
+        className="min-w-0 flex-1 bg-transparent text-sm font-bold text-black placeholder:text-black/55 outline-none"
       />
+      <button
+        type="submit"
+        className="inline-flex shrink-0 items-center gap-1 border-[3px] border-black bg-[#ffd84f] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#000]"
+      >
+        搜索
+      </button>
     </form>
   );
 }
