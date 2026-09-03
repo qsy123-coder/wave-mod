@@ -1,3 +1,5 @@
+"use client";
+
 import type { GameConfig } from "@/config/games";
 import { ZenlessHeroCarouselClient, type ZenlessHeroCopy, type ZenlessHeroSlide } from "@/features/games/zenless-zone-zero/components/zenless-hero-carousel-client";
 import type { SiteMod } from "@/lib/mods";

@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -428,11 +430,11 @@ function ZenlessCreatorsBar({ creators: cOverride }: { creators?: LowerHomeCreat
   );
 }
 
-type LowerHomeStats = Array<{ icon: React.ComponentType<{ className?: string }>; value: string; label: string }>;
-type LowerHomeCategory = { icon?: string; avatar?: string | null; name: string; query: string; count: string };
-type LowerHomeCreator = { name: string; followers: string };
-type LowerHomeDisplayMod = { character: string; title: string };
-type LowerHomeUpdate = { title: string; desc: string; time: string; badge: string | null };
+export type LowerHomeStats = Array<{ icon: React.ComponentType<{ className?: string }>; value: string; label: string }>;
+export type LowerHomeCategory = { icon?: string; avatar?: string | null; name: string; query: string; count: string };
+export type LowerHomeCreator = { name: string; followers: string };
+export type LowerHomeDisplayMod = { character: string; title: string };
+export type LowerHomeUpdate = { title: string; desc: string; time: string; badge: string | null };
 
 type ZenlessLowerHomeProps = {
   game: GameConfig;
