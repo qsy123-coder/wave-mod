@@ -2,11 +2,12 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Heart, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2, BookOpen } from "lucide-react";
 
 import { getEnabledGames } from "@/config/games";
 import { signOutUser } from "@/actions/auth/auth-actions";
+import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { SiteSearchForm } from "@/components/layout/site-search-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -43,6 +44,9 @@ function getCurrentGameKey(pathname: string) {
 export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const search = useSearchParams();
+  const { startPageLoading } = useNavigationLoading();
+  const currentUrl = `${pathname}${search && search.toString() ? `?${search.toString()}` : ""}`;
   const isZzzRoute = pathname.startsWith("/zenless-zone-zero");
   const isAdminRoute = pathname.startsWith("/admin");
   const loginHref = "/auth/login?mode=user&next=/favorites";
@@ -50,8 +54,22 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps)
   const games = getEnabledGames();
   const currentGameKey = getCurrentGameKey(pathname);
 
+  // 顶部导航任意链接点击 → 立即站点级骨架屏；同址或被自身 onClick 拦截（如当前游戏）的点击跳过
+  const handleHeaderNavClick = (e: React.MouseEvent) => {
+    if (e.defaultPrevented) return;
+    const anchor = (e.target as Element | null)?.closest?.("a");
+    if (!anchor) return;
+    const href = anchor.getAttribute("href");
+    if (!href || href.startsWith("http") || href.startsWith("mailto")) return;
+    if (href === currentUrl) {
+      e.preventDefault();
+      return;
+    }
+    startPageLoading();
+  };
+
   return (
-    <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }}>
+    <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }} onClick={handleHeaderNavClick}>
       <div className="mx-auto flex w-full max-w-[1680px] items-center gap-6 px-4 py-4.5 sm:px-6 lg:px-8">
         {/* 左侧组：Logo + 游戏切换 + 导航 */}
         <div className="flex items-center gap-6">
@@ -78,7 +96,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps)
             <DropdownMenuTrigger className="hidden border-[3px] border-black bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] md:inline-flex md:items-center md:gap-1.5">
               <Gamepad2 className="size-3.5" />游戏切换
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
+            <DropdownMenuContent align="start" className="w-56 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]" onClick={handleHeaderNavClick}>
               <DropdownMenuLabel className="text-xs font-black uppercase tracking-[0.16em] text-black/60">选择 MOD 分站</DropdownMenuLabel>
               <DropdownMenuSeparator className="my-2 h-1 bg-black" />
               {games.map((game, index) => {
@@ -240,7 +258,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps)
               </SheetDescription>
             </SheetHeader>
 
-            <div className="space-y-4 p-5">
+            <div className="space-y-4 p-5" onClick={handleHeaderNavClick}>
               <Suspense fallback={<div className="neo-card px-4 py-3 text-sm font-bold text-black/60" style={{ background: "var(--neo-search)" }}>加载搜索…</div>}>
                 <SiteSearchForm />
               </Suspense>

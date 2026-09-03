@@ -3,7 +3,10 @@ import { Suspense } from "react";
 
 import { ClientProviders } from "@/components/layout/client-providers";
 import { LayoutStyleProvider } from "@/components/layout/layout-style-provider";
+import { NavigationLoadingProvider } from "@/components/layout/navigation-loading-context";
 import { NavigationLoader } from "@/components/layout/navigation-loader";
+import { PageLoadingOverlay } from "@/components/layout/page-loading-overlay";
+import { RouteChangeListener } from "@/components/layout/route-change-listener";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -33,7 +36,13 @@ export default function RootLayout({
         <ThemeProvider>
           <LayoutStyleProvider>
             <ClientProviders>
-              {children}
+              <NavigationLoadingProvider>
+                {children}
+                <PageLoadingOverlay />
+                <Suspense fallback={null}>
+                  <RouteChangeListener />
+                </Suspense>
+              </NavigationLoadingProvider>
               <Suspense fallback={null}>
                 <NavigationLoader />
               </Suspense>

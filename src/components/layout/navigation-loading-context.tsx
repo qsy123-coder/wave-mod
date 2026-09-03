@@ -13,6 +13,12 @@ type NavigationLoadingContextType = {
   pendingCharacter: string | null;
   /** 设置乐观角色，数据到达后应清空以对齐服务端 */
   setPendingCharacter: (character: string | null) => void;
+  /** 是否正在跨页导航（顶部导航点击等），用于站点级骨架屏 */
+  isPageLoading: boolean;
+  /** 标记跨页导航开始（顶部导航链接点击时调用） */
+  startPageLoading: () => void;
+  /** 标记跨页导航结束（目标路由确认时自动调用） */
+  stopPageLoading: () => void;
 };
 
 const NavigationLoadingContext = createContext<NavigationLoadingContextType>({
@@ -21,6 +27,9 @@ const NavigationLoadingContext = createContext<NavigationLoadingContextType>({
   stopLoading: () => {},
   pendingCharacter: null,
   setPendingCharacter: () => {},
+  isPageLoading: false,
+  startPageLoading: () => {},
+  stopPageLoading: () => {},
 });
 
 export function useNavigationLoading() {
@@ -30,13 +39,16 @@ export function useNavigationLoading() {
 export function NavigationLoadingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [pendingCharacter, setPendingCharacter] = useState<string | null>(null);
+  const [isPageLoading, setIsPageLoading] = useState(false);
 
   const startLoading = useCallback(() => setIsLoading(true), []);
   const stopLoading = useCallback(() => setIsLoading(false), []);
+  const startPageLoading = useCallback(() => setIsPageLoading(true), []);
+  const stopPageLoading = useCallback(() => setIsPageLoading(false), []);
 
   return (
     <NavigationLoadingContext.Provider
-      value={{ isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter }}
+      value={{ isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter, isPageLoading, startPageLoading, stopPageLoading }}
     >
       {children}
     </NavigationLoadingContext.Provider>
