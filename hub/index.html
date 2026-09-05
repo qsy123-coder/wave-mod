@@ -89,6 +89,14 @@
   .ch .v a { color: var(--accent); text-decoration: none; }
   .ch .v a:hover { text-decoration: underline; }
 
+  .qr { position: relative; display: inline-block; }
+  .qr img {
+    display: none; position: absolute; right: 0; bottom: calc(100% + 10px);
+    width: 176px; border-radius: 10px; border: 1px solid var(--border);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); background: #fff;
+  }
+  .qr:hover img, .qr:focus-within img { display: block; }
+
   ol.tips { padding-left: 20px; }
   ol.tips li { font-size: 14px; color: var(--text); margin-bottom: 8px; }
   ol.tips li::marker { color: var(--accent); font-weight: 700; }
@@ -143,6 +151,23 @@
       <h2>备用联系方式</h2>
 
       <div class="ch">
+        <span class="k">QQ交流群</span>
+        <span class="v">342432956</span>
+      </div>
+      <div class="ch">
+        <span class="k">QQ频道</span>
+        <span class="v"><a href="https://pd.qq.com/s/6tajhe3vz?b=9" target="_blank" rel="noopener">pd08872317 · 一键加入</a></span>
+      </div>
+      <div class="ch">
+        <span class="k">扫码进入频道</span>
+        <span class="v">
+          <a class="qr" href="https://pd.qq.com/s/6tajhe3vz?b=9" target="_blank" rel="noopener">
+            qq内扫描二维码进入QQ频道
+            <img src="qr.jpg" alt="鸣潮QQ频道二维码" width="176" height="264" />
+          </a>
+        </span>
+      </div>
+      <div class="ch">
         <span class="k">QQ 号</span>
         <span class="v">3372543343</span>
       </div>
@@ -168,7 +193,7 @@
 
     <footer>
       <p>WaveMod · 官方永久发布页</p>
-      <p>最后更新：<span class="updated">2026-08-27</span></p>
+      <p>最后更新：<span class="updated">2026-09-05</span></p>
     </footer>
   </div>
 </body>
