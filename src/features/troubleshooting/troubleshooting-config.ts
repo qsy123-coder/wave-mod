@@ -18,7 +18,7 @@ export const troubleshootingConfigSchema = z.object({
 
 export const troubleshootingConfig: TroubleshootingConfig = troubleshootingConfigSchema.parse({
   title: "问题解答",
-  subtitle: "鸣潮 Mod 常见问题排查指南 · 由 B站可可HXL 编写",
+  subtitle: "鸣潮 Mod 常见问题排查指南",
   categories: [
     { key: "installation", label: "安装与更新", mdFile: "01-installation.md", order: 1, questionCount: 4 },
     { key: "crashes", label: "启动与闪退", mdFile: "02-crashes.md", order: 2, questionCount: 6 },
