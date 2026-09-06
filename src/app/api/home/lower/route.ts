@@ -1,6 +1,7 @@
 import { getDefaultGame } from "@/config/games";
 import {
   getAvailableCharacters,
+  getDailyUpdates,
   getFeaturedMods,
   getLatestMods,
   getPublicMods,
@@ -14,13 +15,17 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const gameKey = searchParams.get("game") ?? getDefaultGame().key;
 
-  const [featuredMods, latestMods, topCreators, characters, allMods] = await Promise.all([
+  const [featuredMods, latestMods, topCreators, characters, allMods, today] = await Promise.all([
     getFeaturedMods(6, gameKey),
     getLatestMods(4, gameKey),
     getTopCreators(6, gameKey),
     getAvailableCharacters(gameKey),
     getPublicMods(undefined, { gameKey }),
+    getDailyUpdates(1, gameKey),
   ]);
+
+  // 今日更新的 mod（首页第二屏"今日更新的 mod"卡片用）
+  const todayMods = today.days?.[0]?.mods ?? [];
 
   const totalMods = allMods.length;
   const avgRating =
@@ -38,6 +43,7 @@ export async function GET(request: Request) {
   return Response.json({
     featuredMods,
     latestMods,
+    todayMods,
     topCreators,
     characters,
     totalMods,

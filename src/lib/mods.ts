@@ -1,5 +1,7 @@
 export { getCreatorProfile, getCreatorProfileUncached, getTopCreators } from "@/lib/mods-domain/creators";
 export type { CreatorProfile, TopCreator } from "@/lib/mods-domain/creators";
+export { getDailyUpdates } from "@/lib/mods-domain/daily";
+export type { DailyUpdateDay, DailyUpdatesResult } from "@/lib/mods-domain/daily";
 export { getAdminMods } from "@/lib/mods-domain/admin";
 export { getModComments, getModCommentsPage } from "@/lib/mods-domain/comments";
 export { getPublicModById } from "@/lib/mods-domain/detail";

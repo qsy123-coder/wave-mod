@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  ArrowRight,
   Download,
   Grid3X3,
   Star,
@@ -256,17 +257,70 @@ function ZenlessFeaturedMods({
 
 function ZenlessLatestUpdates({
   game,
+  todayMods,
   mods,
   displayMods: dmsOverride,
   fallbackUpdates: fbOverride,
 }: {
   game: GameConfig;
+  todayMods?: SiteMod[];
   mods: SiteMod[];
   displayMods?: LowerHomeDisplayMod[];
   fallbackUpdates?: LowerHomeUpdate[];
 }) {
   const dms = dmsOverride ?? displayMods;
   const fb = fbOverride ?? fallbackUpdates;
+
+  // 传入 todayMods（鸣潮主场）→ "今日更新"；否则沿用原"最新更新"逻辑（绝区零等未接入 daily 的分站首页）
+  const useToday = todayMods !== undefined;
+
+  if (useToday) {
+    const list = (todayMods ?? []).slice(0, 4);
+    return (
+      <section className="border-4 border-black bg-white/20 p-3 text-black shadow-[7px_7px_0px_0px_#000] backdrop-blur-[2px]">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-xs font-black uppercase tracking-[0.16em]">
+            今日更新的 mod
+          </h3>
+          <Link
+            href="/updates"
+            className="text-[9px] font-black uppercase tracking-[0.14em] underline decoration-2"
+          >
+            查看全部
+          </Link>
+        </div>
+        <div className="space-y-0">
+          {list.length > 0 ? (
+            list.map((mod, index) => (
+              <Link
+                key={mod.id}
+                href={`/mods/${mod.id}`}
+                className="flex items-center gap-2 border-2 border-black bg-white/86 px-2 py-1.5 shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5"
+              >
+                <div className="flex size-7 shrink-0 items-center justify-center border-2 border-black bg-[var(--neo-secondary)] text-sm font-black">
+                  {index + 1}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11px] font-black leading-tight">
+                    {mod.title}
+                  </p>
+                  <p className="truncate text-[9px] font-bold text-black/55">
+                    {mod.character || "鸣潮 MOD"}
+                  </p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-black/45" />
+              </Link>
+            ))
+          ) : (
+            <p className="border-2 border-black bg-white/86 px-2 py-2 text-[11px] font-black text-black/55 shadow-[3px_3px_0px_0px_#000]">
+              今日暂无更新
+            </p>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   const updates =
     mods.length > 0
       ? mods.slice(0, 4).map((mod, index) => {
@@ -439,6 +493,7 @@ export type LowerHomeUpdate = { title: string; desc: string; time: string; badge
 type ZenlessLowerHomeProps = {
   game: GameConfig;
   latestMods: SiteMod[];
+  todayMods?: SiteMod[];
   mods: SiteMod[];
   stats?: LowerHomeStats;
   categories?: LowerHomeCategory[];
@@ -450,6 +505,7 @@ type ZenlessLowerHomeProps = {
 export function ZenlessLowerHome({
   game,
   latestMods,
+  todayMods,
   mods,
   stats: statsOverride,
   categories: categoriesOverride,
@@ -468,7 +524,7 @@ export function ZenlessLowerHome({
         </div>
         <aside className="grid gap-5 lg:auto-rows-max">
           <MotionReveal delay={0.18} y={26} rotate={1}>
-            <ZenlessLatestUpdates game={game} mods={latestMods} displayMods={displayModsOverride} fallbackUpdates={fallbackUpdatesOverride} />
+            <ZenlessLatestUpdates game={game} mods={latestMods} todayMods={todayMods} displayMods={displayModsOverride} fallbackUpdates={fallbackUpdatesOverride} />
           </MotionReveal>
           <MotionReveal delay={0.24} y={26} rotate={-1}>
             <ZenlessPopularCategories game={game} categories={categoriesOverride} />

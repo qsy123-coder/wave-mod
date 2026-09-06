@@ -513,6 +513,31 @@
   animation: zzzMarquee 25s linear infinite;
 }
 
+/* 首页"近期上新"横条：近 14 天更新角色名的无缝横向滚动 */
+@keyframes tickerScroll {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-track {
+  animation: tickerScroll 45s linear infinite;
+}
+
+/* 顶部"近期更新的 MOD"标签：一道高光斜带从文字上扫过 */
+.ticker-shimmer {
+  background-image: linear-gradient(110deg, #fff 40%, var(--neo-accent) 50%, #fff 60%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: tickerShimmer 3.2s linear infinite;
+}
+
+@keyframes tickerShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* 文字颜色 — 面板变暗后，黑字 → 纯白（与原始 text-white 一致） */
 .theme-zzz-dark .zzz-skin-scope .text-black,
 .theme-zzz-dark .zzz-skin-scope [class*="text-black/"] {

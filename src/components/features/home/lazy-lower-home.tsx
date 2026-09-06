@@ -46,6 +46,7 @@ const wuwaCopy = {
 type LowerHomeData = {
   featuredMods: SiteMod[];
   latestMods: SiteMod[];
+  todayMods: SiteMod[];
   topCreators: TopCreator[];
   characters: string[];
   totalMods: number;
@@ -56,6 +57,7 @@ type LowerHomeData = {
 const EMPTY_DATA: LowerHomeData = {
   featuredMods: [],
   latestMods: [],
+  todayMods: [],
   topCreators: [],
   characters: [],
   totalMods: 0,
@@ -165,6 +167,7 @@ export function LazyHomeLower() {
         <ZenlessLowerHome
           game={game}
           latestMods={resolved.latestMods}
+          todayMods={resolved.todayMods}
           mods={resolved.featuredMods}
           stats={stats}
           categories={categories}

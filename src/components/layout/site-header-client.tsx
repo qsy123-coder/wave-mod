@@ -33,6 +33,8 @@ import { siteConfig } from "@/lib/constants/site";
 type SiteHeaderClientProps = {
   isLoggedIn: boolean;
   isAdmin: boolean;
+  /** 顶部附加条（首页"近期上新"滚动通知），渲染在导航行上方 */
+  topBar?: React.ReactNode;
 };
 
 function getCurrentGameKey(pathname: string) {
@@ -41,7 +43,7 @@ function getCurrentGameKey(pathname: string) {
   return "wuthering-waves"; // 默认（含 redirect 过来的根路径）
 }
 
-export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps) {
+export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const search = useSearchParams();
@@ -70,6 +72,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: SiteHeaderClientProps)
 
   return (
     <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }} onClick={handleHeaderNavClick}>
+      {topBar}
       <div className="mx-auto flex w-full max-w-[1680px] items-center gap-6 px-4 py-4.5 sm:px-6 lg:px-8">
         {/* 左侧组：Logo + 游戏切换 + 导航 */}
         <div className="flex items-center gap-6">

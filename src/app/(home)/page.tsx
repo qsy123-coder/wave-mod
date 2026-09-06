@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, MessageCircle, QrCode, Sparkles } from "lucide-react";
 
-import { FirstVisitDialog } from "@/components/common/first-visit-dialog";
+import { DailyUpdateDialog } from "@/components/common/daily-update-dialog";
 import { LazyHomeLower } from "@/components/features/home/lazy-lower-home";
 import { HeroCarousel } from "@/components/features/home/hero-carousel";
 import { FeaturedCarouselSkeleton } from "@/components/layout/data-skeletons";
@@ -16,7 +16,7 @@ import { getFeaturedMods } from "@/lib/mods";
 function SnapContainer({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="h-[100vh] overflow-y-scroll max-md:h-auto max-md:min-h-[100vh] max-md:overflow-y-auto"
+      className="h-[calc(100vh-104px)] overflow-y-scroll max-md:h-auto max-md:min-h-[calc(100vh-74px)] max-md:overflow-y-auto"
       style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
     >
       {children}
@@ -36,11 +36,11 @@ async function HomeFeaturedCarousel() {
 export default function HomePage() {
   return (
     <>
-      <FirstVisitDialog />
+      <DailyUpdateDialog />
       <SnapContainer>
         {/* 区域 1: 现有 Hero（垂直居中，上下各 15vh 留白） */}
         <section
-          className="relative flex h-full w-full items-center pt-[calc(15vh+74px)] pb-[calc(15vh+74px)] max-md:pt-4 max-md:pb-4 max-md:h-auto"
+          className="relative flex h-full w-full items-center pt-[11vh] pb-[15vh] max-md:pt-4 max-md:pb-4 max-md:h-auto"
           style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
         >
           <div className="mx-auto w-full max-w-[1680px] px-4 sm:px-5 lg:px-6">
