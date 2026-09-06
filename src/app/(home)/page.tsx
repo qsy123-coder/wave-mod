@@ -16,7 +16,7 @@ import { getFeaturedMods } from "@/lib/mods";
 function SnapContainer({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="h-[calc(100vh-104px)] overflow-y-scroll max-md:h-auto max-md:min-h-[calc(100vh-74px)] max-md:overflow-y-auto"
+      className="h-[calc(100vh-var(--home-header-h))] overflow-y-scroll max-md:h-auto max-md:min-h-[calc(100vh-var(--home-header-h))] max-md:overflow-y-auto"
       style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
     >
       {children}

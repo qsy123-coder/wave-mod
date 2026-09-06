@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Heart, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2, BookOpen } from "lucide-react";
@@ -45,6 +45,23 @@ function getCurrentGameKey(pathname: string) {
 
 export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // 用 ResizeObserver 实测 header 高度，写入 CSS 变量供首页 SnapContainer 高度自适应。
+  // 顶部"近期更新的 MOD"横条开/关会改变 header 高度；若 SnapContainer 高度不跟随，
+  // header 变矮后网格几何断裂，scroll-snap(mandatory) 会把视口拽到第二屏边缘。
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const update = () => {
+      const h = el.getBoundingClientRect().height;
+      if (h > 0) document.documentElement.style.setProperty("--home-header-h", `${Math.round(h)}px`);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const pathname = usePathname();
   const search = useSearchParams();
   const { startPageLoading } = useNavigationLoading();
@@ -71,7 +88,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }} onClick={handleHeaderNavClick}>
+    <header ref={headerRef} className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }} onClick={handleHeaderNavClick}>
       {topBar}
       <div className="mx-auto flex w-full max-w-[1680px] items-center gap-6 px-4 py-4.5 sm:px-6 lg:px-8">
         {/* 左侧组：Logo + 游戏切换 + 导航 */}

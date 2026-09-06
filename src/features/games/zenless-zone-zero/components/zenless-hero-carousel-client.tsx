@@ -69,9 +69,12 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
     const section = document.getElementById("snap-section-2");
     if (!section) return;
 
+    // threshold 0 → 0.3：section2 位于第一屏满屏之后、顶部贴住视口底边缘，
+    // threshold 0 会在闲置时把"仅露 1px/贴边"误判为进入视口，提前弹出全屏背景图盖住首页卡片。
+    // 改为需 section2 真正滚进来约 30% 才显示背景（符合"滚到第二屏才出现"的设计意图）。
     const observer = new IntersectionObserver(
       ([entry]) => setBgVisible(entry.isIntersecting),
-      { threshold: 0 },
+      { threshold: 0.3 },
     );
 
     observer.observe(section);

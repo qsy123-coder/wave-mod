@@ -44,6 +44,9 @@
 
 :root,
 .theme-arcade {
+  /* 首页 SnapContainer 需预留的 header 高度（含顶部"近期更新的 MOD"横条）。
+     仅作 SSR 兜底；客户端 site-header 会用 ResizeObserver 按实测高度覆盖。 */
+  --home-header-h: 104px;
   --background: #15111f;
   --foreground: #000000;
   --card: #fff8ef;
