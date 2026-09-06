@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Pencil, Database } from "lucide-react";
 import COS from "cos-js-sdk-v5";
 
@@ -8,6 +8,7 @@ import { TutorialTabs } from "@/features/tutorial/components/tutorial-tabs";
 import { VideoHintBanner } from "@/features/tutorial/components/video-hint-banner";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { AdminToolbar } from "./admin-toolbar";
+import { TutorialAdminVersions } from "./tutorial-admin-versions";
 import { TextChapterEditorModal } from "./text-chapter-editor-modal";
 import { ChapterEditorModal } from "./chapter-editor-modal";
 import type { TextChapterData } from "./text-chapter-editor-modal";
@@ -16,15 +17,23 @@ import {
   publishTutorial,
   discardDraft,
   migrateFromConfig,
+  getAdminVersionTrees,
+  createVersion,
+  updateVersionMeta,
+  deleteVersion,
 } from "@/actions/tutorial/tutorial-actions";
-import type { TutorialFullData, SaveDraftInput } from "@/features/tutorial-admin/types";
+import type {
+  TutorialFullData,
+  SaveDraftInput,
+  TutorialVersionRow,
+  VersionMetaInput,
+} from "@/features/tutorial-admin/types";
 import type { Chapter, ToolEntry } from "@/features/tutorial/types";
 
 // ── Types ──
 
 type TutorialAdminClientProps = {
-  published: TutorialFullData | null;
-  draft: TutorialFullData | null;
+  versions: TutorialVersionRow[];
   needsMigration: boolean;
 };
 
@@ -69,11 +78,21 @@ function dbChaptersToUI(data: TutorialFullData): {
 // ── Main Component ──
 
 export function TutorialAdminClient({
-  published,
-  draft,
+  versions: initialVersions,
   needsMigration: initialNeedsMigration,
 }: TutorialAdminClientProps) {
-  // Determine source data for editing
+  // ── Version state ──
+  const [versions, setVersions] = useState<TutorialVersionRow[]>(initialVersions);
+  const [activeVersionId, setActiveVersionId] = useState<string>(
+    initialVersions[0]?.id ?? "",
+  );
+
+  // ── Current version content (published / draft) ──
+  const [published, setPublished] = useState<TutorialFullData | null>(null);
+  const [draft, setDraft] = useState<TutorialFullData | null>(null);
+  const [loadingVersion, setLoadingVersion] = useState(false);
+
+  // Determine source data for editing (draft pre-empts published)
   const sourceData = draft ?? published;
 
   // ── Editable state ──
@@ -107,6 +126,88 @@ export function TutorialAdminClient({
   const [chapterEditorId, setChapterEditorId] = useState<string | null>(null);
 
   const hasDraft = draft !== null;
+
+  // ── Load a version's content into the editor ──
+  const loadVersionData = useCallback(
+    async (versionId: string, seedTitle?: string) => {
+      if (!versionId) return;
+      setLoadingVersion(true);
+      setHasChanges(false);
+      try {
+        const data = await getAdminVersionTrees(versionId);
+        setPublished(data.published);
+        setDraft(data.draft);
+        const src = data.draft ?? data.published;
+        // 空版本（无草稿也无发布内容）的标题/副标题会置空，一保存就报「教程标题不能为空」。
+        // 用版本名兜底标题 + 默认副标题，让新建版本立即可填、可存。
+        const fallbackTitle = seedTitle ?? versions.find((v) => v.id === versionId)?.name ?? "";
+        setTitle(src ? src.config.title : fallbackTitle);
+        setSubtitle(src ? src.config.subtitle : "先看我");
+        setImageBasePath(src?.config.image_base_path ?? "/tutorial/");
+        setChapters(src ? dbChaptersToUI(src).chapters : []);
+      } finally {
+        setLoadingVersion(false);
+      }
+    },
+    [versions],
+  );
+
+  // ── Select a version ──
+  const handleSelectVersion = useCallback(
+    (versionId: string) => {
+      if (versionId === activeVersionId) return;
+      setActiveVersionId(versionId);
+      loadVersionData(versionId);
+    },
+    [activeVersionId, loadVersionData],
+  );
+
+  // ── Refresh version list after a version CRUD ──
+  const refreshVersions = useCallback(async () => {
+    const { listAllVersions } = await import("@/actions/tutorial/tutorial-actions");
+    const list = await listAllVersions();
+    setVersions(list);
+    return list;
+  }, []);
+
+  // ── Version CRUD handlers ──
+  const handleCreateVersion = useCallback(
+    async (input: VersionMetaInput) => {
+      const { key } = await createVersion(input);
+      const list = await refreshVersions();
+      setActiveVersionId(key);
+      // Refresh list state, then load the new (empty) version
+      const created = list.find((v) => v.id === key);
+      if (created) await loadVersionData(key, created.name);
+    },
+    [refreshVersions, loadVersionData],
+  );
+
+  const handleUpdateVersionMeta = useCallback(
+    async (versionId: string, input: VersionMetaInput) => {
+      await updateVersionMeta(versionId, input);
+      await refreshVersions();
+    },
+    [refreshVersions],
+  );
+
+  const handleDeleteVersion = useCallback(
+    async (versionId: string) => {
+      await deleteVersion(versionId);
+      const list = await refreshVersions();
+      const nextActive = list[0]?.id ?? "";
+      setActiveVersionId(nextActive);
+      await loadVersionData(nextActive);
+    },
+    [refreshVersions, loadVersionData],
+  );
+
+  // ── Initial load: fetch content for the first version on mount ──
+  useEffect(() => {
+    if (initialNeedsMigration) return;
+    if (activeVersionId) loadVersionData(activeVersionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Mark changes ──
   const markChanged = useCallback(() => setHasChanges(true), []);
@@ -254,107 +355,121 @@ export function TutorialAdminClient({
   );
 
   const handleUploadImage = useCallback(
-    async (chapterId: string, file: File) => {
+    async (
+      chapterId: string,
+      files: File[],
+      onProgress?: (done: number) => void,
+    ) => {
+      const uploadedUrls: string[] = [];
       try {
-        // Convert PNG/JPEG → WebP before upload (GIF stays as-is to preserve animation)
-        let uploadFile = file;
-        if (file.type === "image/png" || file.type === "image/jpeg") {
-          uploadFile = await new Promise<File>((resolve, reject) => {
-            const img = new Image();
-            const url = URL.createObjectURL(file);
-            img.onload = () => {
-              URL.revokeObjectURL(url);
-              const canvas = document.createElement("canvas");
-              canvas.width = img.naturalWidth;
-              canvas.height = img.naturalHeight;
-              const ctx = canvas.getContext("2d");
-              if (!ctx) {
-                resolve(file); // fallback: upload as-is
-                return;
-              }
-              ctx.drawImage(img, 0, 0);
-              canvas.toBlob(
-                (blob) => {
-                  if (!blob) {
-                    resolve(file); // fallback
-                    return;
-                  }
-                  const originalName = file.name.replace(/\.[^.]+$/, "");
-                  resolve(new File([blob], `${originalName}.webp`, { type: "image/webp" }));
-                },
-                "image/webp",
-                0.85,
-              );
-            };
-            img.onerror = () => {
-              URL.revokeObjectURL(url);
-              resolve(file); // fallback
-            };
-            img.src = url;
+        // 逐张（串行）转 WebP → 签名 → 上传 COS
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          // Convert PNG/JPEG → WebP before upload (GIF stays as-is to preserve animation)
+          let uploadFile = file;
+          if (file.type === "image/png" || file.type === "image/jpeg") {
+            uploadFile = await new Promise<File>((resolve, reject) => {
+              const img = new Image();
+              const url = URL.createObjectURL(file);
+              img.onload = () => {
+                URL.revokeObjectURL(url);
+                const canvas = document.createElement("canvas");
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) {
+                  resolve(file); // fallback: upload as-is
+                  return;
+                }
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob(
+                  (blob) => {
+                    if (!blob) {
+                      resolve(file); // fallback
+                      return;
+                    }
+                    const originalName = file.name.replace(/\.[^.]+$/, "");
+                    resolve(new File([blob], `${originalName}.webp`, { type: "image/webp" }));
+                  },
+                  "image/webp",
+                  0.85,
+                );
+              };
+              img.onerror = () => {
+                URL.revokeObjectURL(url);
+                resolve(file); // fallback
+              };
+              img.src = url;
+            });
+          }
+
+          const modId = crypto.randomUUID();
+          const res = await fetch("/api/cos/sign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prefix: "tutorial",
+              chapterKey: chapterId,
+              contentType: uploadFile.type,
+              fileSize: uploadFile.size,
+              filename: uploadFile.name,
+              modId,
+            }),
           });
+
+          const signData = await res.json();
+          console.log("[admin-upload] sign response:", JSON.stringify({ ok: signData.ok, objectKey: signData.objectKey, publicUrl: signData.publicUrl, bucket: signData.bucket, region: signData.region, hasCredentials: !!signData.credentials }, null, 2));
+          if (!signData.ok) throw new Error(signData.error ?? "获取上传凭证失败");
+
+          // Upload to COS using the SDK with STS temporary credentials
+          await new Promise<void>((resolve, reject) => {
+            const cos = new COS({
+              SecretId: signData.credentials.tmpSecretId,
+              SecretKey: signData.credentials.tmpSecretKey,
+              SecurityToken: signData.credentials.sessionToken,
+              StartTime: signData.credentials.startTime,
+              ExpiredTime: signData.credentials.expiredTime,
+            });
+
+            cos.putObject(
+              {
+                Bucket: signData.bucket,
+                Region: signData.region,
+                Key: signData.objectKey,
+                Body: uploadFile,
+              },
+              (err, data) => {
+                if (err) {
+                  console.error("[admin-upload] COS putObject error:", err);
+                  reject(new Error(`COS 上传失败：${err.message}`));
+                } else {
+                  console.log("[admin-upload] COS putObject success, statusCode:", data?.statusCode ?? "unknown", "url:", signData.publicUrl);
+                  resolve();
+                }
+              },
+            );
+          });
+
+          uploadedUrls.push(signData.publicUrl);
+          // 上报逐张进度
+          onProgress?.(i + 1);
         }
 
-        const modId = crypto.randomUUID();
-        const res = await fetch("/api/cos/sign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prefix: "tutorial",
-            chapterKey: chapterId,
-            contentType: uploadFile.type,
-            fileSize: uploadFile.size,
-            filename: uploadFile.name,
-            modId,
-          }),
-        });
-
-        const signData = await res.json();
-        console.log("[admin-upload] sign response:", JSON.stringify({ ok: signData.ok, objectKey: signData.objectKey, publicUrl: signData.publicUrl, bucket: signData.bucket, region: signData.region, hasCredentials: !!signData.credentials }, null, 2));
-        if (!signData.ok) throw new Error(signData.error ?? "获取上传凭证失败");
-
-        // Upload to COS using the SDK with STS temporary credentials
-        await new Promise<void>((resolve, reject) => {
-          const cos = new COS({
-            SecretId: signData.credentials.tmpSecretId,
-            SecretKey: signData.credentials.tmpSecretKey,
-            SecurityToken: signData.credentials.sessionToken,
-            StartTime: signData.credentials.startTime,
-            ExpiredTime: signData.credentials.expiredTime,
-          });
-
-          cos.putObject(
-            {
-              Bucket: signData.bucket,
-              Region: signData.region,
-              Key: signData.objectKey,
-              Body: uploadFile,
-            },
-            (err, data) => {
-              if (err) {
-                console.error("[admin-upload] COS putObject error:", err);
-                reject(new Error(`COS 上传失败：${err.message}`));
-              } else {
-                console.log("[admin-upload] COS putObject success, statusCode:", data?.statusCode ?? "unknown", "url:", signData.publicUrl);
-                resolve();
-              }
-            },
+        // 全部成功后再一次性把 URL 追加到章节（串行已避免中间态）
+        if (uploadedUrls.length > 0) {
+          setChapters((prev) =>
+            prev.map((ch) =>
+              ch.id === chapterId
+                ? {
+                    ...ch,
+                    images: [...(ch.images ?? []), ...uploadedUrls],
+                  }
+                : ch,
+            ),
           );
-        });
-
-        // Add the image URL to the chapter
-        console.log("[admin-upload] adding image URL to chapter:", chapterId, "url:", signData.publicUrl);
-        setChapters((prev) =>
-          prev.map((ch) =>
-            ch.id === chapterId
-              ? {
-                  ...ch,
-                  images: [...(ch.images ?? []), signData.publicUrl],
-                }
-              : ch,
-          ),
-        );
-        console.log("[admin-upload] chapters state updated");
-        markChanged();
+          console.log("[admin-upload] chapters state updated, added:", uploadedUrls.length);
+          markChanged();
+        }
       } catch (err) {
         console.error("[admin] Image upload failed:", err);
         alert(`上传失败：${err instanceof Error ? err.message : "未知错误"}`);
@@ -515,33 +630,42 @@ export function TutorialAdminClient({
   }, [title, subtitle, imageBasePath, chapters]);
 
   const handleSave = useCallback(async () => {
+    if (!activeVersionId) return;
     setSaving(true);
     try {
-      await saveDraft(buildSaveInput());
+      await saveDraft(activeVersionId, buildSaveInput());
       setHasChanges(false);
+    } catch (err) {
+      console.error("[admin] 保存草稿失败:", err);
+      alert(`保存失败：${err instanceof Error ? err.message : "未知错误"}`);
     } finally {
       setSaving(false);
     }
-  }, [buildSaveInput]);
+  }, [activeVersionId, buildSaveInput]);
 
   const handlePublish = useCallback(async () => {
+    if (!activeVersionId) return;
     // Save first if there are unsaved changes
     if (hasChanges) {
-      await saveDraft(buildSaveInput());
+      await saveDraft(activeVersionId, buildSaveInput());
       setHasChanges(false);
     }
     setPublishing(true);
     try {
-      await publishTutorial();
+      await publishTutorial(activeVersionId);
+    } catch (err) {
+      console.error("[admin] 发布失败:", err);
+      alert(`发布失败：${err instanceof Error ? err.message : "未知错误"}`);
     } finally {
       setPublishing(false);
     }
-  }, [hasChanges, buildSaveInput]);
+  }, [activeVersionId, hasChanges, buildSaveInput]);
 
   const handleDiscard = useCallback(async () => {
-    await discardDraft();
+    if (!activeVersionId) return;
+    await discardDraft(activeVersionId);
     window.location.reload();
-  }, []);
+  }, [activeVersionId]);
 
   const handleMigrate = useCallback(async () => {
     setMigrating(true);
@@ -555,15 +679,6 @@ export function TutorialAdminClient({
       setMigrating(false);
     }
   }, []);
-
-  // ── No data loaded ──
-  if (!sourceData && !needsMigration) {
-    return (
-      <div className="border-4 border-black bg-white p-8 text-center shadow-[6px_6px_0px_0px_#000]">
-        <p className="text-sm font-bold text-black/60">暂无教程数据</p>
-      </div>
-    );
-  }
 
   // ── Migration prompt ──
   if (needsMigration) {
@@ -595,6 +710,22 @@ export function TutorialAdminClient({
   // ── Full admin layout: same as /guide + edit controls ──
   return (
     <div className="flex flex-col gap-4">
+      {/* Version management */}
+      <TutorialAdminVersions
+        versions={versions}
+        activeVersionId={activeVersionId}
+        onCreate={handleCreateVersion}
+        onUpdateMeta={handleUpdateVersionMeta}
+        onDelete={handleDeleteVersion}
+        onSelect={handleSelectVersion}
+      />
+
+      {loadingVersion ? (
+        <div className="border-4 border-black bg-white p-8 text-center shadow-[6px_6px_0px_0px_#000]">
+          <p className="text-sm font-bold text-black/60">加载版本内容...</p>
+        </div>
+      ) : (
+        <>
       {/* Admin toolbar */}
       <AdminToolbar
         hasChanges={hasChanges}
@@ -619,9 +750,9 @@ export function TutorialAdminClient({
                 type="text"
                 value={subtitle}
                 onChange={(e) => setSubtitle(e.target.value)}
-                onBlur={() => handleSubtitleChange(subtitle)}
+                onBlur={(e) => handleSubtitleChange(e.currentTarget.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSubtitleChange(subtitle);
+                  if (e.key === "Enter") handleSubtitleChange(e.currentTarget.value);
                   if (e.key === "Escape") setEditingSubtitle(false);
                 }}
                 className="w-24 border-[3px] border-black px-2 py-0 text-xs font-black uppercase tracking-[0.2em] outline-none"
@@ -651,9 +782,9 @@ export function TutorialAdminClient({
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onBlur={() => handleTitleChange(title)}
+                onBlur={(e) => handleTitleChange(e.currentTarget.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handleTitleChange(title);
+                  if (e.key === "Enter") handleTitleChange(e.currentTarget.value);
                   if (e.key === "Escape") setEditingTitle(false);
                 }}
                 className="w-80 border-[3px] border-black px-2 py-0 text-2xl font-black outline-none"
@@ -768,6 +899,8 @@ export function TutorialAdminClient({
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

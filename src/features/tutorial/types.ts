@@ -51,3 +51,14 @@ export interface TutorialImageResolved {
   chapterId: string;
   index: number;
 }
+
+// --- Version metadata (for the /guide version switcher) ---
+export interface TutorialVersionMeta {
+  /** 版本 key，如 "default" */
+  id: string;
+  name: string;
+  description?: string;
+  sort_order: number;
+  is_visible: boolean;
+  is_default: boolean;
+}

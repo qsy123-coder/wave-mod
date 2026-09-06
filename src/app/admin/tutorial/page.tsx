@@ -3,7 +3,7 @@ import { BookOpen } from "lucide-react";
 
 import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { needsMigration } from "@/actions/tutorial/tutorial-actions";
-import { getAdminTutorialData } from "@/actions/tutorial/tutorial-actions";
+import { listAllVersions } from "@/actions/tutorial/tutorial-actions";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { TutorialAdminClient } from "@/features/tutorial-admin/components/tutorial-admin-client";
 
@@ -11,7 +11,7 @@ export default async function AdminTutorialPage() {
   await requireAdminUser("/admin/tutorial");
 
   const migrationNeeded = await needsMigration();
-  const { published, draft } = await getAdminTutorialData();
+  const versions = migrationNeeded ? [] : await listAllVersions();
 
   return (
     <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
@@ -35,11 +35,7 @@ export default async function AdminTutorialPage() {
           </div>
         }
       >
-        <TutorialAdminClient
-          published={published}
-          draft={draft}
-          needsMigration={migrationNeeded}
-        />
+        <TutorialAdminClient versions={versions} needsMigration={migrationNeeded} />
       </Suspense>
     </div>
   );

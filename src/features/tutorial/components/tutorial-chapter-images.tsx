@@ -15,7 +15,7 @@ type TutorialChapterImagesProps = {
   editable?: boolean;
   onDeleteImage?: (index: number) => void;
   onMoveImage?: (index: number, direction: "up" | "down") => void;
-  onUploadImage?: (file: File) => Promise<void>;
+  onUploadImage?: (files: File[], onProgress?: (done: number) => void) => Promise<void>;
   onUploadVideo?: (file: File) => Promise<void>;
   hasVideo?: boolean;
 };
@@ -144,13 +144,17 @@ function TutorialImageCard({
   );
 }
 
-/** Upload placeholder card for admin mode */
+/** Upload placeholder card for admin mode — supports multi-select image upload */
 function UploadPlaceholder({
   onUpload,
   uploading,
+  uploadingTotal,
+  uploadingDone,
 }: {
-  onUpload: (file: File) => Promise<void>;
+  onUpload: (files: File[]) => Promise<void>;
   uploading: boolean;
+  uploadingTotal: number;
+  uploadingDone: number;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -160,12 +164,13 @@ function UploadPlaceholder({
         ref={inputRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
         disabled={uploading}
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-            onUpload(file);
+          const files = Array.from(e.target.files ?? []);
+          if (files.length > 0) {
+            onUpload(files);
             e.target.value = "";
           }
         }}
@@ -173,12 +178,15 @@ function UploadPlaceholder({
       {uploading ? (
         <>
           <div className="size-6 animate-spin rounded-full border-2 border-black/30 border-t-black" />
-          <span className="text-[10px] font-bold text-black/40">上传中...</span>
+          <span className="text-[10px] font-bold text-black/40">
+            {uploadingTotal > 1 ? `上传中 ${uploadingDone}/${uploadingTotal}` : "上传中..."}
+          </span>
         </>
       ) : (
         <>
           <Upload className="size-5 text-black/30" />
           <span className="text-[10px] font-bold text-black/30">上传图片</span>
+          <span className="text-[9px] font-bold text-black/20">可多选</span>
         </>
       )}
     </label>
@@ -203,6 +211,8 @@ export function TutorialChapterImages({
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lastViewedIndex, setLastViewedIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadingTotal, setUploadingTotal] = useState(1);
+  const [uploadingDone, setUploadingDone] = useState(0);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
@@ -251,11 +261,13 @@ export function TutorialChapterImages({
   }, [autoOpenLightbox]);
 
   const handleUpload = useCallback(
-    async (file: File) => {
+    async (files: File[]) => {
       if (!onUploadImage) return;
       setUploading(true);
+      setUploadingTotal(files.length);
+      setUploadingDone(0);
       try {
-        await onUploadImage(file);
+        await onUploadImage(files, (done) => setUploadingDone(done));
       } finally {
         setUploading(false);
       }
@@ -301,7 +313,12 @@ export function TutorialChapterImages({
 
         {/* Upload placeholder — only in admin mode */}
         {editable && onUploadImage && (
-          <UploadPlaceholder onUpload={handleUpload} uploading={uploading} />
+          <UploadPlaceholder
+            onUpload={handleUpload}
+            uploading={uploading}
+            uploadingTotal={uploadingTotal}
+            uploadingDone={uploadingDone}
+          />
         )}
 
         {/* Empty state for admin mode */}

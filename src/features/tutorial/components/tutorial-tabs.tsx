@@ -22,7 +22,7 @@ type TutorialTabsProps = {
   onEditChapterVideo?: (chapterId: string) => void;
   onDeleteImage?: (chapterId: string, index: number) => void;
   onMoveImage?: (chapterId: string, index: number, direction: "up" | "down") => void;
-  onUploadImage?: (chapterId: string, file: File) => Promise<void>;
+  onUploadImage?: (chapterId: string, files: File[], onProgress?: (done: number) => void) => Promise<void>;
   onUploadVideo?: (chapterId: string, file: File) => Promise<void>;
   onEditTextChapter?: (chapterId: string) => void;
 };
@@ -115,6 +115,32 @@ export function TutorialTabs({
   }, []);
 
   const resumeChapter = chapters.find((ch) => ch.id === resumeTarget?.chapterId);
+
+  // Empty state: no chapters — show a hint instead of crashing on activeChapter.id
+  if (chapters.length === 0) {
+    return (
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <TutorialNav
+          chapters={chapters}
+          activeId={activeId}
+          onChange={handleChange}
+          draggable={editable}
+          onReorder={onReorder}
+          onEditChapter={onEditChapter}
+          onDeleteChapter={onDeleteChapter}
+          onAddChapter={editable ? onAddChapter : undefined}
+          onEditChapterVideo={onEditChapterVideo}
+        />
+        <div className="flex min-h-0 flex-1 items-center justify-center border-[3px] border-dashed border-black/30 bg-white p-8 text-center">
+          <p className="text-sm font-bold text-black/50">
+            {editable
+              ? "该版本暂无章节，请点击右上角「新增章节」开始编辑。"
+              : "该教程内容暂未发布。"}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -216,7 +242,8 @@ export function TutorialTabs({
                 }
                 onUploadImage={
                   editable && onUploadImage
-                    ? (file: File) => onUploadImage(activeChapter.id, file)
+                    ? (files: File[], onProgress?: (done: number) => void) =>
+                        onUploadImage(activeChapter.id, files, onProgress)
                     : undefined
                 }
                 onUploadVideo={

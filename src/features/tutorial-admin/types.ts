@@ -2,8 +2,26 @@ import { z } from "zod";
 
 // ── Database row types (match Supabase table columns) ──
 
+export type TutorialConfigStatus = "published" | "draft";
+
+export interface TutorialVersionRow {
+  id: string;
+  name: string;
+  description: string | null;
+  sort_order: number;
+  is_visible: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TutorialConfigRow {
-  id: "published" | "draft";
+  /** id = '{versionKey}:{status}'，如 "default:published" */
+  id: string;
+  /** 所属版本 key（关联 tutorial_versions.id） */
+  version_id: string;
+  /** 'published' | 'draft' */
+  status: TutorialConfigStatus;
   title: string;
   subtitle: string;
   image_base_path: string;
@@ -101,6 +119,28 @@ export const saveConfigSchema = z.object({
   subtitle: z.string().min(1, "副标题不能为空"),
   image_base_path: z.string().min(1, "图片路径不能为空"),
 });
+
+// ── Version metadata schema (create / update) ──
+
+/** 版本 key 只用字母数字和连字符（避免与 ':' 分隔符冲突） */
+const versionKeyRegex = /^[a-z0-9][a-z0-9-]*$/;
+
+export const versionMetaSchema = z.object({
+  /** 创建时可选；更新时不传（key 不可变） */
+  id: z.string().optional(),
+  name: z.string().min(1, "版本名称不能为空"),
+  description: z.string().optional(),
+  sort_order: z.number().int().min(0).default(0),
+  is_visible: z.boolean().default(true),
+  is_default: z.boolean().default(false),
+});
+
+export const versionKeySchema = z
+  .string()
+  .min(1, "版本 key 不能为空")
+  .regex(versionKeyRegex, "版本 key 只能用小写字母/数字/连字符，且不能以连字符开头");
+
+export type VersionMetaInput = z.infer<typeof versionMetaSchema>;
 
 export const saveDraftInputSchema = z.object({
   config: saveConfigSchema,

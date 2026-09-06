@@ -357,6 +357,8 @@ export type Database = {
       tutorial_configs: {
         Row: {
           id: string;
+          version_id: string;
+          status: string;
           title: string;
           subtitle: string;
           image_base_path: string;
@@ -364,6 +366,8 @@ export type Database = {
         };
         Insert: {
           id: string;
+          version_id: string;
+          status: string;
           title: string;
           subtitle: string;
           image_base_path: string;
@@ -371,9 +375,52 @@ export type Database = {
         };
         Update: {
           id?: string;
+          version_id?: string;
+          status?: string;
           title?: string;
           subtitle?: string;
           image_base_path?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            columns: ["version_id"];
+            foreignKeyName: "tutorial_configs_version_id_fkey";
+            isOneToOne: false;
+            referencedColumns: ["id"];
+            referencedRelation: "tutorial_versions";
+          },
+        ];
+      };
+      tutorial_versions: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          sort_order: number;
+          is_visible: boolean;
+          is_default: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          description?: string | null;
+          sort_order?: number;
+          is_visible?: boolean;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          sort_order?: number;
+          is_visible?: boolean;
+          is_default?: boolean;
+          created_at?: string;
           updated_at?: string;
         };
         Relationships: [];
