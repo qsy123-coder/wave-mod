@@ -178,7 +178,7 @@ export default function HomePage() {
         <section
           id="snap-section-2"
           className="h-full w-full overflow-hidden max-md:h-auto"
-          style={{ scrollSnapAlign: "start", scrollSnapStop: "always",scrollMarginTop:"10vh" }}
+          style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
         >
           <LazyHomeLower />
         </section>
