@@ -38,9 +38,11 @@ export default function HomePage() {
     <>
       <DailyUpdateDialog />
       <SnapContainer>
-        {/* 区域 1: 现有 Hero（垂直居中，上下各 15vh 留白） */}
+        {/* 区域 1: 现有 Hero（垂直居中，上下各 15vh 留白）。
+             高度基准用"仅导航栏行"的 --home-hero-h（恒定），而非含横条的 --home-header-h，
+             这样顶部横条开/关时大卡片与导航栏的间距保持不变。 */}
         <section
-          className="relative flex h-full w-full items-center pt-[11vh] pb-[15vh] max-md:pt-4 max-md:pb-4 max-md:h-auto"
+          className="relative flex w-full items-center pt-[11vh] pb-[15vh] h-[calc(100vh-var(--home-hero-h))] max-md:pt-4 max-md:pb-4 max-md:h-auto"
           style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
         >
           <div className="mx-auto w-full max-w-[1680px] px-4 sm:px-5 lg:px-6">
@@ -176,7 +178,7 @@ export default function HomePage() {
         <section
           id="snap-section-2"
           className="h-full w-full overflow-hidden max-md:h-auto"
-          style={{ scrollSnapAlign: "start", scrollSnapStop: "always",scrollMarginTop:"6vh" }}
+          style={{ scrollSnapAlign: "start", scrollSnapStop: "always",scrollMarginTop:"10vh" }}
         >
           <LazyHomeLower />
         </section>

@@ -47,6 +47,10 @@
   /* 首页 SnapContainer 需预留的 header 高度（含顶部"近期更新的 MOD"横条）。
      仅作 SSR 兜底；客户端 site-header 会用 ResizeObserver 按实测高度覆盖。 */
   --home-header-h: 104px;
+  /* 首页 Hero 卡的垂直居中基准高度：仅计算"导航栏行"，不含顶部横条。
+     横条开/关只改变 --home-header-h，不改变导航栏高度；Hero 卡用此基准居中，
+     使大卡片与导航栏的间距在横条开关两种状态下保持恒定。 */
+  --home-hero-h: 74px;
   --background: #15111f;
   --foreground: #000000;
   --card: #fff8ef;

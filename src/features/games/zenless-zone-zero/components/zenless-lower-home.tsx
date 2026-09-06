@@ -514,7 +514,7 @@ export function ZenlessLowerHome({
   fallbackUpdates: fallbackUpdatesOverride,
 }: ZenlessLowerHomeProps) {
   return (
-    <section className="relative z-10 -mt-14 px-4 pb-16 pt-0 text-white sm:px-5 lg:px-6 2xl:px-4">
+    <section className="relative z-10 -mt-20 px-4 pb-24 pt-0 text-white sm:px-5 lg:px-6 2xl:px-4">
       <div className="mx-auto grid max-w-[1500px] gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-10">
           <MotionReveal delay={0.04} y={24} rotate={-1}>

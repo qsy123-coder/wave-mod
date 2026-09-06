@@ -46,20 +46,28 @@ function getCurrentGameKey(pathname: string) {
 export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
+  const navRowRef = useRef<HTMLDivElement>(null);
 
   // 用 ResizeObserver 实测 header 高度，写入 CSS 变量供首页 SnapContainer 高度自适应。
   // 顶部"近期更新的 MOD"横条开/关会改变 header 高度；若 SnapContainer 高度不跟随，
   // header 变矮后网格几何断裂，scroll-snap(mandatory) 会把视口拽到第二屏边缘。
+  // 同时另存一个"仅导航栏行"的基准高度 --home-hero-h：横条开/关不改变导航栏行高度，
+  // 首页 Hero 用该恒定值居中，保证大卡片与导航栏的间距在横条开关两种状态下一致。
   useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
+    const header = headerRef.current;
+    const navRow = navRowRef.current;
+    if (!header || !navRow) return;
     const update = () => {
-      const h = el.getBoundingClientRect().height;
+      const h = header.getBoundingClientRect().height;
       if (h > 0) document.documentElement.style.setProperty("--home-header-h", `${Math.round(h)}px`);
+      const border = parseFloat(getComputedStyle(header).borderBottomWidth) || 0;
+      const base = navRow.getBoundingClientRect().height + border;
+      document.documentElement.style.setProperty("--home-hero-h", `${Math.round(base)}px`);
     };
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(el);
+    ro.observe(header);
+    ro.observe(navRow);
     return () => ro.disconnect();
   }, []);
   const pathname = usePathname();
@@ -90,7 +98,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
   return (
     <header ref={headerRef} className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }} onClick={handleHeaderNavClick}>
       {topBar}
-      <div className="mx-auto flex w-full max-w-[1680px] items-center gap-6 px-4 py-4.5 sm:px-6 lg:px-8">
+      <div ref={navRowRef} className="mx-auto flex w-full max-w-[1680px] items-center gap-6 px-4 py-4.5 sm:px-6 lg:px-8">
         {/* 左侧组：Logo + 游戏切换 + 导航 */}
         <div className="flex items-center gap-6">
         <MotionReveal delay={0.02} rotate={-2}>
