@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { siteConfig } from "@/lib/constants/site";
+import { GALLERY_BACK_KEY } from "@/lib/constants/gallery-nav";
 
 type SiteHeaderClientProps = {
   isLoggedIn: boolean;
@@ -93,6 +94,18 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
       return;
     }
     startPageLoading();
+  };
+
+  // 点击导航里"图库"进入 /gallery 时，记录当前来源页，供图库返回按钮一步跳回。
+  // 图库是独立 layout（无 header），来源页只能在"点击进入"这一刻捕获。
+  const handleGalleryEntry = (href: string) => {
+    if (href === "/gallery") {
+      try {
+        sessionStorage.setItem(GALLERY_BACK_KEY, currentUrl);
+      } catch {
+        /* sessionStorage 不可用时忽略，返回按钮会走 referrer 兜底 */
+      }
+    }
   };
 
   return (
@@ -179,6 +192,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
               <MotionReveal key={item.href} delay={0.06 + index * 0.04} rotate={index % 2 === 0 ? 2 : -2}>
                 <Link
                   href={item.href}
+                  onClick={() => handleGalleryEntry(item.href)}
                   className={`border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
                   style={{ background: index % 2 === 0 ? "transparent" : "rgba(255,255,255,0.35)" }}
                 >
@@ -319,7 +333,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={() => setMobileOpen(false)}
+                    onClick={() => { setMobileOpen(false); handleGalleryEntry(item.href); }}
                     className={`border-4 border-black px-4 py-3 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[6px_6px_0px_0px_#000] ${index % 3 === 0 ? "bg-[var(--neo-secondary)]" : index % 3 === 1 ? "bg-[var(--neo-muted)]" : "bg-white"}`}
                   >
                     {item.label}
