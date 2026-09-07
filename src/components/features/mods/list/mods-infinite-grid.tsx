@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
+import { CardDownloadAction } from "@/components/features/mods/detail/card-download-action";
 import type { MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -225,15 +226,15 @@ export function ModsInfiniteGrid({ character, gameKey, initialMods, query, sort,
         imageFetchPriority={idx < 4 ? "high" : "auto"}
         imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
         mediaTopRight={
-          mod.downloadUrl ? (
-            <div className="flex items-center gap-1">
-              <span className="inline-flex items-center border-2 border-black bg-[#4ade80] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
-                直链下载
-              </span>
-            </div>
+          mod.driveLinks.length > 0 ? (
+            <CardDownloadAction driveLinks={mod.driveLinks} />
+          ) : mod.downloadUrl ? (
+            <span className="inline-flex items-center border-2 border-black bg-[#4ade80] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
+              直链下载
+            </span>
           ) : undefined
         }
-        mediaTopRightClassName="absolute right-2 top-4"
+        mediaTopRightClassName="absolute right-2 top-2"
       />
     ),
     [gameKey, onCardClick, isLoggedIn, isMasonry],
