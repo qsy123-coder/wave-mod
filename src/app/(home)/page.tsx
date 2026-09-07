@@ -127,14 +127,14 @@ export default function HomePage() {
                       {/* 副文案 */}
                       <p className="text-lg font-medium text-black/75">
                         获取
-                        <span className="mx-1 inline-block rounded-none border-2 border-black bg-neo-accent/25 px-1.5 py-0.5 font-black text-black">
-                          重要更新通知
-                        </span>
-                        以及
-                        <span className="mx-1 inline-block rounded-none border-2 border-black bg-neo-accent/25 px-1.5 py-0.5 font-black text-black">
+                        <span className="mx-1 inline-block rounded-none border-2 border-black bg-neo-accent/30 px-1.5 py-0.5 font-black text-black">
                           每日mod更新
                         </span>
-                        ，和同好一起学习交流 MOD。
+                        ，并且
+                        <span className="mx-1 inline-block rounded-none border-2 border-black bg-neo-accent/30 px-1.5 py-0.5 font-black text-black">
+                          QQ群内上传了部分MOD
+                        </span>
+                        ，可按需下载。
                       </p>
                     </div>
                   </MotionReveal>
