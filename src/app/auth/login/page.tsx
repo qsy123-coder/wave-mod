@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { LoginBackButton } from "@/components/features/auth/login-back-button";
 import { LoginForm } from "@/components/features/auth/login-form";
 
 type LoginPageProps = {
@@ -37,8 +38,11 @@ function LoginFormSkeleton() {
 
 export default function LoginPage({ searchParams }: LoginPageProps) {
   return (
-    <Suspense fallback={<LoginFormSkeleton />}>
-      <LoginPageContent searchParams={searchParams} />
-    </Suspense>
+    <>
+      <LoginBackButton />
+      <Suspense fallback={<LoginFormSkeleton />}>
+        <LoginPageContent searchParams={searchParams} />
+      </Suspense>
+    </>
   );
 }

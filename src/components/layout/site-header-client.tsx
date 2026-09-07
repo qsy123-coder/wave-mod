@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { siteConfig } from "@/lib/constants/site";
 import { GALLERY_BACK_KEY } from "@/lib/constants/gallery-nav";
+import { LOGIN_BACK_KEY } from "@/lib/constants/auth-nav";
 
 type SiteHeaderClientProps = {
   isLoggedIn: boolean;
@@ -104,6 +105,20 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
         sessionStorage.setItem(GALLERY_BACK_KEY, currentUrl);
       } catch {
         /* sessionStorage 不可用时忽略，返回按钮会走 referrer 兜底 */
+      }
+    }
+  };
+
+  // 点击"登录"进入 /auth/login 时，记录当前来源页，供登录页返回按钮一步跳回。
+  // 登录页同样是独立 layout（无 header），必须放在 Link 自身 onClick 里记录——<Link>
+  // 内部会 preventDefault，header 级 onClick（handleHeaderNavClick）此时已 defaultPrevented
+  // 而提前 return，走不到这里。
+  const handleLoginEntry = (href: string) => {
+    if (href.startsWith("/auth/login")) {
+      try {
+        sessionStorage.setItem(LOGIN_BACK_KEY, currentUrl);
+      } catch {
+        /* sessionStorage 不可用时忽略，返回按钮会走 referrer / 首页兜底 */
       }
     }
   };
@@ -257,7 +272,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
                     </button>
                   </form>
                 ) : (
-                  <Link href={loginHref} className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                  <Link href={loginHref} onClick={() => handleLoginEntry(loginHref)} className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
                     <LogIn className="size-3.5" />
                     登录
                   </Link>
@@ -393,7 +408,10 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
                 ) : (
                   <Link
                     href={loginHref}
-                    onClick={() => setMobileOpen(false)}
+                    onClick={() => {
+                      setMobileOpen(false);
+                      handleLoginEntry(loginHref);
+                    }}
                     className="neo-button-outline inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
                   >
                     <LogIn className="size-4" />
