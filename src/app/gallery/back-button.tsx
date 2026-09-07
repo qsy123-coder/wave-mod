@@ -2,36 +2,55 @@
 
 import { useRouter } from "next/navigation";
 
+import { GALLERY_BACK_KEY } from "@/lib/constants/gallery-nav";
+
 /**
  * /gallery 全局返回按钮 — 返回进入图库前所在的页面。
  *
  * 固定左上角（右上角已是 GitHub 链接），刻意做小、只落一角，不影响图库交互。
  *
- * 直接跳回"进入图库前的页面"（同源 referrer；无则回站点首页 /），
- * 不走 history.back() 的逐步回退，这样即使图片处于放大态（点开图片用 pushState
- * 多了一层历史）也能点击一次就整页离开、图片随之卸载。
+ * 返回目标优先级（点击时计算）：
+ *  1. 头部导航点击"图库"时记录到 sessionStorage 的来源页（GALLERY_BACK_KEY）；
+ *  2. 同源 referrer（其他路径进入时）；
+ *  3. 站点首页 /。
+ *
+ * 点击直接跳回目标页，不走 history.back() 逐步回退 —— 即使图片处于放大态
+ * （点开图片用 pushState 多了一层历史）也能一次整页离开、图片随之卸载。
  */
 export function GalleryBackButton() {
   const router = useRouter();
 
-  const handleBack = (e: React.MouseEvent<HTMLButtonElement>) => {
-    // 阻止冒泡到图库的 window click handler（否则图片放大时点击会额外触发 dismiss1D）
-    e.stopPropagation();
+  const resolveTarget = (): string => {
+    // 1. 进入图库时记录的来源页
+    try {
+      const stored = sessionStorage.getItem(GALLERY_BACK_KEY);
+      if (stored) {
+        const u = new URL(stored, window.location.origin);
+        if (u.origin === window.location.origin) return stored;
+      }
+    } catch {
+      /* sessionStorage 不可用，走兜底 */
+    }
 
-    // 同源 referrer → 直接跳回；否则回站点首页
+    // 2. 同源 referrer
     const ref = document.referrer;
     if (ref) {
       try {
         const u = new URL(ref);
-        if (u.origin === window.location.origin) {
-          router.push(u.pathname + u.search + u.hash);
-          return;
-        }
+        if (u.origin === window.location.origin) return u.pathname + u.search + u.hash;
       } catch {
         /* 忽略非法 referrer */
       }
     }
-    router.push("/");
+
+    // 3. 兜底：站点首页
+    return "/";
+  };
+
+  const handleBack = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // 阻止冒泡到图库的 window click handler（否则图片放大时点击会额外触发 dismiss1D）
+    e.stopPropagation();
+    router.push(resolveTarget());
   };
 
   return (
