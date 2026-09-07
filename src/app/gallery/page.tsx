@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { GalleryClient } from "@/features/gallery/components/gallery-client";
 import { loadGalleryImages } from "@/features/gallery/config";
+import { GalleryBackButton } from "./back-button";
 import { GitHubLink } from "./github-link";
 import type { GalleryImageResolved } from "@/features/gallery/types";
 
@@ -49,6 +50,7 @@ async function GalleryData() {
 export default function GalleryPage() {
   return (
     <>
+      <GalleryBackButton />
       <GitHubLink />
       <Suspense
         fallback={
