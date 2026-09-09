@@ -45,7 +45,7 @@ function platformStyle(platform: string): { bg: string; fg: string } {
   if (p.includes("夸克") || p.includes("quark")) return { bg: "bg-[#2f7ff1]", fg: "text-white" };
   if (p.includes("阿里") || p.includes("ali")) return { bg: "bg-[#0cbabf]", fg: "text-white" };
   if (p.includes("蓝奏") || p.includes("lanzou")) return { bg: "bg-[#6aa6ff]", fg: "text-black" };
-  if (p.includes("迅雷") || p.includes("xunlei")) return { bg: "bg-[#1e90ff]", fg: "text-white" };
+  if (p.includes("迅雷") || p.includes("xunlei")) return { bg: "bg-[#0b5bd3]", fg: "text-white" };
   if (p.includes("天翼") || p.includes("ctyun")) return { bg: "bg-[#0d6efd]", fg: "text-white" };
   if (p.includes("115") || p.includes("一二")) return { bg: "bg-[#2f7ff1]", fg: "text-white" };
   if (p.includes("和彩") || p.includes("移动云")) return { bg: "bg-[#00a6a6]", fg: "text-white" };
@@ -67,7 +67,10 @@ export function CardDownloadAction({ driveLinks, className = "" }: CardDownloadA
       return;
     }
     toast.success("网盘链接已复制", {
-      description: `请到${drive.platform}客户端打开下载，网页端打开会限速、需反复登录。`,
+      duration: 6000,
+      description: /迅雷|xunlei/i.test(drive.platform)
+        ? "请打开迅雷客户端，在上方搜索框粘贴链接转存下载，网页端打开会限速、需反复登录。"
+        : `请到${drive.platform}客户端打开下载，网页端打开会限速、需反复登录。`,
     });
   };
 

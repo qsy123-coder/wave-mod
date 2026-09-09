@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy, Download, LoaderCircle, X } from "lucide-react";
+import Image from "next/image";
 
 import type { DriveLink } from "@/lib/mods-domain/types";
 
@@ -44,7 +45,19 @@ async function copyToClipboard(text: string): Promise<boolean> {
 export function DownloadButton({ compact = false, modId, downloadUrl, downloadCount, driveLinks }: DownloadButtonProps) {
   const [isPending, setIsPending] = useState(false);
   const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null);
+  const [showTip, setShowTip] = useState(false);
   const hasDownload = Boolean(downloadUrl?.trim());
+  // 只有迅雷/夸克有「粘贴链接」教程图，其它网盘不展示「?」
+  const tipImage = /迅雷|xunlei/i.test(copiedPlatform || "")
+    ? "/tips/xunlei.png"
+    : /夸克|quark/i.test(copiedPlatform || "")
+      ? "/tips/quark.png"
+      : null;
+
+  // 复制到另一个网盘时收起教程弹层
+  useEffect(() => {
+    setShowTip(false);
+  }, [copiedPlatform]);
 
   const handleDownload = async () => {
     if (!hasDownload || isPending) return;
@@ -130,12 +143,36 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
               </button>
               <div className="space-y-2 pr-7">
                 <p className="text-[13px] font-black leading-5 text-black">
-                  打开{copiedPlatform}客户端会弹出下载框，网页端打开则可能限速、需要反复登录。
+                  {/迅雷|xunlei/i.test(copiedPlatform || "")
+                    ? "打开迅雷客户端，在上方搜索框粘贴链接转存下载"
+                    : `打开${copiedPlatform}客户端会弹出下载框`}
+                  ；网页端打开则可能限速、需要反复登录。
+                  {tipImage ? (
+                    <button
+                      type="button"
+                      aria-label="查看操作教程"
+                      aria-expanded={showTip}
+                      onMouseEnter={() => setShowTip(true)}
+                      onMouseLeave={() => setShowTip(false)}
+                      onFocus={() => setShowTip(true)}
+                      onBlur={() => setShowTip(false)}
+                      className="ml-1.5 inline-flex size-[18px] -translate-y-[1px] cursor-help items-center justify-center rounded-full border-2 border-black bg-[#FFD93D] text-[10px] font-black leading-none text-black shadow-[1px_1px_0px_0px_#000] transition hover:bg-[#fff3c4] active:translate-y-0 active:shadow-none"
+                    >
+                      ?
+                    </button>
+                  ) : null}
                 </p>
-                <p className="text-[12px] font-bold leading-5 text-black/45">
-                  <span className="font-black uppercase tracking-[0.12em] text-[#a16207]">Tips：</span>
-                  如果觉得下载慢，可以去某鱼花个一两块租个一天的网盘。
-                </p>
+                {tipImage ? (
+                  <div className={`overflow-hidden transition-all duration-200 ${showTip ? "max-h-[320px] opacity-100" : "max-h-0 opacity-0"}`}>
+                    <Image
+                      src={tipImage}
+                      alt={`${copiedPlatform} 粘贴链接操作教程`}
+                      width={440}
+                      height={263}
+                      className="h-auto w-full rounded-md border-2 border-black"
+                    />
+                  </div>
+                ) : null}
               </div>
             </div>
           </motion.div>

@@ -74,6 +74,11 @@ src/
    - 引入未在项目中使用的库
    - 忽略现有架构原则
    - 生成不带注释的复杂逻辑
+   - **未经用户明确允许，新建角色分类（character 值）**：站内角色分类由 `src/lib/mods-domain/public.ts` 的 `getAvailableCharacters` 从数据库 distinct `character` 动态生成——新增任何一个 character 值，前台角色分类页就会自动冒出新的分类。因此：
+     - 上传/写入任何 mod 前，`character` 必须归一化到站内已有的标准角色清单（`src/lib/constants/character-images.ts` 的 `characterImageMap`），不得直接采用文件名里带修饰的词（如 `千咲皮肤[蜜桃冰]` → `千咲`）。
+     - 标准角色名与别名映射见 `src/lib/mods-domain/sorting.ts` 的 `normalizeCharacterName`（`CHARACTER_ALIASES`）。新增映射必须先查库里/`characterImageMap` 是否已有该角色，**绝不能凭空新建**。
+     - 已有标准归类示例：`科考摩托` → `滑翔翼,翱翔翼,科考摩托`；`千咲皮肤[XX]` → `千咲`；`反虚化，ui界面，场景，葫芦，特效等` → `UI`。
+     - 若某 mod 的标题无法确定对应哪个已有角色，先列出候选并询问用户，确认后才写入。
 
 ## MCP 服务
 
@@ -104,7 +109,8 @@ src/
 ### ⚛️ 前端
 
 - **`/next-best-practices`** — Next.js 最佳实践全集。**触发场景**：创建路由/页面、Server/Client Component 边界、数据获取、metadata/SEO、错误处理、图片/字体优化、打包配置。
-<!-- - **`/ui-ux-pro-max`** — UI/UX 设计与交互最佳实践。**触发场景**：设计页面/组件、优化交互流程、解决 UX 问题、提升可访问性。 -->
+  
+  <!-- - **`/ui-ux-pro-max`** — UI/UX 设计与交互最佳实践。**触发场景**：设计页面/组件、优化交互流程、解决 UX 问题、提升可访问性。 -->
 
 ### 🧪 质量保证
 
@@ -145,11 +151,13 @@ npm run db:push      # Prisma 同步
 4. **CI 验证**: push 后等待 GitHub Actions `Quality Checks` workflow 通过
 
 **工作流**:
+
 ```
 代码 → Lint → TypeCheck → 自检清单 → Commit → Push → 等待 CI 绿 → 合并 main
 ```
 
 **Claude 执行规范**:
+
 - 每次 commit 前必须执行 `npm run lint` + `npx tsc --noEmit`，有 error 必须修复
 - 如果 lint error 来自**未修改**的文件，视为已有问题，必须一并修复
 - **commit / merge / push 前必须先征得用户同意**，不得自行决定提交、合并或推送
