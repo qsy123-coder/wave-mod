@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-08T07:36:43.195Z",
+  "generatedAt": "2026-09-09T07:43:21.284Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,13 +8,13 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20260908-073558.dump",
-    "sha256": "3fb3c5638880fa3cae24e21941ce23c6719079d86bff70ebda4ae0287c356799",
-    "sizeBytes": 495565,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260908-073558",
+    "file": "db/wavemod-20260909-074248.dump",
+    "sha256": "081c9d65a98697441150d949c868e167bf7280ef54458d17e6e4e7f65b3fc999",
+    "sizeBytes": 497095,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260909-074248",
     "tableCounts": {
       "mods": 5086,
-      "profiles": 34,
+      "profiles": 37,
       "favorites": 19,
       "likes": 3,
       "comments": 0,
@@ -29,7 +29,7 @@
   "images": {
     "remoteCount": 5239,
     "totalBytes": 450898092,
-    "downloadedThisRun": 128,
+    "downloadedThisRun": 0,
     "failedThisRun": 1,
     "failures": [
       {
