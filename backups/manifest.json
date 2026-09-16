@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-15T08:14:25.333Z",
+  "generatedAt": "2026-09-16T08:07:04.786Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,28 +8,28 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20260915-081247.dump",
-    "sha256": "c29c5987b9fc03f3a2f97dea94d80a0a37a043be498b769f7c03aaf320e6aa5d",
-    "sizeBytes": 648544,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260915-081247",
+    "file": "db/wavemod-20260916-080626.dump",
+    "sha256": "438680d45678ca38f381ab56530b2fd1cdf2b2df28e7aa89911080258a8b2845",
+    "sizeBytes": 648514,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260916-080626",
     "tableCounts": {
       "mods": 5134,
-      "profiles": 58,
+      "profiles": 68,
       "favorites": 22,
       "likes": 3,
       "comments": 0,
       "comment_reactions": 0,
       "ratings": 1,
-      "tutorial_configs": 3,
-      "tutorial_chapters": 18,
-      "tutorial_images": 199,
+      "tutorial_configs": 2,
+      "tutorial_chapters": 12,
+      "tutorial_images": 138,
       "tutorial_tools": 6
     }
   },
   "images": {
     "remoteCount": 5285,
     "totalBytes": 452909904,
-    "downloadedThisRun": 18,
+    "downloadedThisRun": 0,
     "failedThisRun": 1,
     "failures": [
       {
