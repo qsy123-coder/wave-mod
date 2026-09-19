@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
+import { createPortal } from "react-dom";
 import Autoplay from "embla-carousel-autoplay";
 
-import Link from "next/link";
 import { ArrowUpRight, Pause, Play, Star } from "lucide-react";
 
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -21,15 +22,66 @@ import type { SiteMod } from "@/lib/mods";
 
 type HeroCarouselProps = {
   mods: SiteMod[];
+  admin?: boolean;
+  currentUserId?: string;
+  currentUserName?: string;
+  isLoggedIn?: boolean;
 };
 
-export function HeroCarousel({ mods }: HeroCarouselProps) {
+/**
+ * 详情抽屉只在点击轮播图后才需要。
+ * 首页首屏包已经很大，按需加载可以避免把评论/评分/灯箱这些代码带进首屏。
+ */
+const ModDetailDrawer = dynamic(
+  () => import("@/components/features/mods/detail/mod-detail-drawer").then((m) => m.ModDetailDrawer),
+  { ssr: false },
+);
+
+export function HeroCarousel({
+  mods,
+  admin = false,
+  currentUserId,
+  currentUserName,
+  isLoggedIn = false,
+}: HeroCarouselProps) {
   const plugin = React.useRef(
     Autoplay({ delay: 4500, stopOnInteraction: true, stopOnMouseEnter: true }),
   );
   const [api, setApi] = React.useState<CarouselApi>();
   const [current, setCurrent] = React.useState(0);
   const [isPlaying, setIsPlaying] = React.useState(true);
+  const [drawerModId, setDrawerModId] = React.useState<string | null>(null);
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
+  /**
+   * 首页的滚动者是 snap 容器（内层 div），不是 body，
+   * Sheet 自带的 body 锁定管不到它 —— 抽屉打开时手动锁住该容器，
+   * 否则滚轮会穿透抽屉，把背后的首页整屏滚走。
+   *
+   * 容器是 overflow-y-scroll（滚动条常驻），切成 hidden 会让滚动条消失、
+   * 内容盒一下宽出十几像素，居中的大卡片就横向跳一下。
+   * 用等宽的 padding-right 把内容盒宽度补回去，卡片位置就纹丝不动。
+   */
+  React.useEffect(() => {
+    if (!drawerModId) return;
+
+    const scroller = cardRef.current?.closest<HTMLElement>("[data-scroll-lock-root]");
+    if (!scroller) return;
+
+    // offsetWidth - clientWidth = 左右边框 + 纵向滚动条；该容器无边框，即为滚动条宽度。
+    // 必须在改 overflow 之前读，改完滚动条就没了。
+    const scrollbarWidth = scroller.offsetWidth - scroller.clientWidth;
+    const previousOverflow = scroller.style.overflow;
+    const previousPaddingRight = scroller.style.paddingRight;
+
+    scroller.style.overflow = "hidden";
+    if (scrollbarWidth > 0) scroller.style.paddingRight = `${scrollbarWidth}px`;
+
+    return () => {
+      scroller.style.overflow = previousOverflow;
+      scroller.style.paddingRight = previousPaddingRight;
+    };
+  }, [drawerModId]);
 
   React.useEffect(() => {
     if (!api) return;
@@ -72,12 +124,25 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
 
   return (
     <MotionReveal delay={0.14} y={32} rotate={2}>
-      <div className="neo-card-lg relative rotate-2 p-3" style={{ background: "var(--neo-panel)" }}>
+      <div ref={cardRef} className="neo-card-lg relative rotate-2 p-3" style={{ background: "var(--neo-panel)" }}>
         <Carousel setApi={setApi} plugins={[plugin.current]} opts={{ loop: mods.length > 1 }}>
           <CarouselContent className="ml-0">
             {mods.map((mod, index) => (
               <CarouselItem key={mod.id} className="pl-0">
-                <Link href={`/mods/${mod.id}`} className="group block">
+                {/* 点击不再跳转到 /mods/<id>，改为就地打开右侧详情抽屉（与角色分类页一致） */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`查看 ${mod.title} 详情`}
+                  onClick={() => setDrawerModId(mod.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setDrawerModId(mod.id);
+                    }
+                  }}
+                  className="group block cursor-pointer focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-black"
+                >
                   <div className="relative h-[500px] w-full overflow-hidden border-4 border-black bg-black md:h-[560px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -120,7 +185,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                       </div>
                     </div>
                   </div>
-                </Link>
+                </div>
               </CarouselItem>
             ))}
           </CarouselContent>
@@ -159,6 +224,23 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
             {isPlaying ? "暂停轮播" : "播放轮播"}
           </button>
         </div>
+
+        {/* 抽屉走 portal 挂到 body：首页这里的祖先带 rotate/framer-motion 变换，
+            留在原地会让 position:fixed 相对该祖先定位而不是视口。
+            drawerModId 初值为 null，因此 SSR 阶段不会碰到 document。 */}
+        {drawerModId && typeof document !== "undefined"
+          ? createPortal(
+              <ModDetailDrawer
+                admin={admin}
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                isLoggedIn={isLoggedIn}
+                modId={drawerModId}
+                onClose={() => setDrawerModId(null)}
+              />,
+              document.body,
+            )
+          : null}
       </div>
     </MotionReveal>
   );
