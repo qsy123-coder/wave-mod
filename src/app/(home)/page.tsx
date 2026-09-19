@@ -10,12 +10,17 @@ import { FeaturedCarouselSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import { getFeaturedMods } from "@/lib/mods";
+import { getCurrentUser } from "@/lib/supabase/server";
+import { isAdminIdentity } from "@/lib/supabase/server-config";
 
 // ─── Scroll-Snap 容器 ───────────────────────────────────────────
 
 function SnapContainer({ children }: { children: React.ReactNode }) {
   return (
     <div
+      // 首页的滚动者是这个容器而不是 body：轮播图打开详情抽屉时，
+      // HeroCarousel 会按这个标记找到并锁住它（见 hero-carousel.tsx）。
+      data-scroll-lock-root
       className="h-[calc(100vh-var(--home-header-h))] overflow-y-scroll max-md:h-auto max-md:min-h-[calc(100vh-var(--home-header-h))] max-md:overflow-y-auto"
       style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
     >
@@ -27,8 +32,19 @@ function SnapContainer({ children }: { children: React.ReactNode }) {
 // ─── 区域 1: 现有 Hero ──────────────────────────────────────────
 
 async function HomeFeaturedCarousel() {
-  const mods = await getFeaturedMods(6);
-  return <HeroCarousel mods={mods} />;
+  // 轮播图点击后就地打开详情抽屉，抽屉里的收藏/点赞/评论需要登录态与管理员标记，
+  // 判定方式与 SiteHeader、ModsListing 保持同源（isAdminIdentity 不再多查一次 auth）。
+  const [mods, user] = await Promise.all([getFeaturedMods(6), getCurrentUser()]);
+
+  return (
+    <HeroCarousel
+      mods={mods}
+      admin={isAdminIdentity(user)}
+      currentUserId={user?.id}
+      currentUserName={user?.user_metadata?.display_name ?? user?.email?.split("@")[0] ?? "我"}
+      isLoggedIn={Boolean(user)}
+    />
+  );
 }
 
 // ─── 首页 ────────────────────────────────────────────────────────
