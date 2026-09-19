@@ -1,15 +1,79 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+
 import { defaultGameKey } from "@/config/games";
 import { defaultCharacterSuggestions } from "@/lib/constants/characters";
 import { logger } from "@/lib/logger";
+import { modCacheTags } from "@/lib/mod-cache";
 import { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
 import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
 import type { ModRow, PaginatedResult, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
-export async function getAvailableCharacters(gameKey = defaultGameKey) {
-  try {
+/**
+ * 单批拉取行数。
+ *
+ * 取 500 而非 1000，是为了让每条缓存项序列化后稳定低于 Next.js Data Cache 的
+ * 2MB 单项上限（1000 行 ≈ 1.2MB，贴得太近；500 行 ≈ 0.6MB，留出安全余量）。
+ * 超过上限时 Next 会静默跳过写入（dev 模式直接抛错），缓存等于没做。
+ */
+const MOD_FETCH_BATCH_SIZE = 500;
+
+/**
+ * 分片缓存「已发布 mod 原始行」。
+ *
+ * 背景：/api/mods 每翻一页、以及 /mods 每次渲染，都会走 getPublicMods 把整张表
+ * （当前 5162 行 ≈ 6MB）串行拉一遍，再在内存里 filter/sort，最后只切出 16 条。
+ * 这是前台「拿到 URL 慢」的主因。
+ *
+ * 整表结果远超 2MB，不能作为单条缓存项，因此按 MOD_FETCH_BATCH_SIZE 拆成多条。
+ * 缓存里存的只是原始行，filter/sort/分页仍由调用方在内存中完成，
+ * 因此角色别名、复合关键词搜索、hot 评分、zh-CN 排序等语义完全不变。
+ */
+const getCachedModRowBatch = unstable_cache(
+  async (gameKey: string, from: number): Promise<Record<string, unknown>[]> => {
+    const supabase = createPublicReadClient();
+    const { data, error } = await supabase
+      .from("mods")
+      .select(publicModColumns)
+      .eq("is_published", true)
+      .eq("game_key", gameKey)
+      .order("created_at", { ascending: false })
+      .range(from, from + MOD_FETCH_BATCH_SIZE - 1);
+
+    if (error) {
+      // 向上抛：unstable_cache 不会缓存抛出的异常，避免把一次失败固化 5 分钟
+      throw new Error(error.message);
+    }
+
+    return data ?? [];
+  },
+  ["public-mods-batch"],
+  { revalidate: 300, tags: [modCacheTags.list] },
+);
+
+/** 逐批取回整表原始行；批次全部命中缓存时不再产生 Supabase 往返 */
+async function getAllPublishedModRows(gameKey: string): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+
+  for (let from = 0; ; from += MOD_FETCH_BATCH_SIZE) {
+    const batch = await getCachedModRowBatch(gameKey, from);
+    rows.push(...batch);
+    if (batch.length < MOD_FETCH_BATCH_SIZE) break;
+  }
+
+  return rows;
+}
+
+/**
+ * 已发布 mod 的角色名去重列表。
+ *
+ * 只取 character 一列，单条缓存项约 0.3MB，稳定低于 2MB 上限，
+ * 因此整份结果可以直接作为一条缓存项（无需像 getCachedModRowBatch 那样分片）。
+ */
+const getCachedAvailableCharacters = unstable_cache(
+  async (gameKey: string): Promise<string[]> => {
     const supabase = createPublicReadClient();
 
     // 分页获取所有角色（解决 Supabase 默认 1,000 行限制）
@@ -26,7 +90,8 @@ export async function getAvailableCharacters(gameKey = defaultGameKey) {
         .range(from, from + batchSize - 1);
 
       if (error) {
-        return defaultCharacterSuggestions;
+        // 抛出而非返回兜底值：否则一次失败会被缓存 5 分钟
+        throw new Error(error.message);
       }
 
       if (!data || data.length === 0) break;
@@ -35,14 +100,21 @@ export async function getAvailableCharacters(gameKey = defaultGameKey) {
       from += batchSize;
     }
 
-    const dynamicCharacters = Array.from(
+    return Array.from(
       new Set(
-        (allData ?? [])
+        allData
           .map((row) => normalizeCharacterName(String(row.character ?? "")))
           .filter(Boolean),
       ),
     ).sort((a, b) => a.localeCompare(b, "zh-CN"));
+  },
+  ["available-characters"],
+  { revalidate: 300, tags: [modCacheTags.characters] },
+);
 
+export async function getAvailableCharacters(gameKey = defaultGameKey) {
+  try {
+    const dynamicCharacters = await getCachedAvailableCharacters(gameKey);
     return dynamicCharacters.length > 0 ? dynamicCharacters : defaultCharacterSuggestions;
   } catch {
     return defaultCharacterSuggestions;
@@ -57,49 +129,21 @@ export async function getCharacterSuggestions(gameKey = defaultGameKey) {
 
 export async function getPublicMods(limit?: number, filters: PublicModsFilters = {}) {
   const { gameKey = defaultGameKey, sort = "default" } = filters;
-  let supabase;
+
+  let allRows: Record<string, unknown>[];
   try {
-    supabase = createPublicReadClient();
+    allRows = await getAllPublishedModRows(gameKey);
   } catch (error) {
-    logger.warn("[mods] getPublicMods skipped because Supabase env is missing", { error: error instanceof Error ? error.message : "unknown" });
+    // Supabase env 缺失、或某批拉取失败：回退空列表（与改动前行为一致），
+    // 且失败结果不会被写入缓存，下一请求会重试。
+    logger.warn("[mods] getPublicMods failed, fallback to empty list", { error: error instanceof Error ? error.message : "unknown" });
     return [] satisfies SiteMod[];
   }
 
-  // 分页获取所有 mods（解决 Supabase 默认 1,000 行限制）
-  let allRows: Record<string, unknown>[] = [];
-  let from = 0;
-  const batchSize = 1000;
-  let pageNum = 0;
-  while (true) {
-    pageNum++;
-    const { data, error } = await supabase
-      .from("mods")
-      .select(publicModColumns, { count: "exact", head: false })
-      .eq("is_published", true)
-      .eq("game_key", gameKey)
-      .order("created_at", { ascending: false })
-      .range(from, from + batchSize - 1);
-
-    console.log(`[getPublicMods] page=${pageNum} from=${from} got=${data?.length ?? 0} error=${error?.message ?? "none"}`);
-
-    if (error) {
-      logger.warn("[mods] getPublicMods failed, fallback to empty list", { error: error.message });
-      console.log(`[getPublicMods] ERROR: ${error.message}`);
-      return [] satisfies SiteMod[];
-    }
-
-    if (!data || data.length === 0) break;
-    allRows = allRows.concat(data);
-    console.log(`[getPublicMods] total accumulated: ${allRows.length}`);
-    if (data.length < batchSize) break;
-    from += batchSize;
-  }
-
-  console.log(`[getPublicMods] FINAL total rows: ${allRows.length}`);
-  const mods = applyModQueryFilters((allRows ?? []).map((row) => mapMod(row as ModRow)), filters);
-  console.log(`[getPublicMods] after filter/map: ${mods.length}`);
+  // filter/sort 保持在内存中完成：applyModQueryFilters 用 filter、applyModSort/sortModsByHot
+  // 用 slice().sort()，均不修改入参，因此可以安全复用缓存里的原始行。
+  const mods = applyModQueryFilters(allRows.map((row) => mapMod(row as ModRow)), filters);
   const sortedMods = sort === "hot" ? sortModsByHot(mods) : applyModSort(sort)(mods);
-  console.log(`[getPublicMods] FINAL sorted: ${sortedMods.length}, limit=${limit}`);
 
   return typeof limit === "number" ? sortedMods.slice(0, limit) : sortedMods;
 }
