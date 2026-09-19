@@ -24,7 +24,7 @@ const MOD_FETCH_BATCH_SIZE = 500;
  * 分片缓存「已发布 mod 原始行」。
  *
  * 背景：/api/mods 每翻一页、以及 /mods 每次渲染，都会走 getPublicMods 把整张表
- * （当前 5162 行 ≈ 6MB）串行拉一遍，再在内存里 filter/sort，最后只切出 16 条。
+ * （当前 5162 行 ≈ 6MB）拉一遍，再在内存里 filter/sort，最后只切出 16 条。
  * 这是前台「拿到 URL 慢」的主因。
  *
  * 整表结果远超 2MB，不能作为单条缓存项，因此按 MOD_FETCH_BATCH_SIZE 拆成多条。
@@ -53,17 +53,62 @@ const getCachedModRowBatch = unstable_cache(
   { revalidate: 300, tags: [modCacheTags.list] },
 );
 
-/** 逐批取回整表原始行；批次全部命中缓存时不再产生 Supabase 往返 */
-async function getAllPublishedModRows(gameKey: string): Promise<Record<string, unknown>[]> {
-  const rows: Record<string, unknown>[] = [];
+/**
+ * 已发布 mod 的总行数，仅用于确定要并发拉几个分片。
+ *
+ * 用 `head: true` 只取 count 不取行，返回体极小，可安全作为单条缓存项。
+ * 与分片缓存同一个 tag，revalidateTag 时一起失效。
+ */
+const getCachedPublishedModCount = unstable_cache(
+  async (gameKey: string): Promise<number> => {
+    const supabase = createPublicReadClient();
+    const { count, error } = await supabase
+      .from("mods")
+      .select("id", { count: "exact", head: true })
+      .eq("is_published", true)
+      .eq("game_key", gameKey);
 
-  for (let from = 0; ; from += MOD_FETCH_BATCH_SIZE) {
-    const batch = await getCachedModRowBatch(gameKey, from);
-    rows.push(...batch);
-    if (batch.length < MOD_FETCH_BATCH_SIZE) break;
+    if (error) {
+      // 同 getCachedModRowBatch：抛出以免把一次失败固化 5 分钟
+      throw new Error(error.message);
+    }
+
+    return count ?? 0;
+  },
+  ["public-mods-count"],
+  { revalidate: 300, tags: [modCacheTags.list] },
+);
+
+/**
+ * 取回整表原始行：先按总数算出分片数，再并发拉取。
+ *
+ * 此前是 `for` 循环串行 await 每一片。生产环境 Supabase 在 ap-northeast-2（首尔）
+ * 而 Vercel 函数默认在 iad1（美东），单次查询跨洋约 200ms，11 片串行就是 2.2s 起步。
+ * 并发后回填耗时从 `分片数 × RTT` 降到约 `1 × RTT`。
+ *
+ * 分片全部命中缓存时不产生任何 Supabase 往返（与改动前一致）。
+ */
+async function getAllPublishedModRows(gameKey: string): Promise<Record<string, unknown>[]> {
+  const total = await getCachedPublishedModCount(gameKey);
+  // 总数为 0 时也拉一片，走统一路径返回空数组
+  const shardCount = Math.max(1, Math.ceil(total / MOD_FETCH_BATCH_SIZE));
+
+  const batches = await Promise.all(
+    Array.from({ length: shardCount }, (_, index) => getCachedModRowBatch(gameKey, index * MOD_FETCH_BATCH_SIZE)),
+  );
+
+  // count 与分片是两条独立缓存项，即使同 tag 也不是原子失效，到期时刻可能相差几秒。
+  // 若总数比实际偏小，末尾数据会被截断；满片说明后面可能还有，继续补拉直到出现短片。
+  let from = shardCount * MOD_FETCH_BATCH_SIZE;
+  let lastFetchedFull = batches[batches.length - 1]?.length === MOD_FETCH_BATCH_SIZE;
+  while (lastFetchedFull) {
+    const extra = await getCachedModRowBatch(gameKey, from);
+    batches.push(extra);
+    from += MOD_FETCH_BATCH_SIZE;
+    lastFetchedFull = extra.length === MOD_FETCH_BATCH_SIZE;
   }
 
-  return rows;
+  return batches.flat();
 }
 
 /**
