@@ -10,6 +10,8 @@
  * 用法:
  *   node scripts/upload-daily-by-date.mjs --dry-run   # 只解析 + 匹配 + 转 WebP，不上传不入库
  *   node scripts/upload-daily-by-date.mjs              # 正式上传
+ *   node scripts/upload-daily-by-date.mjs --dates=2026.9.11,2026.9.12
+ *                                                      # 只处理指定日期目录（其余目录跳过）
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -25,6 +27,23 @@ config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
 const args = process.argv.slice(2);
 const isDryRun = args.includes("--dry-run");
+
+// --dates=2026.9.11,2026.9.12 → 只处理这些日期目录；未指定则处理全部
+const datesArg = args.find((a) => a.startsWith("--dates="));
+const filterDates = datesArg
+  ? new Set(
+      datesArg
+        .slice("--dates=".length)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        // 归一化为 YYYY.M.D（容忍 09.11 这种补零写法）
+        .map((s) => {
+          const m = /^(\d{4})\.(\d{1,2})\.(\d{1,2})$/.exec(s);
+          return m ? `${m[1]}.${Number(m[2])}.${Number(m[3])}` : s;
+        })
+    )
+  : null;
 
 // ==================== 配置 ====================
 
@@ -44,7 +63,7 @@ const XXMI_GUIDE = [
   "4. 返回启动器启用对应角色模组后进入游戏检查效果。",
 ].join("\n");
 
-const SKIP_PREFIXES = ["清宵-邪"];
+const SKIP_PREFIXES = [];
 
 /** 角色前缀 → 标准角色名，title 去前缀 */
 const CHARACTER_PREFIX_MAP = [
@@ -57,10 +76,59 @@ const CHARACTER_PREFIX_MAP = [
   { prefix: "达妮娅", character: "达妮娅" },
   { prefix: "女漂皮肤", character: "女漂" }, // 「女漂皮肤{星火永明]-…」归女漂
   { prefix: "琳奈皮肤", character: "琳奈" }, // 「琳奈皮肤[薄荷糖]-…」归琳奈
+  // 「千咲皮肤{蜜桃冰]-丰汝肥屯…」——`{`/`]` 是 `[`/`]` 的笔误变体，
+  // 故用前缀而非全等别名匹配；库内先例 `千咲 | 千咲皮肤[蜜桃冰]-蜜桃啵啵冰v1.1` 同样保留完整 title
+  { prefix: "千咲皮肤", character: "千咲" },
+  // 裸「千咲-」：库内 164 条中 162 条为无前缀写法（`千咲 | 丰汝肥屯（上下）by slap`、
+  // `千咲 | 原版切换（x）by JR7`），仅 2 条「千咲皮肤[蜜桃冰]-…」保留全 title——那是上面一条管的。
+  // ⚠️ 必须排在「千咲皮肤」之后，否则 `千咲皮肤[蜜桃冰]-…` 会被剥成 `皮肤[蜜桃冰]-…`。
+  { prefix: "千咲", character: "千咲" },
+  // 卡提希娅：库内 160 条中 157 条为无前缀写法（`卡提希娅 | 小卡-曲线优美`、
+  // `卡提希娅 | 大卡-时韵 Mk3（；)og狩野樱`），仅 3 条保留前缀（加进本表前入库的遗留）。
+  { prefix: "卡提希娅", character: "卡提希娅" },
+  // 以下 4 个角色此前不在表内，会落到默认分支把「角色-」前缀原样留在 title 里
+  // （如 `莫宁 | 莫宁-丰汝肥屯（上下左右）by mingchen`），与库内惯例不符：
+  //   卜灵 22/22 无前缀、莫宁 99/100 无前缀、琳奈除「琳奈皮肤[薄荷糖]-」家族外均无前缀。
+  // 补进来后统一剥离，title 只留皮肤名。
+  // ⚠️ `琳奈` 必须排在 `琳奈皮肤` 之后，否则 `琳奈皮肤[薄荷糖]-…` 会被剥成
+  //    `皮肤[薄荷糖]-…`，与库内 3 条既有写法冲突。
+  { prefix: "琳奈", character: "琳奈" },
+  { prefix: "莫宁", character: "莫宁" },
+  { prefix: "卜灵", character: "卜灵" },
+  { prefix: "景燃", character: "景燃" },
+  // 绯雪：库内 26 条中 24 条为无前缀写法（`绯雪 | 心月狐 by kuzan`、`绯雪 | 原版切换（x）by JR7`），
+  // 仅 2026-09-12 / 09-16 两条保留前缀——那是加进本表前入库的遗留。
+  // 补进来后统一剥离，与主流写法对齐；dedupKey 会把已有前缀式记录归一化，不会重复入库。
+  { prefix: "绯雪", character: "绯雪" },
 ];
 
-/** UI 类：这些「全ui」固定进 UI 分类，title 去角色名、保留「全ui-…」 */
-const UI_CHARS = ["卡提希娅", "坎特蕾拉", "菲比", "露帕"];
+/**
+ * UI 类：整包 UI，title 保留完整 key
+ *   - 任意「<角色>全ui…」（库内既有约定：`UI | 吟霖全ui-动态nsfw-v2.2.6`、`UI | 椿全ui-…`），
+ *     含裸「全ui…」开头（`UI | 全ui背景-美图v3.5`）——故 `.*?` 允许零个前缀字符。
+ *   - 「编队界面-…」「编队图片-…」（`UI | 编队界面-狐妻猫咪内衣-新增穗穗/清宵`）
+ * 这里不写死角色清单——否则遇到清单外的角色（如「椿」）会落到默认分支，
+ * 切出 `椿全ui` 这类站内不存在的假分类。
+ */
+const UI_FULL_KEY_RE = /^(?:.*?全ui|编队界面|编队图片)/;
+
+/**
+ * 武器皮：`<武器名>-<皮肤名>`，整包归 `武器`，title 保留完整 key。
+ * 库内先例：`武器 | 千古-赛琳娜武器 by _eldarC`、`武器 | 停驻之烟-QBZ-97`。
+ */
+const WEAPON_PREFIXES = ["浩境粼光"];
+
+/** 与 src/lib/mods-domain/sorting.ts 的 CHARACTER_ALIASES 保持一致（避免造出站内不存在的分类） */
+const CHARACTER_ALIASES = {
+  "陆赫斯": "路赫斯",
+  "反虚化，ui界面，场景，葫芦，特效等": "UI",
+  "千咲皮肤[蜜桃冰]": "千咲",
+  "科考摩托": "滑翔翼,翱翔翼,科考摩托",
+  // 库内「背包 编队 商城 用户界面-nsfw v2.5.2~2.5.5」4 条先例均归 UI
+  "背包 编队 商城 用户界面": "UI",
+  // 与「千咲皮肤[蜜桃冰]」同一规则：饰品名带后缀 → 归基础角色，title 保留完整 key
+  "爱弥斯饰品[雪绒豹豹]": "爱弥斯",
+};
 
 /** 前缀 → UI 分类（如「索拉指南-长离动态nsfw」整包皮肤归 UI，title 去前缀） */
 const UI_PREFIXES = ["索拉指南"];
@@ -194,18 +262,48 @@ function parseQuarkCsv(filePath) {
 
 // ==================== 分类解析 ====================
 
+function normalizeCharacter(character) {
+  return CHARACTER_ALIASES[character] ?? character;
+}
+
+/**
+ * 去重键：`character|title`，但把 title 开头重复的「角色-」前缀归一化掉。
+ *
+ * 为什么需要：title 的前缀剥离规则会随 CHARACTER_PREFIX_MAP 增补而变。
+ * 若某个角色事后才被加进表里，它早先入库的 `莫宁 | 莫宁-卡提希娅（上下）…`
+ * 会与新解析出的 `莫宁 | 卡提希娅（上下）…` 不相等，全量运行时被当成新记录重复插入。
+ * 两侧都过一遍这个函数，新旧写法即可互相匹配。
+ * （库内 3 条先例：莫宁-卡提希娅 / 景燃-焚狱 / 景燃-猫咪）
+ */
+function dedupKey(character, title) {
+  const c = String(character ?? "").trim();
+  let t = String(title ?? "").trim();
+  if (c && t.startsWith(c)) t = t.slice(c.length).replace(/^[-－\s]+/, "").trim();
+  return `${c}|${t}`;
+}
+
 function resolveCharacterAndTitle(key) {
-  // UI 类：角色名 + 「全ui」
-  for (const ch of UI_CHARS) {
-    if (key.startsWith(ch + "全ui")) {
-      return { character: "UI", title: key.slice(ch.length) };
-    }
+  // 特例：`尤诺的月环-XXX` → 尤诺，title 保留「的月环-XXX」
+  // （库内 2026-08-10 批次共 7 条同格式先例；不能加裸前缀「尤诺」，
+  //   否则会把 `尤诺-姓感内衣（下）…` 这类完整 key 的 title 切掉，导致重复入库）
+  if (key.startsWith("尤诺的月环")) {
+    return { character: "尤诺", title: key.slice("尤诺".length) };
+  }
+  // UI 类：整包 UI（<角色>全ui / 编队界面 / 编队图片），title 保留完整 key
+  if (UI_FULL_KEY_RE.test(key)) {
+    return { character: "UI", title: key };
   }
   // UI 类：前缀直匹配（如索拉指南-长离动态nsfw），title 去前缀
   for (const p of UI_PREFIXES) {
     if (key.startsWith(p)) {
       const title = key.slice(p.length).replace(/^[-－\s]+/, "").trim() || key;
       return { character: "UI", title };
+    }
+  }
+  // 武器皮：整包归 武器，title 保留完整 key
+  for (const p of WEAPON_PREFIXES) {
+    if (key.startsWith(p)) {
+      return { character: "武器", title: key };
     }
   }
   // 角色类：前缀=角色，title 去前缀
@@ -216,16 +314,20 @@ function resolveCharacterAndTitle(key) {
       // 「XX皮肤」类前缀，皮肤名是标题一部分 → 完整保留 title
       if (prefix.includes("皮肤")) title = key;
       if (!title) title = key;
-      return { character, title };
+      return { character: normalizeCharacter(character), title };
     }
   }
-  return { character: key.split(/[-－]/)[0] || key, title: key };
+  return { character: normalizeCharacter(key.split(/[-－]/)[0] || key), title: key };
 }
 
 // ==================== 图片索引（目录顶层 + 预览图 子目录，png 优先） ====================
 
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 const PREFERRED_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+
+// 图片名可能带尾随 UUID（如「...by SlugCat-31f20660-f72c-485c-8616-444bff91d79c.png」），
+// 索引 key 去掉该段，使其与 exe 的 base 精确对应，从而匹配到预览图；读取仍用真实路径。
+const UUID_SUFFIX_RE = /-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 function indexFilesInto(byBase, dir) {
   if (!existsSync(dir)) return;
@@ -234,9 +336,10 @@ function indexFilesInto(byBase, dir) {
     const ext = extname(e.name).toLowerCase();
     if (!IMAGE_EXTS.has(ext)) continue;
     const base = basename(e.name, ext);
-    if (!byBase.has(base)) byBase.set(base, []);
+    const indexKey = base.replace(UUID_SUFFIX_RE, "");
+    if (!byBase.has(indexKey)) byBase.set(indexKey, []);
     // 记录文件所在目录，避免子目录图片被拼到顶层路径
-    byBase.get(base).push({ file: join(dir, e.name), ext });
+    byBase.get(indexKey).push({ file: join(dir, e.name), ext });
   }
 }
 
@@ -292,7 +395,7 @@ async function main() {
   if (isDryRun) console.log("🔍 DRY-RUN 模式：解析 + 匹配 + 转 WebP，不实际上传/入库。\n");
 
   // 1. 发现日期子目录（按日期升序处理，输出更符合直觉）
-  const dirEntries = readdirSync(BASE, { withFileTypes: true })
+  let dirEntries = readdirSync(BASE, { withFileTypes: true })
     .filter((e) => e.isDirectory() && DATE_DIR_RE.test(e.name))
     .map((e) => ({ name: e.name, date: parseDateDir(e.name) }))
     .sort((a, b) => {
@@ -301,11 +404,19 @@ async function main() {
       return ka - kb;
     });
 
+  if (filterDates) {
+    const before = dirEntries.length;
+    dirEntries = dirEntries.filter((d) => filterDates.has(`${d.date.y}.${d.date.m}.${d.date.d}`));
+    console.log(
+      `🎯 --dates 过滤: ${before} 个目录 → ${dirEntries.length} 个 (${[...filterDates].join(", ")})`
+    );
+  }
+
   if (dirEntries.length === 0) {
-    console.error("❌ 未发现任何 W-YYYY.M.D 日期子目录");
+    console.error("❌ 未发现任何 W-YYYY.M.D 日期子目录（或都被 --dates 过滤掉了）");
     process.exit(1);
   }
-  console.log(`📁 发现 ${dirEntries.length} 个日期子目录: ${dirEntries.map((d) => d.name).join(", ")}\n`);
+  console.log(`📁 待处理 ${dirEntries.length} 个日期子目录: ${dirEntries.map((d) => d.name).join(", ")}\n`);
 
   // 2. 查询现有记录用于去重（character|title）
   const existing = [];
@@ -326,7 +437,7 @@ async function main() {
     if (data.length < PAGE_SIZE) break;
     pageFrom += PAGE_SIZE;
   }
-  const existingSet = new Set(existing.map((m) => `${m.character}|${m.title?.trim() ?? ""}`));
+  const existingSet = new Set(existing.map((m) => dedupKey(m.character, m.title)));
   console.log(`🗄  现有 mod 记录: ${existing.length}\n`);
 
   // 3. 逐目录处理
@@ -372,7 +483,7 @@ async function main() {
     // 3d. 逐条处理
     for (const record of unique) {
       const { character, title } = resolveCharacterAndTitle(record.key);
-      if (existingSet.has(`${character}|${title.trim()}`)) {
+      if (existingSet.has(dedupKey(character, title))) {
         skipDup++;
         skipDupKeys.push(`${dateLabel} · ${character} | ${title}`);
         continue;
