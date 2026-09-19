@@ -236,10 +236,13 @@ export function ModCard({
   // 刷新命中缓存时，load 事件可能在 React 水合前就已触发，onLoad 不会再被调用，
   // 因此额外用 ref 回调兜底：挂载时若 img.complete 已为 true，直接读取 naturalWidth/Height。
   const [imageRatio, setImageRatio] = useState<number | null>(null);
+  // 图片是否已就位：用于把加载期间的纯黑占位换成骨架动画
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const readImageRatio = useCallback((img: HTMLImageElement | null) => {
     if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
       setImageRatio(img.naturalWidth / img.naturalHeight);
+      setImageLoaded(true);
     }
   }, []);
 
@@ -302,6 +305,8 @@ export function ModCard({
             src={imageSrc}
             alt={mod.title}
             loading={imagePriority ? "eager" : "lazy"}
+            fetchPriority={imageFetchPriority}
+            decoding="async"
             referrerPolicy="no-referrer"
             ref={handleImageRef}
             onLoad={handleImageLoad}
@@ -315,22 +320,42 @@ export function ModCard({
               src={imageSrc}
               alt=""
               loading="lazy"
+              fetchPriority="low"
+              decoding="async"
               referrerPolicy="no-referrer"
               onError={handleImageError}
               className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
               aria-hidden="true"
             />
+            {/* 前景图必须跟随 imagePriority：无限滚动每次追加 16 张卡，若一律 eager，
+                视口里那几张会排在一堆屏幕外图片后面抢 6 个并发连接，越滑越堵。 */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageSrc}
               alt={mod.title}
-              loading="eager"
+              loading={imagePriority ? "eager" : "lazy"}
+              fetchPriority={imageFetchPriority}
+              decoding="async"
               referrerPolicy="no-referrer"
+              ref={handleImageRef}
+              onLoad={handleImageLoad}
               onError={handleImageError}
               className={cn("absolute inset-0 h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover/mod-card:scale-[1.06]", imageClassName)}
             />
           </>
         )}
+        {/* 加载期间占位：图片到位前 bg-black 容器是一块纯黑，看起来像黑屏或坏图。
+            内层独占 animate-pulse —— pulse 动画直接改写 opacity，若与淡出写在同一元素上，
+            opacity-0 会被动画覆盖，占位永远不会消失。 */}
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-0 transition-opacity duration-300",
+            imageLoaded || imageError ? "opacity-0" : "opacity-100",
+          )}
+        >
+          <div className="h-full w-full animate-pulse bg-[var(--neo-muted)]" />
+        </div>
       </div>
       {/* 批量操作复选框 */}
       {showCheckbox ? (
