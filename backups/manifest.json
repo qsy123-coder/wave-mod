@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-19T07:41:16.996Z",
+  "generatedAt": "2026-09-20T08:07:19.671Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,15 +8,15 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20260919-074045.dump",
-    "sha256": "534e5b19e0aa9d548b49ba3b27e97fa99af77fe0374d0c4155ccbe9e03702138",
-    "sizeBytes": 665713,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260919-074045",
+    "file": "db/wavemod-20260920-080647.dump",
+    "sha256": "0605a000d1a7532a4db23ffa0a2b87f8b655a3fb7be9a5f0d05ae72f8d272907",
+    "sizeBytes": 673572,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260920-080647",
     "tableCounts": {
-      "mods": 5162,
-      "profiles": 104,
-      "favorites": 23,
-      "likes": 3,
+      "mods": 5186,
+      "profiles": 113,
+      "favorites": 34,
+      "likes": 10,
       "comments": 0,
       "comment_reactions": 0,
       "ratings": 1,
@@ -27,9 +27,9 @@
     }
   },
   "images": {
-    "remoteCount": 5320,
-    "totalBytes": 455719766,
-    "downloadedThisRun": 15,
+    "remoteCount": 5344,
+    "totalBytes": 456760430,
+    "downloadedThisRun": 24,
     "failedThisRun": 1,
     "failures": [
       {
@@ -20384,6 +20384,150 @@
         "file": "images/mods/爱弥斯/fb02af10-3993-460a-98e6-b13b3c781a25/preview.webp",
         "size": 52352,
         "etag": "\"5ddfbc7ee59140c67b09d8b2a26d4b06\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/0708f084-144d-4cf8-9e3b-9fd7d2d75f84/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/0708f084-144d-4cf8-9e3b-9fd7d2d75f84/preview.webp",
+        "size": 44404,
+        "etag": "\"d3e72bd3794d0489e849c1ac9efe80cd\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/11fb2326-7adc-452d-8320-624549067b65/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/11fb2326-7adc-452d-8320-624549067b65/preview.webp",
+        "size": 43030,
+        "etag": "\"313ca91cb350fcb72ed727d98c17ddcf\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/1f6813b3-e54b-4869-b786-356701f28935/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/1f6813b3-e54b-4869-b786-356701f28935/preview.webp",
+        "size": 41140,
+        "etag": "\"6d95e0fc1d466325095150b50c43565f\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/2769574e-d2f9-4cfc-bca0-d22f793c156a/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/2769574e-d2f9-4cfc-bca0-d22f793c156a/preview.webp",
+        "size": 32382,
+        "etag": "\"3670310734d802eb0cc8a7095a16f5f8\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/2b7a9a65-ad15-42d6-8480-553bb4b28605/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/2b7a9a65-ad15-42d6-8480-553bb4b28605/preview.webp",
+        "size": 58172,
+        "etag": "\"10c5219f519dcdd8090fc3e114719613\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/2c068fc2-8a01-4188-af5d-ca7b7639319f/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/2c068fc2-8a01-4188-af5d-ca7b7639319f/preview.webp",
+        "size": 53254,
+        "etag": "\"67ef70751c478a2db780578c800092e6\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/39310012-0fd5-4800-ac68-d65a235bf724/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/39310012-0fd5-4800-ac68-d65a235bf724/preview.webp",
+        "size": 37460,
+        "etag": "\"0eb8191e7a24aae18597b65b387d64d4\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/42593d1a-dac5-4de9-ab79-9a292ef66971/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/42593d1a-dac5-4de9-ab79-9a292ef66971/preview.webp",
+        "size": 39526,
+        "etag": "\"5c0b74bfd6b5a39efc1d3d3166c3115e\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/449a16b0-f931-4578-b8b3-0bb51838770c/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/449a16b0-f931-4578-b8b3-0bb51838770c/preview.webp",
+        "size": 58576,
+        "etag": "\"d20b555c6d21fb57d790e450edf28be7\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/44cb3d8a-2ae0-47fb-96ee-cbfe4a336f73/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/44cb3d8a-2ae0-47fb-96ee-cbfe4a336f73/preview.webp",
+        "size": 46262,
+        "etag": "\"ba147549205095c4939198ede36b807d\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/451da4ec-6687-4e01-9b0d-b7b7a9f66b99/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/451da4ec-6687-4e01-9b0d-b7b7a9f66b99/preview.webp",
+        "size": 54720,
+        "etag": "\"877e25ce16c146b82cabb1a1e1b2c431\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/45578de1-ec09-48a9-ae86-31cf5cf64957/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/45578de1-ec09-48a9-ae86-31cf5cf64957/preview.webp",
+        "size": 41794,
+        "etag": "\"5a5b9d72642f97ecc60ffc9ab0980547\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/668c22b4-5f84-4cd1-9f94-bf8aed484470/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/668c22b4-5f84-4cd1-9f94-bf8aed484470/preview.webp",
+        "size": 38920,
+        "etag": "\"cac6d31b154a0f1174db72616db81b06\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/78af5b78-a372-4994-9267-ede54fc5ee66/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/78af5b78-a372-4994-9267-ede54fc5ee66/preview.webp",
+        "size": 46612,
+        "etag": "\"8880657674c7911a15d3e6b1fa284b46\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/866d15ac-33f7-4edc-8758-aeafbb8b4f30/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/866d15ac-33f7-4edc-8758-aeafbb8b4f30/preview.webp",
+        "size": 25814,
+        "etag": "\"8217666bc5d99a5a2edce31a018c3b09\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/9de5c71f-450e-4bf8-bb8d-4fcff1fa25b1/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/9de5c71f-450e-4bf8-bb8d-4fcff1fa25b1/preview.webp",
+        "size": 46436,
+        "etag": "\"0ce4d258814205ef22f6ceaad842d714\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/a8e461ba-e986-4158-bc5c-7a3a41437ca8/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/a8e461ba-e986-4158-bc5c-7a3a41437ca8/preview.webp",
+        "size": 57500,
+        "etag": "\"f74156f5ad92c57a3d3a8be572a2331d\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/a9a65991-c66f-49da-8473-2c83dcf518ff/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/a9a65991-c66f-49da-8473-2c83dcf518ff/preview.webp",
+        "size": 39746,
+        "etag": "\"a92144ea2b7f894bde9f4076bb21a8e3\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/affdb774-9f1f-4f91-8830-b60570893f7d/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/affdb774-9f1f-4f91-8830-b60570893f7d/preview.webp",
+        "size": 42248,
+        "etag": "\"05ec2854f55c70e327c1ef145357ddc2\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/bf2da52a-531f-49cd-b6b8-ad038b04ff68/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/bf2da52a-531f-49cd-b6b8-ad038b04ff68/preview.webp",
+        "size": 36962,
+        "etag": "\"8c822afc7aa1ddd22c6688b549fe6642\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/cd0f2f34-2413-4ad2-abc6-7e88c95ee4c1/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/cd0f2f34-2413-4ad2-abc6-7e88c95ee4c1/preview.webp",
+        "size": 22320,
+        "etag": "\"7da684f711716839be5f577eb45d41d7\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/d0210ddd-faf6-43bf-b87f-529d1c27f9a0/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/d0210ddd-faf6-43bf-b87f-529d1c27f9a0/preview.webp",
+        "size": 35816,
+        "etag": "\"0e8548f4f3ae8f1a6f09d4cafbf666c7\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/e205772d-22d2-4d64-8504-23da969ad259/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/e205772d-22d2-4d64-8504-23da969ad259/preview.webp",
+        "size": 54226,
+        "etag": "\"ff8dbc69e8f0296480270c89e43b7123\""
+      },
+      {
+        "key": "mods/爱弥斯的机甲/e745d9ae-e49a-437e-85d2-228635ddacf5/preview.webp",
+        "file": "images/mods/爱弥斯的机甲/e745d9ae-e49a-437e-85d2-228635ddacf5/preview.webp",
+        "size": 43344,
+        "etag": "\"5e8f2524a9b117be4bbcd98af9182a88\""
       },
       {
         "key": "mods/玄翎/02487c08-e125-45cd-98c4-e64b130dbdd8/preview.webp",
