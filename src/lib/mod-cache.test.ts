@@ -41,6 +41,8 @@ describe("revalidateModEngagementCaches（用户互动）", () => {
     expect(tagCalls()).not.toContain(modCacheTags.characters);
   });
 
+  // 这条同时兜住「别把 modCacheTags.snapshot 塞进来」：网关被锁时它会拉一份
+  // 513KB 的远程快照，一次点赞付这个代价毫无道理。
   it("完全不调用 revalidateTag", () => {
     revalidateModEngagementCaches("mod-1");
     expect(revalidateTag).not.toHaveBeenCalled();
@@ -59,6 +61,15 @@ describe("revalidatePublicModCaches（内容写入）", () => {
     revalidatePublicModCaches("mod-1");
     expect(tagCalls()).toContain(modCacheTags.list);
     expect(tagCalls()).toContain(modCacheTags.characters);
+  });
+
+  // 网关被锁时远程兜底快照是前台唯一的数据源。写库脚本发完新对象后 ping 的
+  // 就是这个接口 —— 漏了这条，新内容要等满 1 小时 TTL 才出现。
+  it("失效远程兜底快照缓存", () => {
+    revalidatePublicModCaches("mod-1");
+    expect(tagCalls()).toContain(modCacheTags.snapshot);
+    revalidatePublicModCaches();
+    expect(tagCalls()).toContain(modCacheTags.snapshot);
   });
 
   it("带 modId 时额外刷新该 mod 的详情", () => {
