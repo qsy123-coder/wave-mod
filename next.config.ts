@@ -40,6 +40,12 @@ const cosRemotePatterns = [
 ].filter((pattern): pattern is { protocol: "https"; hostname: string } => Boolean(pattern));
 
 const nextConfig: NextConfig = {
+  // 兜底快照由运行时 fs 读取（src/lib/mods-domain/snapshot.ts），不是 import，
+  // 因此必须显式告诉 output tracing 把它复制进 serverless 函数包，否则线上读不到。
+  // 体积 500KB（gzip），对所有路由生效 —— 快照被 /api/mods、/mods、首页、详情页共用。
+  outputFileTracingIncludes: {
+    "/*": ["./data/mods-snapshot.json.gz"],
+  },
   async redirects() {
     return [
       {

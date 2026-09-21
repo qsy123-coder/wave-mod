@@ -3,6 +3,7 @@ import "server-only";
 import { defaultGameKey } from "@/config/games";
 import { logger } from "@/lib/logger";
 import { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
+import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
 import type { ModRow, SiteMod } from "@/lib/mods-domain/types";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
@@ -102,12 +103,26 @@ export async function getDailyUpdates(
     .order("created_at", { ascending: false });
 
   if (error) {
-    logger.warn("[daily] getDailyUpdates failed, fallback to empty list", { error: error.message });
-    return { today: recentDateKeys(safeDays)[0], days: [] };
+    // 网关被锁时用本地快照兜底：快照带 created_at，按天分组的逻辑可原样复用，
+    // 否则「今日更新的 mod」和每日更新页会整片空掉。
+    logger.warn("[daily] getDailyUpdates failed, fallback to snapshot", { error: error.message });
+
+    const snapshotMods = (await getSnapshotRows(gameKey))
+      // 沿用与上面查询相同的宽松下界（since），多出的部分交给 groupDailyUpdates 的日期键过滤
+      .filter((row) => typeof row.created_at === "string" && Date.parse(row.created_at) >= since.getTime())
+      .map((row) => mapMod(row as ModRow));
+
+    return groupDailyUpdates(snapshotMods, safeDays);
   }
 
-  const mods = (data ?? []).map((row) => mapMod(row as ModRow));
+  return groupDailyUpdates((data ?? []).map((row) => mapMod(row as ModRow)), safeDays);
+}
 
+/**
+ * 把 mod 列表按上海日历归入最近 safeDays 天（含空天），倒序。
+ * 成功路径与快照兜底共用，保证两条路径的分组/文案口径完全一致。
+ */
+function groupDailyUpdates(mods: SiteMod[], safeDays: number): DailyUpdatesResult {
   // 归入最近 safeDays 天的日期集合
   const dateKeys = recentDateKeys(safeDays);
   const keySet = new Set(dateKeys);

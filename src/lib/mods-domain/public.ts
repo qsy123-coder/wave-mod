@@ -7,6 +7,7 @@ import { defaultCharacterSuggestions } from "@/lib/constants/characters";
 import { logger } from "@/lib/logger";
 import { modCacheTags } from "@/lib/mod-cache";
 import { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
+import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
 import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
 import type { ModRow, PaginatedResult, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 import { createPublicReadClient } from "@/lib/supabase/server";
@@ -89,26 +90,36 @@ const getCachedPublishedModCount = unstable_cache(
  * 分片全部命中缓存时不产生任何 Supabase 往返（与改动前一致）。
  */
 async function getAllPublishedModRows(gameKey: string): Promise<Record<string, unknown>[]> {
-  const total = await getCachedPublishedModCount(gameKey);
-  // 总数为 0 时也拉一片，走统一路径返回空数组
-  const shardCount = Math.max(1, Math.ceil(total / MOD_FETCH_BATCH_SIZE));
+  try {
+    const total = await getCachedPublishedModCount(gameKey);
+    // 总数为 0 时也拉一片，走统一路径返回空数组
+    const shardCount = Math.max(1, Math.ceil(total / MOD_FETCH_BATCH_SIZE));
 
-  const batches = await Promise.all(
-    Array.from({ length: shardCount }, (_, index) => getCachedModRowBatch(gameKey, index * MOD_FETCH_BATCH_SIZE)),
-  );
+    const batches = await Promise.all(
+      Array.from({ length: shardCount }, (_, index) => getCachedModRowBatch(gameKey, index * MOD_FETCH_BATCH_SIZE)),
+    );
 
-  // count 与分片是两条独立缓存项，即使同 tag 也不是原子失效，到期时刻可能相差几秒。
-  // 若总数比实际偏小，末尾数据会被截断；满片说明后面可能还有，继续补拉直到出现短片。
-  let from = shardCount * MOD_FETCH_BATCH_SIZE;
-  let lastFetchedFull = batches[batches.length - 1]?.length === MOD_FETCH_BATCH_SIZE;
-  while (lastFetchedFull) {
-    const extra = await getCachedModRowBatch(gameKey, from);
-    batches.push(extra);
-    from += MOD_FETCH_BATCH_SIZE;
-    lastFetchedFull = extra.length === MOD_FETCH_BATCH_SIZE;
+    // count 与分片是两条独立缓存项，即使同 tag 也不是原子失效，到期时刻可能相差几秒。
+    // 若总数比实际偏小，末尾数据会被截断；满片说明后面可能还有，继续补拉直到出现短片。
+    let from = shardCount * MOD_FETCH_BATCH_SIZE;
+    let lastFetchedFull = batches[batches.length - 1]?.length === MOD_FETCH_BATCH_SIZE;
+    while (lastFetchedFull) {
+      const extra = await getCachedModRowBatch(gameKey, from);
+      batches.push(extra);
+      from += MOD_FETCH_BATCH_SIZE;
+      lastFetchedFull = extra.length === MOD_FETCH_BATCH_SIZE;
+    }
+
+    return batches.flat();
+  } catch (error) {
+    // Supabase 网关不可用（典型：项目因超配额被 restriction，全站 402）时回退到本地快照。
+    // 故意放在这一层、而不是 getCachedModRowBatch 内部：让失败继续向上抛，
+    // 不被 unstable_cache 把兜底结果固化 5 分钟 —— 网关一恢复就能立刻回到实时数据。
+    logger.warn("[mods] Supabase 读取失败，回退到本地快照", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
+    return getSnapshotRows(gameKey);
   }
-
-  return batches.flat();
 }
 
 /**
@@ -162,7 +173,17 @@ export async function getAvailableCharacters(gameKey = defaultGameKey) {
     const dynamicCharacters = await getCachedAvailableCharacters(gameKey);
     return dynamicCharacters.length > 0 ? dynamicCharacters : defaultCharacterSuggestions;
   } catch {
-    return defaultCharacterSuggestions;
+    // 网关被锁时改用本地快照推导角色列表，否则角色分类页会整片空掉。
+    // 归一化与 zh-CN 排序口径与 getCachedAvailableCharacters 完全一致。
+    const snapshotCharacters = Array.from(
+      new Set(
+        (await getSnapshotRows(gameKey))
+          .map((row) => normalizeCharacterName(String(row.character ?? "")))
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b, "zh-CN"));
+
+    return snapshotCharacters.length > 0 ? snapshotCharacters : defaultCharacterSuggestions;
   }
 }
 
@@ -195,23 +216,37 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
 
 export async function getFeaturedMods(limit: number, gameKey = defaultGameKey) {
   // 获取手动推荐的 mod（is_featured = true），按 featured_order 升序（null 排最后）+ 创建时间倒序兜底
-  const supabase = createPublicReadClient();
-  const { data, error } = await supabase
-    .from("mods")
-    .select(`${publicModColumns}, featured_order`)
-    .eq("is_published", true)
-    .eq("game_key", gameKey)
-    .eq("is_featured", true)
-    .order("featured_order", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
+  try {
+    const supabase = createPublicReadClient();
+    const { data, error } = await supabase
+      .from("mods")
+      .select(`${publicModColumns}, featured_order`)
+      .eq("is_published", true)
+      .eq("game_key", gameKey)
+      .eq("is_featured", true)
+      .order("featured_order", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false });
 
-  if (error) {
-    logger.warn("[mods] getFeaturedMods failed, fallback to empty list", { error: error.message });
-    return [] satisfies SiteMod[];
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const mods = (data ?? []).map((row) => mapMod(row as ModRow));
+    return sortFeaturedModsByOrder(mods).slice(0, limit);
+  } catch (error) {
+    // 首页轮播是唯一不走 unstable_cache 的公开读路径，网关一挂它第一个空掉
+    // （2026-09-21 事故的现象就是「首页卡片全没了、/mods 却还有」）。
+    // 回退到快照里的推荐位：排序口径与线上一致（featured_order 升序，null 最后）。
+    logger.warn("[mods] getFeaturedMods 失败，回退到本地快照", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
+
+    const snapshotFeatured = (await getSnapshotRows(gameKey))
+      .filter((row) => row.is_featured === true)
+      .map((row) => mapMod(row as ModRow));
+
+    return sortFeaturedModsByOrder(snapshotFeatured).slice(0, limit);
   }
-
-  const mods = (data ?? []).map((row) => mapMod(row as ModRow));
-  return sortFeaturedModsByOrder(mods).slice(0, limit);
 }
 
 export async function getWeeklyHotMods(limit: number, gameKey = defaultGameKey) {
@@ -284,8 +319,13 @@ export async function getPublicModBaseById(id: string, gameKey?: string) {
   const { data, error } = await query.maybeSingle();
 
   if (error) {
-    logger.warn("[mods] getPublicModBaseById failed, fallback to null", { error: error.message });
-    return null;
+    // 详情页同样要走快照兜底，否则网关被锁时列表有卡片、点进去却是 404。
+    logger.warn("[mods] getPublicModBaseById 失败，回退到本地快照", { error: error.message });
+
+    const snapshotRow = (await getSnapshotRows(gameKey ?? defaultGameKey)).find(
+      (row) => row.id === parsedId.data,
+    );
+    return snapshotRow ? mapMod(snapshotRow as ModRow) : null;
   }
 
   return data ? mapMod(data as ModRow) : null;
