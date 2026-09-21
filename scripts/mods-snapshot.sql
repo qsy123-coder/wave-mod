@@ -7,7 +7,11 @@
 --
 -- 两处刻意的差异：
 --   1. 不含 xxmi_install_guide —— 全库仅 2 个近似取值（= install-guide.ts 的静态
---      常量，只差一个换行），却占 payload 的 27%。读取时由 snapshot.ts 统一回填常量。
+--      常量，只差一个换行），却占 payload 约 24%（实测每次整表扫省 1.32 MiB）。
+--      publicModColumns 同样不含它，由 mapMod 统一回填默认常量，
+--      与线上列表路径口径完全一致。
+--      注意与 publicModColumns 的区别：线上详情页用 publicModDetailColumns，
+--      多带这一列，好让后台自定义过安装说明的 mod 显示自定义值。
 --   2. 含 featured_order —— publicModColumns 里没有它，但 mapMod 要读，
 --      线上的 getFeaturedMods 也是单独 append 这一列。缺了它首页轮播排序失效。
 --

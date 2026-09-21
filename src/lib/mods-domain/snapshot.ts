@@ -1,6 +1,5 @@
 import "server-only";
 
-import { xxmiInstallGuideText } from "@/lib/constants/install-guide";
 import { logger } from "@/lib/logger";
 
 /**
@@ -23,8 +22,13 @@ import { logger } from "@/lib/logger";
  * serverless 函数；gzip 后仅 500KB。zlib 是 Node 内置，不引入新依赖。
  *
  * 为什么不含 xxmi_install_guide：该列全库只有 2 个近似取值（就是
- * install-guide.ts 里的静态文本，只差一个换行），却占 payload 的 27%。
- * 导出时不带该列，读取时统一回填常量。
+ * install-guide.ts 里的静态文本，只差一个换行），却占 payload 约 24%
+ * （实测每次整表扫省 1,384,698 字节 ≈ 1.32 MiB）。
+ * 导出时不带该列，由 mapMod 统一回填默认常量 —— 与线上列表路径的口径一致，
+ * 所以这里不需要再单独补该列。
+ *
+ * 代价：网关被锁期间，若某条 mod 的安装说明被后台自定义过，详情页会显示默认文本
+ * （快照里没有该列的值）。全库当前没有这种行，且属于降级期可接受的损失。
  */
 
 /** 快照根节点：原始行数组，字段名与 Supabase 返回的 snake_case 一致 */
@@ -50,10 +54,7 @@ async function loadAllRows(): Promise<Record<string, unknown>[]> {
       throw new Error("快照根节点不是数组");
     }
 
-    cachedRows = (parsed as Record<string, unknown>[]).map((row) => ({
-      ...row,
-      xxmi_install_guide: xxmiInstallGuideText,
-    }));
+    cachedRows = parsed as Record<string, unknown>[];
 
     logger.info("[mods] 本地兜底快照已载入", { rows: cachedRows.length });
     return cachedRows;

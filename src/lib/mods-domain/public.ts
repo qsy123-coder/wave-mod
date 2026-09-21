@@ -6,7 +6,7 @@ import { defaultGameKey } from "@/config/games";
 import { defaultCharacterSuggestions } from "@/lib/constants/characters";
 import { logger } from "@/lib/logger";
 import { modCacheTags } from "@/lib/mod-cache";
-import { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
+import { mapMod, publicModColumns, publicModDetailColumns } from "@/lib/mods-domain/mappers";
 import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
 import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
 import type { ModRow, PaginatedResult, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
@@ -308,7 +308,10 @@ export async function getPublicModBaseById(id: string, gameKey?: string) {
 
   let query = supabase
     .from("mods")
-    .select(publicModColumns)
+    // 详情页要展示安装说明，是整个前台唯一需要 xxmi_install_guide 的地方，
+    // 因此只有这一处用详情列清单（列表路径已裁剪该列，实测每次整表扫省下
+    // 1,384,698 字节 ≈ 1.32 MiB，约占列表列集 payload 的 24%）。
+    .select(publicModDetailColumns)
     .eq("id", parsedId.data)
     .eq("is_published", true);
 
