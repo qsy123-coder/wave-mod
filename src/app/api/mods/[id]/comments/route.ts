@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getModCommentsPage } from "@/lib/mods";
 import { parseModCommentSort } from "@/lib/mods-domain/comments";
+import { resolveCommentsHttpStatus } from "@/lib/mods-domain/comments-status";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 export async function GET(
@@ -16,5 +17,6 @@ export async function GET(
   const user = await getCurrentUser();
 
   const result = await getModCommentsPage(id, page, pageSize, sort, user?.id ?? null);
-  return NextResponse.json(result);
+  // 取不到数据时回 503。回 200 + 空数组会让前端把「服务不可用」当成「没有评论」。
+  return NextResponse.json(result, { status: resolveCommentsHttpStatus(result) });
 }

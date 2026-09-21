@@ -1,16 +1,20 @@
 import "server-only";
 
 import { logger } from "@/lib/logger";
+import type { CommentsPage } from "@/lib/mods-domain/comments-status";
 import { mapComment } from "@/lib/mods-domain/mappers";
 import { isAbortErrorMessage, modIdSchema } from "@/lib/mods-domain/sorting";
-import type { CommentRow, ModComment, ModCommentSort, PaginatedResult } from "@/lib/mods-domain/types";
+import type { CommentRow, ModComment, ModCommentSort } from "@/lib/mods-domain/types";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
 type ReactionRow = { comment_id: string; user_id: string; value: number };
 
-export async function getModComments(modId: string) {
-  const paginated = await getModCommentsPage(modId, 1, 20, "newest");
-  return paginated.items;
+/**
+ * 取第一页评论。返回整页结果而不是仅 items —— 调用方需要 degraded 才能让
+ * 服务端首屏就说实话，否则网关被锁时会先渲染出「还没有玩家发表评论」再纠正。
+ */
+export async function getModComments(modId: string): Promise<CommentsPage> {
+  return getModCommentsPage(modId, 1, 20, "newest");
 }
 
 export function parseModCommentSort(value: string | null): ModCommentSort {
@@ -73,7 +77,7 @@ async function attachCommentCommunityData(comments: ModComment[], currentUserId:
   });
 }
 
-export async function getModCommentsPage(modId: string, page: number, pageSize: number, sort: ModCommentSort = "newest", currentUserId: string | null = null): Promise<PaginatedResult<ModComment>> {
+export async function getModCommentsPage(modId: string, page: number, pageSize: number, sort: ModCommentSort = "newest", currentUserId: string | null = null): Promise<CommentsPage> {
   const parsedId = modIdSchema.safeParse(modId);
 
   if (!parsedId.success) {
@@ -109,8 +113,10 @@ export async function getModCommentsPage(modId: string, page: number, pageSize: 
     .range(from, to);
 
   if (error) {
-    if (!isAbortErrorMessage(error.message)) logger.warn("[mods] getModCommentsPage failed, fallback to empty page", { error: error.message, sort });
-    return { hasMore: false, items: [], nextPage: null, page: safePage, pageSize: safePageSize, totalPages: 0 };
+    if (!isAbortErrorMessage(error.message)) logger.warn("[mods] getModCommentsPage failed, degraded to unavailable", { error: error.message, sort });
+    // degraded 让路由层改回 503。这里绝不能返回 200 + 空数组：前端拿到
+    // response.ok === true，就会把「服务取不到数据」显示成「还没有玩家发表评论」。
+    return { degraded: true, hasMore: false, items: [], nextPage: null, page: safePage, pageSize: safePageSize, totalPages: 0 };
   }
 
   let items = await attachCommentCommunityData(((data ?? []) as CommentRow[]).map(mapComment), currentUserId);

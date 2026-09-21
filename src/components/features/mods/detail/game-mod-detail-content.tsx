@@ -30,7 +30,7 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
 
   if (!game) notFound();
 
-  const [baseMod, viewerState, user, comments, admin, hotMods] = await Promise.all([
+  const [baseMod, viewerState, user, commentsPage, admin, hotMods] = await Promise.all([
     getPublicModBaseById(id, game.key),
     getViewerModState(id),
     getCurrentUser(),
@@ -144,7 +144,7 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
           </MotionReveal>
 
           <div id="mod-comments" className="scroll-mt-24">
-            <CommentsPanel admin={Boolean(admin)} currentUserId={user?.id} currentUserName={user?.user_metadata?.display_name ?? user?.email?.split("@")[0] ?? "我"} initialComments={comments} isLoggedIn={Boolean(user)} modId={mod.id} />
+            <CommentsPanel admin={Boolean(admin)} currentUserId={user?.id} currentUserName={user?.user_metadata?.display_name ?? user?.email?.split("@")[0] ?? "我"} initialComments={commentsPage.items} initialDegraded={commentsPage.degraded} isLoggedIn={Boolean(user)} modId={mod.id} />
           </div>
         </div>
       </section>

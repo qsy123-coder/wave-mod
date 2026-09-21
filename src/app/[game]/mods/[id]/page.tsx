@@ -36,7 +36,10 @@ async function GameSpecificModDetailContent({ params }: PageProps) {
   const mod = { ...baseMod, ...viewerState };
   const recommendedMods = hotMods.filter((item) => item.id !== mod.id).slice(0, 4);
 
-  return <ZenlessModDetailPage admin={Boolean(admin)} comments={comments} game={game} mod={mod} recommendedMods={recommendedMods} user={user} />;
+  // 注意：全库 5186 条 mod 都属于默认游戏，zenless 分支下 getPublicModBaseById 必然
+  // 返回 null 而走 notFound()，所以这条路径实际不可达 —— 这里只做类型适配，
+  // 不额外把 degraded 传给 ZenlessCommentsSection。
+  return <ZenlessModDetailPage admin={Boolean(admin)} comments={comments.items} game={game} mod={mod} recommendedMods={recommendedMods} user={user} />;
 }
 
 export default function GameModDetailPage({ params }: PageProps) {
