@@ -17,10 +17,12 @@
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, basename, extname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
 import { config } from "dotenv";
 import COS from "cos-nodejs-sdk-v5";
 import sharp from "sharp";
 
+import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true });
@@ -677,52 +679,41 @@ where game_key = ${dollarQuote(GAME_KEY)};
   const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
   console.log(`\n📊 完成: 成功 ${inserted} 条, 失败 ${failed} 条 (耗时 ${elapsed} 分钟)`);
 
-  // 有新数据才通知。全部被去重跳过时缓存里本来就没变化，不必白敲一次。
+  // 有新数据才发布快照 / 通知。全部被去重跳过时缓存里本来就没变化，不必白敲一次。
   // 失败不影响脚本退出码：数据已经入库了，最坏是等一个 TTL 自然到期。
+  // 顺序不能反：**先发布快照、再 ping**（理由见 notifyRevalidate 的注释）。
+  // --dry-run 天然走不到这里（上面已 return）。
   if (inserted > 0) {
-    await notifyRevalidate();
+    await publishSnapshotBestEffort();
+    await notifyRevalidate({ siteUrl: SITE_URL, secret: process.env.REVALIDATE_SECRET?.trim() });
   }
 }
 
 /**
- * 通知线上清掉公开读缓存，让刚入库的 mod 立刻出现在前台。
+ * 导出兜底快照并发布到 COS（只做「导出 → 上传」，**不含 ping**）。
  *
- * 为什么必须调：本脚本用 psql 直连 Postgres 写库，完全绕开 Next 运行时，
- * 前台的 unstable_cache 不会自己失效。而缓存 TTL 为压出口配额已涨到 6 小时，
- * 不通知的话上午上传的批次可能到晚上才可见。
+ * 为什么必须发：Supabase 网关被锁（exceed_egress_quota，REST/Auth 一律 402）时，
+ * 前台读的是兜底快照，而快照的本地那份**只能在构建时打进部署** —— 不重发这一次，
+ * 新入库的 mod 在锁定期就看不见（2026-09-21「当天 16 条 mod 没有迅雷按钮」即此）。
+ * 读侧实现见 src/lib/mods-domain/snapshot.ts。
  *
- * 密钥 REVALIDATE_SECRET 必须与 Vercel 上的同名环境变量一致（本地读 .env.local）。
- * 只告警不抛错 —— 缓存没刷成不该让一次成功的上传看起来像失败了。
+ * 只告警不翻红：数据已经入库了，一次成功的上传不该因为快照没发出去而显示成失败。
+ * 但这个失效是最难发现的那种（终端全绿、内容静默停更），所以告警写足两行。
  */
-async function notifyRevalidate() {
-  const secret = process.env.REVALIDATE_SECRET?.trim();
-
-  if (!secret) {
-    console.warn("⚠️  未配置 REVALIDATE_SECRET，跳过缓存失效通知");
-    console.warn("   新 mod 最多要等 6 小时（TTL）才出现在前台。");
-    return;
-  }
-
+async function publishSnapshotBestEffort() {
   try {
-    const res = await fetch(`${SITE_URL}/api/revalidate`, {
-      method: "POST",
-      headers: { "x-revalidate-secret": secret },
+    await publishSnapshotToCos({
+      cos,
+      bucket: cosBucket,
+      region: cosRegion,
+      databaseUrl: process.env.DATABASE_URL?.trim(),
+      sqlPath: resolve(process.cwd(), "scripts/mods-snapshot.sql"),
+      outPath: resolve(process.cwd(), SNAPSHOT_REL_PATH),
+      rawPath: join(tmpdir(), "wavemod-snapshot-raw.json"),
     });
-
-    if (res.ok) {
-      console.log("🔔 已通知前台刷新缓存，新 mod 立即可见");
-      return;
-    }
-
-    // 把响应体截断打印：接口错误时会带上原因，但别把整页 HTML 刷进终端
-    const body = (await res.text()).slice(0, 200);
-    console.warn(`⚠️  缓存失效通知被拒: HTTP ${res.status} ${body}`);
-    if (res.status === 401 || res.status === 503) {
-      console.warn("   本地 .env.local 的 REVALIDATE_SECRET 与 Vercel 环境变量必须一致。");
-    }
   } catch (err) {
-    console.warn(`⚠️  缓存失效通知失败: ${err.message}`);
-    console.warn("   数据已入库，只是前台要等 TTL 到期才刷新。");
+    console.warn(`⚠️  兜底快照发布失败: ${err.message}`);
+    console.warn("   库内数据已就绪；但若 Supabase 网关被锁，前台仍会显示旧快照内容。");
   }
 }
 

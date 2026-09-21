@@ -15,12 +15,21 @@
  */
 
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-export const PSQL_PATH = process.env.PG_PSQL_PATH?.trim() || "psql";
+/**
+ * 解析 psql 可执行文件路径。
+ *
+ * 必须**惰性**求值（每次调用现算），不能在模块加载时算一次：
+ * upload-daily-by-date.mjs 的 `import { psqlJson }` 早于它的 dotenv `config()`，
+ * 模块加载时求值的话永远拿不到 .env.local 里的 PG_PSQL_PATH。
+ */
+export function resolvePsqlPath(override) {
+  return override?.trim() || process.env.PG_PSQL_PATH?.trim() || "psql";
+}
 
 /** 读取 DATABASE_URL；缺失时直接退出，避免每个调用点各写一遍判断 */
 export function requireDatabaseUrl() {
@@ -70,16 +79,17 @@ function tempDir() {
   return tempRoot;
 }
 
-function runPsql(args, env) {
+function runPsql(args, env, psqlOverride) {
+  const psqlPath = resolvePsqlPath(psqlOverride);
   return new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(PSQL_PATH, args, { env, shell: false, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(psqlPath, args, { env, shell: false, stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
     child.stderr?.on("data", (chunk) => (stderr += chunk));
     child.stdout?.resume(); // 结果已由 -o 落盘，stdout 丢弃即可
     child.on("error", (err) =>
       rejectPromise(
         err.code === "ENOENT"
-          ? new Error(`找不到 psql（${PSQL_PATH}）。装 PostgreSQL 或设 PG_PSQL_PATH 指向可执行文件。`)
+          ? new Error(`找不到 psql（${psqlPath}）。装 PostgreSQL 或设 PG_PSQL_PATH 指向可执行文件。`)
           : err
       )
     );
@@ -125,6 +135,54 @@ export async function psqlJson(sqlText) {
   } catch {
     throw new Error(`psql 结果不是合法 JSON（前 200 字符）：${raw.slice(0, 200)}`);
   }
+}
+
+/**
+ * 执行一段（或一个 SQL 文件里的）SQL，把 psql 的原始输出落到 outPath，
+ * **不做任何解析**，返回 outPath。
+ *
+ * 与 psqlJson 的唯一区别就是不 JSON.parse：导出兜底快照时必须拿到 psql 写出的
+ * 原始字节，才能与上一份逐字节比对（决定要不要重写 .gz）。parse 再 stringify
+ * 会把字节重新塑形，比对就不可靠了。
+ *
+ * ⚠️ 调用前先删 outPath。psql 失败时不会创建/截断输出文件，上一次运行留下的
+ * **陈旧结果**会原地不动，调用方会把旧快照当新快照发出去 —— 静默发错比崩溃难查。
+ *
+ * databaseUrl 缺失时**抛错而不是 process.exit**：本函数供 CI 之外的分支逻辑调用
+ * （是否继续、退出码是几由调用方决定），exit 会把控制权从这里夺走。
+ * CLI 需要「缺了就退出」的语义时用 requireDatabaseUrl()。
+ *
+ * @returns {Promise<string>} outPath
+ */
+export async function psqlToFile({ databaseUrl, outPath, sqlPath, sqlText, psqlPath }) {
+  const url = databaseUrl?.trim();
+  if (!url) {
+    throw new Error("psqlToFile 需要 databaseUrl（Supabase 直连串，5432 pooler）");
+  }
+
+  const { host, port, user, dbName, env } = parseDbUrl(url);
+  env.PGCLIENTENCODING = "UTF8";
+
+  let effectiveSqlPath = sqlPath;
+  if (!effectiveSqlPath) {
+    // 中文只走 -f 文件，绝不走 -c 命令行参数（理由见 psqlJson）
+    effectiveSqlPath = join(tempDir(), `q-${randomUUID()}.sql`);
+    writeFileSync(effectiveSqlPath, sqlText ?? "", "utf8");
+  }
+
+  rmSync(outPath, { force: true });
+
+  await runPsql(
+    ["-h", host, "-p", port, "-U", user, "-d", dbName, "-q", "-t", "-A", "-v", "ON_ERROR_STOP=1", "-o", outPath, "-f", effectiveSqlPath],
+    env,
+    psqlPath
+  );
+
+  if (!existsSync(outPath)) {
+    throw new Error(`psql 未产出输出文件（${outPath}）`);
+  }
+
+  return outPath;
 }
 
 /**

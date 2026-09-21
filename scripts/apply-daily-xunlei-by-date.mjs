@@ -24,9 +24,12 @@
  *   --days=W-2026.9.20[,W-2026.9.21]  只处理这些日期目录的记录
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { config } from "dotenv";
+import COS from "cos-nodejs-sdk-v5";
 
+import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true });
@@ -34,6 +37,7 @@ config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
 const GAME_KEY = "wuthering-waves";
 const REPORT_DIR = "C:/Users/qsy123/.claude/projects/D--BaiduNetdiskDownload-WaveMod";
+const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://www.wave-mod.top";
 
 const cliArgs = process.argv.slice(2);
 const argValue = (name) => {
@@ -336,3 +340,53 @@ for (let i = 0; i < toWrite.length; i += BATCH) {
   }
 }
 console.log(`\n📊 完成：成功 ${applied}，失败 ${failed}`);
+
+// 有新链接真的写进去了才发布快照 + 通知前台。dry-run 与「全部已含迅雷链接」
+// 都到不了这里（前者上面已 return，后者 applied 为 0）。
+//
+// 为什么这个脚本也必须发：它改的 drive_links **在快照列清单里**
+// （scripts/mods-snapshot.sql），网关被锁时前台读的是兜底快照，不重发就等于没改。
+// 顺带补上一个既有缺口：本脚本此前连 ping 都没有，网关正常时列表卡片上的迅雷按钮
+// 也要等满 6 小时 TTL 才出现。
+if (applied > 0) {
+  // 顺序不能反：先发布快照、再 ping（见 notifyRevalidate 的注释）
+  await publishSnapshotBestEffort();
+  await notifyRevalidate({ siteUrl: SITE_URL, secret: process.env.REVALIDATE_SECRET?.trim() });
+}
+
+/**
+ * 导出兜底快照并发布到 COS（只做「导出 → 上传」，**不含 ping**）。
+ *
+ * 只告警不翻红：数据已经入库了，一次成功的写库不该因为快照没发出去而显示成失败。
+ * 但这个失效是最难发现的那种（终端全绿、内容静默停更），所以告警写足两行。
+ *
+ * COS 环境变量在这里**惰性**读，不在启动时校验：本脚本的常态用途是「只连库改几条
+ * drive_links」，不该因为缺 COS 四件套就跑不起来。
+ */
+async function publishSnapshotBestEffort() {
+  const bucket = process.env.COS_BUCKET?.trim();
+  const region = process.env.COS_REGION?.trim();
+  const secretId = process.env.COS_SECRET_ID?.trim();
+  const secretKey = process.env.COS_SECRET_KEY?.trim();
+
+  if (!bucket || !region || !secretId || !secretKey) {
+    console.warn("⚠️  缺少 COS 环境变量，跳过兜底快照发布");
+    console.warn("   库内数据已就绪；但若 Supabase 网关被锁，前台仍会显示旧快照内容。");
+    return;
+  }
+
+  try {
+    await publishSnapshotToCos({
+      cos: new COS({ SecretId: secretId, SecretKey: secretKey }),
+      bucket,
+      region,
+      databaseUrl: process.env.DATABASE_URL?.trim(),
+      sqlPath: resolve(process.cwd(), "scripts/mods-snapshot.sql"),
+      outPath: resolve(process.cwd(), SNAPSHOT_REL_PATH),
+      rawPath: join(tmpdir(), "wavemod-snapshot-raw.json"),
+    });
+  } catch (err) {
+    console.warn(`⚠️  兜底快照发布失败: ${err.message}`);
+    console.warn("   库内数据已就绪；但若 Supabase 网关被锁，前台仍会显示旧快照内容。");
+  }
+}
