@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy, Download, LoaderCircle, X } from "lucide-react";
 import Image from "next/image";
 
+import { DIRECT_DOWNLOAD_UNAVAILABLE, resolveDownloadResponse } from "@/lib/mods-domain/download-result";
 import type { DriveLink } from "@/lib/mods-domain/types";
 
 type DownloadButtonProps = {
@@ -46,6 +47,8 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
   const [isPending, setIsPending] = useState(false);
   const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null);
   const [showTip, setShowTip] = useState(false);
+  // 直链失败时的提示。非空即渲染 —— 绝不再静默返回，见 download-result.ts 的说明。
+  const [failureMessage, setFailureMessage] = useState<string | null>(null);
   const hasDownload = Boolean(downloadUrl?.trim());
   // 只有迅雷/夸克有「粘贴链接」教程图，其它网盘不展示「?」
   const tipImage = /迅雷|xunlei/i.test(copiedPlatform || "")
@@ -63,13 +66,24 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
     if (!hasDownload || isPending) return;
 
     setIsPending(true);
+    setFailureMessage(null);
 
     try {
       const response = await fetch(`/api/mods/${modId}/download`, { method: "POST" });
-      const result = (await response.json()) as { ok?: boolean; error?: string; downloadUrl?: string };
+      // 网关可能返回 HTML 错误页，.json() 会抛 —— 捕获成 null 后统一走判定，
+      // 免得解析异常又变成一次静默。
+      const payload: unknown = await response.json().catch(() => null);
+      const resolution = resolveDownloadResponse(response.status, payload);
 
-      if (!response.ok || !result.ok || !result.downloadUrl) return;
-      window.open(result.downloadUrl, "_blank", "noopener,noreferrer");
+      if (!resolution.ok) {
+        setFailureMessage(resolution.message);
+        return;
+      }
+
+      window.open(resolution.url, "_blank", "noopener,noreferrer");
+    } catch {
+      // 网络层失败（断网、请求被中断）也要给用户一个说法
+      setFailureMessage(DIRECT_DOWNLOAD_UNAVAILABLE);
     } finally {
       setIsPending(false);
     }
@@ -102,6 +116,15 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
           {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
           {isPending ? "跳转中" : compact ? "直链下载" : `直链下载 ZIP · ${downloadCount}`}
         </button>
+      ) : null}
+
+      {failureMessage ? (
+        <p
+          role="alert"
+          className="mt-2 border-4 border-black bg-[#ffb5c3] px-3 py-2 text-xs font-black leading-5 text-black shadow-[4px_4px_0px_0px_#000]"
+        >
+          {failureMessage}
+        </p>
       ) : null}
 
       {driveLinks.length > 0 ? (
