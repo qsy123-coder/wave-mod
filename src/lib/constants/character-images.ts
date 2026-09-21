@@ -19,6 +19,9 @@ export const characterImageMap: Record<string, string> = {
   "坎特蕾拉": "/character-imgs/坎特蕾拉.png",
   "珂莱塔": "/character-imgs/珂莱塔.png",
   "卡提希娅": "/character-imgs/卡提希娅.png",
+  // 芙露德莉斯（卡提希娅的大卡形态）——2026-09-21 由用户明确要求新建的独立分类，
+  // 暂与卡提希娅共用头像，等有专属图再换（同「爱弥斯的机甲」的处理方式）
+  "芙露德莉斯": "/character-imgs/卡提希娅.png",
   "长离": "/character-imgs/长离.png",
   "千咲": "/character-imgs/千咲.webp",
   "炽霞": "/character-imgs/炽霞.png",
