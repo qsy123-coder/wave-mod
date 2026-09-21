@@ -56,7 +56,8 @@ describe("publicModColumns 列清单", () => {
   // 这一条是流量优化的防回归护栏：xxmi_install_guide 占列表列集 payload 约 24%
   // （实测每次整表扫 1,384,698 字节 ≈ 1.32 MiB），而列表页根本不展示它。
   // 谁把它加回 publicModColumns，就会让每次整表扫多拉这么多 ——
-  // 按当前的 5 分钟缓存算，约合每月多 11 GB。这里必须红。
+  // 按当前 1 小时的缓存 TTL 算约合每月多 0.9 GB（TTL 还是 5 分钟时是 11 GB）。
+  // 这里必须红。
   it("不含 xxmi_install_guide（该列占 payload 约 24% 且列表页不展示）", () => {
     expect(publicModColumns).not.toContain("xxmi_install_guide");
   });

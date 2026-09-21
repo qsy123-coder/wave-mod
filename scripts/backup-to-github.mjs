@@ -42,6 +42,8 @@ import { spawn } from "node:child_process";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 
+import { checkSnapshotFreshness, snapshotStats } from "./snapshot-freshness.mjs";
+
 // ── 加载 .env + .env.local ──
 config({ path: resolve(process.cwd(), ".env"), override: true, quiet: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true, quiet: true });
@@ -291,6 +293,54 @@ async function dumpDatabase(dumpFile) {
 // ── 1.5 前台兜底快照 ──
 
 /**
+ * 库里 is_published = true 的实时统计（行数 + 最新 created_at）。
+ *
+ * 单独查一次、而不是复用快照那次查询的产物：它要当**判定基准**。
+ * 与快照同源的话，快照少读几行，基准也跟着少，永远判不出问题。
+ */
+async function fetchPublishedStats() {
+  const { host, port, user, dbName, env } = parseDbUrl(databaseUrl);
+  env.PGCLIENTENCODING = "UTF8";
+  const out = await run(psqlPath, [
+    "-h", host, "-p", port, "-U", user, "-d", dbName,
+    "-t", "-A",
+    // 纯 ASCII 的单值输出走 stdout 是安全的（只有多字节才必须 -o 落盘）。
+    // 用 extract(epoch …) 而不是 created_at::text，避开 psql 的本地化时间格式。
+    "-c", "select count(*)::text || '|' || coalesce(extract(epoch from max(created_at))::text, '') from mods where is_published = true",
+  ], { env, inherit: false });
+
+  // run(…, {inherit:false}) 把 stderr 也合进了 stdout，psql 的 NOTICE/WARNING
+  // 可能混在前面 —— 取最后一个符合形状的行，而不是直接按第一个 | 切。
+  // 用 /^\d+\|/ 而不是 /^\d+\|\d/：count 为 0 时行是 "0|"，也该被认出来，
+  // 由判定函数给出「基准不可信」这个明确原因。
+  const raw = String(out).trim();
+  const line = raw.split(/\r?\n/).reverse().find((l) => /^\d+\|/.test(l.trim()));
+  if (!line) {
+    throw new Error(`库内已发布统计解析失败：${JSON.stringify(raw.slice(0, 120))}`);
+  }
+  const [countText, epochText] = line.trim().split("|");
+  const epoch = epochText ? Number(epochText) : NaN;
+  return {
+    count: Number(countText),
+    maxCreatedAt: Number.isFinite(epoch) ? epoch * 1000 : null,
+  };
+}
+
+/**
+ * 断言这份快照真的镜像了库里的已发布集合，不达标就抛。
+ *
+ * 判定逻辑在 scripts/snapshot-freshness.mjs（纯函数，有单测），这里只做 IO。
+ */
+async function assertSnapshotMirrorsDb(rows) {
+  const db = await fetchPublishedStats();
+  const verdict = checkSnapshotFreshness(snapshotStats(rows), db);
+  if (!verdict.ok) {
+    throw new Error(`快照与库内不一致：${verdict.reason}`);
+  }
+  console.log(`  ✅ 快照与库内一致（${db.count} 条已发布）`);
+}
+
+/**
  * 导出「已发布 mod」兜底快照 → data/mods-snapshot.json.gz（提交进仓库）。
  *
  * 前台在 Supabase HTTP 网关不可用时读这份快照，它是那时唯一还能提供真实数据的
@@ -299,7 +349,8 @@ async function dumpDatabase(dumpFile) {
  * 走 psql 直连 5432 而不是 supabase-js：网关正是可能被锁的那一层，且绕开它
  * 也就不消耗 Supabase 的出口流量配额（本次事故的起因就是配额超限）。
  *
- * 返回 { count, changed }；失败向上抛，由调用方决定是否致命。
+ * 返回 { count, changed }；任何一步不达标都向上抛。调用方仍会先跑完 DB dump 和
+ * 图片备份，但最后必须让 CI 翻红 —— 见 main() 收尾处的 snapshotFailure 判定。
  */
 async function exportModsSnapshot() {
   if (!existsSync(SNAPSHOT_SQL)) {
@@ -328,19 +379,29 @@ async function exportModsSnapshot() {
 
   // 内容未变就不重写。不同 gzip 实现（CI 的 zlib / 本机脚本的 .NET）对同一份
   // 输入产出的字节不同，不做这层比对的话，500KB 的二进制会每天进一次 git 历史。
+  //
+  // 比对结果先存进 unchanged 再统一处理，而不是当场 return：下面的校验必须设在
+  // try 之外 —— 放进 try 里的话，校验抛出的异常会被这个 catch 当成
+  // 「旧快照损坏」吞掉，然后一路走到覆盖写出，把一次失败洗成成功。
   let prevCount = null;
+  let unchanged = false;
   if (existsSync(SNAPSHOT_GZ)) {
     try {
       const prevBuf = gunzipSync(readFileSync(SNAPSHOT_GZ));
       prevCount = JSON.parse(prevBuf.toString("utf8")).length;
-      if (prevBuf.equals(rawBuf)) {
-        rmSync(rawPath, { force: true });
-        console.log(`  ✅ 快照无变化（${rows.length} 条已发布），跳过写出`);
-        return { count: rows.length, changed: false };
-      }
+      unchanged = prevBuf.equals(rawBuf);
     } catch {
       // 旧快照损坏/读不了：继续走覆盖，下面照常写出新版本
     }
+  }
+
+  if (unchanged) {
+    rmSync(rawPath, { force: true });
+    console.log(`  ✅ 快照无变化（${rows.length} 条已发布），跳过写出`);
+    // 内容与今天的新导出逐字节相同 ⇒ 磁盘上这份就是最新的。但仍要核对库内统计：
+    // 万一这次的新导出本身就少读了几行，上面那条比对是发现不了的。
+    await assertSnapshotMirrorsDb(rows);
+    return { count: rows.length, changed: false };
   }
 
   // 上游查询被截断时 psql 依然退出 0，只留下一份"合法但少了几千行"的 JSON。
@@ -364,6 +425,9 @@ async function exportModsSnapshot() {
   writeFileSync(tmpGz, gz);
   renameSync(tmpGz, SNAPSHOT_GZ); // 原子替换，避免半截文件被 git 提交
   rmSync(rawPath, { force: true });
+
+  // 写完再验一次。上面所有校验都只证明「文件没写坏」，这一条才证明「内容是当前库」。
+  await assertSnapshotMirrorsDb(rows);
 
   const featured = rows.filter((r) => r.is_featured === true).length;
   console.log(`  ✅ ${SNAPSHOT_REL}  ${rows.length} 条已发布（推荐位 ${featured}）  ${(gz.length / 1024).toFixed(0)}KB`);
@@ -598,6 +662,7 @@ async function main() {
 
   // 1.5 前台兜底快照（与 dump 共用 DATABASE_URL，直连 5432，不走被锁的 HTTP 网关）
   let snapshotInfo = null;
+  let snapshotFailure = null;
   if (!FLAGS.imagesOnly) {
     console.log("\n── 前台兜底快照 ──");
     if (FLAGS.dryRun) {
@@ -606,8 +671,11 @@ async function main() {
       try {
         snapshotInfo = await exportModsSnapshot();
       } catch (err) {
-        // 快照只是前台兜底，刷新失败不该拖垮 DB dump / 图片备份这两个真正的备份
-        console.error(`  ⚠️ 快照刷新失败（不影响其余备份）: ${err.message}`);
+        // 不在这里中断：DB dump 和图片备份才是真正的备份，不该被快照拖累。
+        // 但也绝不能只打一行 ⚠️ 就过去 —— 此前正是「失败被吞掉 + 没有告警」，
+        // 让 CI 全绿而前台内容静默冻结。失败先记下来，收尾时统一翻红。
+        snapshotFailure = err;
+        console.error(`  ⚠️ 快照刷新失败: ${err.message}`);
       }
     }
   }
@@ -629,6 +697,18 @@ async function main() {
   const counts = FLAGS.dryRun ? null : await tableCounts();
 
   // 4. manifest
+  // 快照在清单里留痕：成功留行数、失败留原因。否则「这次没变化」和「刷新失败」
+  // 在 git 历史里长得一模一样（都是 snapshot 字段没有 refreshedThisRun）。
+  const snapshotManifest = snapshotInfo
+    ? {
+        file: SNAPSHOT_REL,
+        publishedRows: snapshotInfo.count,
+        refreshedThisRun: snapshotInfo.changed,
+      }
+    : snapshotFailure
+      ? { file: SNAPSHOT_REL, error: snapshotFailure.message }
+      : null;
+
   const manifest = {
     version: 1,
     generatedAt: new Date().toISOString(),
@@ -648,13 +728,7 @@ async function main() {
         }
       : null,
     // 前台兜底快照：网关被锁时前台就靠它，所以要在清单里留一行它当时的行数
-    snapshot: snapshotInfo
-      ? {
-          file: SNAPSHOT_REL,
-          publishedRows: snapshotInfo.count,
-          refreshedThisRun: snapshotInfo.changed,
-        }
-      : null,
+    snapshot: snapshotManifest,
     images: imageState
       ? {
           remoteCount: imageState.remote.length,
@@ -702,6 +776,16 @@ async function main() {
     if (excess.length > 0) console.log(`\n🗑️  已清理本地旧 dump: ${excess.join(", ")}`);
   }
 
+  // 9. 收尾判定：快照失败必须让这一步翻红。
+  //    放在所有备份动作之后是刻意的 —— 当天的 DB dump 和图片要照常提交，
+  //    不能因为兜底快照失败就把真正的备份一起丢掉。但「前台数据源过期」这件事
+  //    必须有人看见，否则就是 CI 全绿、内容静默停更 —— 本次事故里最难发现的失效。
+  if (snapshotFailure) {
+    throw new Error(
+      `前台兜底快照刷新失败（DB dump / 图片备份已完成）: ${snapshotFailure.message}`,
+    );
+  }
+
   console.log("\n═══════════════════════════════════════");
   console.log(FLAGS.dryRun ? "  DRY-RUN 完成。去掉 --dry-run 执行真实备份。" : "  备份完成 ✅");
   console.log("═══════════════════════════════════════\n");
@@ -709,6 +793,8 @@ async function main() {
 
 // 直接执行才跑主流程；被 import 时只暴露函数，便于单独验证 exportModsSnapshot
 // 这类"写坏了也不报错、只是静默发一份坏数据"的逻辑。
+// fetchPublishedStats 一并导出，是为了能在不写任何文件的前提下核对
+// "磁盘上这份快照 vs 库内实时统计" —— 判定基准出错的代价比快照出错还大。
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((err) => {
     console.error("备份脚本出错:", err);
@@ -716,4 +802,4 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   });
 }
 
-export { exportModsSnapshot };
+export { exportModsSnapshot, fetchPublishedStats };

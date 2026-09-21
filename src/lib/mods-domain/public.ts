@@ -22,6 +22,24 @@ import { createPublicReadClient } from "@/lib/supabase/server";
 const MOD_FETCH_BATCH_SIZE = 500;
 
 /**
+ * 公开读缓存的 TTL（秒）。
+ *
+ * 原值 300：流量连续时整表扫约合每月 40 GB 出口，而免费额度只有 5 GB ——
+ * 超限即全站 402（2026-09-21 事故）。涨到 1 小时候整表扫频次降到 1/12，
+ * 约 3.3 GB/月，回到额度内。
+ *
+ * 涨 TTL 不会让新上传/下架变慢：管理写入路径统一走
+ * revalidatePublicModCaches()（src/lib/mod-cache.ts），
+ * 它对本文件这两个 tag 调 revalidateTag，是立即失效。
+ * TTL 只是「没有任何写入发生时」的兜底刷新频率。
+ *
+ * 用户互动（点赞 / 收藏 / 评分 / 评论）刻意**不**走那条路：它们只改单个 mod
+ * 的计数、不改列表成员，为此清掉整张表的分片缓存是纯浪费。代价是列表卡片上的
+ * 计数最多滞后一个 TTL，详见 revalidateModEngagementCaches。
+ */
+const CACHE_REVALIDATE_SECONDS = 3600;
+
+/**
  * 分片缓存「已发布 mod 原始行」。
  *
  * 背景：/api/mods 每翻一页、以及 /mods 每次渲染，都会走 getPublicMods 把整张表
@@ -44,14 +62,14 @@ const getCachedModRowBatch = unstable_cache(
       .range(from, from + MOD_FETCH_BATCH_SIZE - 1);
 
     if (error) {
-      // 向上抛：unstable_cache 不会缓存抛出的异常，避免把一次失败固化 5 分钟
+      // 向上抛：unstable_cache 不会缓存抛出的异常，避免把一次失败固化一整个 TTL
       throw new Error(error.message);
     }
 
     return data ?? [];
   },
   ["public-mods-batch"],
-  { revalidate: 300, tags: [modCacheTags.list] },
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: [modCacheTags.list] },
 );
 
 /**
@@ -70,14 +88,14 @@ const getCachedPublishedModCount = unstable_cache(
       .eq("game_key", gameKey);
 
     if (error) {
-      // 同 getCachedModRowBatch：抛出以免把一次失败固化 5 分钟
+      // 同 getCachedModRowBatch：抛出以免把一次失败固化一整个 TTL
       throw new Error(error.message);
     }
 
     return count ?? 0;
   },
   ["public-mods-count"],
-  { revalidate: 300, tags: [modCacheTags.list] },
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: [modCacheTags.list] },
 );
 
 /**
@@ -114,7 +132,7 @@ async function getAllPublishedModRows(gameKey: string): Promise<Record<string, u
   } catch (error) {
     // Supabase 网关不可用（典型：项目因超配额被 restriction，全站 402）时回退到本地快照。
     // 故意放在这一层、而不是 getCachedModRowBatch 内部：让失败继续向上抛，
-    // 不被 unstable_cache 把兜底结果固化 5 分钟 —— 网关一恢复就能立刻回到实时数据。
+    // 不被 unstable_cache 把兜底结果固化一整个 TTL —— 网关一恢复就能立刻回到实时数据。
     logger.warn("[mods] Supabase 读取失败，回退到本地快照", {
       error: error instanceof Error ? error.message : "unknown",
     });
@@ -146,7 +164,7 @@ const getCachedAvailableCharacters = unstable_cache(
         .range(from, from + batchSize - 1);
 
       if (error) {
-        // 抛出而非返回兜底值：否则一次失败会被缓存 5 分钟
+        // 抛出而非返回兜底值：否则一次失败会被缓存一整个 TTL
         throw new Error(error.message);
       }
 
@@ -165,7 +183,7 @@ const getCachedAvailableCharacters = unstable_cache(
     ).sort((a, b) => a.localeCompare(b, "zh-CN"));
   },
   ["available-characters"],
-  { revalidate: 300, tags: [modCacheTags.characters] },
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: [modCacheTags.characters] },
 );
 
 export async function getAvailableCharacters(gameKey = defaultGameKey) {
