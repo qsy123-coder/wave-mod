@@ -25,19 +25,24 @@ const MOD_FETCH_BATCH_SIZE = 500;
  * 公开读缓存的 TTL（秒）。
  *
  * 原值 300：流量连续时整表扫约合每月 40 GB 出口，而免费额度只有 5 GB ——
- * 超限即全站 402（2026-09-21 事故）。涨到 1 小时候整表扫频次降到 1/12，
- * 约 3.3 GB/月，回到额度内。
+ * 超限即全站 402（2026-09-21 事故）。先涨到 1 小时（约 3.3 GB/月）把站救回来，
+ * 再涨到 6 小时（约 0.55 GB/月）：配额是全站共享的（Auth 与 REST 同一口径），
+ * 留的余量太薄，下次最先挂掉的就是登录和评论。
  *
- * 涨 TTL 不会让新上传/下架变慢：管理写入路径统一走
- * revalidatePublicModCaches()（src/lib/mod-cache.ts），
- * 它对本文件这两个 tag 调 revalidateTag，是立即失效。
- * TTL 只是「没有任何写入发生时」的兜底刷新频率。
+ * 涨 TTL 不会让新上传/下架变慢 —— 两条写入路径都已经做到「写完立即失效」：
+ *   - 管理后台（Server Action）→ revalidatePublicModCaches()，见 src/lib/mod-cache.ts；
+ *   - 每日批量上传（scripts/upload-daily-by-date.mjs 用 psql 直连 Postgres，完全
+ *     绕开 Next 运行时）→ 入库后调 POST /api/revalidate，见
+ *     src/app/api/revalidate/route.ts。
+ * TTL 只是「没有任何写入发生时」的兜底刷新频率。新增写库路径时务必接上通知，
+ * 否则那条路上的新内容要等满一个 TTL 才露面。
  *
  * 用户互动（点赞 / 收藏 / 评分 / 评论）刻意**不**走那条路：它们只改单个 mod
  * 的计数、不改列表成员，为此清掉整张表的分片缓存是纯浪费。代价是列表卡片上的
- * 计数最多滞后一个 TTL，详见 revalidateModEngagementCaches。
+ * 计数最多滞后一个 TTL（现在就是 6 小时；详情页不受影响），
+ * 详见 revalidateModEngagementCaches。
  */
-const CACHE_REVALIDATE_SECONDS = 3600;
+const CACHE_REVALIDATE_SECONDS = 21600;
 
 /**
  * 分片缓存「已发布 mod 原始行」。
