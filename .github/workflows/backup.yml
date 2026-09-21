@@ -38,9 +38,11 @@ jobs:
       DB_DUMP_MODE: release        # dump 走 GitHub Release，防 git 历史逐日膨胀
       DB_RETENTION: "30"
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # 显式指定同一版本（17）的 pg 客户端，避免 runner 预装 PG16 与 PGDG 17 混用
+      # 显式指定同一版本（17）的 pg 客户端，避免 runner 预装 PG16 与 PGDG 17 混用。
+      # PG_PSQL_PATH 用于导出前台兜底快照（data/mods-snapshot.json.gz）。
       PG_DUMP_PATH: /usr/lib/postgresql/17/bin/pg_dump
       PG_RESTORE_PATH: /usr/lib/postgresql/17/bin/pg_restore
+      PG_PSQL_PATH: /usr/lib/postgresql/17/bin/psql
 
     steps:
       - name: Checkout (shallow)
@@ -59,9 +61,10 @@ jobs:
           # runner 预装 PG16 的 /usr/bin/pg_dump（PGDG client-17 不注册 alternatives），
           # 备份脚本通过 env 的 PG_DUMP_PATH/PG_RESTORE_PATH 显式用 17 的二进制。
           # 这里确认 17 的 pg_dump/pg_restore 存在且版本一致（比较版本号，忽略二进制名）。
-          ls /usr/lib/postgresql/17/bin/pg_dump /usr/lib/postgresql/17/bin/pg_restore
+          ls /usr/lib/postgresql/17/bin/pg_dump /usr/lib/postgresql/17/bin/pg_restore /usr/lib/postgresql/17/bin/psql
           /usr/lib/postgresql/17/bin/pg_dump --version
           /usr/lib/postgresql/17/bin/pg_restore --version
+          /usr/lib/postgresql/17/bin/psql --version
           test "$(/usr/lib/postgresql/17/bin/pg_dump --version | sed 's/^pg_dump //')" = "$(/usr/lib/postgresql/17/bin/pg_restore --version | sed 's/^pg_restore //')" && echo "pg 17 version OK" || { echo "VERSION MISMATCH"; exit 1; }
 
       - name: Setup Node.js

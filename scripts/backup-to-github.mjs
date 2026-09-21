@@ -3,10 +3,17 @@
  *
  * 功能:
  *   1. pg_dump 数据库（public schema，custom 格式）→ backups/db/wavemod-<ts>.dump
- *   2. 同步 COS 的 mods/ + tutorial/ 图片到 backups/images/（增量，比对 size + etag/md5）
- *   3. 生成 backups/manifest.json（备份清单，含表行数、图片完整索引、dump 校验值）
- *   4. dump 上传为 GitHub Release 附件（DB_DUMP_MODE=release，默认）或提交进 git（git）
- *   5. 图片 + manifest 提交进 git 仓库并推送
+ *   2. 刷新前台兜底快照 data/mods-snapshot.json.gz（见下方说明）
+ *   3. 同步 COS 的 mods/ + tutorial/ 图片到 backups/images/（增量，比对 size + etag/md5）
+ *   4. 生成 backups/manifest.json（备份清单，含表行数、图片完整索引、dump 校验值）
+ *   5. dump 上传为 GitHub Release 附件（DB_DUMP_MODE=release，默认）或提交进 git（git）
+ *   6. 图片 + manifest + 兜底快照 提交进 git 仓库并推送
+ *
+ * 关于兜底快照（2026-09-21 事故后新增）:
+ *   Supabase 项目因超额被 restriction 时，REST/Auth 网关全站 402，前台会整片空白。
+ *   src/lib/mods-domain/snapshot.ts 会在读失败时回退到 data/mods-snapshot.json.gz，
+ *   那是网关被锁时唯一还能提供真实数据的来源 —— 因此必须随每日备份一起刷新，
+ *   否则库里新增的 mod 永远进不了兜底路径。
  *
  * 用法:
  *   node scripts/backup-to-github.mjs [--dry-run] [--full] [--no-push]
@@ -18,7 +25,7 @@
  *   COS_SECRET_ID / COS_SECRET_KEY / COS_BUCKET / COS_REGION   必填
  *   DB_DUMP_MODE        git | release（默认 release，dump 走 GitHub Release 防 git 膨胀）
  *   DB_RETENTION        保留最近 N 份 dump（默认 7）
- *   PG_DUMP_PATH / PG_RESTORE_PATH   pg 工具路径（默认取 PATH 中的 pg_dump / pg_restore）
+ *   PG_DUMP_PATH / PG_RESTORE_PATH / PG_PSQL_PATH   pg 工具路径（默认取 PATH 中的同名二进制）
  *   GH_TOKEN            供 gh CLI 用（本机已登录则省略；Actions 用 secrets.GITHUB_TOKEN 自动注入）
  */
 
@@ -27,11 +34,13 @@ import COS from "cos-nodejs-sdk-v5";
 import { config } from "dotenv";
 import { resolve, join, basename, dirname } from "node:path";
 import {
-  mkdirSync, writeFileSync, existsSync, renameSync, rmSync,
+  mkdirSync, writeFileSync, readFileSync, existsSync, renameSync, rmSync,
   readdirSync, statSync, createReadStream,
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
+import { gzipSync, gunzipSync } from "node:zlib";
+import { fileURLToPath } from "node:url";
 
 // ── 加载 .env + .env.local ──
 config({ path: resolve(process.cwd(), ".env"), override: true, quiet: true });
@@ -44,6 +53,14 @@ const DB_DIR = resolve(BACKUP_ROOT, "db");
 const IMG_DIR = resolve(BACKUP_ROOT, "images");
 const TMP_DIR = resolve(BACKUP_ROOT, ".tmp");
 const MANIFEST_PATH = resolve(BACKUP_ROOT, "manifest.json");
+
+// 前台兜底快照（src/lib/mods-domain/snapshot.ts 运行时 fs 读取）
+const DATA_DIR = resolve(ROOT, "data");
+const SNAPSHOT_GZ = resolve(DATA_DIR, "mods-snapshot.json.gz");
+const SNAPSHOT_SQL = resolve(ROOT, "scripts", "mods-snapshot.sql");
+const SNAPSHOT_REL = "data/mods-snapshot.json.gz"; // git add / manifest 用的仓库相对路径
+// 新快照行数低于旧快照此比例时判为导出异常，保留旧快照不覆盖
+const SNAPSHOT_MIN_RATIO = 0.9;
 
 const IMG_PREFIXES = ["mods/", "tutorial/"]; // 只备份这些前缀（mods 预览图 + 教程图），不含视频
 const VIDEO_EXT = /\.(mp4|webm|mov|avi|mkv|flv|m4v|ts|3gp)$/i; // 视频扩展名，备份时跳过
@@ -77,6 +94,8 @@ const dbDumpMode = (process.env.DB_DUMP_MODE?.trim() || "release").toLowerCase()
 const dbRetention = retentionFromArg ?? Number(process.env.DB_RETENTION?.trim() || "7");
 const pgDumpPath = process.env.PG_DUMP_PATH?.trim() || "pg_dump";
 const pgRestorePath = process.env.PG_RESTORE_PATH?.trim() || "pg_restore";
+// psql 只用于导出前台兜底快照；与 pg_dump 同理，CI 里显式指定 17 的二进制
+const psqlPath = process.env.PG_PSQL_PATH?.trim() || "psql";
 
 const needDb = !FLAGS.imagesOnly; // images-only 时不需要数据库
 const needCos = !FLAGS.dbOnly; // db-only 时不需要 COS
@@ -269,6 +288,88 @@ async function dumpDatabase(dumpFile) {
   return { file: `db/${basename(dumpFile)}`, sha256: sha, sizeBytes: size };
 }
 
+// ── 1.5 前台兜底快照 ──
+
+/**
+ * 导出「已发布 mod」兜底快照 → data/mods-snapshot.json.gz（提交进仓库）。
+ *
+ * 前台在 Supabase HTTP 网关不可用时读这份快照，它是那时唯一还能提供真实数据的
+ * 来源，所以必须随每日备份刷新，否则库里的新 mod 永远进不了兜底路径。
+ *
+ * 走 psql 直连 5432 而不是 supabase-js：网关正是可能被锁的那一层，且绕开它
+ * 也就不消耗 Supabase 的出口流量配额（本次事故的起因就是配额超限）。
+ *
+ * 返回 { count, changed }；失败向上抛，由调用方决定是否致命。
+ */
+async function exportModsSnapshot() {
+  if (!existsSync(SNAPSHOT_SQL)) {
+    throw new Error(`找不到 ${SNAPSHOT_SQL}`);
+  }
+  const { host, port, user, dbName, env } = parseDbUrl(databaseUrl);
+  env.PGCLIENTENCODING = "UTF8";
+
+  const rawPath = join(TMP_DIR, "mods-snapshot.json");
+  mkdirSync(TMP_DIR, { recursive: true });
+  rmSync(rawPath, { force: true });
+
+  // 结果用 -o 直接落盘，而不是捕获 stdout：这份 JSON 有 4.7MB 中文，
+  // 走 stdout 时多字节字符可能被切在 chunk 边界上，让标题/简介静默乱码。
+  await run(psqlPath, [
+    "-h", host, "-p", port, "-U", user, "-d", dbName,
+    "-t", "-A", "-o", rawPath, "-f", SNAPSHOT_SQL,
+  ], { env });
+
+  if (!existsSync(rawPath)) throw new Error("psql 未产出快照文件");
+  const rawBuf = readFileSync(rawPath);
+  const rows = JSON.parse(rawBuf.toString("utf8"));
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("快照为空，拒绝写出");
+  }
+
+  // 内容未变就不重写。不同 gzip 实现（CI 的 zlib / 本机脚本的 .NET）对同一份
+  // 输入产出的字节不同，不做这层比对的话，500KB 的二进制会每天进一次 git 历史。
+  let prevCount = null;
+  if (existsSync(SNAPSHOT_GZ)) {
+    try {
+      const prevBuf = gunzipSync(readFileSync(SNAPSHOT_GZ));
+      prevCount = JSON.parse(prevBuf.toString("utf8")).length;
+      if (prevBuf.equals(rawBuf)) {
+        rmSync(rawPath, { force: true });
+        console.log(`  ✅ 快照无变化（${rows.length} 条已发布），跳过写出`);
+        return { count: rows.length, changed: false };
+      }
+    } catch {
+      // 旧快照损坏/读不了：继续走覆盖，下面照常写出新版本
+    }
+  }
+
+  // 上游查询被截断时 psql 依然退出 0，只留下一份"合法但少了几千行"的 JSON。
+  // 兜底快照是网关被锁时唯一的数据源，写进残缺版本比不更新危险得多，故设下限。
+  if (prevCount !== null && rows.length < prevCount * SNAPSHOT_MIN_RATIO) {
+    rmSync(rawPath, { force: true });
+    throw new Error(
+      `新快照仅 ${rows.length} 条，旧快照 ${prevCount} 条（${((rows.length / prevCount) * 100).toFixed(1)}%），判为异常，保留旧快照`,
+    );
+  }
+
+  const gz = gzipSync(rawBuf, { level: 9 });
+  // 回读校验：写坏了会被前台当成"网关正常但没数据"，比不写更糟
+  const roundTrip = JSON.parse(gunzipSync(gz).toString("utf8"));
+  if (roundTrip.length !== rows.length) {
+    throw new Error(`快照回读校验失败：${roundTrip.length} != ${rows.length}`);
+  }
+
+  mkdirSync(DATA_DIR, { recursive: true });
+  const tmpGz = `${SNAPSHOT_GZ}.tmp`;
+  writeFileSync(tmpGz, gz);
+  renameSync(tmpGz, SNAPSHOT_GZ); // 原子替换，避免半截文件被 git 提交
+  rmSync(rawPath, { force: true });
+
+  const featured = rows.filter((r) => r.is_featured === true).length;
+  console.log(`  ✅ ${SNAPSHOT_REL}  ${rows.length} 条已发布（推荐位 ${featured}）  ${(gz.length / 1024).toFixed(0)}KB`);
+  return { count: rows.length, changed: true };
+}
+
 // ── 2. 图片增量同步 ──
 
 /** 分页列出 bucket 中指定前缀的全部对象 */
@@ -440,11 +541,13 @@ async function commitAndPush(commitMsg, branch) {
     return;
   }
   console.log("\n── git 提交与推送 ──");
-  // release 模式下 dump 不进 git（防历史膨胀），只提交图片 + manifest
+  // release 模式下 dump 不进 git（防历史膨胀），只提交图片 + manifest + 兜底快照
   const addPaths = dbDumpMode === "release"
-    ? ["backups/images", "backups/manifest.json"]
-    : ["backups/"];
-  await run("git", ["add", ...addPaths]);
+    ? ["backups/images", "backups/manifest.json", SNAPSHOT_REL]
+    : ["backups/", SNAPSHOT_REL];
+  // 快照刷新失败时文件可能不存在，git add 会因 pathspec 不匹配而整体失败
+  const existingPaths = addPaths.filter((p) => existsSync(resolve(ROOT, p)));
+  await run("git", ["add", ...existingPaths]);
   const changed = (await runOut("git", ["status", "--porcelain"])).trim();
   if (!changed) {
     console.log("  无变更，跳过提交");
@@ -493,6 +596,22 @@ async function main() {
     }
   }
 
+  // 1.5 前台兜底快照（与 dump 共用 DATABASE_URL，直连 5432，不走被锁的 HTTP 网关）
+  let snapshotInfo = null;
+  if (!FLAGS.imagesOnly) {
+    console.log("\n── 前台兜底快照 ──");
+    if (FLAGS.dryRun) {
+      console.log(`  🔍 [DRY-RUN] 将执行 psql -f scripts/mods-snapshot.sql → ${SNAPSHOT_REL}`);
+    } else {
+      try {
+        snapshotInfo = await exportModsSnapshot();
+      } catch (err) {
+        // 快照只是前台兜底，刷新失败不该拖垮 DB dump / 图片备份这两个真正的备份
+        console.error(`  ⚠️ 快照刷新失败（不影响其余备份）: ${err.message}`);
+      }
+    }
+  }
+
   // 2. 图片增量同步
   let imageState = null;
   let imageResult = null;
@@ -526,6 +645,14 @@ async function main() {
           sizeBytes: dbInfo.sizeBytes,
           releaseUrl: null,
           tableCounts: counts,
+        }
+      : null,
+    // 前台兜底快照：网关被锁时前台就靠它，所以要在清单里留一行它当时的行数
+    snapshot: snapshotInfo
+      ? {
+          file: SNAPSHOT_REL,
+          publishedRows: snapshotInfo.count,
+          refreshedThisRun: snapshotInfo.changed,
         }
       : null,
     images: imageState
@@ -563,7 +690,8 @@ async function main() {
     const branch = await runOut("git", ["branch", "--show-current"]).then((s) => s.trim() || "main");
     const dbSum = dbInfo ? `db=${(dbInfo.sizeBytes / 1024).toFixed(0)}KB` : "db=skip";
     const imgSum = imageState ? `images=${imageResult.downloaded}` : "images=skip";
-    await commitAndPush(`backup: ${ts} ${dbSum} ${imgSum}`, branch);
+    const snapSum = snapshotInfo ? `snapshot=${snapshotInfo.count}${snapshotInfo.changed ? "" : "(unchanged)"}` : "snapshot=skip";
+    await commitAndPush(`backup: ${ts} ${dbSum} ${imgSum} ${snapSum}`, branch);
   }
 
   // 8. 清理本地旧 dump（保留最近 N 份）
@@ -579,7 +707,13 @@ async function main() {
   console.log("═══════════════════════════════════════\n");
 }
 
-main().catch((err) => {
-  console.error("备份脚本出错:", err);
-  process.exit(1);
-});
+// 直接执行才跑主流程；被 import 时只暴露函数，便于单独验证 exportModsSnapshot
+// 这类"写坏了也不报错、只是静默发一份坏数据"的逻辑。
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error("备份脚本出错:", err);
+    process.exit(1);
+  });
+}
+
+export { exportModsSnapshot };

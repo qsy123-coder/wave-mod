@@ -1,4 +1,4 @@
-# 从 Postgres 导出「已发布 mod」兜底快照 -> data/mods-snapshot.json.gz
+﻿# 从 Postgres 导出「已发布 mod」兜底快照 -> data/mods-snapshot.json.gz
 #
 # 用途：当 Supabase 的 HTTP 网关不可用（典型：项目因 exceed_egress_quota 被
 # restriction，REST/Auth 全站 402）时，src/lib/mods-domain/snapshot.ts 会读取本快照，
@@ -34,22 +34,15 @@ if (-not $databaseUrl) { throw "❌ .env.local 里找不到 DATABASE_URL" }
 if (-not (Get-Command psql -ErrorAction SilentlyContinue)) { throw "❌ 找不到 psql，请先装 PostgreSQL 客户端" }
 
 # ---- 导出 ----
-# 不含 xxmi_install_guide：全库仅 2 个近似取值（= install-guide.ts 的静态常量），
-# 却占 payload 的 27%；读取时由 snapshot.ts 统一回填常量。
-$sql = @"
-select json_agg(row_to_json(t) order by t.created_at desc) from (
-  select id, title, character, version, game_version, game_key, description,
-         images, video_url, download_url, downloads_count, drive_links, nsfw,
-         mod_author_url, views, favorites_count, likes_count, comments_count,
-         rating_count, rating_average, is_published, is_featured, featured_order, created_at
-  from mods
-  where is_published = true
-) t;
-"@
+# SQL 放在 scripts/mods-snapshot.sql，与 CI 的 backup-to-github.mjs 共用一份，
+# 避免两边列清单各自漂移。用 -f 读文件而非 -c 传参：命令行参数会被 PowerShell
+# 按 ANSI 编码传给原生 exe，SQL 里的中文注释会炸成 0xb7 之类的非法 UTF-8 字节。
+$sqlPath = Join-Path $PSScriptRoot "mods-snapshot.sql"
+if (-not (Test-Path $sqlPath)) { throw "❌ 找不到 $sqlPath" }
 
 Write-Host "⏳ 正在从 Postgres 导出已发布 mod ..."
 if (Test-Path $jsonPath) { Remove-Item $jsonPath -Force }
-psql $databaseUrl -t -A -o $jsonPath -c $sql
+psql $databaseUrl -t -A -o $jsonPath -f $sqlPath
 if (-not (Test-Path $jsonPath)) { throw "❌ psql 未产出文件" }
 
 # ---- 校验：必须是合法 JSON 且行数 > 0 ----
