@@ -6,6 +6,13 @@ export const modCacheTags = {
   characters: "mods:characters",
   detail: (id: string) => `mods:detail:${id}`,
   list: "mods:list",
+  /**
+   * 远程兜底快照（COS）的缓存条目，见 src/lib/mods-domain/snapshot.ts。
+   *
+   * 网关被锁时它是前台唯一的数据源，所以写库脚本发完新对象后必须清掉它 ——
+   * 否则要等满 1 小时 TTL 才生效，「上传完还得重新部署」的老问题会换个形式复发。
+   */
+  snapshot: "mods:snapshot",
 } as const;
 
 /**
@@ -17,6 +24,13 @@ export const modCacheTags = {
 export function revalidatePublicModCaches(modId?: string) {
   revalidateTag(modCacheTags.characters, "default");
   revalidateTag(modCacheTags.list, "default");
+  // 正常时期（Supabase 通）这条缓存条目根本不会被读，清它零代价；
+  // 网关被锁时它就是前台的全部内容，必须跟着失效。
+  //
+  // ⚠️ 顺序上有讲究：脚本必须**先**把新快照传到 COS、**再** ping 这个接口。
+  // 反过来的话，ping 之后第一个走到回退的请求会把 COS 上的旧对象重新拉下来
+  // 缓存一整个 TTL，新内容反而比不 ping 更晚可见。
+  revalidateTag(modCacheTags.snapshot, "default");
   revalidateTag("creators:ranking", "default");
 
   if (modId) {
