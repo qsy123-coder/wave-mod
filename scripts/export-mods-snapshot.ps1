@@ -13,6 +13,11 @@
 # 产出：data/mods-snapshot.json.gz（约 500KB，提交进仓库）
 # 注意：导出的是**只读快照**，网关恢复后无需删除，它会自动退居二线（仅在读失败时生效）。
 #       但网关恢复、又有新内容入库后，记得重跑本脚本刷新快照。
+#
+# 导出后必须发一份到 COS（运行中的部署优先读那份，不重新部署即可生效）：
+#   node scripts/publish-mods-snapshot-to-cos.mjs
+# 日常上传/迅雷回填/每日备份 CI 都会自己发布，只有手工重导才需要跑上面这条。
+# 顺序必须是「导出 → 传 COS → ping」，细节见 docs/disaster-recovery.md 第 10 节。
 
 $ErrorActionPreference = "Stop"
 $env:PGCLIENTENCODING = "UTF8"

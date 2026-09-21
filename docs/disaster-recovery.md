@@ -166,7 +166,51 @@ node scripts/restore-from-backup.mjs --yes        # 一起恢复
 | `PG_DUMP_PATH` / `PG_RESTORE_PATH` | pg 工具路径（默认 PATH 中的 `pg_dump`/`pg_restore`） |
 | `GH_TOKEN` | 本机已登录 gh 则省略；Actions 自动注入 `GITHUB_TOKEN` |
 
-## 10. 边界与注意事项
+## 10. 兜底快照的发布路径（网关被锁时怎么让新内容立刻可见）
+
+Supabase 网关被锁（`exceed_egress_quota` → REST/Auth 全站 402）期间，前台读的是兜底快照。
+快照有**两份**，读侧顺序是：
+
+```
+COS（snapshots/mods-snapshot.json.gz）→ 打包内 data/mods-snapshot.json.gz → 空数组
+```
+
+打包内那份**只能在构建时打进部署**，所以只靠它的话，锁定期内新入库的 mod 要等重新部署
+才可见（2026-09-21「当天 16 条 mod 在站上没有迅雷按钮」就是这么来的）。COS 那份是给
+**运行中的部署**用的：换掉对象 + 通知缓存失效，几秒内生效，不用重新部署。
+
+**发布入口**（都走 `scripts/mods-snapshot-export.mjs`）：
+
+| 场景 | 命令 |
+|---|---|
+| 每日上传（`upload-daily-by-date.mjs`） | 有写入（`inserted > 0`）时自动：导出 → 传 COS → ping |
+| 迅雷链接回填（`apply-daily-xunlei-by-date.mjs`） | 同上（`applied > 0`）；`drive_links` 在快照列清单里，不重发等于没改 |
+| 每日备份 CI（`backup-to-github.mjs`） | 导出成功即**无条件**上传（不只在内容变化时），manifest 记 `cosKey` / `cosUrl` |
+| 手工重导之后 | `node scripts/publish-mods-snapshot-to-cos.mjs [--dry-run] [--no-ping]` |
+
+**顺序必须是「导出 → 传 COS → 再 ping」**，反过来有问题：ping 会清掉 `mods:snapshot`
+缓存条目，若先 ping 后上传，ping 之后第一个走到回退的请求会把 **COS 上的旧对象**重新
+拉下来缓存一整个 TTL，新内容反而比不 ping 更晚可见。
+
+注意 `revalidateTag` 是 **stale-while-revalidate**：ping 之后的**第一个**请求仍可能拿到
+旧 payload，第二个才是新的（实测如此）。
+
+**两个环境前提**（Vercel 控制台）：
+
+1. `COS_BUCKET` / `COS_REGION` 必须在 **Production + Runtime** 作用域可见。只配在 Build
+   里的话运行时会读不到 ⇒ 静默只用打包内那份（表现为「发了也不生效」）。
+2. 对象是**匿名公开读**的（不需要任何密钥，`curl -I` 能直接取）。这是刻意的取舍：
+   换来的是读路径不需要签发 STS 临时密钥、也不需要给 serverless 函数配 COS 密钥。
+   代价是**全量已发布 mod 数据变成一条公开直链** —— 内容与站上页面完全一致（导出的 SQL
+   里没有 `created_by`、没有用户 id，`drive_links` 本来就是页面上公开的分享链），
+   但这一点必须写明，不要让它变成无人知道的既成事实。
+
+排查「发了快照但前台还是旧内容」时按序看：`curl -I` 确认对象在（404 = 键写错/没传成功）；
+Vercel 运行时日志里有没有 `[mods] 已从远程快照（COS）载入`（有 = 走的是 COS 那份）；
+有没有 `[mods] 远程快照不可用` 或 `未配置 COS_BUCKET`（有 = 根本没读 COS）。
+这两个告警只在回退路径上打印，所以「日志里没有」本身也是信息。
+
+## 11. 边界与注意事项
 
 - **备份范围**：mods 预览图 + 教程图（COS 的 `mods/` 和 `tutorial/` 前缀）。**不含视频**（单文件可能超 GitHub 100MB 限制）。本地 `public/` 静态资源已随代码在 git 里。
 - **dump 只含 `public` schema**：业务数据完整；auth/storage 是 Supabase 平台托管，不备份也不允许直接重建。
@@ -178,7 +222,7 @@ node scripts/restore-from-backup.mjs --yes        # 一起恢复
   ```
   强制清理后需 `--full` 重新全量备份一次图片。
 
-## 11. 架构决策记录
+## 12. 架构决策记录
 
 | 决策 | 原因 |
 |---|---|
@@ -187,3 +231,6 @@ node scripts/restore-from-backup.mjs --yes        # 一起恢复
 | 只备份 public schema | auth/storage 平台托管，`--clean` 重建会破坏 Supabase 平台 |
 | Session pooler / direct 连接 | Transaction pooler（6543）会重置 `pg_dump` 长连接 |
 | 恢复图片回传 COS 原 key | 数据库 URL 无需改动即恢复生效 |
+| 兜底快照同时放 COS、且匿名公开读 | 锁定期内新内容要立刻可见就得绕开「重新部署」；公开读省掉密钥管理，代价（全量数据一条公开直链）见第 10 节 |
+| 快照缓存的是 COS 上的 base64，不是解析后的行数组 | Vercel Data Cache 单条上限 2MB（解析后约 4.7MB），超限时 Next 静默不写 ⇒ 退化成每请求真拉 513KB |
+| 每日备份无条件发快照（不只在内容变化时） | 上一次上传失败会让「内容没变化」永远为真，COS 从此停在旧版且没有任何信号 |

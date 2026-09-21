@@ -34,14 +34,19 @@ import COS from "cos-nodejs-sdk-v5";
 import { config } from "dotenv";
 import { resolve, join, basename, dirname } from "node:path";
 import {
-  mkdirSync, writeFileSync, readFileSync, existsSync, renameSync, rmSync,
+  mkdirSync, writeFileSync, existsSync, renameSync, rmSync,
   readdirSync, statSync, createReadStream,
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { gzipSync, gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 
+import {
+  SNAPSHOT_OBJECT_KEY,
+  SNAPSHOT_REL_PATH,
+  exportModsSnapshot as exportSnapshotFile,
+  putSnapshotToCos,
+} from "./mods-snapshot-export.mjs";
 import { checkSnapshotFreshness, snapshotStats } from "./snapshot-freshness.mjs";
 
 // ── 加载 .env + .env.local ──
@@ -57,14 +62,14 @@ const TMP_DIR = resolve(BACKUP_ROOT, ".tmp");
 const MANIFEST_PATH = resolve(BACKUP_ROOT, "manifest.json");
 
 // 前台兜底快照（src/lib/mods-domain/snapshot.ts 运行时 fs 读取）
-const DATA_DIR = resolve(ROOT, "data");
-const SNAPSHOT_GZ = resolve(DATA_DIR, "mods-snapshot.json.gz");
+// 路径常量与导出的守卫都在 scripts/mods-snapshot-export.mjs（纯函数、有单测）
+const SNAPSHOT_GZ = resolve(ROOT, SNAPSHOT_REL_PATH);
 const SNAPSHOT_SQL = resolve(ROOT, "scripts", "mods-snapshot.sql");
-const SNAPSHOT_REL = "data/mods-snapshot.json.gz"; // git add / manifest 用的仓库相对路径
-// 新快照行数低于旧快照此比例时判为导出异常，保留旧快照不覆盖
-const SNAPSHOT_MIN_RATIO = 0.9;
 
-const IMG_PREFIXES = ["mods/", "tutorial/"]; // 只备份这些前缀（mods 预览图 + 教程图），不含视频
+// 只备份这些前缀（mods 预览图 + 教程图），不含视频。
+// COS 上的 snapshots/ 刻意不在内：git 里已有 data/mods-snapshot.json.gz，
+// 且它能由 dump 重建，同步进 backups/images/ 只会白增 513KB × 天数。
+const IMG_PREFIXES = ["mods/", "tutorial/"];
 const VIDEO_EXT = /\.(mp4|webm|mov|avi|mkv|flv|m4v|ts|3gp)$/i; // 视频扩展名，备份时跳过
 const TABLES = [
   "mods", "profiles", "favorites", "likes", "comments", "comment_reactions", "ratings",
@@ -341,7 +346,8 @@ async function assertSnapshotMirrorsDb(rows) {
 }
 
 /**
- * 导出「已发布 mod」兜底快照 → data/mods-snapshot.json.gz（提交进仓库）。
+ * 导出「已发布 mod」兜底快照 → data/mods-snapshot.json.gz（提交进仓库），
+ * 并**无条件**发一份到 COS（运行中的部署优先读它，见 src/lib/mods-domain/snapshot.ts）。
  *
  * 前台在 Supabase HTTP 网关不可用时读这份快照，它是那时唯一还能提供真实数据的
  * 来源，所以必须随每日备份刷新，否则库里的新 mod 永远进不了兜底路径。
@@ -349,89 +355,42 @@ async function assertSnapshotMirrorsDb(rows) {
  * 走 psql 直连 5432 而不是 supabase-js：网关正是可能被锁的那一层，且绕开它
  * 也就不消耗 Supabase 的出口流量配额（本次事故的起因就是配额超限）。
  *
- * 返回 { count, changed }；任何一步不达标都向上抛。调用方仍会先跑完 DB dump 和
- * 图片备份，但最后必须让 CI 翻红 —— 见 main() 收尾处的 snapshotFailure 判定。
+ * 导出、以及「内容没变就不重写 / 行数跌破 90% 拒绝 / 旧快照损坏照样覆盖」三条守卫
+ * 都在 scripts/mods-snapshot-export.mjs（纯函数、有单测），这里只做 IO 与一致性校验。
+ *
+ * 返回 { count, changed, cosKey, cosUrl }；任何一步不达标都向上抛。调用方仍会先跑完
+ * DB dump 和图片备份，但最后必须让 CI 翻红 —— 见 main() 收尾处的 snapshotFailure 判定。
  */
-async function exportModsSnapshot() {
+async function refreshAndPublishModsSnapshot() {
   if (!existsSync(SNAPSHOT_SQL)) {
     throw new Error(`找不到 ${SNAPSHOT_SQL}`);
   }
-  const { host, port, user, dbName, env } = parseDbUrl(databaseUrl);
-  env.PGCLIENTENCODING = "UTF8";
 
-  const rawPath = join(TMP_DIR, "mods-snapshot.json");
-  mkdirSync(TMP_DIR, { recursive: true });
-  rmSync(rawPath, { force: true });
+  const result = await exportSnapshotFile({
+    databaseUrl,
+    psqlPath,
+    sqlPath: SNAPSHOT_SQL,
+    outPath: SNAPSHOT_GZ,
+    rawPath: join(TMP_DIR, "mods-snapshot.json"),
+    validate: assertSnapshotMirrorsDb,
+    log: (line) => console.log(`  ${line}`),
+  });
 
-  // 结果用 -o 直接落盘，而不是捕获 stdout：这份 JSON 有 4.7MB 中文，
-  // 走 stdout 时多字节字符可能被切在 chunk 边界上，让标题/简介静默乱码。
-  await run(psqlPath, [
-    "-h", host, "-p", port, "-U", user, "-d", dbName,
-    "-t", "-A", "-o", rawPath, "-f", SNAPSHOT_SQL,
-  ], { env });
-
-  if (!existsSync(rawPath)) throw new Error("psql 未产出快照文件");
-  const rawBuf = readFileSync(rawPath);
-  const rows = JSON.parse(rawBuf.toString("utf8"));
-  if (!Array.isArray(rows) || rows.length === 0) {
-    throw new Error("快照为空，拒绝写出");
-  }
-
-  // 内容未变就不重写。不同 gzip 实现（CI 的 zlib / 本机脚本的 .NET）对同一份
-  // 输入产出的字节不同，不做这层比对的话，500KB 的二进制会每天进一次 git 历史。
+  // **无条件上传**，不只 changed 时传：changed 是「这次新导出的解压字节 vs CI
+  // checkout 里那份」比出来的，若上一次上传 COS 失败，下一次 changed 照样是 false
+  // ⇒ COS 永远停在旧版且没有任何信号。513KB/天，可忽略。
   //
-  // 比对结果先存进 unchanged 再统一处理，而不是当场 return：下面的校验必须设在
-  // try 之外 —— 放进 try 里的话，校验抛出的异常会被这个 catch 当成
-  // 「旧快照损坏」吞掉，然后一路走到覆盖写出，把一次失败洗成成功。
-  let prevCount = null;
-  let unchanged = false;
-  if (existsSync(SNAPSHOT_GZ)) {
-    try {
-      const prevBuf = gunzipSync(readFileSync(SNAPSHOT_GZ));
-      prevCount = JSON.parse(prevBuf.toString("utf8")).length;
-      unchanged = prevBuf.equals(rawBuf);
-    } catch {
-      // 旧快照损坏/读不了：继续走覆盖，下面照常写出新版本
-    }
-  }
+  // 读侧优先读这份（src/lib/mods-domain/snapshot.ts），所以它是「运行中的部署
+  // 能不能看到新内容」的唯一开关。
+  const { url } = await putSnapshotToCos({
+    cos,
+    bucket: cosBucket,
+    region: cosRegion,
+    body: result.body,
+    log: (line) => console.log(`  ${line}`),
+  });
 
-  if (unchanged) {
-    rmSync(rawPath, { force: true });
-    console.log(`  ✅ 快照无变化（${rows.length} 条已发布），跳过写出`);
-    // 内容与今天的新导出逐字节相同 ⇒ 磁盘上这份就是最新的。但仍要核对库内统计：
-    // 万一这次的新导出本身就少读了几行，上面那条比对是发现不了的。
-    await assertSnapshotMirrorsDb(rows);
-    return { count: rows.length, changed: false };
-  }
-
-  // 上游查询被截断时 psql 依然退出 0，只留下一份"合法但少了几千行"的 JSON。
-  // 兜底快照是网关被锁时唯一的数据源，写进残缺版本比不更新危险得多，故设下限。
-  if (prevCount !== null && rows.length < prevCount * SNAPSHOT_MIN_RATIO) {
-    rmSync(rawPath, { force: true });
-    throw new Error(
-      `新快照仅 ${rows.length} 条，旧快照 ${prevCount} 条（${((rows.length / prevCount) * 100).toFixed(1)}%），判为异常，保留旧快照`,
-    );
-  }
-
-  const gz = gzipSync(rawBuf, { level: 9 });
-  // 回读校验：写坏了会被前台当成"网关正常但没数据"，比不写更糟
-  const roundTrip = JSON.parse(gunzipSync(gz).toString("utf8"));
-  if (roundTrip.length !== rows.length) {
-    throw new Error(`快照回读校验失败：${roundTrip.length} != ${rows.length}`);
-  }
-
-  mkdirSync(DATA_DIR, { recursive: true });
-  const tmpGz = `${SNAPSHOT_GZ}.tmp`;
-  writeFileSync(tmpGz, gz);
-  renameSync(tmpGz, SNAPSHOT_GZ); // 原子替换，避免半截文件被 git 提交
-  rmSync(rawPath, { force: true });
-
-  // 写完再验一次。上面所有校验都只证明「文件没写坏」，这一条才证明「内容是当前库」。
-  await assertSnapshotMirrorsDb(rows);
-
-  const featured = rows.filter((r) => r.is_featured === true).length;
-  console.log(`  ✅ ${SNAPSHOT_REL}  ${rows.length} 条已发布（推荐位 ${featured}）  ${(gz.length / 1024).toFixed(0)}KB`);
-  return { count: rows.length, changed: true };
+  return { count: result.count, changed: result.changed, cosKey: SNAPSHOT_OBJECT_KEY, cosUrl: url };
 }
 
 // ── 2. 图片增量同步 ──
@@ -607,8 +566,8 @@ async function commitAndPush(commitMsg, branch) {
   console.log("\n── git 提交与推送 ──");
   // release 模式下 dump 不进 git（防历史膨胀），只提交图片 + manifest + 兜底快照
   const addPaths = dbDumpMode === "release"
-    ? ["backups/images", "backups/manifest.json", SNAPSHOT_REL]
-    : ["backups/", SNAPSHOT_REL];
+    ? ["backups/images", "backups/manifest.json", SNAPSHOT_REL_PATH]
+    : ["backups/", SNAPSHOT_REL_PATH];
   // 快照刷新失败时文件可能不存在，git add 会因 pathspec 不匹配而整体失败
   const existingPaths = addPaths.filter((p) => existsSync(resolve(ROOT, p)));
   await run("git", ["add", ...existingPaths]);
@@ -666,16 +625,19 @@ async function main() {
   if (!FLAGS.imagesOnly) {
     console.log("\n── 前台兜底快照 ──");
     if (FLAGS.dryRun) {
-      console.log(`  🔍 [DRY-RUN] 将执行 psql -f scripts/mods-snapshot.sql → ${SNAPSHOT_REL}`);
+      console.log(`  🔍 [DRY-RUN] 将执行 psql -f scripts/mods-snapshot.sql → ${SNAPSHOT_REL_PATH}`);
+      console.log(`  🔍 [DRY-RUN] 将上传到 COS: ${SNAPSHOT_OBJECT_KEY}`);
     } else {
       try {
-        snapshotInfo = await exportModsSnapshot();
+        snapshotInfo = await refreshAndPublishModsSnapshot();
       } catch (err) {
         // 不在这里中断：DB dump 和图片备份才是真正的备份，不该被快照拖累。
         // 但也绝不能只打一行 ⚠️ 就过去 —— 此前正是「失败被吞掉 + 没有告警」，
         // 让 CI 全绿而前台内容静默冻结。失败先记下来，收尾时统一翻红。
+        // 发布 COS 也在这个 try 里：上传失败同样必须让 CI 翻红（内容静默停更
+        // 是最难发现的失效），而 --db-only 时整段跳过，也不会白连 COS。
         snapshotFailure = err;
-        console.error(`  ⚠️ 快照刷新失败: ${err.message}`);
+        console.error(`  ⚠️ 快照刷新/发布失败: ${err.message}`);
       }
     }
   }
@@ -701,12 +663,16 @@ async function main() {
   // 在 git 历史里长得一模一样（都是 snapshot 字段没有 refreshedThisRun）。
   const snapshotManifest = snapshotInfo
     ? {
-        file: SNAPSHOT_REL,
+        file: SNAPSHOT_REL_PATH,
         publishedRows: snapshotInfo.count,
         refreshedThisRun: snapshotInfo.changed,
+        // 记下这次发到 COS 的到底是哪个对象 —— 「运行中部署的数据源是不是最新」
+        // 全靠这两个字段审计，别省。
+        cosKey: snapshotInfo.cosKey,
+        cosUrl: snapshotInfo.cosUrl,
       }
     : snapshotFailure
-      ? { file: SNAPSHOT_REL, error: snapshotFailure.message }
+      ? { file: SNAPSHOT_REL_PATH, error: snapshotFailure.message }
       : null;
 
   const manifest = {
@@ -791,7 +757,7 @@ async function main() {
   console.log("═══════════════════════════════════════\n");
 }
 
-// 直接执行才跑主流程；被 import 时只暴露函数，便于单独验证 exportModsSnapshot
+// 直接执行才跑主流程；被 import 时只暴露函数，便于单独验证 refreshAndPublishModsSnapshot
 // 这类"写坏了也不报错、只是静默发一份坏数据"的逻辑。
 // fetchPublishedStats 一并导出，是为了能在不写任何文件的前提下核对
 // "磁盘上这份快照 vs 库内实时统计" —— 判定基准出错的代价比快照出错还大。
@@ -802,4 +768,4 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   });
 }
 
-export { exportModsSnapshot, fetchPublishedStats };
+export { refreshAndPublishModsSnapshot, fetchPublishedStats };
