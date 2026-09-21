@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-20T08:07:19.671Z",
+  "generatedAt": "2026-09-21T08:24:07.866Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,28 +8,33 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20260920-080647.dump",
-    "sha256": "0605a000d1a7532a4db23ffa0a2b87f8b655a3fb7be9a5f0d05ae72f8d272907",
-    "sizeBytes": 673572,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260920-080647",
+    "file": "db/wavemod-20260921-082331.dump",
+    "sha256": "04db55a010adc7fee3ac2a1688964226352c76e6eab842c1a8813ad9cb54fa08",
+    "sizeBytes": 679376,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260921-082331",
     "tableCounts": {
-      "mods": 5186,
-      "profiles": 113,
-      "favorites": 34,
-      "likes": 10,
-      "comments": 0,
-      "comment_reactions": 0,
-      "ratings": 1,
-      "tutorial_configs": 2,
-      "tutorial_chapters": 12,
-      "tutorial_images": 138,
-      "tutorial_tools": 6
+      "mods": null,
+      "profiles": null,
+      "favorites": null,
+      "likes": null,
+      "comments": null,
+      "comment_reactions": null,
+      "ratings": null,
+      "tutorial_configs": null,
+      "tutorial_chapters": null,
+      "tutorial_images": null,
+      "tutorial_tools": null
     }
   },
+  "snapshot": {
+    "file": "data/mods-snapshot.json.gz",
+    "publishedRows": 5202,
+    "refreshedThisRun": true
+  },
   "images": {
-    "remoteCount": 5344,
-    "totalBytes": 456760430,
-    "downloadedThisRun": 24,
+    "remoteCount": 5360,
+    "totalBytes": 457499990,
+    "downloadedThisRun": 16,
     "failedThisRun": 1,
     "failures": [
       {
@@ -6694,6 +6699,12 @@
         "etag": "\"1221cc7279c90df6e7c8a1ef747b1b53\""
       },
       {
+        "key": "mods/ui/d8422d26-8232-4031-aa04-54df345c8ca5/preview.webp",
+        "file": "images/mods/ui/d8422d26-8232-4031-aa04-54df345c8ca5/preview.webp",
+        "size": 49332,
+        "etag": "\"94a4fff4173893d577bafa1d064c545a\""
+      },
+      {
         "key": "mods/ui/d9fb4f2e-6043-4b7a-a60d-92b4b1732573/preview.webp",
         "file": "images/mods/ui/d9fb4f2e-6043-4b7a-a60d-92b4b1732573/preview.webp",
         "size": 57708,
@@ -8092,6 +8103,12 @@
         "etag": "\"aa43c51018379306e4323a19b531dc5d\""
       },
       {
+        "key": "mods/千咲/2aa4d45d-3455-4779-9cd7-f3ee2a7f7c8a/preview.webp",
+        "file": "images/mods/千咲/2aa4d45d-3455-4779-9cd7-f3ee2a7f7c8a/preview.webp",
+        "size": 18426,
+        "etag": "\"0da8dc4b7297c5a18da294e170067484\""
+      },
+      {
         "key": "mods/千咲/2b256d3e-7376-46e7-95d7-9d1a4bfd6ee0/preview.webp",
         "file": "images/mods/千咲/2b256d3e-7376-46e7-95d7-9d1a4bfd6ee0/preview.webp",
         "size": 46420,
@@ -9214,6 +9231,12 @@
         "etag": "\"aff034a94c23d0d7a735fb81c728ca06\""
       },
       {
+        "key": "mods/卡提希娅/b6f6829d-67ed-4f71-945d-10f0bb664662/preview.webp",
+        "file": "images/mods/卡提希娅/b6f6829d-67ed-4f71-945d-10f0bb664662/preview.webp",
+        "size": 36950,
+        "etag": "\"c0d8524becfa4125bc2cc7dcbf515512\""
+      },
+      {
         "key": "mods/卡提希娅/bae04433-04e7-476e-85b3-e4d4348e53c2/preview.webp",
         "file": "images/mods/卡提希娅/bae04433-04e7-476e-85b3-e4d4348e53c2/preview.webp",
         "size": 120336,
@@ -9224,6 +9247,12 @@
         "file": "images/mods/卡提希娅/bf0fbbc8-4c59-4369-a9dc-16425bda4fcd/preview.webp",
         "size": 53308,
         "etag": "\"f108fae65836bd5713edf1a0c9f63a0c\""
+      },
+      {
+        "key": "mods/卡提希娅/cbbcaa9d-2272-4e03-be78-3e6eb123b31b/preview.webp",
+        "file": "images/mods/卡提希娅/cbbcaa9d-2272-4e03-be78-3e6eb123b31b/preview.webp",
+        "size": 31644,
+        "etag": "\"3a736242bf8995fee0b7fe7b07ae9ce4\""
       },
       {
         "key": "mods/卡提希娅/e1cac3f9-873d-45f6-9301-5cc0d4ac3855/preview.webp",
@@ -13888,6 +13917,12 @@
         "etag": "\"5cb451355d5eef4e0d0046ac29e013b9\""
       },
       {
+        "key": "mods/女漂/dfadc822-f9fd-4a55-b5b4-dc5fe364283a/preview.webp",
+        "file": "images/mods/女漂/dfadc822-f9fd-4a55-b5b4-dc5fe364283a/preview.webp",
+        "size": 30098,
+        "etag": "\"f2140bb9b5dbc70e8d0364738c8e41e2\""
+      },
+      {
         "key": "mods/女漂/e0501adf-00d9-472a-a250-69dfc9464ff5/preview.webp",
         "file": "images/mods/女漂/e0501adf-00d9-472a-a250-69dfc9464ff5/preview.webp",
         "size": 38018,
@@ -15962,6 +15997,12 @@
         "file": "images/mods/尤诺/748e6566-eebb-4d63-bc3a-403d384dc624/preview.webp",
         "size": 69768,
         "etag": "\"b23899e18aa8065fa79ada34bd96ed36\""
+      },
+      {
+        "key": "mods/尤诺/76b099de-9f05-41b9-89ad-c5042fbfab7e/preview.webp",
+        "file": "images/mods/尤诺/76b099de-9f05-41b9-89ad-c5042fbfab7e/preview.webp",
+        "size": 48472,
+        "etag": "\"acdd733da12a897fafb8f98c40471a4a\""
       },
       {
         "key": "mods/尤诺/78ec2e07-3038-44a6-b6f7-2caa7e79ea60/preview.webp",
@@ -18352,6 +18393,12 @@
         "etag": "\"80f15f04b14f760a08a3960e041c3559\""
       },
       {
+        "key": "mods/清宵/33055c5f-83ff-428f-be49-24f3f0d640af/preview.webp",
+        "file": "images/mods/清宵/33055c5f-83ff-428f-be49-24f3f0d640af/preview.webp",
+        "size": 54282,
+        "etag": "\"7ebad6062fdb7e95ce6b478ab4306241\""
+      },
+      {
         "key": "mods/清宵/3791b8ce-fb10-4e7a-9ad0-839c8c5a3db8/preview.webp",
         "file": "images/mods/清宵/3791b8ce-fb10-4e7a-9ad0-839c8c5a3db8/preview.webp",
         "size": 55202,
@@ -18490,6 +18537,12 @@
         "etag": "\"4b3a515d427358bdc5c781e224ef9481\""
       },
       {
+        "key": "mods/清宵/8cb9a4a0-1c98-49a0-80ec-b281336a4769/preview.webp",
+        "file": "images/mods/清宵/8cb9a4a0-1c98-49a0-80ec-b281336a4769/preview.webp",
+        "size": 38682,
+        "etag": "\"d5d21ddcd6e9a75b050fceca004ea7b8\""
+      },
+      {
         "key": "mods/清宵/8dc1ae58-c0ea-462d-b6d4-26443af75d6b/preview.webp",
         "file": "images/mods/清宵/8dc1ae58-c0ea-462d-b6d4-26443af75d6b/preview.webp",
         "size": 47806,
@@ -18536,6 +18589,12 @@
         "file": "images/mods/清宵/a1ae6c07-91e1-4f7a-8401-af4f39b0734c/preview.webp",
         "size": 62044,
         "etag": "\"57dd9def0f9635ce4ff4f952dcf45da5\""
+      },
+      {
+        "key": "mods/清宵/a53446c8-417a-4632-9f2a-220293154bcf/preview.webp",
+        "file": "images/mods/清宵/a53446c8-417a-4632-9f2a-220293154bcf/preview.webp",
+        "size": 47742,
+        "etag": "\"3d32607679c5406348082162df84e34c\""
       },
       {
         "key": "mods/清宵/abb854a3-4165-4ddc-8281-8c21cbd80738/preview.webp",
@@ -24652,6 +24711,18 @@
         "etag": "\"47b0ce50a3b09c45f05b3e83bb5095cb\""
       },
       {
+        "key": "mods/绯雪/0176a2a7-fefa-4ef8-a9c0-48e89870aa59/preview.webp",
+        "file": "images/mods/绯雪/0176a2a7-fefa-4ef8-a9c0-48e89870aa59/preview.webp",
+        "size": 56918,
+        "etag": "\"41bedc95d64af26882eb3a0de18fa079\""
+      },
+      {
+        "key": "mods/绯雪/01a814f1-7d27-49a9-b1b7-83de5dfa5012/preview.webp",
+        "file": "images/mods/绯雪/01a814f1-7d27-49a9-b1b7-83de5dfa5012/preview.webp",
+        "size": 36186,
+        "etag": "\"2434b02796b4c07577ddca402c20a034\""
+      },
+      {
         "key": "mods/绯雪/06344646-7b65-4fb0-b98c-28ac6d08cd22/preview.webp",
         "file": "images/mods/绯雪/06344646-7b65-4fb0-b98c-28ac6d08cd22/preview.webp",
         "size": 49002,
@@ -24662,6 +24733,12 @@
         "file": "images/mods/绯雪/0b04a273-2747-417f-af9b-829370a1ffe1/preview.webp",
         "size": 42006,
         "etag": "\"91fcdf2c9b44b147c74a1548e73f8d14\""
+      },
+      {
+        "key": "mods/绯雪/17781900-2956-46d0-b6a8-5003ca1b91d0/preview.webp",
+        "file": "images/mods/绯雪/17781900-2956-46d0-b6a8-5003ca1b91d0/preview.webp",
+        "size": 41064,
+        "etag": "\"ccfb6dd8f6d827cdf3777c8c701ff951\""
       },
       {
         "key": "mods/绯雪/3438f7d9-5556-458a-aba9-5a7844b7d607/preview.webp",
@@ -24724,6 +24801,12 @@
         "etag": "\"9e35571e4d38b4b0fa2cdf67d487e492\""
       },
       {
+        "key": "mods/绯雪/80079920-ae6f-46ed-ab51-a86b9b6c88d7/preview.webp",
+        "file": "images/mods/绯雪/80079920-ae6f-46ed-ab51-a86b9b6c88d7/preview.webp",
+        "size": 35234,
+        "etag": "\"d92b7527d5b822e636d8c80592d3cfd5\""
+      },
+      {
         "key": "mods/绯雪/830393eb-ad29-4f36-937a-96897a95631d/preview.webp",
         "file": "images/mods/绯雪/830393eb-ad29-4f36-937a-96897a95631d/preview.webp",
         "size": 69190,
@@ -24758,6 +24841,12 @@
         "file": "images/mods/绯雪/b24ba46e-a1cf-4cf0-b0ed-3bb9532bf5d3/preview.webp",
         "size": 48386,
         "etag": "\"ee52df09e532bf0294b2ae9af1753279\""
+      },
+      {
+        "key": "mods/绯雪/b515518b-a02e-4bca-a160-0ee649b9828d/preview.webp",
+        "file": "images/mods/绯雪/b515518b-a02e-4bca-a160-0ee649b9828d/preview.webp",
+        "size": 45388,
+        "etag": "\"6a1f7c6a91e575038f8e7fddaf6ee703\""
       },
       {
         "key": "mods/绯雪/b9adf3de-03e1-486a-a74b-d69b9416baa2/preview.webp",
@@ -28060,6 +28149,12 @@
         "etag": "\"bf5c50b911bd480d0c2d097a24adc4cb\""
       },
       {
+        "key": "mods/达妮娅/744a9f8b-d274-4958-9cff-0863990ce09d/preview.webp",
+        "file": "images/mods/达妮娅/744a9f8b-d274-4958-9cff-0863990ce09d/preview.webp",
+        "size": 96540,
+        "etag": "\"11aae930394c8c2cb2c22d2ea8e9f70f\""
+      },
+      {
         "key": "mods/达妮娅/7d5e223d-448e-4822-9b97-1434c779707a/preview.webp",
         "file": "images/mods/达妮娅/7d5e223d-448e-4822-9b97-1434c779707a/preview.webp",
         "size": 76330,
@@ -28388,6 +28483,12 @@
         "file": "images/mods/釉瑚/b51c48ab-272d-4cd5-8c10-f307364adeb1/preview.webp",
         "size": 24556,
         "etag": "\"a359da40226d8d37cec9e95963f5188a\""
+      },
+      {
+        "key": "mods/釉瑚/b81c318c-68a5-4d0a-adc5-92cc3ce8dd92/preview.webp",
+        "file": "images/mods/釉瑚/b81c318c-68a5-4d0a-adc5-92cc3ce8dd92/preview.webp",
+        "size": 72602,
+        "etag": "\"9261bff6332933feb482d53c9ff710a7\""
       },
       {
         "key": "mods/釉瑚/cb7c316e-9c26-4aa5-8fe9-791b39571c04/preview.webp",
