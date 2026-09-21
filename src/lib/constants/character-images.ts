@@ -29,6 +29,8 @@ export const characterImageMap: Record<string, string> = {
   "绯雪": "/character-imgs/绯雪.png",
   "嘉贝莉娜": "/character-imgs/嘉贝丽娜.png",
   "爱弥斯": "/character-imgs/爱弥斯.png",
+  // 爱弥斯特有分类（2026-09-20 新建）：暂与爱弥斯共用头像，等有专属图再换
+  "爱弥斯的机甲": "/character-imgs/爱弥斯.png",
   "尤诺": "/character-imgs/尤诺.png",
   "鉴心": "/character-imgs/鉴心.png",
   "今汐": "/character-imgs/今汐.png",
