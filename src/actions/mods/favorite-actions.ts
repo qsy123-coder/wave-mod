@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidatePublicModCaches } from "@/lib/mod-cache";
+import { revalidateModEngagementCaches } from "@/lib/mod-cache";
 import { createClient, ensureProfile, getCurrentUser } from "@/lib/supabase/server";
 
 const favoriteSchema = z.object({
@@ -96,7 +96,7 @@ export async function toggleFavoriteAction(formData: FormData) {
 
   await syncFavoriteCount(modId);
 
-  revalidatePublicModCaches(modId);
+  revalidateModEngagementCaches(modId);
   revalidatePath("/");
   revalidatePath("/mods");
   revalidatePath(`/mods/${modId}`);

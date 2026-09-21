@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidatePublicModCaches } from "@/lib/mod-cache";
+import { revalidateModEngagementCaches } from "@/lib/mod-cache";
 import { createClient, ensureProfile, getCurrentUser } from "@/lib/supabase/server";
 
 const ratingSchema = z.object({
@@ -85,7 +85,7 @@ export async function rateModAction(formData: FormData) {
 
   await syncRatingAggregate(modId);
 
-  revalidatePublicModCaches(modId);
+  revalidateModEngagementCaches(modId);
   revalidatePath(`/mods/${modId}`);
   revalidatePath("/");
   revalidatePath("/mods");

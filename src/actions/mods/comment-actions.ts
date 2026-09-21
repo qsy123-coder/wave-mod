@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidatePublicModCaches } from "@/lib/mod-cache";
+import { revalidateModEngagementCaches } from "@/lib/mod-cache";
 import { createClient, ensureProfile, getCurrentUser, isAdminUser } from "@/lib/supabase/server";
 
 const commentSchema = z.object({
@@ -101,7 +101,7 @@ export async function createCommentAction(formData: FormData) {
   const profile = (Array.isArray(data.user) ? data.user[0] : data.user) as CommentProfileRow | null | undefined;
 
   await syncCommentCount(modId);
-  revalidatePublicModCaches(modId);
+  revalidateModEngagementCaches(modId);
   revalidatePath(`/mods/${modId}`);
   revalidatePath("/");
   revalidatePath("/mods");
@@ -160,7 +160,7 @@ export async function replyCommentAction(formData: FormData) {
   const profile = (Array.isArray(data.user) ? data.user[0] : data.user) as CommentProfileRow | null | undefined;
 
   await syncCommentCount(modId);
-  revalidatePublicModCaches(modId);
+  revalidateModEngagementCaches(modId);
   revalidatePath(`/mods/${modId}`);
 
   return {
@@ -216,7 +216,7 @@ export async function toggleCommentReactionAction(formData: FormData) {
   const dislikesCount = reactions?.filter((reaction) => reaction.value === -1).length ?? 0;
   const userReaction = reactions?.find((reaction) => reaction.user_id === user.id)?.value ?? null;
 
-  revalidatePublicModCaches(modId);
+  revalidateModEngagementCaches(modId);
   revalidatePath(`/mods/${modId}`);
 
   return { commentId, dislikesCount, likesCount, userReaction: userReaction === 1 || userReaction === -1 ? userReaction : null };
@@ -242,7 +242,7 @@ export async function togglePinCommentAction(formData: FormData) {
   const { error } = await supabase.from("comments").update({ is_pinned: isPinned }).eq("id", commentId).eq("mod_id", modId).is("parent_id", null);
   if (error) throw new Error(`更新置顶失败：${error.message}`);
 
-  revalidatePublicModCaches(modId);
+  revalidateModEngagementCaches(modId);
   revalidatePath(`/mods/${modId}`);
 
   return { commentId, isPinned };
@@ -273,7 +273,7 @@ export async function deleteCommentAction(formData: FormData) {
   if (deleteError) throw new Error(`删除评论失败：${deleteError.message}`);
 
   await syncCommentCount(modId);
-  revalidatePublicModCaches(modId);
+  revalidateModEngagementCaches(modId);
   revalidatePath(`/mods/${modId}`);
   revalidatePath("/");
   revalidatePath("/mods");

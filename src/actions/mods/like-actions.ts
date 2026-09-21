@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidatePublicModCaches } from "@/lib/mod-cache";
+import { revalidateModEngagementCaches } from "@/lib/mod-cache";
 import { createClient, ensureProfile, getCurrentUser } from "@/lib/supabase/server";
 
 const modSchema = z.object({
@@ -107,7 +107,7 @@ export async function toggleLikeAction(formData: FormData) {
 
   await syncLikeCount(modId);
 
-  revalidatePublicModCaches(modId);
+  revalidateModEngagementCaches(modId);
   revalidatePath("/");
   revalidatePath("/mods");
   revalidatePath(`/mods/${modId}`);
