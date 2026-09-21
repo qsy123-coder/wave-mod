@@ -1,23 +1,51 @@
 /**
  * 重新生成「迅雷网盘缺失清单.md」。
  * 数据源：库内 game_key=wuthering-waves 且 drive_links 不含「迅雷网盘」的 mod。
- * 角色聚合 + 明细 + 今日已完成（所有已补链接）。纯读库，不写库。
+ * 纯读库，不写库。
+ *
+ * 文件分两段，职责分离：
+ *   1. 数据段（本脚本生成）：表头统计 + 按角色汇总 + 完整明细。
+ *   2. 人工段（本脚本**原样保留**）：从 MANUAL_MARKER 起往下的补录记录 / 说明。
+ * 早期版本把「更新日期 + 今日已完成 + 待确认」也写死在脚本里，结果 2026-09-09 那轮的
+ * 文案会在每次重跑时覆盖人工维护的记录（还会把已补齐的条目重新写成"仍缺"），
+ * 故改为只认标记、以下不动。
+ *
+ * 用法：
+ *   node scripts/emit-missing-xunlei-doc.mjs           # dry-run，写 xxx.preview.md
+ *   node scripts/emit-missing-xunlei-doc.mjs --apply    # 覆盖正式文档
+ *
+ * 走 psql 直连（不是 supabase-js），所以 REST 网关被配额锁死时也能生成。
  */
-import { createClient } from "@supabase/supabase-js";
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { config } from "dotenv";
+
+import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
 const GAME_KEY = "wuthering-waves";
 const OUT = "D:/BaiduNetdiskDownload/WaveMod/迅雷网盘缺失清单.md";
-const TODAY = "2026-09-09";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim();
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+/** dry-run 时写这里，绝不动 OUT —— OUT 里有人工逐次维护的叙述段落 */
+const PREVIEW = "D:/BaiduNetdiskDownload/WaveMod/迅雷网盘缺失清单.preview.md";
+
+/**
+ * 人工段的边界标记。此段（含）以下内容脚本原样保留、不重写；
+ * 要记补录就打开文档往这段里加，不需要动脚本。
+ */
+const MANUAL_MARKER = "<!-- 以下为人工维护段落（补录记录 / 说明），脚本不改写 -->";
+
+// 站点口径统一用上海时区（与上传脚本、备份脚本一致）
+const TODAY = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+
+const cliArgs = process.argv.slice(2);
+const isApply = cliArgs.includes("--apply");
+
+// 直连 Postgres(5432) 而不是 supabase-js：超出口配额时 REST 网关一律回
+// 402(exceed_egress_quota)，这条链路不受影响。实现见 scripts/psql-db.mjs。
+requireDatabaseUrl();
 
 // 归一：把库内角色变体映射回标准分类（与前端 CHARACTER_ALIASES 一致）
 const ALIASES = {
@@ -30,17 +58,37 @@ const normChar = (c) => ALIASES[(c || "").trim()] || (c || "").trim();
 
 const hasXl = (links) => Array.isArray(links) && links.some((d) => String(d.platform || "").includes("迅雷"));
 
-const db = [];
-let from = 0; const PAGE = 1000;
-while (true) {
-  const { data, error } = await supabase.from("mods")
-    .select("id, title, character, drive_links, created_at")
-    .eq("game_key", GAME_KEY).range(from, from + PAGE - 1);
-  if (error) { console.error("❌", error.message); process.exit(1); }
-  if (!data || !data.length) break;
-  db.push(...data);
-  if (data.length < PAGE) break;
-  from += PAGE;
+/**
+ * 从既有文档里切出人工段。没有可识别的人工段时返回 null。
+ * 标记是 2026-09-21 引入的，此前的文档以「## 补录记录 / ## 今日已完成」开头，
+ * 这里一并兼容，并顺手补上标记，下一次就按标记识别。
+ */
+function extractManualSection(existing) {
+  if (!existing) return null;
+  const at = existing.indexOf(MANUAL_MARKER);
+  if (at >= 0) return existing.slice(at);
+  const legacy = /^##[ \t]*(补录记录|今日已完成)[ \t]*$/m.exec(existing);
+  if (legacy) return `${MANUAL_MARKER}\n${existing.slice(legacy.index)}`;
+  return null;
+}
+
+// 一次取回全表（当前约 5200 行）。结果由 psql -o 落盘再读回，不走 stdout——
+// 多字节中文在 stdout 上会被切在 chunk 边界，静默乱码。
+const db = await psqlJson(`
+select coalesce(json_agg(json_build_object(
+  'id', id,
+  'title', title,
+  'character', character,
+  'drive_links', drive_links,
+  'created_at', created_at
+)), '[]'::json)::text
+from mods
+where game_key = ${dollarQuote(GAME_KEY)};
+`);
+
+if (!Array.isArray(db)) {
+  console.error("❌ 查询失败：psql 未返回数组");
+  process.exit(1);
 }
 
 const total = db.length;
@@ -56,21 +104,33 @@ for (const m of missing) {
 }
 const order = [...byChar.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], "zh-CN"));
 
-// 角色顺序：清宵、UI、爱弥斯、穗穗、女漂... 用出现过的固定顺序更友好，这里按数量倒序即可
+// 人工段：先读旧文档再决定能不能覆盖。文件存在却认不出人工段时，覆盖等于删记录 —— 中止。
+const existing = existsSync(OUT) ? readFileSync(OUT, "utf8") : "";
+const manual = extractManualSection(existing);
+if (isApply && existing && !manual) {
+  console.error(`❌ ${OUT} 已存在，但认不出人工维护段（既无标记也无「## 补录记录」标题）。`);
+  console.error("   覆盖会连人工记录一起删掉，已中止。确认无误就手工加一行：");
+  console.error(`   ${MANUAL_MARKER}`);
+  process.exit(1);
+}
+
 const lines = [];
 lines.push("# 迅雷网盘缺失链接清单\n");
-lines.push(`> 更新：${TODAY}（本日补入 45 条每日更新 + 12 条旧版本迅雷链接 + 5 条违规改名重传；缺失 63 → 1）`);
-lines.push(`> 范围：WaveMod 库内 \`game_key = wuthering-waves\` 且 \`drive_links\` 中**不含**「迅雷网盘」的 mod。`);
-lines.push(`> 库内 mod 总数：**${total}** ｜ 已有迅雷链接：**${has}** ｜ **缺失：${missing.length}**\n`);
+lines.push(`> 更新：${TODAY}（脚本重生成：总数 **${total}** ｜ 已有迅雷 **${has}** ｜ **缺失 ${missing.length}**）`);
+lines.push(`> 范围：WaveMod 库内 \`game_key = wuthering-waves\` 且 \`drive_links\` 中**不含**「迅雷网盘」的 mod。\n`);
 lines.push("---\n");
 lines.push("## 按角色汇总\n");
 lines.push("| 角色 | 缺失数 |");
 lines.push("| --- | --- |");
+if (order.length === 0) lines.push("| （无） | 0 |");
 for (const [c, arr] of order) lines.push(`| ${c} | ${arr.length} |`);
 lines.push("\n---\n");
 lines.push("## 完整明细\n");
 lines.push("> 格式：`[角色] 标题`\n");
 
+if (order.length === 0) {
+  lines.push("（无缺失项：全库 mod 均已挂迅雷链接）\n");
+}
 for (const [c, arr] of order) {
   lines.push(`### ${c}（${arr.length}）\n`);
   const sorted = [...arr].sort((a, b) => a.localeCompare(b, "zh-CN"));
@@ -78,23 +138,19 @@ for (const [c, arr] of order) {
   lines.push("");
 }
 
-lines.push("---\n");
-lines.push("## 今日已完成\n");
-lines.push("1. **补入 45 条每日更新迅雷链接**（`A_每日更新` 各日期文件夹的 `分享结果导出-*.xlsx`，均精确命中）。");
-lines.push("2. **补入 12 条旧版本迅雷链接**（批量导出命中）：Starlight Fox、Thicc Aemeath、渊武-重奏、露西-编队图片-动画、女漂-渡鸦礼服、武器-HK416、清宵-曲线优美、极霸剑×2（清宵背后剑 / 清宵专武）、坎特蕾拉/卡提希娅/菲比全ui-动态nsfw。");
-lines.push("3. **修正 2 个错误角色分类**：`千咲皮肤[蜜桃冰]` → `千咲`；`科考摩托` → `滑翔翼,翱翔翼,科考摩托`。");
-lines.push("4. **修正 5 条丢失角色前缀的 UI 标题**：`全ui-动态nsfw-v*` → `{角色}全ui-动态nsfw-v*`（露帕、男女漂、卡提希娅、菲比、坎特蕾拉）。");
-lines.push("5. 缺迅雷总数由 **63 → 6**。");
-lines.push("6. **补入 5 条违规改名重传的迅雷链接**（原 NSFW 标题被迅雷判违规，重传为规避词：");
-lines.push("   `早乙女优华→早已楠优化`、`脱衣舞娘→托伊舞娘`、`堕天使→惰天师`、`绛雨/雨洗双锋→降雨/雨溪双风`、`蓝色蝴蝶→兰瑟胡蝶`），");
-lines.push("   已从 `Desktop\\违规\\分享结果导出-1788960803031.xlsx` 解析并写入库。");
-lines.push("7. 缺迅雷总数进一步由 **6 → 1**。\n");
-lines.push("## 待确认 / 说明\n");
-lines.push("1. **仅剩 1 条**：`爱弥斯-小爱居家服`（`小爱居家服 Aemeath pajamas NSFW`，角色 `爱弥斯`）在全部 64 份迅雷导出中均无分享记录，且当前库内仅挂「百度网盘 + 夸克网盘」。因其原名未被迅雷判违规、未进入 `Desktop\\违规` 重传批次，故仍无迅雷链接。需人工在迅雷网盘提供对应分享链接，或确认其仅存在于百度/夸克。");
-lines.push("2. `极霸剑` 两条的分配（清宵→背后的剑，武器→专武）与 `武器-HK416`（地图实为 `琳奈专武` 前缀）是基于标题正文的推断，如需调整请告知。");
+if (manual) {
+  // 这里只补一个空元素：上面的元素自身多以 \n 结尾，再多推一个会连出两个空行
+  lines.push("---", "", manual.trimEnd());
+}
 
-writeFileSync(OUT, lines.join("\n"), "utf8");
-console.log(`📄 已写入: ${OUT}`);
+const target = isApply ? OUT : PREVIEW;
+const text = lines.join("\n");
+writeFileSync(target, text.endsWith("\n") ? text : `${text}\n`, "utf8");
+console.log(`📄 已写入: ${target}`);
+if (!isApply) {
+  console.log("🔍 DRY-RUN：写的是 preview 文件，正式文档未改动。核对后加 --apply。");
+}
 console.log(`   总数 ${total} | 有迅雷 ${has} | 缺 ${missing.length}`);
-console.log("\n===== 缺失明细（按角色） =====");
+console.log(`   人工段：${manual ? `已保留 ${manual.split("\n").length} 行` : "（旧文档里没有，生成的是纯数据段）"}`);
+console.log("===== 缺失明细（按角色） =====");
 for (const [c, arr] of order) console.log(`  [${c}] ${arr.length}`);
