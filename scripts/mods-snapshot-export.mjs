@@ -40,6 +40,22 @@ export const SNAPSHOT_CONTENT_TYPE = "application/gzip";
 export const SNAPSHOT_MIN_RATIO = 0.9;
 
 /**
+ * 单次导出的墙钟上限与重试次数。
+ *
+ * 全量快照是**一个** 5MB 上下的 JSON 值、由 psql 一次性落盘，所以在慢链路上
+ * 「慢」与「挂死」在外部看起来一模一样（都是几十分钟没输出）。这里给一次上限，
+ * 超时就当失败重试（只读 select，重来一遍没有副作用），总预算 2×15min 有界，
+ * 比「无限期挂着、谁也说不清卡在哪」强。
+ *
+ * 上限取 15 分钟而不是几分钟：2026-09-21 在本机实测，这条到 Supabase pooler 的
+ * 链路差的时候只有 ~11KB/s（265KB 的查询要 24s），5MB 导出要 7 分钟以上 ——
+ * 而本地每日上传脚本走的就是这条路径，导出失败就意味着「网关被锁期间新内容看不见」，
+ * 正是这套兜底快照机制存在的理由。CI（GitHub runner）链路快得多，且 job 上限 120 分钟。
+ */
+export const SNAPSHOT_EXPORT_TIMEOUT_MS = 900_000;
+export const SNAPSHOT_EXPORT_ATTEMPTS = 2;
+
+/**
  * 归一化 psql 原始输出的**行尾**：`\r\n` → `\n`（只处理结尾那一处）。
  *
  * Windows 的 psql 用文本模式写 `-o` 文件，会把结尾的 `\n` 落成 `\r\n`；Linux（CI）
@@ -129,6 +145,8 @@ function readPrevSnapshot(outPath) {
  * @param {string} input.rawPath     中间产物（psql 原始输出）落盘位置，**必须是独立于 outPath 的临时路径**
  * @param {string} [input.psqlPath]  覆盖 psql 可执行文件路径
  * @param {number} [input.minRatio]
+ * @param {number} [input.timeoutMs] 单次导出的墙钟上限（见 SNAPSHOT_EXPORT_TIMEOUT_MS）
+ * @param {number} [input.attempts]  失败重试次数（含首次）
  * @param {(rows: unknown[]) => Promise<void>} [input.validate] 写出后的一致性校验（如 assertSnapshotMirrorsDb）
  * @returns {Promise<{count: number, changed: boolean, gzipBytes: number, body: Buffer, rows: unknown[]}>}
  *   body 就是**该发到 COS 的那份字节**（changed=false 时即磁盘上已有的那份），调用方无需回读文件。
@@ -140,6 +158,8 @@ export async function exportModsSnapshot({
   rawPath,
   psqlPath,
   minRatio = SNAPSHOT_MIN_RATIO,
+  timeoutMs = SNAPSHOT_EXPORT_TIMEOUT_MS,
+  attempts = SNAPSHOT_EXPORT_ATTEMPTS,
   validate,
   log = console.log,
 }) {
@@ -153,7 +173,24 @@ export async function exportModsSnapshot({
     throw new Error("exportModsSnapshot 的 rawPath 必须是独立于 outPath 的临时路径");
   }
 
-  await psqlToFile({ databaseUrl, outPath: rawPath, sqlPath, psqlPath });
+  // 失败重试：慢链路下单次导出随时可能被截断/黑洞掉，而这只是一次只读 select，
+  // 重来一遍没有任何副作用（psqlToFile 每次都会先删掉 rawPath，不会留下半截文件）。
+  let lastError;
+  for (let attempt = 1; attempt <= Math.max(1, attempts); attempt += 1) {
+    try {
+      await psqlToFile({ databaseUrl, outPath: rawPath, sqlPath, psqlPath, timeoutMs });
+      lastError = null;
+      break;
+    } catch (err) {
+      lastError = err;
+      if (attempt < attempts) {
+        log(`⚠️  第 ${attempt}/${attempts} 次导出失败：${err.message}，重试 ...`);
+      }
+    }
+  }
+  if (lastError) {
+    throw new Error(`导出快照连续失败 ${attempts} 次，最后一次：${lastError.message}`);
+  }
 
   // 归一化行尾后再比对与 gzip：本地（Windows psql 文本模式 → \r\n）与 CI（\n）
   // 必须产出同一份字节，否则 unchanged 判定在本地永远不成立。

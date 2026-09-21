@@ -79,22 +79,37 @@ function tempDir() {
   return tempRoot;
 }
 
-function runPsql(args, env, psqlOverride) {
+function runPsql(args, env, psqlOverride, timeoutMs = 0) {
   const psqlPath = resolvePsqlPath(psqlOverride);
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(psqlPath, args, { env, shell: false, stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
+    // 墙钟超时：连接被中途黑洞掉（丢包但没有 RST）时 psql 会一直等下去，
+    // 而 -o 的输出要等整个查询结束才落盘 ⇒ 外部看到的是「永远没反应也没有报错」。
+    // 失败比挂着好：调用方还能重试。
+    let timedOut = false;
+    const killer =
+      timeoutMs > 0
+        ? setTimeout(() => {
+            timedOut = true;
+            child.kill();
+          }, timeoutMs)
+        : null;
+
     child.stderr?.on("data", (chunk) => (stderr += chunk));
     child.stdout?.resume(); // 结果已由 -o 落盘，stdout 丢弃即可
-    child.on("error", (err) =>
+    child.on("error", (err) => {
+      if (killer) clearTimeout(killer);
       rejectPromise(
         err.code === "ENOENT"
           ? new Error(`找不到 psql（${psqlPath}）。装 PostgreSQL 或设 PG_PSQL_PATH 指向可执行文件。`)
           : err
-      )
-    );
+      );
+    });
     child.on("close", (code) => {
-      if (code === 0) resolvePromise();
+      if (killer) clearTimeout(killer);
+      if (timedOut) rejectPromise(new Error(`psql 超时（超过 ${timeoutMs / 1000}s 未返回），已终止`));
+      else if (code === 0) resolvePromise();
       else rejectPromise(new Error(`psql 退出码 ${code}: ${stderr.trim() || "(无 stderr)"}`));
     });
   });
@@ -152,9 +167,11 @@ export async function psqlJson(sqlText) {
  * （是否继续、退出码是几由调用方决定），exit 会把控制权从这里夺走。
  * CLI 需要「缺了就退出」的语义时用 requireDatabaseUrl()。
  *
+ * @param {number} [input.timeoutMs] 墙钟上限；超时杀掉 psql 并抛错（0 = 不限制）。
+ *   只用在大导出上：连接被黑洞掉时它会无限期挂着，而挂着比失败更难处理。
  * @returns {Promise<string>} outPath
  */
-export async function psqlToFile({ databaseUrl, outPath, sqlPath, sqlText, psqlPath }) {
+export async function psqlToFile({ databaseUrl, outPath, sqlPath, sqlText, psqlPath, timeoutMs = 0 }) {
   const url = databaseUrl?.trim();
   if (!url) {
     throw new Error("psqlToFile 需要 databaseUrl（Supabase 直连串，5432 pooler）");
@@ -175,7 +192,8 @@ export async function psqlToFile({ databaseUrl, outPath, sqlPath, sqlText, psqlP
   await runPsql(
     ["-h", host, "-p", port, "-U", user, "-d", dbName, "-q", "-t", "-A", "-v", "ON_ERROR_STOP=1", "-o", outPath, "-f", effectiveSqlPath],
     env,
-    psqlPath
+    psqlPath,
+    timeoutMs
   );
 
   if (!existsSync(outPath)) {
