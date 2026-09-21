@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import type { MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
+import { isCurrentNavigationUrl } from "@/lib/navigation-url";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -74,17 +75,23 @@ export function ModsToolbar({
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // 立即骨架屏 + 筛选条显示搜索词
-    onFilterChange?.();
     const nextQuery = query.trim();
-    setSubmittedQuery(nextQuery);
     const params = new URLSearchParams();
     if (nextQuery) params.set("query", nextQuery);
     // 保留当前角色 / 排序上下文，避免在角色分类页搜索时跳出该分类
     if (activeCharacter) params.set("character", activeCharacter);
     if (sort !== "latest") params.set("sort", sort);
     const qs = params.toString();
-    router.push(qs ? `${gameModsPath}?${qs}` : gameModsPath);
+    const href = qs ? `${gameModsPath}?${qs}` : gameModsPath;
+
+    // 重复提交同一个搜索词 = 原地踏步：push 同 URL 不会让 props 变化，骨架屏会一直亮着
+    // （理由见 navigation-url.ts）。此时筛选条已经显示着这个词，直接返回即可。
+    if (isCurrentNavigationUrl(href)) return;
+
+    // 立即骨架屏 + 筛选条显示搜索词
+    onFilterChange?.();
+    setSubmittedQuery(nextQuery);
+    router.push(href);
   };
 
   const handleFilterSelect = (key: string) => {
@@ -100,7 +107,9 @@ export function ModsToolbar({
   const handleSortSelect = (value: string) => {
     setLocalSort(value);
     const href = sortHrefs[value];
-    if (href) {
+    // 选中当前已在用的排序同样是原地踏步：同 URL 短路；链接里显式写了默认值
+    // （如 ?sort=latest）时 URL 不同但服务端解析结果相同，用 value !== sort 兜住。
+    if (href && value !== sort && !isCurrentNavigationUrl(href)) {
       onFilterChange?.();
       router.push(href);
     }
