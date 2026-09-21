@@ -14,13 +14,14 @@
  *                                                      # 只处理指定日期目录（其余目录跳过）
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, basename, extname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { config } from "dotenv";
 import COS from "cos-nodejs-sdk-v5";
 import sharp from "sharp";
+
+import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
@@ -133,18 +134,25 @@ const CHARACTER_ALIASES = {
 /** 前缀 → UI 分类（如「索拉指南-长离动态nsfw」整包皮肤归 UI，title 去前缀） */
 const UI_PREFIXES = ["索拉指南"];
 
-// ==================== Supabase Client ====================
+/**
+ * 「爱弥斯的机甲」「爱弥斯大招」整包 → 独立分类「爱弥斯的机甲」，**title 保留完整 key**。
+ *
+ * 该分类由用户于 2026-09-20 明确要求新建（突破 CLAUDE.md「不得新增 character 值」的默认约束）。
+ * title 保留完整 key 的理由：upload-fifth.mjs 当年就是以 keepFull 方式把「爱弥斯的机甲-*」
+ * 归到 爱弥斯 的，库内 3 条先例（丰汝肥屯 by slap / 赦罪者大卡v2 / 时韵大卡-守岸人光辉头v4）
+ * 的 title 同样带前缀，沿用可保持一致。
+ *
+ * `爱弥斯大招` 单列一条：`爱弥斯大招的隧者-Aion by ZelbertYQ`（W-2026.9.20）若走默认分支，
+ * 会被 `key.split(/[-－]/)[0]` 切成站内不存在的假分类「爱弥斯大招的隧者」。
+ */
+const AEMEATH_MECH_PREFIXES = ["爱弥斯的机甲", "爱弥斯大招"];
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim();
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-if (!supabaseUrl || !serviceRoleKey) {
-  console.error("❌ 缺少 Supabase 环境变量");
-  process.exit(1);
-}
-const supabase = createClient(supabaseUrl, serviceRoleKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+// ==================== 数据库连接 ====================
+
+// 直连 Postgres(5432 pooler) 而不是 supabase-js：Supabase 出口配额超限时
+// REST 网关一律回 402(exceed_egress_quota)，这条链路不受影响，且不烧出口流量。
+// 与 backup-to-github.mjs 的兜底快照导出同源，实现见 scripts/psql-db.mjs。
+requireDatabaseUrl();
 
 // ==================== COS Client ====================
 
@@ -289,6 +297,12 @@ function resolveCharacterAndTitle(key) {
   if (key.startsWith("尤诺的月环")) {
     return { character: "尤诺", title: key.slice("尤诺".length) };
   }
+  // 独立分类：爱弥斯的机甲 / 爱弥斯大招 → 「爱弥斯的机甲」，title 保留完整 key
+  for (const p of AEMEATH_MECH_PREFIXES) {
+    if (key.startsWith(p)) {
+      return { character: "爱弥斯的机甲", title: key };
+    }
+  }
   // UI 类：整包 UI（<角色>全ui / 编队界面 / 编队图片），title 保留完整 key
   if (UI_FULL_KEY_RE.test(key)) {
     return { character: "UI", title: key };
@@ -388,6 +402,65 @@ function noonShanghaiISO({ y, m, d }) {
   return `${padded}T04:00:00.000Z`;
 }
 
+// ==================== 入库 SQL 生成 ====================
+
+/** 与 results 里的字段一一对应；其余列（计数器、updated_at 等）交给库表默认值 */
+const INSERT_COLUMNS = [
+  "id",
+  "title",
+  "character",
+  "game_key",
+  "game_version",
+  "version",
+  "description",
+  "download_url",
+  "drive_links",
+  "nsfw",
+  "is_published",
+  "is_available",
+  "images",
+  "xxmi_install_guide",
+  "mod_author_url",
+  "video_url",
+  "created_by",
+  "created_at",
+];
+
+/**
+ * 把一批记录编成一条 insert 语句。
+ *
+ * 用 jsonb_populate_recordset(null::mods, ...) 让 Postgres 按 mods 的真实列类型
+ * 自己解析 JSON —— text[]、jsonb、timestamptz、boolean 都不必在这里手写转义，
+ * 也就不怕标题里的引号 / 反斜杠 / 换行把 SQL 拼坏。
+ *
+ * where not exists 是第二道去重：上游已用 existingSet 跳过重复，这里再兜一次，
+ * 防止脚本重跑或两次运行撞车时插出双份。
+ */
+function buildInsertSql(batch) {
+  const columnList = INSERT_COLUMNS.join(", ");
+  const selectList = INSERT_COLUMNS.map((column) => `j.${column}`).join(", ");
+
+  return `
+with incoming as (
+  select * from jsonb_populate_recordset(null::mods, ${dollarQuote(JSON.stringify(batch))}::jsonb)
+),
+ins as (
+  insert into mods (${columnList})
+  select ${selectList}
+  from incoming j
+  where not exists (
+    select 1
+    from mods m
+    where m.game_key = j.game_key
+      and m.character = j.character
+      and m.title = j.title
+  )
+  returning 1
+)
+select json_build_object('inserted', (select count(*) from ins))::text;
+`;
+}
+
 // ==================== 主流程 ====================
 
 async function main() {
@@ -419,23 +492,21 @@ async function main() {
   console.log(`📁 待处理 ${dirEntries.length} 个日期子目录: ${dirEntries.map((d) => d.name).join(", ")}\n`);
 
   // 2. 查询现有记录用于去重（character|title）
-  const existing = [];
-  const PAGE_SIZE = 1000;
-  let pageFrom = 0;
-  while (true) {
-    const { data, error: existingErr } = await supabase
-      .from("mods")
-      .select("title, character")
-      .eq("game_key", GAME_KEY)
-      .range(pageFrom, pageFrom + PAGE_SIZE - 1);
-    if (existingErr) {
-      console.error("❌ 查询现有记录失败:", existingErr.message);
-      process.exit(1);
-    }
-    if (!data || data.length === 0) break;
-    existing.push(...data);
-    if (data.length < PAGE_SIZE) break;
-    pageFrom += PAGE_SIZE;
+  //
+  // 一次查询拿全量、在 SQL 里聚成 JSON，而不是原来的分页 1000 条翻页：
+  // 这一步发生在传图之前，任何一次失败都会让整批 mod 连图片都传不上去。
+  const existing = await psqlJson(`
+select coalesce(
+  json_agg(json_build_object('title', title, 'character', character)),
+  '[]'::json
+)::text
+from mods
+where game_key = ${dollarQuote(GAME_KEY)};
+`);
+
+  if (!Array.isArray(existing)) {
+    console.error("❌ 查询现有记录失败：psql 未返回数组");
+    process.exit(1);
   }
   const existingSet = new Set(existing.map((m) => dedupKey(m.character, m.title)));
   console.log(`🗄  现有 mod 记录: ${existing.length}\n`);
@@ -587,14 +658,17 @@ async function main() {
     const batch = results.slice(i, i + BATCH_SIZE);
     const batchNum = Math.floor(i / BATCH_SIZE) + 1;
     const totalBatches = Math.ceil(results.length / BATCH_SIZE);
-    const { data, error } = await supabase.from("mods").insert(batch).select("id, title");
-    if (error) {
-      console.error(`   ❌ 批次 ${batchNum}/${totalBatches} 失败: ${error.message}`);
+    try {
+      const outcome = await psqlJson(buildInsertSql(batch));
+      const written = Number(outcome?.inserted ?? 0);
+      inserted += written;
+      const skipped = batch.length - written;
+      console.log(`   ✅ 批次 ${batchNum}/${totalBatches}: 写入 ${written} 条${skipped > 0 ? `，去重跳过 ${skipped} 条` : ""}`);
+    } catch (err) {
+      console.error(`   ❌ 批次 ${batchNum}/${totalBatches} 失败: ${err.message}`);
       failed += batch.length;
       continue;
     }
-    inserted += data.length;
-    console.log(`   ✅ 批次 ${batchNum}/${totalBatches}: ${data.length} 条`);
   }
 
   const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
