@@ -1,11 +1,18 @@
 /**
- * 上传「A_每日更新」按日期子目录批次 Mod：夸克 CSV + 预览图 → 腾讯云 COS + Supabase。
+ * 上传「A_每日更新」按日期子目录批次 Mod：各网盘导出 + 预览图 → 腾讯云 COS + Supabase。
  *
  * 与 upload-a-daily.mjs 的区别：
  *   1. 数据组织为日期子目录 W-YYYY.M.D（每目录一个 CSV + exe + 预览图；
  *      预览图在顶层或「预览图」子目录）。
  *   2. 每条记录显式设置 created_at = 该目录日期中午(上海时区)，保证每日更新页
  *      按 9.4 / 9.5 / 9.6 分组，而不会全部落到"今天"。
+ *   3. **一键吃下当天所有网盘**：目录里有什么盘就写什么盘，不再分两个脚本跑。
+ *      · `分享结果导出-*.csv`  → 夸克（parseQuarkCsv，主盘，恒有）
+ *      · `分享结果导出-*.xlsx` → 迅雷（loadXunleiIndex）
+ *      此前迅雷要靠 apply-daily-xunlei-by-date.mjs 补第二遍，漏跑一次就整批没有
+ *      （2026-09-22 即如此），所以并进来：两边都按 exe 文件名直接 join，
+ *      不需要按 (character, title) 反解，也就绕开了「前缀表两处维护」那个坑。
+ *      若某天仍有记录在入库后才发现迅雷链接（比如重跑），收尾会列出清单并指路。
  *
  * 用法:
  *   node scripts/upload-daily-by-date.mjs --dry-run   # 只解析 + 匹配 + 转 WebP，不上传不入库
@@ -14,9 +21,10 @@
  *                                                      # 只处理指定日期目录（其余目录跳过）
  */
 
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, basename, extname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { config } from "dotenv";
 import COS from "cos-nodejs-sdk-v5";
@@ -106,6 +114,13 @@ const CHARACTER_PREFIX_MAP = [
   // 仅 2026-09-12 / 09-16 两条保留前缀——那是加进本表前入库的遗留。
   // 补进来后统一剥离，与主流写法对齐；dedupKey 会把已有前缀式记录归一化，不会重复入库。
   { prefix: "绯雪", character: "绯雪" },
+  // 丽贝卡：库内 16 条 title **无一**带「丽贝卡-」前缀（`丽贝卡 | 丰汝肥屯 by big aingsa`、
+  // `丽贝卡 | 原版切换v1.0（0） by 晨星`）。不加这条，W-2026.9.22 的
+  // `丽贝卡-洁薇塔（90）by woju` 会落默认分支，title 原样留下冗余前缀，与惯例不符。
+  { prefix: "丽贝卡", character: "丽贝卡" },
+  // 奥古斯塔：库内 144 条中仅 2 条带前缀（且其中一条是错别字「奥古斯特-多种发型」），
+  // 其余 142 条均为剥离写法（`奥古斯塔 | 北极风暴`、`奥古斯塔 | 爱琴海 by 辉映星辰允如光`）。
+  { prefix: "奥古斯塔", character: "奥古斯塔" },
 ];
 
 /**
@@ -271,6 +286,85 @@ function parseQuarkCsv(filePath) {
     i++;
   }
   return records;
+}
+
+// ==================== 迅雷分享导出（同一日期目录里的 .xlsx） ====================
+
+/**
+ * 去掉分享名末尾的「重名后缀」`(1)` / `（2）`。
+ *
+ * 迅雷上传同名文件时会自动改名追加 `(N)`，而库内 title 取自夸克侧本名，
+ * 两边文件名于是对不上（实例：`丽贝卡-洁薇塔（90）by woju(1).exe`）。
+ * 只认行尾这一个后缀，`小卡-校园JK2.0（内附切换）` 这类名字里的括号不受影响。
+ */
+function stripRenameSuffix(key) {
+  return String(key).replace(/[(（]\d+[)）]$/, "").trim();
+}
+
+/**
+ * 扫描 BASE 下各日期目录里的迅雷分享导出（`分享结果导出-*.xlsx`），
+ * 返回 Map<日期目录名, { index: Map<去 .exe 的分享名, { link, pwd }>, exported: number }>。
+ * `exported` 是该目录导出的**原始条数**：index 里可能因为重名后缀别名而比它多，
+ * 覆盖表要拿它当分母，否则别名会让「导出条数」虚高、误报漏盘。
+ *
+ * 为什么调 scripts/parse-daily-xunlei-xlsx.ps1 而不是在 Node 里解 xlsx：
+ * 项目没声明任何 zip 依赖（`jszip` 实际已解析不到，scripts/parse-daily-xunlei.mjs
+ * 目前跑不起来；`fast-xml-parser` 只是传递依赖），而 CLAUDE.md 禁止引入未声明的库。
+ * 该 ps1 是 ASCII-only 源码 + 路径走参数，正是为了躲开 5.1 的 ANSI 代码页坑，
+ * 且已被 9 天批次验证过。
+ *
+ * 失败一律降级成「今天没有迅雷链接」而不是抛错：迅雷是附加盘，解析不了不该
+ * 把当天整批 mod（连带夸克链接和预览图）一起卡死。
+ */
+function loadXunleiIndex() {
+  const outPath = join(tmpdir(), `wavemod-xunlei-${randomUUID()}.json`);
+  const ps1 = resolve(process.cwd(), "scripts/parse-daily-xunlei-xlsx.ps1");
+  try {
+    const res = spawnSync(
+      "powershell",
+      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ps1, "-Root", BASE, "-OutJson", outPath],
+      { encoding: "utf8" }
+    );
+    if (res.status !== 0) {
+      console.warn(`⚠️  迅雷导出解析失败（退出码 ${res.status}），本次只写夸克链接`);
+      const detail = res.stderr?.trim() || res.stdout?.trim();
+      if (detail) console.warn(`   ${detail.split(/\r?\n/).slice(0, 3).join(" | ")}`);
+      return new Map();
+    }
+
+    const rows = JSON.parse(readFileSync(outPath, "utf8"));
+    const byDay = new Map();
+    for (const r of rows) {
+      const link = String(r.link ?? "").trim();
+      if (!link.startsWith("http")) continue; // 表头行
+      const key = String(r.name ?? "").replace(/\.exe$/i, "").trim();
+      if (!key) continue;
+      if (!byDay.has(r.day)) byDay.set(r.day, { index: new Map(), exported: 0 });
+      const day = byDay.get(r.day);
+      day.exported++;
+      const entry = { link, pwd: r.pwd || "" };
+      // 同一天同名只可能是重复导出，后写入的覆盖前者即可
+      day.index.set(key, entry);
+      // 迅雷侧带重名后缀时（`丽贝卡-洁薇塔（90）by woju(1)`），CSV 侧的本名是干净的，
+      // 反向查不到 —— 所以额外用「去过后缀的名字」也登记一份。
+      // 只在那个槽位还空着时登记：真有两个不同文件恰好剥出同名（`xx(1)` 与 `xx(2)`），
+      // 那属于歧义，宁可让它们查不到也不要随便顶上一条错的链接。
+      const stripped = stripRenameSuffix(key);
+      if (stripped !== key && !day.index.has(stripped)) day.index.set(stripped, entry);
+    }
+    return byDay;
+  } catch (err) {
+    console.warn(`⚠️  迅雷导出解析异常：${err.message}，本次只写夸克链接`);
+    return new Map();
+  } finally {
+    rmSync(outPath, { force: true });
+  }
+}
+
+/** 按 exe 文件名取迅雷链接；精确匹配落空再退一步去掉重名后缀 */
+function lookupXunlei(dayIndex, key) {
+  if (!dayIndex) return null;
+  return dayIndex.get(key) || dayIndex.get(stripRenameSuffix(key)) || null;
 }
 
 // ==================== 分类解析 ====================
@@ -500,9 +594,16 @@ async function main() {
   //
   // 一次查询拿全量、在 SQL 里聚成 JSON，而不是原来的分页 1000 条翻页：
   // 这一步发生在传图之前，任何一次失败都会让整批 mod 连图片都传不上去。
+  // xunlei 布尔列是为了收尾那声「已存在的记录拿到了迅雷链接」的提醒：不查这一列
+  // 的话，重跑时会把**已经补过**迅雷的记录也全列一遍，提醒立刻变成噪音。
+  // 用 jsonb 包含判断只回一个布尔，比把整列 drive_links 拉回来轻得多。
   const existing = await psqlJson(`
 select coalesce(
-  json_agg(json_build_object('title', title, 'character', character)),
+  json_agg(json_build_object(
+    'title', title,
+    'character', character,
+    'xunlei', coalesce(drive_links @> '[{"platform":"迅雷网盘"}]'::jsonb, false)
+  )),
   '[]'::json
 )::text
 from mods
@@ -514,7 +615,16 @@ where game_key = ${dollarQuote(GAME_KEY)};
     process.exit(1);
   }
   const existingSet = new Set(existing.map((m) => dedupKey(m.character, m.title)));
+  // 库内已经有迅雷链接的记录，用来过滤下面的回填提醒（只提醒真缺的那些）
+  const existingHasXunlei = new Set(
+    existing.filter((m) => m.xunlei).map((m) => dedupKey(m.character, m.title))
+  );
   console.log(`🗄  现有 mod 记录: ${existing.length}\n`);
+
+  // 2b. 迅雷分享导出（同日目录的 .xlsx）。解析失败时是空 Map，逐条只写夸克链接。
+  const xunleiIndex = loadXunleiIndex();
+  const xunleiTotal = [...xunleiIndex.values()].reduce((n, d) => n + d.exported, 0);
+  console.log(`⚡ 迅雷导出索引: ${xunleiIndex.size} 个日期目录 / ${xunleiTotal} 条\n`);
 
   // 3. 逐目录处理
   const results = [];
@@ -524,6 +634,11 @@ where game_key = ${dollarQuote(GAME_KEY)};
   let matchedImage = 0;
   let placeholder = 0;
   let skipDup = 0;
+  let xunleiAttached = 0;
+  // 每天 { 夸克条数, 迅雷条数, 迅雷导出条数 }，收尾时用来一眼看出哪天漏了盘
+  const driveCoverage = {};
+  // 已存在记录拿到的迅雷链接：本轮不写库（走的是 dedup 跳过分支），但必须让人知道
+  const xunleiBacklog = [];
 
   for (const dir of dirEntries) {
     const dirPath = join(BASE, dir.name);
@@ -556,12 +671,26 @@ where game_key = ${dollarQuote(GAME_KEY)};
     const imageMap = buildImageIndex(dirPath);
     console.log(`   预览图索引: ${imageMap.size} 个唯一 base`);
 
-    // 3d. 逐条处理
+    // 3d. 该目录的迅雷导出（可能没有：那就只有夸克一个盘）
+    const xunleiDay = xunleiIndex.get(dir.name) || null;
+    driveCoverage[dateLabel] = { quark: unique.length, xunlei: 0, xunleiExported: xunleiDay?.exported ?? 0 };
+    if (xunleiDay) console.log(`   迅雷导出: ${xunleiDay.exported} 条`);
+
+    // 3e. 逐条处理
     for (const record of unique) {
       const { character, title } = resolveCharacterAndTitle(record.key);
-      if (existingSet.has(dedupKey(character, title))) {
+      const xunlei = lookupXunlei(xunleiDay?.index, record.key);
+      // 覆盖表按「查到了链接」计数，不看这条最后有没有入库 —— 否则重跑（全被去重跳过）
+      // 会显示成「有导出但一条都没匹配上」，把正常的去重误报成漏盘。
+      if (xunlei) driveCoverage[dateLabel].xunlei++;
+
+      const dkey = dedupKey(character, title);
+      if (existingSet.has(dkey)) {
         skipDup++;
         skipDupKeys.push(`${dateLabel} · ${character} | ${title}`);
+        // 库内已有这条，本轮不会写库。只在「这次拿到了迅雷链接」且「库里那条还没有」
+        // 时才提醒 —— 否则每次都把已经补好的记录再列一遍，提醒就没人看了。
+        if (xunlei && !existingHasXunlei.has(dkey)) xunleiBacklog.push(`${dateLabel} · ${character} | ${title}`);
         continue;
       }
 
@@ -599,6 +728,13 @@ where game_key = ${dollarQuote(GAME_KEY)};
       if (!charCount[character]) charCount[character] = 0;
       charCount[character]++;
 
+      // 夸克恒有（来自 CSV）；迅雷有就一起写进去，免得事后还得跑第二个脚本补
+      const driveLinks = [{ platform: "夸克网盘", url: record.url }];
+      if (xunlei) {
+        driveLinks.push({ platform: "迅雷网盘", url: xunlei.link });
+        xunleiAttached++;
+      }
+
       results.push({
         id: modId,
         title,
@@ -606,9 +742,9 @@ where game_key = ${dollarQuote(GAME_KEY)};
         game_key: GAME_KEY,
         game_version: GAME_VERSION,
         version,
-        description: `${character} ${title} MOD，夸克网盘下载。`,
+        description: `${character} ${title} MOD，${driveLinks.map((d) => d.platform).join(" / ")}下载。`,
         download_url: null,
-        drive_links: [{ platform: "夸克网盘", url: record.url }],
+        drive_links: driveLinks,
         nsfw: false,
         is_published: true,
         is_available: true,
@@ -624,10 +760,32 @@ where game_key = ${dollarQuote(GAME_KEY)};
   }
 
   console.log(`\n✅ 匹配预览图: ${matchedImage}，占位图: ${placeholder}，去重跳过: ${skipDup}`);
+  console.log(`⚡ 附上迅雷链接: ${xunleiAttached} 条`);
+
+  // 网盘覆盖表：一个日期目录里认出了哪几个盘、实际挂上了几个。
+  // 「导出条数」与「挂上条数」不等就是漏网盘的前兆，所以单独标出来而不是只打总数。
+  const coverageRows = Object.entries(driveCoverage);
+  if (coverageRows.length) {
+    console.log("\n=== 网盘覆盖 ===");
+    for (const [day, c] of coverageRows) {
+      let flag = "";
+      if (c.xunleiExported === 0) flag = "  ⚠️ 该目录无迅雷导出（确认是否漏导出）";
+      else if (c.xunlei < c.xunleiExported) flag = `  ⚠️ 有 ${c.xunleiExported - c.xunlei} 条迅雷导出未匹配上`;
+      console.log(`   ${day}  夸克 ${c.quark} / 迅雷 ${c.xunlei}（导出 ${c.xunleiExported}）${flag}`);
+    }
+  }
 
   if (skipDupKeys.length) {
     console.log("\n⏭️  已存在跳过:");
     skipDupKeys.forEach((k) => console.log(`   - ${k}`));
+  }
+
+  // 这类记录本轮不写库（库内已有），迅雷链接不会自动补上——正是「漏了迅雷」的复发点，
+  // 所以单独指路，而不是混在「已存在跳过」里让人忽略。
+  if (xunleiBacklog.length) {
+    console.log(`\n⚠️  以下 ${xunleiBacklog.length} 条库内已存在，本次拿到的迅雷链接未写入:`);
+    xunleiBacklog.forEach((k) => console.log(`   - ${k}`));
+    console.log("   补链接请跑: node scripts/apply-daily-xunlei-by-date.mjs （默认 dry-run，加 --apply 写库）");
   }
 
   console.log(`\n=== 按分类汇总 (待上传 ${results.length} 条) ===`);
