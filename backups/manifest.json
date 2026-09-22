@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-21T14:09:33.148Z",
+  "generatedAt": "2026-09-22T08:06:52.308Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,10 +8,10 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20260921-140806.dump",
-    "sha256": "859e1b64f869f9a05c6fbaf64cfa780b288724ccad5e6e315da57b07c6d4bafb",
-    "sizeBytes": 685764,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260921-140806",
+    "file": "db/wavemod-20260922-080604.dump",
+    "sha256": "baa8a4fbdbdbe94e6a606bbc6678394a55d7c181a13395d3de50bc306728e0df",
+    "sizeBytes": 687259,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260922-080604",
     "tableCounts": {
       "mods": null,
       "profiles": null,
@@ -28,15 +28,15 @@
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5277,
-    "refreshedThisRun": true,
+    "publishedRows": 5285,
+    "refreshedThisRun": false,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 5432,
-    "totalBytes": 460198080,
-    "downloadedThisRun": 72,
+    "remoteCount": 5440,
+    "totalBytes": 460571122,
+    "downloadedThisRun": 10,
     "failedThisRun": 1,
     "failures": [
       {
@@ -7145,6 +7145,12 @@
         "etag": "\"8acf2b010627c5da1574fe90cd6b35c2\""
       },
       {
+        "key": "mods/丽贝卡/907af5f3-4637-4ccc-a943-310d5019630b/preview.webp",
+        "file": "images/mods/丽贝卡/907af5f3-4637-4ccc-a943-310d5019630b/preview.webp",
+        "size": 37818,
+        "etag": "\"b6badeba06fb40220137c52898d7ff94\""
+      },
+      {
         "key": "mods/丽贝卡/9730deb0-51c4-4972-b454-3f61b37ec0cb/preview.webp",
         "file": "images/mods/丽贝卡/9730deb0-51c4-4972-b454-3f61b37ec0cb/preview.webp",
         "size": 38534,
@@ -8055,6 +8061,12 @@
         "file": "images/mods/千咲/1b9168a6-d45f-4677-bb5c-4df94ae6ca24/preview.webp",
         "size": 56386,
         "etag": "\"42379eb4272f0be63b7607d9493fbaf6\""
+      },
+      {
+        "key": "mods/千咲/1ff425b3-f582-48cd-a6da-b4b59197a853/preview.webp",
+        "file": "images/mods/千咲/1ff425b3-f582-48cd-a6da-b4b59197a853/preview.webp",
+        "size": 45020,
+        "etag": "\"ea3edff9cae7ca4023eb451d4a7f27e3\""
       },
       {
         "key": "mods/千咲/204c3f56-f617-4c46-b60e-76c9fbd7f3ba/preview.webp",
@@ -9255,6 +9267,12 @@
         "file": "images/mods/卡提希娅/cbbcaa9d-2272-4e03-be78-3e6eb123b31b/preview.webp",
         "size": 31644,
         "etag": "\"3a736242bf8995fee0b7fe7b07ae9ce4\""
+      },
+      {
+        "key": "mods/卡提希娅/dd751fd1-605f-4a7b-9f1e-46defe6d7e04/preview.webp",
+        "file": "images/mods/卡提希娅/dd751fd1-605f-4a7b-9f1e-46defe6d7e04/preview.webp",
+        "size": 32932,
+        "etag": "\"f750dddcaf4a568f8534a6a7d5d2b329\""
       },
       {
         "key": "mods/卡提希娅/e1cac3f9-873d-45f6-9301-5cc0d4ac3855/preview.webp",
@@ -12537,6 +12555,12 @@
         "file": "images/mods/奥古斯塔/a74541ae-8c30-4d86-9be2-ae0d2f78d6c6/preview.webp",
         "size": 74434,
         "etag": "\"8aa9f9b211a2c3ccfd7cdc9d57d1bad3\""
+      },
+      {
+        "key": "mods/奥古斯塔/a8f7a3b1-2dcf-4ad6-92c1-70edc514b5cc/preview.webp",
+        "file": "images/mods/奥古斯塔/a8f7a3b1-2dcf-4ad6-92c1-70edc514b5cc/preview.webp",
+        "size": 61762,
+        "etag": "\"e2c5992180244c54e1ca96218e03fd82\""
       },
       {
         "key": "mods/奥古斯塔/a8fb4a8c-0217-4923-95cc-839099481ed8/preview.webp",
@@ -17717,6 +17741,12 @@
         "etag": "\"cbbdd075304e1ee68d7ff40a81778a5a\""
       },
       {
+        "key": "mods/景燃/4555d1bb-5b4f-4524-af13-f45ac06a3670/preview.webp",
+        "file": "images/mods/景燃/4555d1bb-5b4f-4524-af13-f45ac06a3670/preview.webp",
+        "size": 45584,
+        "etag": "\"8ea5686adb14f31c8dda5a3a4da552ab\""
+      },
+      {
         "key": "mods/景燃/b06ee5e0-208e-47b3-adf5-05230b7687fe/preview.webp",
         "file": "images/mods/景燃/b06ee5e0-208e-47b3-adf5-05230b7687fe/preview.webp",
         "size": 49144,
@@ -18347,6 +18377,12 @@
         "etag": "\"7c515342ba8e0a2900b8a14db98ea402\""
       },
       {
+        "key": "mods/清宵/041e306e-c3e5-4a89-8aa3-a2ad2cf25b8a/preview.webp",
+        "file": "images/mods/清宵/041e306e-c3e5-4a89-8aa3-a2ad2cf25b8a/preview.webp",
+        "size": 43278,
+        "etag": "\"d2465c6ceeb5b742039bf26b7f6ea099\""
+      },
+      {
         "key": "mods/清宵/0d90021e-6e92-4b4d-828a-de39b8f0f8cc/preview.webp",
         "file": "images/mods/清宵/0d90021e-6e92-4b4d-828a-de39b8f0f8cc/preview.webp",
         "size": 49154,
@@ -18597,6 +18633,12 @@
         "file": "images/mods/清宵/a53446c8-417a-4632-9f2a-220293154bcf/preview.webp",
         "size": 47742,
         "etag": "\"3d32607679c5406348082162df84e34c\""
+      },
+      {
+        "key": "mods/清宵/a7296d68-21a4-4483-a813-ddc9929a7e2b/preview.webp",
+        "file": "images/mods/清宵/a7296d68-21a4-4483-a813-ddc9929a7e2b/preview.webp",
+        "size": 50016,
+        "etag": "\"8940b2ba4d0e79211b87349a1d6cadca\""
       },
       {
         "key": "mods/清宵/abb854a3-4165-4ddc-8281-8c21cbd80738/preview.webp",
@@ -24353,6 +24395,12 @@
         "etag": "\"26aa58ecc7fe8add6f5b3714759e8128\""
       },
       {
+        "key": "mods/穗穗/3b60b4ec-d08d-4e10-8afc-7ee9a2e4ddf3/preview.webp",
+        "file": "images/mods/穗穗/3b60b4ec-d08d-4e10-8afc-7ee9a2e4ddf3/preview.webp",
+        "size": 56958,
+        "etag": "\"3f2e349e101281c6dfb54f2d9ff9277d\""
+      },
+      {
         "key": "mods/穗穗/3d2c325a-5abb-4efc-aaaa-84b6c12ca3d0/preview.webp",
         "file": "images/mods/穗穗/3d2c325a-5abb-4efc-aaaa-84b6c12ca3d0/preview.webp",
         "size": 40694,
@@ -25573,8 +25621,8 @@
       {
         "key": "mods/芙露德莉斯/6abd1ba1-afd0-439a-8ae8-4a3751625e94/preview.webp",
         "file": "images/mods/芙露德莉斯/6abd1ba1-afd0-439a-8ae8-4a3751625e94/preview.webp",
-        "size": 32730,
-        "etag": "\"8979dc4c644514ef12b337e65b9eefc4\""
+        "size": 32452,
+        "etag": "\"0f690e1ae23c12b93cede132651f8a84\""
       },
       {
         "key": "mods/芙露德莉斯/6d2e64ff-e6d8-4aa8-9215-05a6c4985686/preview.webp",
@@ -25747,8 +25795,8 @@
       {
         "key": "mods/芙露德莉斯/d58ed881-6851-4d7a-8467-ddd27401c2f1/preview.webp",
         "file": "images/mods/芙露德莉斯/d58ed881-6851-4d7a-8467-ddd27401c2f1/preview.webp",
-        "size": 30754,
-        "etag": "\"c8f8fedf278ee752477da43f26a5e7fc\""
+        "size": 30706,
+        "etag": "\"e81a7b5b8b0b51875aca74664e1d826d\""
       },
       {
         "key": "mods/芙露德莉斯/d7ad6f58-d9af-4659-bce7-21eecbe999fd/preview.webp",
