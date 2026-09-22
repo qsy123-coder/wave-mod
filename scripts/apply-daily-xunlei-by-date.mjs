@@ -81,6 +81,12 @@ const CHARACTER_PREFIX_MAP = [
   { prefix: "卜灵", character: "卜灵" },
   { prefix: "景燃", character: "景燃" },
   { prefix: "绯雪", character: "绯雪" },
+  // 2026-09-22 补入：与 upload-daily-by-date.mjs 同步（那边同日为 W-2026.9.22 加的）。
+  // 漏同步的后果正是本文件顶部 ⚠️ 说的那种——W-2026.9.22 的
+  // `丽贝卡-洁薇塔（90）by woju(1)` 会落默认分支，title 连带前缀一起进 dedupKey。
+  // （奥古斯塔落默认分支时恰好也能靠 dedupKey 的前缀归一化命中，属于巧合，不可依赖。）
+  { prefix: "丽贝卡", character: "丽贝卡" },
+  { prefix: "奥古斯塔", character: "奥古斯塔" },
 ];
 
 const UI_FULL_KEY_RE = /^(?:.*?全ui|编队界面|编队图片)/;
@@ -145,6 +151,21 @@ function dedupKey(character, title) {
   return `${c}|${t}`;
 }
 
+/**
+ * 去掉分享名末尾的「重名后缀」`(1)` / `（2）`。
+ *
+ * 迅雷上传同名文件时会自动改名追加 `(N)`，而库内 title 来自夸克侧的本名，
+ * 于是 W-2026.9.22 的 `丽贝卡-洁薇塔（90）by woju(1).exe` 与库内
+ * `丽贝卡 | 洁薇塔（90）by woju` 对不上 —— 不是标题映射不一致，纯粹是上传侧改名。
+ *
+ * 只在**精确匹配落空后**才用它兜底，且结果必须在库内唯一命中才采纳（见下方循环），
+ * 免得把两个真·不同版本的文件（如存在 `xx(1)` 与 `xx(2)` 两条）错并成一条。
+ * 故意只认行尾这一个后缀：`小卡-校园JK2.0（内附切换）` 这类名字里的括号不受影响。
+ */
+function stripRenameSuffix(key) {
+  return String(key).replace(/[(（]\d+[)）]$/, "").trim();
+}
+
 // ==================== 读取迅雷导出 ====================
 
 if (!existsSync(JSON_PATH)) {
@@ -200,9 +221,25 @@ const ambiguous = [];
 
 for (const r of records) {
   const key = String(r.name).replace(/\.exe$/i, "").trim();
-  const { character, title } = resolveCharacterAndTitle(key);
-  const k = dedupKey(character, title);
-  const hits = byKey.get(k) || [];
+
+  // 先按原名精确匹配；落空再退一步去掉迅雷侧的重名后缀 `(N)` 重试（理由见 stripRenameSuffix）。
+  // renamed 只作报告用：命中的仍是库内那条本名记录，写的是同一条 mod 的链接。
+  let { character, title } = resolveCharacterAndTitle(key);
+  let hits = byKey.get(dedupKey(character, title)) || [];
+  let renamed = false;
+
+  if (hits.length === 0) {
+    const stripped = stripRenameSuffix(key);
+    if (stripped !== key) {
+      const alt = resolveCharacterAndTitle(stripped);
+      const altHits = byKey.get(dedupKey(alt.character, alt.title)) || [];
+      if (altHits.length === 1) {
+        ({ character, title } = alt);
+        hits = altHits;
+        renamed = true;
+      }
+    }
+  }
 
   if (hits.length === 0) {
     unmatched.push({ day: r.day, name: r.name, character, title, link: r.link });
@@ -230,6 +267,7 @@ for (const r of records) {
     createdAt: row.created_at,
     link: r.link,
     pwd: r.pwd || "",
+    renamed,
   };
   if (hasXunlei(row)) already.push(entry);
   else toWrite.push(entry);
@@ -254,7 +292,11 @@ console.log(`❌ 未匹配: ${unmatched.length}`);
 console.log(`🕒 归属日期不一致: ${dateMismatch.length}`);
 
 console.log("\n===== 待写入 =====");
-for (const t of toWrite) console.log(`  [${t.day}] ${t.character} | ${t.title}\n      ← ${t.name}\n      → ${t.link}`);
+for (const t of toWrite) {
+  console.log(`  [${t.day}] ${t.character} | ${t.title}\n      ← ${t.name}\n      → ${t.link}`);
+  // 靠去重名后缀命中的，单独标出来：它没有走「同名精确匹配」，值得扫一眼
+  if (t.renamed) console.log(`      ⚠️  原名未被精确命中，去掉行尾 (N) 后缀后才匹配到上面这条`);
+}
 
 if (already.length) {
   console.log("\n===== 已含迅雷（跳过） =====");
