@@ -30,6 +30,7 @@ import { config } from "dotenv";
 import COS from "cos-nodejs-sdk-v5";
 import sharp from "sharp";
 
+import { resolveDakaIfApplicable } from "./daka-classify.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
@@ -402,6 +403,19 @@ function resolveCharacterAndTitle(key) {
       return { character: "爱弥斯的机甲", title: key };
     }
   }
+  // 大卡：「卡提希娅-大卡-*」与「大卡提希娅的剑/武器-*」归 芙露德莉斯。
+  //
+  // 为什么必须在这里拦：库里两条日期目录来的大卡 mod（2026-09-05 神之御装、
+  // 2026-09-21 休闲服装）已被 2026-09-21 的改分类迁移成 character=芙露德莉斯。
+  // 若不拦，它们会落下面的 卡提希娅 前缀分支，算出去重键 `卡提希娅|大卡-XXX`，
+  // 与库内 `芙露德莉斯|大卡-XXX` 不等 ⇒ **全量重跑会把它们当新增再插一遍**。
+  // 规则复用 daka-classify.mjs（有单测锁住），不在这里重写一份。
+  //
+  // 放在 UI_FULL_KEY_RE 之前：那是个宽松正则（`.*?全ui` 可匹配任意前缀），
+  // 而这里是精确前缀，更具体的规则优先。
+  const daka = resolveDakaIfApplicable(key);
+  if (daka) return daka;
+
   // UI 类：整包 UI（<角色>全ui / 编队界面 / 编队图片），title 保留完整 key
   if (UI_FULL_KEY_RE.test(key)) {
     return { character: "UI", title: key };

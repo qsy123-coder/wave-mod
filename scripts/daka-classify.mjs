@@ -39,6 +39,33 @@ const CARTETHYIA_ITEM_PREFIXES = ["卡提希娅玩偶", "卡提希娅的手偶",
 const CARTETHYIA_NOT_DAKA_RE = /^卡提希娅[-－](?!大卡)/;
 
 /**
+ * 「这条 key 是大卡吗？」——是则返回 `{ character, title }`，不是则返回 `null`（**不抛错**）。
+ *
+ * 与 resolveDakaTarget 的分工：后者是「大卡批次专用入口」，遇到
+ * `卡提希娅-<非大卡>-…` 会报错停（那批目录里不该有小卡）。而每日更新的日期目录里
+ * 小卡是常态（`卡提希娅-小卡-校园JK2.0（内附切换）` 就该留在卡提希娅），
+ * 抛错会让整批传不动，所以这里对非大卡的 key 一律回 null，交给调用方原有分支。
+ *
+ * 每日更新脚本靠它对齐去重键：库里两条日期目录来的大卡 mod 已被 2026-09-21 的
+ * 改分类迁移到芙露德莉斯，仍按卡提希娅算的话，全量重跑会把它们当新增再插一遍
+ * —— 正是 upload-daka.mjs 注释里说的那个「真实运行又要再插一遍」。
+ */
+export function resolveDakaIfApplicable(key) {
+  const raw = String(key ?? "").trim();
+  if (!raw) return null;
+
+  for (const prefix of DAKA_WEAPON_PREFIXES) {
+    if (raw.startsWith(prefix)) return { character: FLEURDELYS, title: raw };
+  }
+
+  if (raw.startsWith(DAKA_MARK)) {
+    return { character: FLEURDELYS, title: raw.slice(DAKA_LEADER.length) };
+  }
+
+  return null;
+}
+
+/**
  * 把一个分享 key 解析成 `{ character, title, fallback }`。
  *
  * `fallback: true` 表示走了「其它都归芙露德莉斯」的兜底分支（title 保留完整 key）——
@@ -48,13 +75,8 @@ export function resolveDakaTarget(key) {
   const raw = String(key ?? "").trim();
   if (!raw) throw new Error("空的分享名，无法分类");
 
-  for (const prefix of DAKA_WEAPON_PREFIXES) {
-    if (raw.startsWith(prefix)) return { character: FLEURDELYS, title: raw, fallback: false };
-  }
-
-  if (raw.startsWith(DAKA_MARK)) {
-    return { character: FLEURDELYS, title: raw.slice(DAKA_LEADER.length), fallback: false };
-  }
+  const daka = resolveDakaIfApplicable(raw);
+  if (daka) return { ...daka, fallback: false };
 
   for (const prefix of CARTETHYIA_ITEM_PREFIXES) {
     if (raw.startsWith(prefix)) {

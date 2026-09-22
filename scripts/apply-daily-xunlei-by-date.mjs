@@ -29,6 +29,7 @@ import { join, resolve } from "node:path";
 import { config } from "dotenv";
 import COS from "cos-nodejs-sdk-v5";
 
+import { resolveDakaIfApplicable } from "./daka-classify.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
@@ -118,6 +119,10 @@ function resolveCharacterAndTitle(key) {
       return { character: "爱弥斯的机甲", title: key };
     }
   }
+  // 大卡 → 芙露德莉斯。与 upload-daily-by-date.mjs 同一分支、同一来源
+  // （daka-classify.mjs 的纯规则），否则库内已迁移的大卡记录会在这里也匹配不上。
+  const daka = resolveDakaIfApplicable(key);
+  if (daka) return daka;
   if (UI_FULL_KEY_RE.test(key)) {
     return { character: "UI", title: key };
   }

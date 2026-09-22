@@ -14,6 +14,7 @@ import {
   legacyRowKey,
   migrateLegacyRow,
   refreshQuarkLink,
+  resolveDakaIfApplicable,
   resolveDakaTarget,
 } from "./daka-classify.mjs";
 
@@ -85,6 +86,48 @@ describe("resolveDakaTarget", () => {
 
   it("「卡提希娅-非大卡-*」（如小卡）是语义冲突：报错停，不猜", () => {
     expect(() => resolveDakaTarget("卡提希娅-小卡-休闲服装2.0（内附切换）")).toThrow(/小卡/);
+  });
+});
+
+describe("resolveDakaIfApplicable", () => {
+  // 每日更新脚本（upload-daily-by-date.mjs）的去重键是 character|title。库里两条
+  // 日期目录来的大卡 mod（2026-09-05 神之御装、2026-09-21 休闲服装）已被改分类迁移到
+  // 芙露德莉斯，若每日脚本仍按卡提希娅算，全量重跑会把它们当新增**再插一遍**。
+  // 这里锁住的正是那两条真实 key。
+  it("「卡提希娅-大卡-*」按迁移后的写法返回，去重键才与库内一致", () => {
+    expect(resolveDakaIfApplicable("卡提希娅-大卡-神之御装（0）by woju")).toEqual({
+      character: FLEURDELYS,
+      title: "大卡-神之御装（0）by woju",
+    });
+    expect(resolveDakaIfApplicable("卡提希娅-大卡-休闲服装")).toEqual({
+      character: FLEURDELYS,
+      title: "大卡-休闲服装",
+    });
+  });
+
+  it("大卡武器同样归芙露德莉斯，title 保留完整 key", () => {
+    expect(resolveDakaIfApplicable("大卡提希娅的剑-四种剑（=切换）")).toEqual({
+      character: FLEURDELYS,
+      title: "大卡提希娅的剑-四种剑（=切换）",
+    });
+    expect(resolveDakaIfApplicable("大卡提希娅的武器-屠龙宝刀 by woju")).toEqual({
+      character: FLEURDELYS,
+      title: "大卡提希娅的武器-屠龙宝刀 by woju",
+    });
+  });
+
+  it("「卡提希娅-小卡-*」返回 null 而不是抛错 —— 每日目录里混着小卡，必须留给原分支", () => {
+    // 这是与 resolveDakaTarget 的关键差别：后者是「大卡批次专用入口」，遇到非大卡会
+    // 报错停（那批目录里不该有小卡）。每日更新目录里小卡是常态，抛错会让整批传不动。
+    expect(resolveDakaIfApplicable("卡提希娅-小卡-校园JK2.0（内附切换）")).toBeNull();
+    expect(resolveDakaIfApplicable("卡提希娅-小卡-休闲服装2.0（内附切换）")).toBeNull();
+  });
+
+  it("与卡提希娅无关的 key 一律 null", () => {
+    expect(resolveDakaIfApplicable("穗穗-古装裙")).toBeNull();
+    expect(resolveDakaIfApplicable("卡提希娅玩偶-云海妖精 by 阿鲁提亚")).toBeNull();
+    expect(resolveDakaIfApplicable("千咲-丰汝肥屯（上下左右）by mingchen")).toBeNull();
+    expect(resolveDakaIfApplicable("")).toBeNull();
   });
 });
 
