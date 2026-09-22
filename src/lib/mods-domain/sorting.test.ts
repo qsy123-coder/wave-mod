@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { PLACEHOLDER_PREVIEW_URL } from "./preview-image";
 import {
   applyModQueryFilters,
   applyModSort,
   calculateHotScore,
   parseCharacterFilter,
+  parseModFlag,
   parseModQuery,
   parseModSort,
   sortModsByHot,
@@ -78,5 +80,55 @@ describe("mods-domain sorting helpers", () => {
     const missingKeyword = createMod({ title: "普通战斗服", character: "今汐", description: "低清版本" });
 
     expect(applyModQueryFilters([target, wrongCharacter, missingKeyword], { character: "今汐", query: "高清 白色" })).toEqual([target]);
+  });
+});
+
+describe("含直链 / 含预览图 开关", () => {
+  it("parseModFlag 只认 1/true", () => {
+    expect(parseModFlag("1")).toBe(true);
+    expect(parseModFlag("true")).toBe(true);
+    expect(parseModFlag(" TRUE ")).toBe(true);
+    expect(parseModFlag(undefined)).toBe(false);
+    expect(parseModFlag("")).toBe(false);
+    expect(parseModFlag("0")).toBe(false);
+    expect(parseModFlag("yes")).toBe(false);
+  });
+
+  it("direct=true 只留 download_url 非空的（网盘链接不算直链）", () => {
+    const direct = createMod({ downloadUrl: "https://mods-download.example.com/a.exe", driveLinks: [{ platform: "夸克", url: "https://pan.quark.cn/s/x" }] });
+    const driveOnly = createMod({ driveLinks: [{ platform: "夸克", url: "https://pan.quark.cn/s/y" }] });
+
+    expect(applyModQueryFilters([direct, driveOnly], { direct: true })).toEqual([direct]);
+  });
+
+  it("direct 不开时不动结果", () => {
+    const direct = createMod({ downloadUrl: "https://mods-download.example.com/a.exe" });
+    const driveOnly = createMod({});
+
+    expect(applyModQueryFilters([direct, driveOnly], {})).toHaveLength(2);
+    expect(applyModQueryFilters([direct, driveOnly], { direct: false })).toHaveLength(2);
+  });
+
+  it("preview=true 剔掉占位图与没有图的", () => {
+    const real = createMod({ images: ["https://wave-mod-preview.example.com/mods/x/1/preview.webp"] });
+    const placeholder = createMod({ images: [PLACEHOLDER_PREVIEW_URL] });
+    const empty = createMod({ images: [] });
+
+    expect(applyModQueryFilters([real, placeholder, empty], { preview: true })).toEqual([real]);
+  });
+
+  it("两个开关能叠加（同时要直链也要预览图）", () => {
+    const both = createMod({ downloadUrl: "https://mods-download.example.com/a.exe", images: ["https://wave-mod-preview.example.com/mods/x/2/preview.webp"] });
+    const directNoImage = createMod({ downloadUrl: "https://mods-download.example.com/b.exe", images: [PLACEHOLDER_PREVIEW_URL] });
+
+    expect(applyModQueryFilters([both, directNoImage], { direct: true, preview: true })).toEqual([both]);
+  });
+
+  it("与角色/关键词条件叠在一起也是取交集", () => {
+    const hit = createMod({ character: "今汐", title: "高清 战斗服", downloadUrl: "https://mods-download.example.com/a.exe" });
+    const wrongCharacter = createMod({ character: "长离", title: "高清 战斗服", downloadUrl: "https://mods-download.example.com/b.exe" });
+    const noDirect = createMod({ character: "今汐", title: "高清 战斗服" });
+
+    expect(applyModQueryFilters([hit, wrongCharacter, noDirect], { character: "今汐", query: "高清", direct: true })).toEqual([hit]);
   });
 });

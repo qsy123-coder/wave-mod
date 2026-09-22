@@ -28,6 +28,7 @@ export {
   modSortSchema,
   normalizeCharacterName,
   parseCharacterFilter,
+  parseModFlag,
   parseModQuery,
   parseModSort,
   sortModsByHot,

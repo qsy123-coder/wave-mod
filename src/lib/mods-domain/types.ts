@@ -91,7 +91,17 @@ export type CommentRow = Omit<Pick<Tables<"comments">, "id" | "content" | "creat
 
 export type PublicModsFilters = {
   character?: string;
+  /**
+   * 只看有直链下载的（download_url 非空）。
+   *
+   * 别和 driveLinks（网盘：夸克/迅雷…）搞混 —— 全库 5285 条**每条都有网盘链接**，
+   * 而直链只有个位数（入库脚本一律写 download_url: null，直链是手工补的）。
+   * 这个筛选因此必然是小结果集，见 applyModQueryFilters。
+   */
+  direct?: boolean;
   gameKey?: string;
+  /** 只看有真预览图的（排除 COS 占位图与兜底图，见 preview-image.ts） */
+  preview?: boolean;
   query?: string;
   sort?: ModSort;
 };

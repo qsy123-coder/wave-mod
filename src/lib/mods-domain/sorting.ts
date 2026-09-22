@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { hasPreviewImage } from "@/lib/mods-domain/preview-image";
 import type { ModSort, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 
 export const modIdSchema = z.uuid();
@@ -70,7 +71,18 @@ export function buildFeaturedOrderMap(ids: string[], maxSlots: number): Array<{ 
   }));
 }
 
-export function applyModQueryFilters(mods: SiteMod[], filters: Pick<PublicModsFilters, "character" | "query">) {
+/**
+ * 「含直链」「含预览图」这两个开关。
+ *
+ * 必须在**服务端**过滤（这里是唯一的收口），不能放到客户端卡片列表上做：全库只有
+ * 个位数条直链 mod，客户端只拿得到已加载的那几十条，翻不到它们 —— 表现为「勾了
+ * 含直链，一条都没有」（2026-09-22 用户报告）。挂在 URL 上由服务端过滤，还能顺带
+ * 让总数（共 N 个 MOD）准确。
+ */
+export function applyModQueryFilters(
+  mods: SiteMod[],
+  filters: Pick<PublicModsFilters, "character" | "query" | "direct" | "preview">,
+) {
   let nextMods = mods;
 
   // 非角色分类名，用于 Skins 筛选时排除
@@ -97,6 +109,15 @@ export function applyModQueryFilters(mods: SiteMod[], filters: Pick<PublicModsFi
     });
   }
 
+  if (filters.direct) {
+    // 直链 = download_url（卡片上那个绿色「直链下载」角标），不是网盘链接
+    nextMods = nextMods.filter((mod) => Boolean(mod.downloadUrl));
+  }
+
+  if (filters.preview) {
+    nextMods = nextMods.filter((mod) => hasPreviewImage(mod.images));
+  }
+
   return nextMods;
 }
 
@@ -112,6 +133,16 @@ export function parseCharacterFilter(character: string | undefined) {
 export function parseModQuery(query: string | undefined) {
   const value = query?.trim();
   return value ? value : undefined;
+}
+
+/**
+ * URL 上的开关（?direct=1 / ?preview=1）。
+ * 只认 "1" 与 "true"，其余一律当没开 —— 这样链接里写不写、写成什么都不影响判等
+ * （判等见 navigation-url.ts），拼链接那边固定写 "1"。
+ */
+export function parseModFlag(value: string | undefined): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "1" || normalized === "true";
 }
 
 export function normalizeCharacterName(value: string) {

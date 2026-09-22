@@ -4,7 +4,7 @@ import { CharacterSidebar } from "@/components/features/mods/list/character-side
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import { BodyScrollLock } from "@/components/layout/body-scroll-lock";
 import { ModsPageSkeleton } from "@/components/layout/data-skeletons";
-import { getCharacterSuggestions, getPublicMods, getPublicModsPage, normalizeCharacterName, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
+import { getCharacterSuggestions, getPublicMods, getPublicModsPage, normalizeCharacterName, parseCharacterFilter, parseModFlag, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 import { getCurrentUser, isAdminUser } from "@/lib/supabase/server";
 
 type PageProps = {
@@ -12,6 +12,9 @@ type PageProps = {
     sort?: string;
     character?: string;
     query?: string;
+    /** "1" = 只看有直链下载的 / 只看有真预览图的 */
+    direct?: string;
+    preview?: string;
   }>;
   openModId?: string;
 };
@@ -24,11 +27,22 @@ const sortOptions: { label: string; value: ModSort }[] = [
   { label: "评分", value: "rating" },
 ];
 
-function buildModsHref(sort: ModSort, character?: string, query?: string) {
+/**
+ * 侧边栏 / 排序用的链接。**每一项都要把当前两个开关带上** —— 少了它，正在开着
+ * 「含预览图」的用户点一下角色分类，筛选就被悄悄丢掉了（参数不在 URL 上 = 没开）。
+ */
+function buildModsHref(
+  sort: ModSort,
+  character?: string,
+  query?: string,
+  flags: { direct?: boolean; preview?: boolean } = {},
+) {
   const params = new URLSearchParams();
   if (sort !== "latest") params.set("sort", sort);
   if (character) params.set("character", character);
   if (query) params.set("query", query);
+  if (flags.direct) params.set("direct", "1");
+  if (flags.preview) params.set("preview", "1");
   const qs = params.toString();
   return qs ? `/mods?${qs}` : "/mods";
 }
@@ -53,6 +67,9 @@ async function ModsListingContent({ searchParams, openModId }: PageProps) {
   const currentSort = parseModSort(params.sort);
   const currentCharacter = parseCharacterFilter(params.character);
   const currentQuery = parseModQuery(params.query);
+  const currentDirect = parseModFlag(params.direct);
+  const currentPreview = parseModFlag(params.preview);
+  const currentFlags = { direct: currentDirect, preview: currentPreview };
 
   const [availableCharacters, counts, user, admin] = await Promise.all([
     getCharacterSuggestions(),
@@ -76,7 +93,7 @@ async function ModsListingContent({ searchParams, openModId }: PageProps) {
   const sidebarCharacters = [
     ...specialCategories.map((c) => ({
       label: c.label,
-      href: buildModsHref(currentSort, c.label, currentQuery),
+      href: buildModsHref(currentSort, c.label, currentQuery, currentFlags),
       count: c.count,
       isActive: c.label === currentCharacter,
     })),
@@ -84,7 +101,7 @@ async function ModsListingContent({ searchParams, openModId }: PageProps) {
       .filter((name) => !["Skins", "UI", "Other/Misc"].includes(name))
       .map((name) => ({
         label: name,
-        href: buildModsHref(currentSort, name, currentQuery),
+        href: buildModsHref(currentSort, name, currentQuery, currentFlags),
         count: counts[name] ?? 0,
         isActive: name === currentCharacter,
       })),
@@ -92,10 +109,16 @@ async function ModsListingContent({ searchParams, openModId }: PageProps) {
 
   const sortHrefs: Record<string, string> = {};
   for (const opt of sortOptions) {
-    sortHrefs[opt.value] = buildModsHref(opt.value, currentCharacter, currentQuery);
+    sortHrefs[opt.value] = buildModsHref(opt.value, currentCharacter, currentQuery, currentFlags);
   }
 
-  const serverFilters = { sort: currentSort, character: currentCharacter, query: currentQuery };
+  const serverFilters = {
+    sort: currentSort,
+    character: currentCharacter,
+    query: currentQuery,
+    direct: currentDirect,
+    preview: currentPreview,
+  };
   const [firstPage, allFilteredMods] = await Promise.all([
     getPublicModsPage(1, 16, serverFilters),
     getPublicMods(undefined, serverFilters),
@@ -109,7 +132,7 @@ async function ModsListingContent({ searchParams, openModId }: PageProps) {
         <div className="flex-1 overflow-y-auto pr-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <CharacterSidebar
             allLabel="全部"
-            allHref={buildModsHref(currentSort, undefined, currentQuery)}
+            allHref={buildModsHref(currentSort, undefined, currentQuery, currentFlags)}
             allCount={totalCount}
             isAllActive={!currentCharacter}
             characters={sidebarCharacters}
@@ -127,6 +150,8 @@ async function ModsListingContent({ searchParams, openModId }: PageProps) {
           serverTotalCount={serverTotalCount}
           character={currentCharacter}
           activeCharacter={currentCharacter}
+          activeDirect={currentDirect}
+          activePreview={currentPreview}
           openModId={openModId}
           admin={Boolean(admin)}
           currentUserId={user?.id}

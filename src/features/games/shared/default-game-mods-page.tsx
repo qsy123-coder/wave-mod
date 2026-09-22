@@ -2,9 +2,8 @@ import { Suspense } from "react";
 
 import type { GameConfig } from "@/config/games";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
-import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
 import { ModGridSkeleton } from "@/components/layout/data-skeletons";
-import { getAvailableCharacters, getPublicMods, getPublicModsPage, normalizeCharacterName, parseCharacterFilter, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
+import { getAvailableCharacters, getPublicMods, getPublicModsPage, normalizeCharacterName, parseCharacterFilter, parseModFlag, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 
 async function getCharacterCounts(gameKey: string): Promise<Record<string, number>> {
   const allMods = await getPublicMods(undefined, { gameKey });
@@ -33,14 +32,29 @@ type DefaultGameModsPageProps = {
     character?: string;
     query?: string;
     sort?: string;
+    /** "1" = 只看有直链下载的 / 只看有真预览图的 */
+    direct?: string;
+    preview?: string;
   }>;
 };
 
-function buildModsHref(game: GameConfig, sort: ModSort, character?: string, query?: string) {
+/**
+ * 侧边栏 / 排序用的链接。**每一项都要把当前两个开关带上** —— 少了它，正在开着
+ * 「含预览图」的用户点一下角色分类，筛选就被悄悄丢掉了（参数不在 URL 上 = 没开）。
+ */
+function buildModsHref(
+  game: GameConfig,
+  sort: ModSort,
+  character?: string,
+  query?: string,
+  flags: { direct?: boolean; preview?: boolean } = {},
+) {
   const params = new URLSearchParams();
   if (sort !== "latest") params.set("sort", sort);
   if (character) params.set("character", character);
   if (query) params.set("query", query);
+  if (flags.direct) params.set("direct", "1");
+  if (flags.preview) params.set("preview", "1");
   const qs = params.toString();
   return qs ? `${game.nav.mods}?${qs}` : game.nav.mods;
 }
@@ -50,7 +64,17 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
   const currentSort = parseModSort(params.sort);
   const currentCharacter = parseCharacterFilter(params.character);
   const currentQuery = parseModQuery(params.query);
-  const serverFilters = { sort: currentSort, character: currentCharacter, query: currentQuery, gameKey: game.key };
+  const currentDirect = parseModFlag(params.direct);
+  const currentPreview = parseModFlag(params.preview);
+  const currentFlags = { direct: currentDirect, preview: currentPreview };
+  const serverFilters = {
+    sort: currentSort,
+    character: currentCharacter,
+    query: currentQuery,
+    direct: currentDirect,
+    preview: currentPreview,
+    gameKey: game.key,
+  };
   console.log(`[DefaultGameModsPage] character="${currentCharacter}" query="${currentQuery}" sort="${currentSort}" gameKey="${game.key}"`);
   const [availableCharacters, counts, firstPage, allFilteredMods] = await Promise.all([
     getAvailableCharacters(game.key),
@@ -68,7 +92,7 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
   // 构造侧边栏角色列表
   const sidebarCharacters = availableCharacters.map((name) => ({
     label: name,
-    href: buildModsHref(game, currentSort, name, currentQuery),
+    href: buildModsHref(game, currentSort, name, currentQuery, currentFlags),
     count: counts[name] ?? 0,
     isActive: name === currentCharacter,
   }));
@@ -76,7 +100,7 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
   // 排序选项链接映射
   const sortHrefs: Record<string, string> = {};
   for (const opt of sortOptions) {
-    sortHrefs[opt.value] = buildModsHref(game, opt.value, currentCharacter, currentQuery);
+    sortHrefs[opt.value] = buildModsHref(game, opt.value, currentCharacter, currentQuery, currentFlags);
   }
 
   return (
@@ -86,7 +110,7 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
         <div className="sticky top-[100px] max-h-[calc(100vh-120px)] overflow-y-auto pb-8">
           <CharacterSidebar
             allLabel="全部"
-            allHref={buildModsHref(game, currentSort, undefined, currentQuery)}
+            allHref={buildModsHref(game, currentSort, undefined, currentQuery, currentFlags)}
             allCount={totalCount}
             isAllActive={!currentCharacter}
             characters={sidebarCharacters}
@@ -103,6 +127,8 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
           initialQuery={currentQuery}
           initialMods={firstPage.items}
           serverTotalCount={totalModCount}
+          activeDirect={currentDirect}
+          activePreview={currentPreview}
           sortOptions={sortOptions}
           sortHrefs={sortHrefs}
         />

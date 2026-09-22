@@ -21,7 +21,7 @@ function SnapContainer({ children }: { children: React.ReactNode }) {
       // 首页的滚动者是这个容器而不是 body：轮播图打开详情抽屉时，
       // HeroCarousel 会按这个标记找到并锁住它（见 hero-carousel.tsx）。
       data-scroll-lock-root
-      className="h-[calc(100vh-var(--home-header-h))] overflow-y-scroll max-md:h-auto max-md:min-h-[calc(100vh-var(--home-header-h))] max-md:overflow-y-auto"
+      className="h-[calc(100vh-var(--site-header-h))] overflow-y-scroll max-md:h-auto max-md:min-h-[calc(100vh-var(--site-header-h))] max-md:overflow-y-auto"
       style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
     >
       {children}
@@ -55,7 +55,7 @@ export default function HomePage() {
       <DailyUpdateDialog />
       <SnapContainer>
         {/* 区域 1: 现有 Hero（垂直居中，上下各 15vh 留白）。
-             高度基准用"仅导航栏行"的 --home-hero-h（恒定），而非含横条的 --home-header-h，
+             高度基准用"仅导航栏行"的 --home-hero-h（恒定），而非含横条的 --site-header-h，
              这样顶部横条开/关时大卡片与导航栏的间距保持不变。 */}
         <section
           className="relative flex w-full items-center pt-[11vh] pb-[15vh] h-[calc(100vh-var(--home-hero-h))] max-md:pt-4 max-md:pb-4 max-md:h-auto"

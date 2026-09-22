@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import type { GameConfig } from "@/config/games";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
@@ -15,6 +13,9 @@ type Props = {
   initialQuery?: string;
   initialMods: SiteMod[];
   serverTotalCount: number;
+  /** URL 上的「含直链」/「含预览图」开关（服务端过滤） */
+  activeDirect?: boolean;
+  activePreview?: boolean;
   sortOptions: { label: string; value: ModSort }[];
   sortHrefs: Record<string, string>;
   isLoggedIn?: boolean;
@@ -27,19 +28,15 @@ export function GameModsFilterClient({
   initialQuery,
   initialMods,
   serverTotalCount,
+  activeDirect = false,
+  activePreview = false,
   sortOptions,
   sortHrefs,
   isLoggedIn = false,
 }: Props) {
-  const [directOnly, setDirectOnly] = useState(false);
-  // 默认用服务端的全量计数；客户端筛选激活后由 grid 回调更新
-  const [gridCount, setGridCount] = useState<number | null>(null);
   const { mode: layoutMode, setMode: setLayoutMode, masonryColumns, setMasonryColumns } = useLayoutPreference();
 
-  // 仅当客户端筛选激活时使用 grid 的过滤后数量，否则用服务端全量
-  const hasClientFilter = directOnly;
-  const modCount = hasClientFilter ? (gridCount ?? serverTotalCount) : serverTotalCount;
-
+  // 筛选（含两个开关）全在服务端做，服务端给的总数就是准的
   return (
     <>
       <ModsToolbar
@@ -48,11 +45,11 @@ export function GameModsFilterClient({
         sort={initialSort}
         sortOptions={sortOptions}
         sortHrefs={sortHrefs}
-        directOnly={directOnly}
-        onDirectOnlyChange={setDirectOnly}
+        activeDirect={activeDirect}
+        activePreview={activePreview}
         activeCharacter={initialCharacter}
         activeQuery={initialQuery}
-        modCount={modCount}
+        modCount={serverTotalCount}
         layoutMode={layoutMode}
         onLayoutChange={setLayoutMode}
         masonryColumns={masonryColumns}
@@ -61,13 +58,13 @@ export function GameModsFilterClient({
 
       <ModsInfiniteGrid
         isLoggedIn={isLoggedIn}
-        onCountChange={setGridCount}
         sort={initialSort}
         character={initialCharacter}
         gameKey={game.key}
         query={initialQuery}
         initialMods={initialMods}
-        directOnly={directOnly}
+        direct={activeDirect}
+        preview={activePreview}
         layoutMode={layoutMode}
         masonryColumns={masonryColumns}
       />

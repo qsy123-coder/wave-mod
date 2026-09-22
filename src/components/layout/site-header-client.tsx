@@ -50,8 +50,9 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
   const headerRef = useRef<HTMLElement>(null);
   const navRowRef = useRef<HTMLDivElement>(null);
 
-  // 用 ResizeObserver 实测 header 高度，写入 CSS 变量供首页 SnapContainer 高度自适应。
-  // 顶部"近期更新的 MOD"横条开/关会改变 header 高度；若 SnapContainer 高度不跟随，
+  // 用 ResizeObserver 实测 header 高度，写入 CSS 变量供各"占满余下视口"的外壳自适应
+  // （首页 SnapContainer、/mods 应用壳都用 --site-header-h 减掉头部高度）。
+  // 顶部"近期更新的 MOD"横条开/关会改变 header 高度；若外壳高度不跟随，
   // header 变矮后网格几何断裂，scroll-snap(mandatory) 会把视口拽到第二屏边缘。
   // 同时另存一个"仅导航栏行"的基准高度 --home-hero-h：横条开/关不改变导航栏行高度，
   // 首页 Hero 用该恒定值居中，保证大卡片与导航栏的间距在横条开关两种状态下一致。
@@ -61,7 +62,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
     if (!header || !navRow) return;
     const update = () => {
       const h = header.getBoundingClientRect().height;
-      if (h > 0) document.documentElement.style.setProperty("--home-header-h", `${Math.round(h)}px`);
+      if (h > 0) document.documentElement.style.setProperty("--site-header-h", `${Math.round(h)}px`);
       const border = parseFloat(getComputedStyle(header).borderBottomWidth) || 0;
       const base = navRow.getBoundingClientRect().height + border;
       document.documentElement.style.setProperty("--home-hero-h", `${Math.round(base)}px`);

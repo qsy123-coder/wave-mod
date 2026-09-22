@@ -21,6 +21,9 @@ type ModsPageClientProps = {
   character?: string;
   gameKey?: string;
   activeCharacter?: string;
+  /** URL 上的「含直链」/「含预览图」开关（服务端过滤） */
+  activeDirect?: boolean;
+  activePreview?: boolean;
   openModId?: string;
   admin?: boolean;
   currentUserId?: string;
@@ -38,6 +41,8 @@ export function ModsPageClient({
   character,
   gameKey,
   activeCharacter,
+  activeDirect = false,
+  activePreview = false,
   openModId: initialModId,
   serverTotalCount,
   admin = false,
@@ -48,21 +53,19 @@ export function ModsPageClient({
   const { isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter } = useNavigationLoading();
 
   // 服务端数据到达时（props 变化）自动结束加载状态，并清空乐观角色以对齐服务端
-  const prevParamsRef = useRef(`${sort}-${character}-${initialQuery}`);
+  const prevParamsRef = useRef(`${sort}-${character}-${initialQuery}-${activeDirect}-${activePreview}`);
   useEffect(() => {
-    const current = `${sort}-${character}-${initialQuery}`;
+    const current = `${sort}-${character}-${initialQuery}-${activeDirect}-${activePreview}`;
     if (prevParamsRef.current !== current) {
       prevParamsRef.current = current;
       stopLoading();
       setPendingCharacter(null);
     }
-  }, [sort, character, initialQuery, stopLoading, setPendingCharacter]);
+  }, [sort, character, initialQuery, activeDirect, activePreview, stopLoading, setPendingCharacter]);
 
-  const [directOnly, setDirectOnly] = useState(false);
-  const [gridCount, setGridCount] = useState<number | null>(null);
   const { mode: layoutMode, setMode: setLayoutMode, masonryColumns, setMasonryColumns } = useLayoutPreference();
-  const hasClientFilter = directOnly;
-  const modCount = hasClientFilter ? (gridCount ?? (serverTotalCount ?? initialMods.length)) : (serverTotalCount ?? initialMods.length);
+  // 筛选（含两个开关）全在服务端做，所以服务端给的总数就是准的，不需要再本地数
+  const modCount = serverTotalCount ?? initialMods.length;
   const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
 
   const openDrawer = useCallback((modId: string) => {
@@ -92,8 +95,8 @@ export function ModsPageClient({
         sort={sort}
         sortOptions={sortOptions}
         sortHrefs={sortHrefs}
-        directOnly={directOnly}
-        onDirectOnlyChange={setDirectOnly}
+        activeDirect={activeDirect}
+        activePreview={activePreview}
         activeCharacter={pendingCharacter ?? activeCharacter}
         activeQuery={initialQuery || undefined}
         modCount={modCount}
@@ -118,11 +121,11 @@ export function ModsPageClient({
             gameKey={gameKey}
             query={initialQuery || undefined}
             initialMods={initialMods}
-            directOnly={directOnly}
+            direct={activeDirect}
+            preview={activePreview}
             isLoggedIn={isLoggedIn}
             layoutMode={layoutMode}
             masonryColumns={masonryColumns}
-            onCountChange={setGridCount}
             onCardClick={openDrawer}
           />
         )}
