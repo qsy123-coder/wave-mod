@@ -7,6 +7,7 @@ import { ArrowRight, BookOpen } from "lucide-react";
 
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { Chapter, TutorialVersionMeta } from "../types";
+import { ToolDownloadCard } from "./tool-download-card";
 import { TutorialTabs } from "./tutorial-tabs";
 import { TutorialVersionSwitcher } from "./tutorial-version-switcher";
 import { VideoHintBanner } from "./video-hint-banner";
@@ -93,6 +94,14 @@ export function TutorialGuideClient({
             </Link>
           </div>
         </section>
+      </MotionReveal>
+
+      {/* 必要工具下载（复制网盘链接，不跳转）— 与当前章节无关，常驻顶部。
+          z-40 不能省：卡片里的下拉（z-50）被关在卡片自己的层叠上下文里，
+          能拿出去跟外面对比的只有这一层；下面的章节 Tab 条（tutorial-nav）必须
+          低于它，否则整条不透明吸顶条会盖住下拉 —— 见那边的注释。 */}
+      <MotionReveal delay={0.06} y={16} className="relative z-40">
+        <ToolDownloadCard />
       </MotionReveal>
 
       {/* Version switcher row */}

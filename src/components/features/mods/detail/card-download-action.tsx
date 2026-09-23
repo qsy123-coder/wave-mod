@@ -4,39 +4,14 @@ import { type KeyboardEvent, type MouseEvent } from "react";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 
+import { copyToClipboard } from "@/lib/clipboard";
+import { driveCopyTip } from "@/lib/cloud-drive";
 import type { DriveLink } from "@/lib/mods-domain/types";
 
 type CardDownloadActionProps = {
   driveLinks: DriveLink[];
   className?: string;
 };
-
-/** 复制到剪贴板，优先 navigator.clipboard，失败降级 execCommand（兼容非安全上下文/旧浏览器）。 */
-async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    /* 忽略，走降级 */
-  }
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  let ok = false;
-  try {
-    ok = document.execCommand("copy");
-  } catch {
-    ok = false;
-  }
-  document.body.removeChild(textarea);
-  return ok;
-}
 
 /** 根据网盘名称（模糊匹配关键字）返回品牌色背景类与图标配色。 */
 function platformStyle(platform: string): { bg: string; fg: string } {
@@ -66,11 +41,10 @@ export function CardDownloadAction({ driveLinks, className = "" }: CardDownloadA
       toast.error("复制失败", { description: "网盘链接复制失败，请到详情页手动复制。" });
       return;
     }
+    const tip = driveCopyTip(drive.platform);
     toast.success("网盘链接已复制", {
       duration: 6000,
-      description: /迅雷|xunlei/i.test(drive.platform)
-        ? "请打开迅雷客户端，在上方搜索框粘贴链接转存下载，网页端打开会限速、需反复登录。"
-        : `请到${drive.platform}客户端打开下载，网页端打开会限速、需反复登录。`,
+      description: `${tip.advice}；${tip.warning}`,
     });
   };
 

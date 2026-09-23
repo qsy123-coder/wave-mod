@@ -235,7 +235,11 @@ export function TutorialNav({
 
   // ── Render ──
   return (
-    <nav className="z-50 border-b-4 border-black bg-[var(--neo-panel)] px-4 py-1.5 shadow-[0_4px_0px_0px_#000] sm:px-5 lg:px-6">
+    // z-30 是「比章节内容高、比页面级浮层低」这一档，别再往上抬：
+    // 这条是全宽不透明吸顶条，且是 flex item（z-index 生效），它待在页面层叠上下文里，
+    // 一旦写回 z-50 就会和卡片区的下拉抢同一层且赢过它（z-40），把下拉盖掉。
+    // 章节内容本身只有 z-10/z-20，且被下面的 overflow-hidden 滚动容器裁着，30 足够压住。
+    <nav className="z-30 border-b-4 border-black bg-[var(--neo-panel)] px-4 py-1.5 shadow-[0_4px_0px_0px_#000] sm:px-5 lg:px-6">
       {draggable ? (
         <DndContext
           sensors={sensors}

@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy, Download, LoaderCircle, X } from "lucide-react";
 import Image from "next/image";
 
+import { copyToClipboard } from "@/lib/clipboard";
+import { driveCopyTip } from "@/lib/cloud-drive";
 import { DIRECT_DOWNLOAD_UNAVAILABLE, resolveDownloadResponse } from "@/lib/mods-domain/download-result";
 import type { DriveLink } from "@/lib/mods-domain/types";
 
@@ -16,33 +18,6 @@ type DownloadButtonProps = {
   driveLinks: DriveLink[];
 };
 
-/** 复制到剪贴板，优先 navigator.clipboard，失败降级 execCommand（兼容非安全上下文/旧浏览器）。 */
-async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    /* 忽略，走降级 */
-  }
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  let ok = false;
-  try {
-    ok = document.execCommand("copy");
-  } catch {
-    ok = false;
-  }
-  document.body.removeChild(textarea);
-  return ok;
-}
-
 export function DownloadButton({ compact = false, modId, downloadUrl, downloadCount, driveLinks }: DownloadButtonProps) {
   const [isPending, setIsPending] = useState(false);
   const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null);
@@ -50,12 +25,9 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
   // 直链失败时的提示。非空即渲染 —— 绝不再静默返回，见 download-result.ts 的说明。
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
   const hasDownload = Boolean(downloadUrl?.trim());
-  // 只有迅雷/夸克有「粘贴链接」教程图，其它网盘不展示「?」
-  const tipImage = /迅雷|xunlei/i.test(copiedPlatform || "")
-    ? "/tips/xunlei.png"
-    : /夸克|quark/i.test(copiedPlatform || "")
-      ? "/tips/quark.png"
-      : null;
+  // 只有迅雷/夸克有「粘贴链接」教程图，其它网盘不展示「?」（文案与图见 lib/cloud-drive.ts）
+  const tip = copiedPlatform ? driveCopyTip(copiedPlatform) : null;
+  const tipImage = tip?.tipImage ?? null;
 
   // 复制到另一个网盘时收起教程弹层
   useEffect(() => {
@@ -166,10 +138,8 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
               </button>
               <div className="space-y-2 pr-7">
                 <p className="text-[13px] font-black leading-5 text-black">
-                  {/迅雷|xunlei/i.test(copiedPlatform || "")
-                    ? "打开迅雷客户端，在上方搜索框粘贴链接转存下载"
-                    : `打开${copiedPlatform}客户端会弹出下载框`}
-                  ；网页端打开则可能限速、需要反复登录。
+                  {tip?.advice}
+                  ；{tip?.warning}
                   {tipImage ? (
                     <button
                       type="button"
