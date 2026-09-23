@@ -10,8 +10,20 @@ import { FeaturedCarouselSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import { getFeaturedMods } from "@/lib/mods";
-import { getCurrentUser } from "@/lib/supabase/server";
-import { isAdminIdentity } from "@/lib/supabase/server-config";
+
+/**
+ * 首页现在可以预渲染了。
+ *
+ * 以前 `HomeFeaturedCarousel` 要 `await getCurrentUser()` 把登录态烤进 HTML ——
+ * 一次 `await cookies()` 就让整页无法静态化（这是 Vercel 额度打穿的两个根因之一），
+ * 而它换来的只是「轮播图抽屉里收藏/点赞要不要显示成已登录」。
+ *
+ * 现在那部分由客户端的 SessionProvider 补齐（见 hero-carousel.tsx）。
+ *
+ * revalidate 300 与 `/api/updates`、`/api/home/lower` 已有的 300 秒缓存一致：
+ * 首页顶部的「近期上新」横条与日期标签由 `Date.now()` 派生，必须保持接近实时。
+ */
+export const revalidate = 300;
 
 // ─── Scroll-Snap 容器 ───────────────────────────────────────────
 
@@ -32,19 +44,11 @@ function SnapContainer({ children }: { children: React.ReactNode }) {
 // ─── 区域 1: 现有 Hero ──────────────────────────────────────────
 
 async function HomeFeaturedCarousel() {
-  // 轮播图点击后就地打开详情抽屉，抽屉里的收藏/点赞/评论需要登录态与管理员标记，
-  // 判定方式与 SiteHeader、ModsListing 保持同源（isAdminIdentity 不再多查一次 auth）。
-  const [mods, user] = await Promise.all([getFeaturedMods(6), getCurrentUser()]);
+  // 轮播图点击后就地打开详情抽屉；抽屉里的收藏/点赞/评论所需的登录态与管理员标记
+  // 由 HeroCarousel 自己从 SessionProvider 取 —— 这里不再读 cookie，首页因此可静态化。
+  const mods = await getFeaturedMods(6);
 
-  return (
-    <HeroCarousel
-      mods={mods}
-      admin={isAdminIdentity(user)}
-      currentUserId={user?.id}
-      currentUserName={user?.user_metadata?.display_name ?? user?.email?.split("@")[0] ?? "我"}
-      isLoggedIn={Boolean(user)}
-    />
-  );
+  return <HeroCarousel mods={mods} />;
 }
 
 // ─── 首页 ────────────────────────────────────────────────────────

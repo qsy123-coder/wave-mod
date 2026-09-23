@@ -8,8 +8,9 @@ import { logger } from "@/lib/logger";
 import { modCacheTags } from "@/lib/mod-cache";
 import { mapMod, publicModColumns, publicModDetailColumns } from "@/lib/mods-domain/mappers";
 import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
+import { MODS_MAX_PAGE_SIZE, MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
 import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
-import type { ModRow, PaginatedResult, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
+import type { ModRow, ModsPage, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
 /**
@@ -311,16 +312,24 @@ export async function getLatestMods(limit: number, gameKey = defaultGameKey) {
   return getPublicMods(limit, { gameKey, sort: "latest" });
 }
 
-export async function getPublicModsPage(page: number, pageSize: number, filters: PublicModsFilters = {}): Promise<PaginatedResult<SiteMod>> {
-  const safePage = Math.max(1, page);
-  const safePageSize = Math.max(1, pageSize);
-  const sort = filters.sort ?? "default";
-  const allMods = await getPublicMods(undefined, { ...filters, sort });
+/**
+ * 把**已经筛好、排好**的整表切成第 page 页。
+ *
+ * 抽成纯函数是为了让「服务端预渲染第一页」（ModsListing）与「/api/mods 翻页」走同一段
+ * 分页算术。两边各写一份的话，`hasMore` / `nextPage` 早晚会算不到一起，表现就是无限
+ * 滚动在某一页之后突然停住、或者某一页被加载两遍。
+ *
+ * 入参钳制也在这里做一遍（`/api/mods` 还会再钳一次并写进缓存头）：pageSize 上限
+ * `MODS_MAX_PAGE_SIZE` 是**防呆**用的 —— 见 filter-params.ts 里那个常量的注释。
+ */
+export function paginateMods(allMods: SiteMod[], page: number, pageSize: number): ModsPage {
+  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+  const safePageSize = Number.isFinite(pageSize)
+    ? Math.min(MODS_MAX_PAGE_SIZE, Math.max(1, Math.floor(pageSize)))
+    : MODS_PAGE_SIZE;
   const from = (safePage - 1) * safePageSize;
   const items = allMods.slice(from, from + safePageSize);
   const hasMore = from + safePageSize < allMods.length;
-
-  const totalPages = Math.max(1, Math.ceil(allMods.length / safePageSize));
 
   return {
     hasMore,
@@ -328,8 +337,19 @@ export async function getPublicModsPage(page: number, pageSize: number, filters:
     nextPage: hasMore ? safePage + 1 : null,
     page: safePage,
     pageSize: safePageSize,
-    totalPages,
+    totalCount: allMods.length,
+    totalPages: Math.max(1, Math.ceil(allMods.length / safePageSize)),
   };
+}
+
+export async function getPublicModsPage(page: number, pageSize: number, filters: PublicModsFilters = {}): Promise<ModsPage> {
+  const sort = filters.sort ?? "default";
+  const allMods = await getPublicMods(undefined, { ...filters, sort });
+
+  // 注意：整表 filter+sort 已经在上面的 getPublicMods 里做完，这里只剩切片。
+  // 调用方（如 ModsListing）自己要拿总数时，应当复用同一份 allMods 调 paginateMods，
+  // 而不是再调一次本函数 —— 那会把整表扫描白跑第二遍。
+  return paginateMods(allMods, page, pageSize);
 }
 
 export async function getPublicModBaseById(id: string, gameKey?: string) {

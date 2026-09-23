@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -107,9 +106,5 @@ export async function toggleLikeAction(formData: FormData) {
 
   await syncLikeCount(modId);
 
-  revalidateModEngagementCaches(modId);
-  revalidatePath("/");
-  revalidatePath("/mods");
-  revalidatePath(`/mods/${modId}`);
-  revalidatePath("/favorites");
+  revalidateModEngagementCaches();
 }

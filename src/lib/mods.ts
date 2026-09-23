@@ -17,6 +17,7 @@ export {
   getPublicModsPage,
   getTopRatedMods,
   getWeeklyHotMods,
+  paginateMods,
 } from "@/lib/mods-domain/public";
 export {
   applyModQueryFilters,
@@ -43,6 +44,7 @@ export type {
   ModCommentSort,
   ModRow,
   ModSort,
+  ModsPage,
   PaginatedResult,
   PublicModsFilters,
   SiteMod,

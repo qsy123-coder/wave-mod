@@ -2,11 +2,12 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Heart, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2, BookOpen } from "lucide-react";
 
 import { getEnabledGames } from "@/config/games";
 import { signOutUser } from "@/actions/auth/auth-actions";
+import { useSession } from "@/components/features/auth/session-provider";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { SiteSearchForm } from "@/components/layout/site-search-form";
@@ -31,10 +32,9 @@ import {
 import { siteConfig } from "@/lib/constants/site";
 import { GALLERY_BACK_KEY } from "@/lib/constants/gallery-nav";
 import { LOGIN_BACK_KEY } from "@/lib/constants/auth-nav";
+import { isCurrentNavigationUrl } from "@/lib/navigation-url";
 
 type SiteHeaderClientProps = {
-  isLoggedIn: boolean;
-  isAdmin: boolean;
   /** 顶部附加条（首页"近期上新"滚动通知），渲染在导航行上方 */
   topBar?: React.ReactNode;
 };
@@ -45,7 +45,34 @@ function getCurrentGameKey(pathname: string) {
   return "wuthering-waves"; // 默认（含 redirect 过来的根路径）
 }
 
-export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClientProps) {
+/**
+ * 当前所在 URL（路径 + 查询串）。
+ *
+ * 只在**事件处理里**调用。以前这里是从 `useSearchParams()` 渲染期算出来的，
+ * 但那会让整个组件树逃逸出预渲染 —— 预渲染 HTML 里会留下 Suspense 的 fallback，
+ * 也就是**每个页面的 HTML 里都变成骨架屏而不是导航栏**。
+ *
+ * 这三个用途（判断"点了自己"、记录图库/登录的来源页）本来就都发生在点击那一刻，
+ * 那时 `window.location` 才是唯一的真相 —— 客户端导航后渲染期的值反而可能是旧的。
+ */
+function getCurrentUrl() {
+  return `${window.location.pathname}${window.location.search}`;
+}
+
+export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
+  // 登录态来自客户端 cookie（零网络），不再由服务端下发 —— 服务端读 cookie 会让
+  // 所有用到 header 的页面无法静态化。详见 session-provider.tsx。
+  //
+  // 会话尚未就绪时（status === "loading"，只在硬加载的头一两帧）**按未登录渲染**：
+  // 这样预渲染 HTML 里是一个**可见、可点**的「登录」按钮，匿名访客与爬虫（流量的
+  // 绝大多数）从一开始看到的就是对的，也不需要 JS 才能用。
+  //
+  // 代价是已登录用户在硬加载时会看到「登录」闪一下再变「退出」。另一种做法是就绪前
+  // `visibility: hidden` 占位（布局不跳），但那样在 JS 加载慢时**所有人**都会看到一块
+  // 空白、且无 JS 时登录入口直接消失 —— 两害相权，宁愿只让已登录用户看到一次文字切换。
+  // 管理入口同理：`isAdmin` 只有在查询回来后才会为 true，因此它由 false 变 true 时会有
+  // 一次出现动画；受害者只有管理员本人（ADMIN_EMAIL / ADMIN_PHONES 里那一个账号）。
+  const { isLoggedIn, isAdmin } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const navRowRef = useRef<HTMLDivElement>(null);
@@ -74,9 +101,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
     return () => ro.disconnect();
   }, []);
   const pathname = usePathname();
-  const search = useSearchParams();
   const { startPageLoading } = useNavigationLoading();
-  const currentUrl = `${pathname}${search && search.toString() ? `?${search.toString()}` : ""}`;
   const isZzzRoute = pathname.startsWith("/zenless-zone-zero");
   const isAdminRoute = pathname.startsWith("/admin");
   const loginHref = "/auth/login?mode=user&next=/favorites";
@@ -91,7 +116,9 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
     if (!anchor) return;
     const href = anchor.getAttribute("href");
     if (!href || href.startsWith("http") || href.startsWith("mailto")) return;
-    if (href === currentUrl) {
+    // 用语义判等（参数顺序 / 尾斜杠 / 百分号编码差异都不算差异），
+    // 口径与侧边栏筛选链接一致（两处共用 navigation-url.ts）。
+    if (isCurrentNavigationUrl(href)) {
       e.preventDefault();
       return;
     }
@@ -103,7 +130,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
   const handleGalleryEntry = (href: string) => {
     if (href === "/gallery") {
       try {
-        sessionStorage.setItem(GALLERY_BACK_KEY, currentUrl);
+        sessionStorage.setItem(GALLERY_BACK_KEY, getCurrentUrl());
       } catch {
         /* sessionStorage 不可用时忽略，返回按钮会走 referrer 兜底 */
       }
@@ -117,7 +144,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin, topBar }: SiteHeaderClie
   const handleLoginEntry = (href: string) => {
     if (href.startsWith("/auth/login")) {
       try {
-        sessionStorage.setItem(LOGIN_BACK_KEY, currentUrl);
+        sessionStorage.setItem(LOGIN_BACK_KEY, getCurrentUrl());
       } catch {
         /* sessionStorage 不可用时忽略，返回按钮会走 referrer / 首页兜底 */
       }

@@ -12,6 +12,17 @@ type PageProps = {
   params: Promise<{ game: string; id: string }>;
 };
 
+/**
+ * ⚠️ 这个页面把 per-user 状态**烤进 HTML**：`getCurrentUser()` / `getViewerModState`
+ * / `isAdminUser()` 的结果直接决定渲染出来的按钮与评论区。所以它必须保持动态渲染 ——
+ * 下面那个 `getCurrentUser()` 的 cookie 读取**绝不能删**，也不能改成客户端取会话，
+ * 否则会把一个登录用户的视图（含点赞态、管理员入口）当成公开页面缓存下来发给所有人。
+ *
+ * 显式写出来是为了让它显眼：主站的 `/mods` 已经静态化（登录态挪到了客户端），
+ * 分站这块是**刻意留着**的（见实施计划「不在本次范围」），不要顺手对齐。
+ */
+export const dynamic = "force-dynamic";
+
 async function GameSpecificModDetailContent({ params }: PageProps) {
   const resolvedParams = await params;
 

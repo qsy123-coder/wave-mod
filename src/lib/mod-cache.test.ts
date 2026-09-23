@@ -32,25 +32,37 @@ describe("revalidateModEngagementCaches（用户互动）", () => {
   // revalidatePublicModCaches —— 等于每点一次赞就打掉整张列表缓存。
   // 谁把互动改回去调那个函数，这里必须红。
   it("不失效 mods:list —— 一次互动不该换来一次全表重扫", () => {
-    revalidateModEngagementCaches("mod-1");
+    revalidateModEngagementCaches();
     expect(tagCalls()).not.toContain(modCacheTags.list);
   });
 
   it("不失效 mods:characters —— 互动不改 mod 的角色", () => {
-    revalidateModEngagementCaches("mod-1");
+    revalidateModEngagementCaches();
     expect(tagCalls()).not.toContain(modCacheTags.characters);
   });
 
   // 这条同时兜住「别把 modCacheTags.snapshot 塞进来」：网关被锁时它会拉一份
   // 513KB 的远程快照，一次点赞付这个代价毫无道理。
   it("完全不调用 revalidateTag", () => {
-    revalidateModEngagementCaches("mod-1");
+    revalidateModEngagementCaches();
     expect(revalidateTag).not.toHaveBeenCalled();
   });
 
-  it("仍然刷新该 mod 的详情路由", () => {
-    revalidateModEngagementCaches("mod-1");
-    expect(pathCalls()).toContain("/mods/mod-1");
+  // 2026-09-24：`/mods` 与 `/mods/<id>` 变成 ISR 路由后，互动**不能再**碰它们 ——
+  // 那两个页面的 HTML 里的计数正是上面刻意不清的分片缓存，重建只会拿同一份旧计数
+  // 重渲染，白付一次全表重扫。这条同时兜住「别把 revalidatePublicModCaches 加回来」。
+  it("不刷新 /mods 与首页 —— 它们是 ISR 路由，重建只会重渲染同一份旧计数", () => {
+    revalidateModEngagementCaches();
+    expect(pathCalls()).not.toContain("/");
+    expect(pathCalls()).not.toContain("/mods");
+    expect(pathCalls()).not.toContain("/mods/mod-1");
+  });
+
+  // 唯一真正会变的是「我的收藏」的成员。这条是行为断言，不是实现断言：
+  // 哪天有人把互动改成「什么都不失效」，收藏页就会一直显示旧列表。
+  it("刷新「我的收藏」", () => {
+    revalidateModEngagementCaches();
+    expect(pathCalls()).toEqual(["/favorites"]);
   });
 });
 

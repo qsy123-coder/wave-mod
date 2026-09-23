@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { generateSecureBase64Url } from "@/lib/crypto";
 import { logger } from "@/lib/logger";
+import { getSiteUrl } from "@/lib/site-url";
 import { sendAliyunDypnsVerifyCode, verifyAliyunDypnsCode } from "@/lib/sms/aliyun-dypns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, ensureProfile, isAdminUser } from "@/lib/supabase/server";
@@ -200,24 +201,9 @@ async function upsertPhoneUserForPasswordLogin(phone: string, password: string) 
   throw new Error(created.error?.message || "手机号用户创建失败，且未找到已有用户。");
 }
 
-function getBaseUrl() {
-  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-
-  if (configuredSiteUrl) {
-    return configuredSiteUrl;
-  }
-
-  const deploymentUrl = process.env.VERCEL_URL?.trim() || process.env.CF_PAGES_URL?.trim();
-
-  if (deploymentUrl) {
-    return deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`;
-  }
-
-  return "http://localhost:3000";
-}
-
 function getRequestOrigin() {
-  return getBaseUrl();
+  // 实现抽到了 @/lib/site-url，与 layout 的 metadataBase / 各页 canonical 共用同一口径。
+  return getSiteUrl();
 }
 
 export async function signInWithMagicLink(_prevState: EmailAuthActionState, formData: FormData): Promise<EmailAuthActionState> {

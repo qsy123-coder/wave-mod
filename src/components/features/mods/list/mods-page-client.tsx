@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { useSession } from "@/components/features/auth/session-provider";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
-import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
+import { ModsInfiniteGrid, type ModsGridStatus } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
 import { useLayoutPreference } from "@/components/features/mods/list/use-layout-preference";
-import { ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import type { ModSort, SiteMod } from "@/lib/mods";
 
@@ -16,8 +16,10 @@ type ModsPageClientProps = {
   sort: string;
   sortOptions: { label: string; value: ModSort }[];
   sortHrefs: Record<string, string>;
-  initialMods: SiteMod[];
-  serverTotalCount?: number;
+  /** 服务端预渲染的第一页；非默认筛选时不给（见 mods-listing-view 的 seed） */
+  initialMods?: SiteMod[];
+  /** 与 initialMods 同进同出：那一页对应的全库总数 */
+  initialTotalCount?: number;
   character?: string;
   gameKey?: string;
   activeCharacter?: string;
@@ -25,10 +27,6 @@ type ModsPageClientProps = {
   activeDirect?: boolean;
   activePreview?: boolean;
   openModId?: string;
-  admin?: boolean;
-  currentUserId?: string;
-  currentUserName?: string;
-  isLoggedIn?: boolean;
 };
 
 export function ModsPageClient({
@@ -38,34 +36,60 @@ export function ModsPageClient({
   sortOptions,
   sortHrefs,
   initialMods,
+  initialTotalCount,
   character,
   gameKey,
   activeCharacter,
   activeDirect = false,
   activePreview = false,
   openModId: initialModId,
-  serverTotalCount,
-  admin = false,
-  currentUserId,
-  currentUserName,
-  isLoggedIn = false,
 }: ModsPageClientProps) {
-  const { isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter } = useNavigationLoading();
+  /**
+   * 顶部进度条的唯一写入口在下面的 handleStatusChange（网格状态镜像），
+   * 这里不再由点击事件 startLoading，也不再拿 isLoading 把网格换成骨架：
+   *
+   * - 骨架是网格自己的事 —— 它以 queryKey 为准，换了筛选条件数据天然为空就显示骨架。
+   *   以前上层用一个 isLoading 把整块网格换成通用骨架，版式与真实网格对不上。
+   * - 一对 start/stop「只要有一边漏掉就永久卡住」，2026-09-21 那次「点了筛选一直
+   *   骨架屏」正是如此（push 一个与当前相同的 URL 不会让服务端 props 变化，
+   *   于是 stopLoading 永远不会被调用）。现在结束条件长在网格的取数状态上。
+   */
+  const { startLoading, stopLoading } = useNavigationLoading();
 
-  // 服务端数据到达时（props 变化）自动结束加载状态，并清空乐观角色以对齐服务端
-  const prevParamsRef = useRef(`${sort}-${character}-${initialQuery}-${activeDirect}-${activePreview}`);
-  useEffect(() => {
-    const current = `${sort}-${character}-${initialQuery}-${activeDirect}-${activePreview}`;
-    if (prevParamsRef.current !== current) {
-      prevParamsRef.current = current;
-      stopLoading();
-      setPendingCharacter(null);
-    }
-  }, [sort, character, initialQuery, activeDirect, activePreview, stopLoading, setPendingCharacter]);
+  /**
+   * 登录态 / 管理员标记从客户端取。
+   * 以前是服务端 `await cookies()` 后逐层传下来，那会让本页（以及整个 /mods 路由）
+   * 无法静态化 —— 一次 cookies() 就是整页动态。详见 session-provider.tsx。
+   */
+  const { isLoggedIn, isAdmin, user } = useSession();
+  const currentUserId = user?.id;
+  // 抽屉自己会兜底成「我」，所以没有昵称时给「我」而不是空串
+  const currentUserName = user?.displayName ?? "我";
 
   const { mode: layoutMode, setMode: setLayoutMode, masonryColumns, setMasonryColumns } = useLayoutPreference();
-  // 筛选（含两个开关）全在服务端做，所以服务端给的总数就是准的，不需要再本地数
-  const modCount = serverTotalCount ?? initialMods.length;
+
+  const [gridTotal, setGridTotal] = useState<number | null>(null);
+
+  /**
+   * 把网格的取数状态镜像到进度条与计数上。
+   *
+   * 这里唯一要知道的规矩：**进度条只有一个写入口**，就是网格。点击筛选时不要在
+   * 事件里调 startLoading —— `/mods?sort=latest` 点「全部」这类导航 URL 变了、筛选
+   * 却没变，不会发起任何请求，自己起的进度条没人负责停（详见 mods-infinite-grid）。
+   */
+  const handleStatusChange = useCallback(
+    ({ loading, totalCount }: ModsGridStatus) => {
+      if (loading) startLoading();
+      else stopLoading();
+      setGridTotal(totalCount);
+    },
+    [startLoading, stopLoading],
+  );
+
+  // 网格还没报出总数时（换筛选的第一时间、或请求失败）退回服务端种子的真总数；
+  // 两者都没有就先不显示计数 —— 显示一个上一套筛选的数字比不显示更糟。
+  const modCount = gridTotal ?? initialTotalCount;
+
   const [drawerModId, setDrawerModId] = useState<string | null>(initialModId ?? null);
 
   const openDrawer = useCallback((modId: string) => {
@@ -97,43 +121,36 @@ export function ModsPageClient({
         sortHrefs={sortHrefs}
         activeDirect={activeDirect}
         activePreview={activePreview}
-        activeCharacter={pendingCharacter ?? activeCharacter}
+        activeCharacter={activeCharacter}
         activeQuery={initialQuery || undefined}
         modCount={modCount}
         layoutMode={layoutMode}
         onLayoutChange={setLayoutMode}
         masonryColumns={masonryColumns}
         onMasonryColumnsChange={setMasonryColumns}
-        onFilterChange={startLoading}
       />
 
       <div className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
-        {isLoading ? (
-          <section className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <ModCardSkeleton key={i} />
-            ))}
-          </section>
-        ) : (
-          <ModsInfiniteGrid
-            sort={sort as ModSort}
-            character={character}
-            gameKey={gameKey}
-            query={initialQuery || undefined}
-            initialMods={initialMods}
-            direct={activeDirect}
-            preview={activePreview}
-            isLoggedIn={isLoggedIn}
-            layoutMode={layoutMode}
-            masonryColumns={masonryColumns}
-            onCardClick={openDrawer}
-          />
-        )}
+        <ModsInfiniteGrid
+          sort={sort as ModSort}
+          character={character}
+          gameKey={gameKey}
+          query={initialQuery || undefined}
+          initialMods={initialMods}
+          initialTotalCount={initialTotalCount}
+          direct={activeDirect}
+          preview={activePreview}
+          isLoggedIn={isLoggedIn}
+          layoutMode={layoutMode}
+          masonryColumns={masonryColumns}
+          onCardClick={openDrawer}
+          onStatusChange={handleStatusChange}
+        />
       </div>
 
       {drawerModId && (
         <ModDetailDrawer
-          admin={admin}
+          admin={isAdmin}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           isLoggedIn={isLoggedIn}

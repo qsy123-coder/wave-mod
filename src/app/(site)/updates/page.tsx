@@ -2,22 +2,25 @@ import { Flame, Sparkles } from "lucide-react";
 
 import { getDefaultGame } from "@/config/games";
 import { getDailyUpdates } from "@/lib/mods";
-import { getCurrentUser } from "@/lib/supabase/server";
 
 import { DailyDateSidebar, DailyMobilePills } from "./daily-update-pills";
 import { UpdatesGrid } from "./updates-grid";
 
 // 每日更新页：最近 14 天按天分组展示公开 mod，日期倒序，顶部日期胶囊锚点跳转。
 // 卡片点击在本页弹出详情抽屉（见 updates-grid.tsx），不再跳转到 /mods/[id]。
-export const dynamic = "force-dynamic";
+//
+// 这里原本是 `export const dynamic = "force-dynamic"`，为的是每次请求都用
+// getCurrentUser() 算出登录态并逐层传给卡片/抽屉。登录态现在由客户端的
+// SessionProvider 补齐（见 updates-grid.tsx），因此改成按时间重验证。
+//
+// revalidate 300 与 `/api/updates`、`/api/home/lower` 已有的 300 秒缓存一致：
+// 「今日更新」的日期标签由 `Date.now()` 派生，必须保持接近实时。
+export const revalidate = 300;
 
 const DAYS = 14;
 
 export default async function UpdatesPage() {
-  const [result, user] = await Promise.all([
-    getDailyUpdates(DAYS, getDefaultGame().key),
-    getCurrentUser(),
-  ]);
+  const result = await getDailyUpdates(DAYS, getDefaultGame().key);
 
   const { days } = result;
   const daysWithMods = days.filter((d) => d.mods.length > 0);
@@ -50,8 +53,8 @@ export default async function UpdatesPage() {
           {/* 移动端降级：横向日期胶囊 */}
           <DailyMobilePills days={days} />
 
-          {/* 卡片网格 + 详情抽屉（client 组件） */}
-          <UpdatesGrid days={days} isLoggedIn={Boolean(user)} />
+          {/* 卡片网格 + 详情抽屉（client 组件，自己从 SessionProvider 取登录态） */}
+          <UpdatesGrid days={days} />
         </div>
       </div>
     </div>

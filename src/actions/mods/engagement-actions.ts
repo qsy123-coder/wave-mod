@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { revalidateModEngagementCaches } from "@/lib/mod-cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, ensureProfile, getCurrentUser } from "@/lib/supabase/server";
 
@@ -90,10 +90,7 @@ export async function toggleLikeAction(formData: FormData) {
 
   await syncLikeCount(modId);
 
-  revalidatePath("/");
-  revalidatePath("/mods");
-  revalidatePath(`/mods/${modId}`);
-  revalidatePath("/favorites");
+  revalidateModEngagementCaches();
 }
 
 export async function incrementModViewAction(modId: string) {

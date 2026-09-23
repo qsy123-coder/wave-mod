@@ -5,21 +5,24 @@ import { Download } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
+import { useSession } from "@/components/features/auth/session-provider";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { DailyUpdateDay } from "@/lib/mods";
 
 type UpdatesGridProps = {
   days: DailyUpdateDay[];
-  isLoggedIn?: boolean;
 };
 
 /**
  * 每日更新页卡片网格：点击卡片不再跳转到 /mods/[id]，
  * 改为在本页弹出 mod 详情抽屉（复用 ModDetailDrawer，按 modId 拉取详情）。
  * 日期分组从服务端传入（纯可序列化数据，作为 client props 安全）。
+ *
+ * 登录态不再由服务端下发（那会让本页无法静态化），改从 SessionProvider 取。
  */
-export function UpdatesGrid({ days, isLoggedIn = false }: UpdatesGridProps) {
+export function UpdatesGrid({ days }: UpdatesGridProps) {
+  const { isLoggedIn } = useSession();
   const [drawerModId, setDrawerModId] = useState<string | null>(null);
 
   const daysWithMods = useMemo(() => days.filter((d) => d.mods.length > 0), [days]);

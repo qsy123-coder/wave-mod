@@ -3,15 +3,16 @@ import { describe, expect, it } from "vitest";
 import { buildModsFilterHref, isSameNavigationUrl } from "@/lib/navigation-url";
 
 describe("isSameNavigationUrl（判断一次点击是不是原地踏步）", () => {
-  // 这条是整个判定的存在理由：骨架屏的结束只由「服务端 props 变化」触发，
-  // 而 push 一个与当前完全相同的 URL 不会带来任何 props 变化 ⇒ 判不出来就一直卡着。
+  // 这条是整个判定的存在理由：侧边栏点到「已经生效」的分类时，push 一个与当前
+  // 相同的 URL 不会带来任何变化（旧链接里角色名写成别名时也会解析到同一页），
+  // 只会白白多一条历史记录。判不出来就拦不住这类空导航。
   it("完全相同的 URL 判为同一个", () => {
     expect(isSameNavigationUrl("/mods?character=爱弥斯", "/mods?character=爱弥斯")).toBe(true);
   });
 
-  // 侧边栏链接由 buildModsHref 生成（sort → character → query），搜索框由
-  // ModsToolbar 生成（query → character → sort）。同一个页面的两份链接参数顺序不同，
-  // 按字符串比会把「就在当前页」误判成「要跳走」，于是又卡回骨架屏。
+  // 侧边栏与工具栏都走 buildModsFilterHref，但两边传参顺序不同
+  // （工具栏 query → character → sort，侧边栏 sort → character → query）。
+  // 同一个页面的两份链接参数顺序不同，按字符串比会把「就在当前页」误判成「要跳走」。
   it("参数顺序不同但内容相同判为同一个", () => {
     expect(isSameNavigationUrl("/mods?sort=hot&character=爱弥斯", "/mods?character=爱弥斯&sort=hot")).toBe(
       true
@@ -147,7 +148,7 @@ describe("buildModsFilterHref（不传的字段 = 取消该筛选）", () => {
 
   // 拼链接与判等是一对：拼出来、判等说「就是当前页」的链接，不应该触发导航。
   // 参数顺序不同（工具栏是 query→character→sort，侧边栏是 sort→character→query）
-  // 必须仍判为同一页，否则叉掉筛选会卡在骨架屏上。
+  // 必须仍判为同一页，否则点击会被当成一次真导航、历史里多一条空条目。
   it("与判等自洽：拼出的链接和同内容的乱序链接是同一页", () => {
     const href = buildModsFilterHref("/mods", { query: "大卡", sort: "hot" });
     expect(isSameNavigationUrl(href, "/mods?sort=hot&query=大卡")).toBe(true);

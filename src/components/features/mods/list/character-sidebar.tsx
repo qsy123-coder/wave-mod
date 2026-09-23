@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import { getCharacterImagePath } from "@/lib/constants/character-images";
 import { isCurrentNavigationUrl } from "@/lib/navigation-url";
 
@@ -39,23 +38,25 @@ export function CharacterSidebar({
   className,
 }: CharacterSidebarProps) {
   const router = useRouter();
-  const { startLoading, setPendingCharacter } = useNavigationLoading();
 
   const handleClick = useCallback(
-    (href: string, label: string, alreadyActive: boolean) => {
-      // 点到当前已经在的分类：push 过去不会让服务端 props 发生任何变化（同 URL 不会，
-      // 手工/旧链接里角色名写成别名时解析结果也相同），而骨架屏只能靠 props 变化结束
-      // （mods-page-client.tsx 的 useEffect）——不拦住就会永久停在骨架动画，只能刷新
-      // 页面（2026-09-21 用户报告：连点两次同一个分类）。
+    (href: string, alreadyActive: boolean) => {
+      // 点到当前已经在的分类：push 过去不会带来任何变化（同 URL 不会；手工/旧链接里
+      // 角色名写成别名时解析结果也相同），白白多一条历史记录。拦住它。
       // 顶部导航早就有同样的短路（site-header-client.tsx 里那句 href === currentUrl）。
       if (alreadyActive || isCurrentNavigationUrl(href)) return;
 
-      // 乐观角色：立即写入供筛选条即时显示，待服务端 props 到达后再对齐
-      setPendingCharacter(label === allLabel ? null : label);
-      startLoading();
+      // 只 push 就够了：筛选条件现在直接来自 URL（mods-url-driven.tsx），URL 一变
+      // 侧边栏高亮、筛选条、网格的 queryKey 全都跟着变。
+      //
+      // 以前这里还要做两件事，现在都不需要了：
+      // - setPendingCharacter：那是在「服务端 props 到达」之前先让筛选条显示新角色的
+      //   乐观值；URL 是同步变的，没有那段空窗期。
+      // - startLoading：顶部进度条现在由网格的取数状态驱动（mods-page-client 的
+      //   handleStatusChange），点击事件不再自己起进度条。
       router.push(href);
     },
-    [router, startLoading, setPendingCharacter, allLabel],
+    [router],
   );
 
   const specialCategories = characters.filter((c) =>
@@ -70,7 +71,7 @@ export function CharacterSidebar({
       {/* 全部 */}
       <button
         type="button"
-        onClick={() => handleClick(allHref, allLabel, isAllActive)}
+        onClick={() => handleClick(allHref, isAllActive)}
         className={cn(
           "border-[3px] border-black px-2.5 py-1.5 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
           isAllActive
@@ -90,7 +91,7 @@ export function CharacterSidebar({
           <button
             key={item.label}
             type="button"
-            onClick={() => handleClick(item.href, item.label, item.isActive)}
+            onClick={() => handleClick(item.href, item.isActive)}
             className={cn(
               "flex items-center gap-2 border-[3px] border-black px-2.5 py-2 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
               item.isActive
@@ -126,7 +127,7 @@ export function CharacterSidebar({
             <button
               key={item.label}
               type="button"
-              onClick={() => handleClick(item.href, item.label, item.isActive)}
+              onClick={() => handleClick(item.href, item.isActive)}
               className={cn(
                 "flex items-center gap-2 border-[3px] border-black px-2.5 py-2 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
                 item.isActive

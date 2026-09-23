@@ -114,3 +114,15 @@ export type PaginatedResult<T> = {
   pageSize: number;
   totalPages: number;
 };
+
+/**
+ * mod 列表分页：比通用分页多一个**真总数**。
+ *
+ * 单独一个类型而不是给 `PaginatedResult` 加必填字段：评论分页（getModCommentsPage）
+ * 从来就没有真总数，硬塞一个字段只能编个假值出来。这里用交叉类型把它限定在
+ * `getPublicModsPage` 上，客户端读 `totalCount` 时编译器就能确认服务端真的填了。
+ *
+ * 列表页工具栏那句「共 N 个 MOD」要的就是它。非默认筛选时页面没有预渲染的种子，
+ * 客户端只能等第一页回来才知道总数（见 mods-page-client）。
+ */
+export type ModsPage = PaginatedResult<SiteMod> & { totalCount: number };

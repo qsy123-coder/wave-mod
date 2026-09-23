@@ -1,0 +1,133 @@
+"use client";
+
+import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
+import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
+import type { ModSort, ModsPage } from "@/lib/mods";
+import { isDefaultModsFilters, type ModsFilters } from "@/lib/mods-domain/filter-params";
+import { buildModsFilterHref } from "@/lib/navigation-url";
+
+/**
+ * 列表页的**呈现层**。筛选条件从 props 进来（服务端给默认值、客户端从 URL 读），
+ * 组件本身不关心它从哪来 —— 这样 `/mods` 的预渲染视图与 hydration 之后的视图
+ * 用的是同一份代码，不可能出现「HTML 一套、客户端一套」的错位。
+ */
+
+const sortOptions: { label: string; value: ModSort }[] = [
+  { label: "默认", value: "default" },
+  { label: "最新", value: "latest" },
+  { label: "热度", value: "hot" },
+  { label: "收藏", value: "favorites" },
+  { label: "评分", value: "rating" },
+];
+
+/** 固定排在最前的三个特殊分组；它们不参与角色列表的重复渲染 */
+const SPECIAL_CATEGORIES = ["Skins", "UI", "Other/Misc"];
+
+type ModsListingViewProps = {
+  /** 当前生效的筛选条件 */
+  filters: ModsFilters;
+  /** 库里有内容的角色名（服务端算好，两条渲染路径共用） */
+  availableCharacters: string[];
+  /** 归一化角色名 → 条数 */
+  counts: Record<string, number>;
+  /** 服务端预渲染好的第一页（默认筛选）。非默认筛选时会被忽略，见下方 seed */
+  staticSeed: ModsPage | null;
+  openModId?: string;
+};
+
+export function ModsListingView({
+  filters,
+  availableCharacters,
+  counts,
+  staticSeed,
+  openModId,
+}: ModsListingViewProps) {
+  const { sort, character, query, direct, preview } = filters;
+
+  /**
+   * 拼筛选链接：**永远从当前筛选出发**，只改传入的那一维。
+   *
+   * 每一项都必须把当前两个开关带上 —— 少了它，正开着「含预览图」的用户点一下角色
+   * 分类，筛选就被悄悄丢掉了（参数不在 URL 上 = 没开）。
+   *
+   * 参数拼法统一走 buildModsFilterHref（navigation-url.ts），与工具栏共用一套约定。
+   * 以前这里另有一份 buildModsHref、参数顺序还不同，同一个页面会出现两个字符串
+   * 不一样的链接。
+   */
+  const hrefFor = (next: Partial<ModsFilters> = {}) =>
+    buildModsFilterHref("/mods", { ...filters, ...next });
+
+  const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
+
+  const skinCount = Object.entries(counts)
+    .filter(([k]) => k !== "UI" && k !== "Other/Misc")
+    .reduce((sum, [, c]) => sum + c, 0);
+
+  const sidebarCharacters = [
+    { label: "Skins", count: skinCount },
+    { label: "Other/Misc", count: counts["Other/Misc"] ?? 0 },
+    { label: "UI", count: counts["UI"] ?? 0 },
+  ]
+    .map(({ label, count }) => ({
+      label,
+      count,
+      href: hrefFor({ character: label }),
+      isActive: label === character,
+    }))
+    .concat(
+      availableCharacters
+        .filter((name) => !SPECIAL_CATEGORIES.includes(name))
+        .map((name) => ({
+          label: name,
+          count: counts[name] ?? 0,
+          href: hrefFor({ character: name }),
+          isActive: name === character,
+        })),
+    );
+
+  const sortHrefs: Record<string, string> = {};
+  for (const opt of sortOptions) {
+    sortHrefs[opt.value] = hrefFor({ sort: opt.value });
+  }
+
+  /**
+   * **只有默认筛选才能用预渲染的种子。** 种子是构建期按默认筛选算出来的，
+   * 把它喂给 `/mods?character=千咲` 这样的 URL，页面会先显示全库最新的 16 条 ——
+   * 那是明确违反当前筛选的内容。宁可让网格自己再拉一次第一页（有骨架屏兜着）。
+   *
+   * 这个闸门放在这里而不是调用方：它是「种子能用」的唯一判据，谁传进来都过这一关。
+   */
+  const seed = isDefaultModsFilters(filters) ? staticSeed : null;
+
+  return (
+    <>
+      <div className="hidden w-[240px] shrink-0 flex-col lg:flex">
+        <div className="flex-1 overflow-y-auto pr-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <CharacterSidebar
+            allLabel="全部"
+            allHref={hrefFor({ character: undefined })}
+            allCount={totalCount}
+            isAllActive={!character}
+            characters={sidebarCharacters}
+          />
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <ModsPageClient
+          gameModsPath="/mods"
+          initialQuery={query ?? ""}
+          sort={sort}
+          sortOptions={sortOptions}
+          sortHrefs={sortHrefs}
+          initialMods={seed?.items}
+          initialTotalCount={seed?.totalCount}
+          character={character}
+          activeCharacter={character}
+          activeDirect={direct}
+          activePreview={preview}
+          openModId={openModId}
+        />
+      </div>
+    </>
+  );
+}

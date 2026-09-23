@@ -9,9 +9,13 @@ import { PageLoadingOverlay } from "@/components/layout/page-loading-overlay";
 import { RouteChangeListener } from "@/components/layout/route-change-listener";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  // 让各页可以写相对 canonical / OG 地址（Next 会用它拼成绝对地址）。
+  // 不设的话相对地址会退化成 http://localhost:3000，canonical 就指错域名了。
+  metadataBase: new URL(getSiteUrl()),
   title: {
     default: "鸣潮角色MOD个人站",
     template: "%s | 鸣潮角色MOD个人站",

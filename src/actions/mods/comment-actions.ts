@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -101,10 +100,7 @@ export async function createCommentAction(formData: FormData) {
   const profile = (Array.isArray(data.user) ? data.user[0] : data.user) as CommentProfileRow | null | undefined;
 
   await syncCommentCount(modId);
-  revalidateModEngagementCaches(modId);
-  revalidatePath(`/mods/${modId}`);
-  revalidatePath("/");
-  revalidatePath("/mods");
+  revalidateModEngagementCaches();
 
   return {
     content: data.content,
@@ -160,8 +156,7 @@ export async function replyCommentAction(formData: FormData) {
   const profile = (Array.isArray(data.user) ? data.user[0] : data.user) as CommentProfileRow | null | undefined;
 
   await syncCommentCount(modId);
-  revalidateModEngagementCaches(modId);
-  revalidatePath(`/mods/${modId}`);
+  revalidateModEngagementCaches();
 
   return {
     content: data.content,
@@ -193,7 +188,9 @@ export async function toggleCommentReactionAction(formData: FormData) {
 
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "评价参数无效。");
 
-  const { commentId, modId, value } = parsed.data;
+  // modId 仍然由 schema 校验（前端会带），但这个函数本身不再用它 ——
+  // 它此前只出现在被删掉的 revalidatePath 调用里。
+  const { commentId, value } = parsed.data;
   const supabase = await createClient();
   const { data: existing, error: existingError } = await supabase.from("comment_reactions").select("id,value").eq("comment_id", commentId).eq("user_id", user.id).maybeSingle();
   if (existingError) throw new Error(`读取评价失败：${existingError.message}`);
@@ -216,8 +213,7 @@ export async function toggleCommentReactionAction(formData: FormData) {
   const dislikesCount = reactions?.filter((reaction) => reaction.value === -1).length ?? 0;
   const userReaction = reactions?.find((reaction) => reaction.user_id === user.id)?.value ?? null;
 
-  revalidateModEngagementCaches(modId);
-  revalidatePath(`/mods/${modId}`);
+  revalidateModEngagementCaches();
 
   return { commentId, dislikesCount, likesCount, userReaction: userReaction === 1 || userReaction === -1 ? userReaction : null };
 }
@@ -242,8 +238,7 @@ export async function togglePinCommentAction(formData: FormData) {
   const { error } = await supabase.from("comments").update({ is_pinned: isPinned }).eq("id", commentId).eq("mod_id", modId).is("parent_id", null);
   if (error) throw new Error(`更新置顶失败：${error.message}`);
 
-  revalidateModEngagementCaches(modId);
-  revalidatePath(`/mods/${modId}`);
+  revalidateModEngagementCaches();
 
   return { commentId, isPinned };
 }
@@ -273,10 +268,7 @@ export async function deleteCommentAction(formData: FormData) {
   if (deleteError) throw new Error(`删除评论失败：${deleteError.message}`);
 
   await syncCommentCount(modId);
-  revalidateModEngagementCaches(modId);
-  revalidatePath(`/mods/${modId}`);
-  revalidatePath("/");
-  revalidatePath("/mods");
+  revalidateModEngagementCaches();
 
   return { commentId };
 }

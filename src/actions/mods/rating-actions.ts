@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -85,9 +84,5 @@ export async function rateModAction(formData: FormData) {
 
   await syncRatingAggregate(modId);
 
-  revalidateModEngagementCaches(modId);
-  revalidatePath(`/mods/${modId}`);
-  revalidatePath("/");
-  revalidatePath("/mods");
-  revalidatePath("/favorites");
+  revalidateModEngagementCaches();
 }

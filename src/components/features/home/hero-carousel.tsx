@@ -7,6 +7,7 @@ import Autoplay from "embla-carousel-autoplay";
 
 import { ArrowUpRight, Pause, Play, Star } from "lucide-react";
 
+import { useSession } from "@/components/features/auth/session-provider";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,10 +23,6 @@ import type { SiteMod } from "@/lib/mods";
 
 type HeroCarouselProps = {
   mods: SiteMod[];
-  admin?: boolean;
-  currentUserId?: string;
-  currentUserName?: string;
-  isLoggedIn?: boolean;
 };
 
 /**
@@ -37,13 +34,15 @@ const ModDetailDrawer = dynamic(
   { ssr: false },
 );
 
-export function HeroCarousel({
-  mods,
-  admin = false,
-  currentUserId,
-  currentUserName,
-  isLoggedIn = false,
-}: HeroCarouselProps) {
+export function HeroCarousel({ mods }: HeroCarouselProps) {
+  // 登录态 / 管理员标记改由客户端取（以前是首页服务端读 cookie 后逐层传下来）。
+  // 抽屉是 `ssr: false` 的动态加载组件、点了才渲染，所以这里晚一两帧拿到会话
+  // 完全看不出来。详见 session-provider.tsx。
+  const { isLoggedIn, isAdmin, user } = useSession();
+  const admin = isAdmin;
+  const currentUserId = user?.id;
+  // 抽屉自己会兜底成「我」，所以没有昵称时传 undefined 而不是空串。
+  const currentUserName = user?.displayName ?? undefined;
   const plugin = React.useRef(
     Autoplay({ delay: 4500, stopOnInteraction: true, stopOnMouseEnter: true }),
   );

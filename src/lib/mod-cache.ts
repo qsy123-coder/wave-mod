@@ -52,14 +52,18 @@ export function revalidatePublicModCaches(modId?: string) {
  * 重扫是纯浪费，TTL 涨到 1 小时之后更是每次互动都把这 1 小时白省一遍。
  *
  * 代价：列表卡片上的点赞 / 评论 / 收藏计数最多滞后一个 TTL。详情页不受影响。
+ *
+ * ⚠️ 连 `/mods/<id>` 也不再 revalidatePath 了（2026-09-24）。`/mods` 与 `/mods/<id>`
+ * 现在是 ISR 路由，而它们 HTML 里的计数**正是**上面那份刻意不清的分片缓存 ——
+ * 重建一遍只会拿同一份旧计数重渲染，白付一次全表重扫。抽屉和详情页的计数走
+ * `/api/mods/[id]`（private, no-store）实时拉，本来就不依赖路由 HTML。
+ *
+ * 所以真正会变的只剩「我的收藏」的**成员**（收藏 / 取消收藏），也就只剩它需要失效。
+ * 这里不写 revalidateTag(modCacheTags.detail(modId))：那个 tag 目前没有任何缓存条目
+ * 挂载，revalidateTag 它是空操作。哪天给详情页加了 unstable_cache，要回来补上。
  */
-export function revalidateModEngagementCaches(modId: string) {
-  // 详情页与评论区都是按需渲染的动态路由，revalidatePath 足够让它们下次重查。
-  //
-  // 这里不写 revalidateTag(modCacheTags.detail(modId))：那个 tag —— 以及
-  // "creators:ranking" —— 目前没有任何缓存条目挂载，revalidateTag 它们是空操作。
-  // 哪天给详情页加了 unstable_cache，要回来这里补上。
-  revalidatePath(`/mods/${modId}`);
+export function revalidateModEngagementCaches() {
+  revalidatePath("/favorites");
 }
 
 /** 刷新指定创作者的 Profile 页缓存（上传/编辑 MOD 后调用） */
