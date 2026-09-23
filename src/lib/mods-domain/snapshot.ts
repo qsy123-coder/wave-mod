@@ -220,8 +220,11 @@ async function loadBundledRows(): Promise<SnapshotRow[] | null> {
 }
 
 /**
- * 取快照中某游戏的已发布行。形状与 getCachedModRowBatch 的返回值一致，
- * 因此调用方可以无差别地交给 mapMod / applyModQueryFilters 处理。
+ * 取快照中某游戏的已发布**原始行**（形状 = Supabase 按 publicModColumns 返回的那种）。
+ *
+ * 注意：返回的不是领域对象。`getCachedModShard` 缓存的是 mapMod **之后**的结果，
+ * 这里是它的输入形状而不是输出形状 —— 调用方必须自己交给 mapMod 处理，
+ * 不能直接塞给 applyModQueryFilters。
  */
 export async function getSnapshotRows(gameKey: string): Promise<Record<string, unknown>[]> {
   const rows = (await loadRemoteRows()) ?? (await loadBundledRows()) ?? [];

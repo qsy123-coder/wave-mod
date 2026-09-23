@@ -18,8 +18,12 @@ import { createPublicReadClient } from "@/lib/supabase/server";
  * 取 500 而非 1000，是为了让每条缓存项序列化后稳定低于 Next.js Data Cache 的
  * 2MB 单项上限（1000 行 ≈ 1.2MB，贴得太近；500 行 ≈ 0.6MB，留出安全余量）。
  * 超过上限时 Next 会静默跳过写入（dev 模式直接抛错），缓存等于没做。
+ *
+ * 缓存内容在 2026-09-23 从「原始行」改成了「mapMod 之后的领域对象」，体积放大
+ * 1.30x：实测 500 行映射后约 518KB，占上限 25%。改这个常量前先跑
+ * shard-size.test.ts，它会按新值重新量并卡住超限的情况。
  */
-const MOD_FETCH_BATCH_SIZE = 500;
+export const MOD_FETCH_BATCH_SIZE = 500;
 
 /**
  * 公开读缓存的 TTL（秒）。
@@ -45,18 +49,26 @@ const MOD_FETCH_BATCH_SIZE = 500;
 const CACHE_REVALIDATE_SECONDS = 21600;
 
 /**
- * 分片缓存「已发布 mod 原始行」。
+ * 分片缓存「已发布 mod 的领域对象」（即 mapMod 之后的结果）。
  *
  * 背景：/api/mods 每翻一页、以及 /mods 每次渲染，都会走 getPublicMods 把整张表
- * （当前 5162 行 ≈ 6MB）拉一遍，再在内存里 filter/sort，最后只切出 16 条。
- * 这是前台「拿到 URL 慢」的主因。
+ * （当前 5292 行）拉一遍，再在内存里 filter/sort，最后只切出 16 条。
  *
- * 整表结果远超 2MB，不能作为单条缓存项，因此按 MOD_FETCH_BATCH_SIZE 拆成多条。
- * 缓存里存的只是原始行，filter/sort/分页仍由调用方在内存中完成，
+ * 2026-09-23 之前这里缓存的是**原始行**，mapMod 由每个请求各做一遍。全表映射一次
+ * 约 0.55s，而请求量是每个访客若干次 —— 累计烧穿了 Vercel 的 Fluid Active CPU
+ * 额度（10h14m / 4h）导致整站被暂停。现在把 mapMod 收进缓存，每个 TTL 只映射一次。
+ *
+ * 整表结果远超 2MB 上限，不能作为单条缓存项，因此按 MOD_FETCH_BATCH_SIZE 拆成多条。
+ * 实测（data/mods-snapshot.json.gz，5292 行）：500 行映射后 JSON ≈ 518KB，
+ * 放大倍数 1.30x、约为上限的 1/4 —— 500 这个批量对映射后的对象依然安全。
+ * 改动批量前请重跑 src/lib/mods-domain/shard-size.test.ts 复核这个数字：
+ * 超过 2MB 时 Next 会**静默跳过写入**，缓存等于没做。
+ *
+ * filter/sort/分页仍由调用方在内存中完成（它们不修改入参，可安全复用缓存对象），
  * 因此角色别名、复合关键词搜索、hot 评分、zh-CN 排序等语义完全不变。
  */
-const getCachedModRowBatch = unstable_cache(
-  async (gameKey: string, from: number): Promise<Record<string, unknown>[]> => {
+const getCachedModShard = unstable_cache(
+  async (gameKey: string, from: number): Promise<SiteMod[]> => {
     const supabase = createPublicReadClient();
     const { data, error } = await supabase
       .from("mods")
@@ -71,9 +83,12 @@ const getCachedModRowBatch = unstable_cache(
       throw new Error(error.message);
     }
 
-    return data ?? [];
+    return (data ?? []).map((row) => mapMod(row as ModRow));
   },
-  ["public-mods-batch"],
+  // key 必须与改造前的 ["public-mods-batch"] 不同：两者返回的**形状不一样**
+  // （原始行 vs 领域对象）。复用同一个 key 会让新代码从旧缓存条目里读出原始行，
+  // 表现为字段全 undefined 的静默脏数据，而不是报错。
+  ["public-mods-shard-mapped"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: [modCacheTags.list] },
 );
 
@@ -93,7 +108,7 @@ const getCachedPublishedModCount = unstable_cache(
       .eq("game_key", gameKey);
 
     if (error) {
-      // 同 getCachedModRowBatch：抛出以免把一次失败固化一整个 TTL
+      // 同 getCachedModShard：抛出以免把一次失败固化一整个 TTL
       throw new Error(error.message);
     }
 
@@ -104,22 +119,23 @@ const getCachedPublishedModCount = unstable_cache(
 );
 
 /**
- * 取回整表原始行：先按总数算出分片数，再并发拉取。
+ * 取回整表**领域对象**：先按总数算出分片数，再并发拉取。
  *
  * 此前是 `for` 循环串行 await 每一片。生产环境 Supabase 在 ap-northeast-2（首尔）
  * 而 Vercel 函数默认在 iad1（美东），单次查询跨洋约 200ms，11 片串行就是 2.2s 起步。
  * 并发后回填耗时从 `分片数 × RTT` 降到约 `1 × RTT`。
  *
- * 分片全部命中缓存时不产生任何 Supabase 往返（与改动前一致）。
+ * 分片全部命中缓存时不产生任何 Supabase 往返（与改动前一致），
+ * 且 mapMod 也一并省掉 —— 这是本次改造的目的，见 getCachedModShard 的注释。
  */
-async function getAllPublishedModRows(gameKey: string): Promise<Record<string, unknown>[]> {
+async function getAllPublishedMods(gameKey: string): Promise<SiteMod[]> {
   try {
     const total = await getCachedPublishedModCount(gameKey);
     // 总数为 0 时也拉一片，走统一路径返回空数组
     const shardCount = Math.max(1, Math.ceil(total / MOD_FETCH_BATCH_SIZE));
 
     const batches = await Promise.all(
-      Array.from({ length: shardCount }, (_, index) => getCachedModRowBatch(gameKey, index * MOD_FETCH_BATCH_SIZE)),
+      Array.from({ length: shardCount }, (_, index) => getCachedModShard(gameKey, index * MOD_FETCH_BATCH_SIZE)),
     );
 
     // count 与分片是两条独立缓存项，即使同 tag 也不是原子失效，到期时刻可能相差几秒。
@@ -127,7 +143,7 @@ async function getAllPublishedModRows(gameKey: string): Promise<Record<string, u
     let from = shardCount * MOD_FETCH_BATCH_SIZE;
     let lastFetchedFull = batches[batches.length - 1]?.length === MOD_FETCH_BATCH_SIZE;
     while (lastFetchedFull) {
-      const extra = await getCachedModRowBatch(gameKey, from);
+      const extra = await getCachedModShard(gameKey, from);
       batches.push(extra);
       from += MOD_FETCH_BATCH_SIZE;
       lastFetchedFull = extra.length === MOD_FETCH_BATCH_SIZE;
@@ -136,12 +152,13 @@ async function getAllPublishedModRows(gameKey: string): Promise<Record<string, u
     return batches.flat();
   } catch (error) {
     // Supabase 网关不可用（典型：项目因超配额被 restriction，全站 402）时回退到本地快照。
-    // 故意放在这一层、而不是 getCachedModRowBatch 内部：让失败继续向上抛，
+    // 故意放在这一层、而不是 getCachedModShard 内部：让失败继续向上抛，
     // 不被 unstable_cache 把兜底结果固化一整个 TTL —— 网关一恢复就能立刻回到实时数据。
     logger.warn("[mods] Supabase 读取失败，回退到本地快照", {
       error: error instanceof Error ? error.message : "unknown",
     });
-    return getSnapshotRows(gameKey);
+    // 快照里存的是原始行，走与正常路径同一个 mapMod，保证两条路径产出的对象形状一致
+    return (await getSnapshotRows(gameKey)).map((row) => mapMod(row as ModRow));
   }
 }
 
@@ -149,7 +166,7 @@ async function getAllPublishedModRows(gameKey: string): Promise<Record<string, u
  * 已发布 mod 的角色名去重列表。
  *
  * 只取 character 一列，单条缓存项约 0.3MB，稳定低于 2MB 上限，
- * 因此整份结果可以直接作为一条缓存项（无需像 getCachedModRowBatch 那样分片）。
+ * 因此整份结果可以直接作为一条缓存项（无需像 getCachedModShard 那样分片）。
  */
 const getCachedAvailableCharacters = unstable_cache(
   async (gameKey: string): Promise<string[]> => {
@@ -219,9 +236,9 @@ export async function getCharacterSuggestions(gameKey = defaultGameKey) {
 export async function getPublicMods(limit?: number, filters: PublicModsFilters = {}) {
   const { gameKey = defaultGameKey, sort = "default" } = filters;
 
-  let allRows: Record<string, unknown>[];
+  let allMods: SiteMod[];
   try {
-    allRows = await getAllPublishedModRows(gameKey);
+    allMods = await getAllPublishedMods(gameKey);
   } catch (error) {
     // Supabase env 缺失、或某批拉取失败：回退空列表（与改动前行为一致），
     // 且失败结果不会被写入缓存，下一请求会重试。
@@ -230,8 +247,9 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
   }
 
   // filter/sort 保持在内存中完成：applyModQueryFilters 用 filter、applyModSort/sortModsByHot
-  // 用 slice().sort()，均不修改入参，因此可以安全复用缓存里的原始行。
-  const mods = applyModQueryFilters(allRows.map((row) => mapMod(row as ModRow)), filters);
+  // 用 slice().sort()，均不修改入参，因此可以安全复用缓存里的领域对象。
+  // mapMod 已在 getCachedModShard 内做过，这里不再重复映射。
+  const mods = applyModQueryFilters(allMods, filters);
   const sortedMods = sort === "hot" ? sortModsByHot(mods) : applyModSort(sort)(mods);
 
   return typeof limit === "number" ? sortedMods.slice(0, limit) : sortedMods;
