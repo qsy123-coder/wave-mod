@@ -94,12 +94,18 @@ export function ModsPageClient({
 
   const openDrawer = useCallback((modId: string) => {
     setDrawerModId(modId);
-    window.history.pushState(null, "", `/mods/${modId}`);
+    // 必须把当前 query 带上：筛选条件只存在于 URL 上（mods-url-driven.tsx 从地址栏读），
+    // 丢掉它就等于把「角色: 千咲」连同那张筛选卡片一起扔掉 —— 抽屉一开，筛选卡片消失、
+    // 网格退回默认列表（2026-09-24 用户报告：从角色分类页点开 mod 详情后复现）。
+    // 带上之后 /mods/<id>?character=千咲 仍是合法的分享链接；canonical 由
+    // generateMetadata 固定成不带参数的形式，不会因此多出一堆重复页面。
+    window.history.pushState(null, "", `/mods/${modId}${window.location.search}`);
   }, []);
 
   const closeDrawer = useCallback(() => {
     setDrawerModId(null);
-    window.history.pushState(null, "", "/mods");
+    // 关抽屉＝回到刚才那份筛选列表，而不是回到「全部」
+    window.history.pushState(null, "", `/mods${window.location.search}`);
   }, []);
 
   useEffect(() => {
