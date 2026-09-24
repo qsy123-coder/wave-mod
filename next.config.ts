@@ -55,6 +55,27 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // 角色头像（public/character-imgs/）默认由 Next 的静态文件处理发出去，带的是
+  // `Cache-Control: public, max-age=0`，且这里实测对 If-None-Match / If-Modified-Since
+  // 一律回 200 + 完整 body（不回 304）—— 等于每次进 /mods 都要把这 60 多个头像重下一遍。
+  // 头像总共约 0.5MB，重下就是纯浪费，所以显式给一段缓存。
+  //
+  // 不用 immutable / max-age=1y：文件名没有内容哈希，换图是**原地覆盖**同名文件
+  // （见 public/character-imgs 的历次压缩），永久缓存会让换掉的图再也刷不出来。
+  // 一周 + 一天 stale-while-revalidate：正常浏览完全命中缓存，换图一周内自然过期。
+  async headers() {
+    return [
+      {
+        source: "/character-imgs/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, stale-while-revalidate=86400",
+          },
+        ],
+      },
+    ];
+  },
   reactCompiler: true,
   images: {
     unoptimized: true,

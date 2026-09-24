@@ -143,6 +143,12 @@ fi
 
 # ── 7. Nginx ───────────────────────────────────────────────────────────────
 log "配置 Nginx"
+# ⚠️ 只在文件不存在时写。certbot 签证书时会**就地**往这个文件里补 443/ssl 块，
+# 而下面这段内容只有 80 端口 —— 无条件 `cat >` 覆盖会把 HTTPS 配置连同证书绑定
+# 一起抹掉（站点直接掉 HTTPS）。要强制重建就先手动删掉这个文件，删完必须重跑 certbot。
+if [ -f /etc/nginx/sites-available/wavemod ]; then
+  warn "vhost 已存在，跳过写入（保留 certbot 补的 443/ssl；强制重建请先删文件再重跑 certbot）"
+else
 cat > /etc/nginx/sites-available/wavemod <<NGINX
 # apex 301 到 www：站点规范域名是 www，避免两套域名各存一份缓存
 server {
@@ -177,6 +183,7 @@ server {
     }
 }
 NGINX
+fi
 
 ln -sf /etc/nginx/sites-available/wavemod /etc/nginx/sites-enabled/wavemod
 rm -f /etc/nginx/sites-enabled/default
@@ -187,7 +194,7 @@ systemctl reload nginx
 cat <<DONE
 
 ============================================================
-部署脚本已跑完。剩下四件事必须手动做，顺序不能反：
+部署脚本已跑完。剩下五件事必须手动做，顺序不能反：
 ============================================================
 
 【1】云厂商控制台放行端口
@@ -203,7 +210,12 @@ cat <<DONE
     certbot --nginx -d ${SITE_DOMAIN} -d ${WWW_DOMAIN}
     certbot 会自己改 Nginx 配置并配好自动续期。
 
-【4】Supabase 后台改回调地址
+【4】给 443 打开 HTTP/2（certbot 补的 443 块默认不带 http2）
+    sudo bash ${APP_DIR}/scripts/enable-http2.sh
+    不开的话浏览器对本站只能开 6 条 HTTP/1.1 连接，而 /mods 一页要发 100+ 个请求。
+    （该脚本幂等，可重复跑；改前会留 .bak-<时间戳> 备份。）
+
+【5】Supabase 后台改回调地址
     Authentication → URL Configuration：
       Site URL      : https://${WWW_DOMAIN}
       Redirect URLs : https://${WWW_DOMAIN}/auth/callback
