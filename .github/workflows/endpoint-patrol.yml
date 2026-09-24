@@ -1,0 +1,40 @@
+name: Endpoint Patrol
+
+# 入口巡检：确认「残留 DNS 用户」不会再看到 Vercel 那张「网站已经暂停部署」页。
+# 背景见 docs/域名入口拓扑.md，判定规则见 scripts/endpoint-patrol.mjs（含单测）。
+#
+# job 报红 = 有人又在看暂停页 / A 记录被改回去 / 入口本身挂了
+# → GitHub 会给仓库主发邮件，不用等用户来反馈。
+#
+# 刻意不带 npm ci：巡检只用 Node 内置模块，没有任何依赖。
+
+on:
+  schedule:
+    # UTC 02:17 = 北京 10:17。刻意避开整点，别和一堆定时任务挤在同一秒。
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: endpoint-patrol
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  patrol:
+    name: Probe endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run endpoint patrol
+        run: node scripts/endpoint-patrol.mjs

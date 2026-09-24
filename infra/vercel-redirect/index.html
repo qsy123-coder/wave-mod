@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>正在跳转…</title>
+<!--
+  兜底第二层：vercel.json 的 redirects 规则正常情况下会先命中，
+  这个页面根本不会被渲染。保留它是为了「规则没生效（比如新路径被排除）」
+  时用户至少能手动点走，而不是看到一片空白。
+-->
+<meta http-equiv="refresh" content="0; url=https://go.sunnyrose.xyz/">
+<meta name="robots" content="noindex,nofollow">
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Microsoft YaHei", Arial, sans-serif;
+    background: #0f1117; color: #e6e9f0;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; margin: 0; text-align: center;
+  }
+  a { color: #7c5cff; }
+  .muted { color: #9aa3b5; font-size: 14px; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <div>
+    <p>正在跳转到 WaveMod…</p>
+    <p class="muted">如果没自动跳转，<a href="https://go.sunnyrose.xyz/">点这里</a>。</p>
+  </div>
+</body>
+</html>
