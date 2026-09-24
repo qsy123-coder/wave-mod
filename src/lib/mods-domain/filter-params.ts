@@ -84,3 +84,26 @@ export function isDefaultModsFilters(filters: ModsFilters): boolean {
     !filters.preview
   );
 }
+
+/**
+ * 「这是哪一份列表」的身份键：五个维度任一变，就是另一份列表。
+ *
+ * 谁用它：`ModsPageClient` 里网格那个滚动容器 —— 换了筛选条件就是换了一份内容，
+ * 必须回到顶部。以前没这一条时它只是**碰巧**归零：从 `/mods`（默认筛选）点分类
+ * 会让 Suspense 边界整棵树重建、节点是新的，于是天然 0；而带着筛选条件打开页面后
+ * 再点分类只重渲染不重建，右栏就停在原来的位置（2026-09-24 用户报告）。
+ * 左侧角色侧栏反过来 —— 它要跨导航**保住**位置（见 mods-listing-view）。
+ *
+ * 键不用 URL 原串：`?sort=latest` 与不写 sort 是同一个页面，必须给同一个键，
+ * 否则点「全部」这类等价 URL 会把用户从滚动位置上无谓地拽回顶部。
+ * 也不用 join("|") 拼字符串：值里带 `|` 时两份不同的筛选会撞成同一个键。
+ */
+export function modsListingKey(filters: ModsFilters): string {
+  return JSON.stringify([
+    filters.sort,
+    filters.character ?? "",
+    filters.query ?? "",
+    filters.direct,
+    filters.preview,
+  ]);
+}

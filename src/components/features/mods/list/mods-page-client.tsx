@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useSession } from "@/components/features/auth/session-provider";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
@@ -12,6 +12,11 @@ import type { ModSort, SiteMod } from "@/lib/mods";
 
 type ModsPageClientProps = {
   gameModsPath: string;
+  /**
+   * 「这是哪一份列表」的身份键（filter-params 的 modsListingKey）。
+   * 它一变，网格就滚回顶部 —— 见下面的 listingScrollRef。
+   */
+  listingKey: string;
   initialQuery: string;
   sort: string;
   sortOptions: { label: string; value: ModSort }[];
@@ -31,6 +36,7 @@ type ModsPageClientProps = {
 
 export function ModsPageClient({
   gameModsPath,
+  listingKey,
   initialQuery,
   sort,
   sortOptions,
@@ -117,6 +123,24 @@ export function ModsPageClient({
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  const listingScrollRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * 换了筛选条件 = 另一份列表 ⇒ 网格回到顶部。
+   *
+   * 这条以前是**碰巧**成立的：从 `/mods`（默认筛选）点分类会让 Suspense 边界整棵树
+   * 重建、这个容器是新的节点，于是天然 0；而带着筛选条件打开页面后再点分类只重渲染
+   * 不重建，右栏就停在原来的位置（2026-09-24 用户报告：「点了分类右边的 mod 列表
+   * 应该重置」）。现在显式按 listingKey 归零，与树重不重建无关。
+   *
+   * 左侧角色侧栏是反过来的：它要跨导航保住滚动位置（见 mods-listing-view）。
+   * 开/关详情抽屉走的是 pushState，listingKey 不变 ⇒ 不会把人从位置上拽走。
+   */
+  useEffect(() => {
+    const el = listingScrollRef.current;
+    if (el) el.scrollTop = 0;
+  }, [listingKey]);
+
   return (
     <>
       <ModsToolbar
@@ -136,7 +160,7 @@ export function ModsPageClient({
         onMasonryColumnsChange={setMasonryColumns}
       />
 
-      <div className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
+      <div ref={listingScrollRef} className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
         <ModsInfiniteGrid
           sort={sort as ModSort}
           character={character}

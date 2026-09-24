@@ -5,7 +5,7 @@ import { useCallback } from "react";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import type { ModSort, ModsPage } from "@/lib/mods";
-import { isDefaultModsFilters, type ModsFilters } from "@/lib/mods-domain/filter-params";
+import { isDefaultModsFilters, modsListingKey, type ModsFilters } from "@/lib/mods-domain/filter-params";
 import { buildModsFilterHref } from "@/lib/navigation-url";
 import { recallScrollPosition, rememberScrollPosition } from "@/lib/scroll-memory";
 
@@ -138,6 +138,7 @@ export function ModsListingView({
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <ModsPageClient
           gameModsPath="/mods"
+          listingKey={modsListingKey(filters)}
           initialQuery={query ?? ""}
           sort={sort}
           sortOptions={sortOptions}

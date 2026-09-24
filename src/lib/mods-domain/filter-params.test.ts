@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MODS_FILTERS,
   isDefaultModsFilters,
+  modsListingKey,
   parseModsFilters,
 } from "@/lib/mods-domain/filter-params";
 
@@ -58,5 +59,27 @@ describe("isDefaultModsFilters", () => {
   it("sort=default 不是默认筛选（它按标题排，与 latest 是不同结果）", () => {
     expect(isDefaultModsFilters(parse("sort=default"))).toBe(false);
     expect(isDefaultModsFilters(parse("sort=hot"))).toBe(false);
+  });
+});
+
+/**
+ * 这个键是网格「要不要滚回顶部」的唯一判据，两个方向都会出用户可见的错：
+ * 该同不同 ⇒ 点等价 URL 把用户从位置上拽回顶部；该异不同 ⇒ 换了分类还停在旧位置。
+ */
+describe("modsListingKey", () => {
+  it("等价 URL 给同一个键（?sort=latest 与不写 sort）", () => {
+    expect(modsListingKey(parse("sort=latest"))).toBe(modsListingKey(parse("")));
+  });
+
+  it("任一维度变了就是另一个键", () => {
+    const base = modsListingKey(parse(""));
+    for (const qs of ["character=%E5%8D%83%E5%92%B2", "query=abc", "direct=1", "preview=1", "sort=default"]) {
+      expect(modsListingKey(parse(qs))).not.toBe(base);
+    }
+  });
+
+  // 用 join("|") 拼字符串就会在这里撞键：值本身带分隔符时，两份不同的筛选拼出同一个串。
+  it("值里的分隔符不会造成碰撞", () => {
+    expect(modsListingKey(parse("character=a%7Cb"))).not.toBe(modsListingKey(parse("character=a&query=b")));
   });
 });
