@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import Autoplay from "embla-carousel-autoplay";
 
@@ -18,6 +19,7 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
+import { isPlainLeftClick } from "@/lib/navigation-url";
 import type { SiteMod } from "@/lib/mods";
 
 
@@ -128,19 +130,24 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
           <CarouselContent className="ml-0">
             {mods.map((mod, index) => (
               <CarouselItem key={mod.id} className="pl-0">
-                {/* 点击不再跳转到 /mods/<id>，改为就地打开右侧详情抽屉（与角色分类页一致） */}
-                <div
-                  role="button"
-                  tabIndex={0}
+                {/* 点击不跳转到 /mods/<id>，改为就地打开右侧详情抽屉（与角色分类页一致）。
+                    但元素本身得是真链接：`<div role="button" onClick>` 在 React 水合之前
+                    没有事件处理器，点了完全没反应；真 <a href> 则会走浏览器原生跳转
+                    （那个页面本身就会带着抽屉渲染出来），至少给得出加载指示。
+                    见 memory: prerender-click-dead-window。
+                    真链接顺带把键盘可达性也带来了：回车与点击同路径，不用再手写 onKeyDown。 */}
+                <Link
+                  href={`/mods/${mod.id}`}
+                  prefetch={false}
                   aria-label={`查看 ${mod.title} 详情`}
-                  onClick={() => setDrawerModId(mod.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      setDrawerModId(mod.id);
-                    }
+                  onClick={(event) => {
+                    // 带修饰键（Ctrl/Cmd/中键 → 新标签页）放行给浏览器
+                    if (!isPlainLeftClick(event)) return;
+                    event.preventDefault();
+                    setDrawerModId(mod.id);
                   }}
-                  className="group block cursor-pointer focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-black"
+                  // 按下反馈：纯 CSS，水合前按下去就有反应
+                  className="group block cursor-pointer transition-transform duration-150 active:scale-[0.99] focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-black"
                 >
                   <div className="relative h-[500px] w-full overflow-hidden border-4 border-black bg-black md:h-[560px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -184,7 +191,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               </CarouselItem>
             ))}
           </CarouselContent>

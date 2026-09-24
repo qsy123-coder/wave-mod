@@ -133,7 +133,8 @@ export function AdminModsListClient({
                   showCheckbox={selectionMode}
                   checkboxChecked={selectedIds.has(mod.id)}
                   onCheckboxChange={selectionMode ? (checked) => setSelect(mod.id, checked) : undefined}
-                  onCardClick={selectionMode ? () => toggleSelect(mod.id) : undefined}
+                  // 选择模式下卡片不是链接（点了只勾选，不能导航；href 是给编辑页用的）
+                  onCardSelect={selectionMode ? () => toggleSelect(mod.id) : undefined}
                   extraMetaBadges={
                     <span className={`inline-flex items-center border-2 border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-black shadow-[2px_2px_0_0_#000] ${mod.isPublished ? "bg-[#4ade80]" : "bg-[#ffd84f]"}`}>
                       {mod.isPublished ? "已发布" : "草稿"}

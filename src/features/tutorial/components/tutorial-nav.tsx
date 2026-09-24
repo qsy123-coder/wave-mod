@@ -94,8 +94,11 @@ function SortableTab({
       <button
         type="button"
         onClick={onClick}
+        // 章节只在客户端状态里，没有对应的 URL，所以这里给不出真链接 —— 水合前唯一能做的
+        // 反馈就是按下态：位移 + 阴影收掉 + 缩小一圈，纯 CSS，按下即有反应。
+        // 注意别用背景色做按下态：选中项的底色走 inline style，class 抢不过它。
         className={cn(
-          "inline-flex items-center gap-1.5 border-4 border-black px-3 py-1 transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
+          "inline-flex items-center gap-1.5 border-4 border-black px-3 py-1 transition active:translate-x-[2px] active:translate-y-[2px] active:scale-95 active:shadow-none",
           isActive
             ? "shadow-[4px_4px_0px_0px_#000]"
             : "bg-white hover:shadow-[4px_4px_0px_0px_#000]",

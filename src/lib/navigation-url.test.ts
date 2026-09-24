@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { buildModsFilterHref, isSameNavigationUrl } from "@/lib/navigation-url";
+import {
+  buildModsFilterHref,
+  isPlainLeftClick,
+  isSameNavigationUrl,
+  type PlainClickEvent,
+} from "@/lib/navigation-url";
+
+/** 一次点击：只有显式写出来的修饰键才为 true */
+function click(overrides: Partial<PlainClickEvent> = {}): PlainClickEvent {
+  return { button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...overrides };
+}
 
 describe("isSameNavigationUrl（判断一次点击是不是原地踏步）", () => {
   // 这条是整个判定的存在理由：侧边栏点到「已经生效」的分类时，push 一个与当前
@@ -62,6 +72,33 @@ describe("isSameNavigationUrl（判断一次点击是不是原地踏步）", () 
   it("同名参数的多个值都参与比较", () => {
     expect(isSameNavigationUrl("/mods?tag=a&tag=b", "/mods?tag=a")).toBe(false);
     expect(isSameNavigationUrl("/mods?tag=a&tag=b", "/mods?tag=b&tag=a")).toBe(true);
+  });
+});
+
+describe("isPlainLeftClick（这次点击该不该我们接管）", () => {
+  it("无修饰键的左键：接管", () => {
+    expect(isPlainLeftClick(click())).toBe(true);
+  });
+
+  // 键盘在链接上按回车，click 事件同样是 button=0、无修饰键。必须判为「接管」，
+  // 否则回车会绕过我们自己那套处理（比如开抽屉），出现「点得开、回车点不开」。
+  it("键盘激活（button=0、无修饰键）：同样接管", () => {
+    expect(isPlainLeftClick(click())).toBe(true);
+  });
+
+  // 这几个都是用户明确要求「在新标签页打开」，放行给浏览器，拦下来就变成原地跳转了。
+  it("Ctrl / Cmd / Shift / Alt + 左键：放行", () => {
+    expect(isPlainLeftClick(click({ ctrlKey: true }))).toBe(false);
+    expect(isPlainLeftClick(click({ metaKey: true }))).toBe(false);
+    expect(isPlainLeftClick(click({ shiftKey: true }))).toBe(false);
+    expect(isPlainLeftClick(click({ altKey: true }))).toBe(false);
+  });
+
+  // 中键压根不触发 click（走 auxclick），右键是菜单。这里断言「不接管」是为了
+  // 让规则只剩一条：只有普通左键归我们管。
+  it("中键 / 右键：不接管", () => {
+    expect(isPlainLeftClick(click({ button: 1 }))).toBe(false);
+    expect(isPlainLeftClick(click({ button: 2 }))).toBe(false);
   });
 });
 

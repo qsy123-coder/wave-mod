@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
 import { normalizeCharacterName } from "@/lib/mods-domain/sorting";
+import { isPlainLeftClick } from "@/lib/navigation-url";
 import type { SiteMod } from "@/lib/mods";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +50,14 @@ type ModCardProps = {
   bodyBottom?: ReactNode;
   actions?: ReactNode;
   isLoggedIn?: boolean;
+  /** 点击整张卡时回调（列表页/更新页用来就地在右侧开详情抽屉），卡片本身仍是真链接 */
   onCardClick?: (modId: string) => void;
+  /**
+   * 卡片**不是链接**、点击只回调的场景（目前只有后台批量选择）。
+   * 与 onCardClick 分开，是因为这时的 href 只是给 split 模式标题链接的备用值，
+   * 拿它当导航目标会把用户送错页（后台选择模式下 href 指向的是编辑页）。
+   */
+  onCardSelect?: (modId: string) => void;
 };
 
 const metaBadgeStyles: Record<MetaBadgeTone, { character: string; version: string; nsfw: string }> = {
@@ -174,6 +182,7 @@ export function ModCard({
   actions,
   isLoggedIn = false,
   onCardClick,
+  onCardSelect,
 }: ModCardProps) {
   const badgeTone = metaBadgeStyles[metaBadgeTone];
   const styles = variantStyles[variant];
@@ -411,18 +420,46 @@ export function ModCard({
   );
 
   if (canLink && linkMode === "card") {
-    if (onCardClick) {
+    // 批量选择模式：卡片是勾选框，不是链接，href 在这个模式下没有意义（见 onCardSelect 注释）
+    if (onCardSelect) {
       return (
         <article {...cardHoverHandlers} className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
-          <button type="button" onClick={() => onCardClick(mod.id)} className="block h-full w-full cursor-pointer text-left">
+          <button type="button" onClick={() => onCardSelect(mod.id)} className="block h-full w-full cursor-pointer text-left">
             {media}
           </button>
         </article>
       );
     }
+
+    /**
+     * 整张卡就是一个真链接。
+     *
+     * 从 `<button onClick={openDrawer}>` 换成 `<a href>`，图的是**水合之前**那一段：
+     * 那时 button 上的事件处理器还不存在，点了完全没反应；真链接则会走浏览器原生跳转，
+     * 自带加载指示。坏网络下这个死窗口实测有 11~23 秒（memory: prerender-click-dead-window）。
+     * 水合之后仍然由我们自己接管 —— preventDefault 后就地开抽屉，不跳走。
+     *
+     * 因此 prefetch 一律关掉：一次点击压根不会导航过去，预取那些 RSC 负载纯属浪费带宽，
+     * 还要和用户正在看的这一页抢（无限滚动一次就是十几张卡）。
+     */
+    const handleCardClick = onCardClick
+      ? (event: MouseEvent<HTMLAnchorElement>) => {
+          // 带修饰键的点击（Ctrl/Cmd/中键 → 新标签页）放行给浏览器，见 isPlainLeftClick
+          if (!isPlainLeftClick(event)) return;
+          event.preventDefault();
+          onCardClick(mod.id);
+        }
+      : undefined;
+
     return (
       <article {...cardHoverHandlers} className={cn("group/mod-card neo-card neo-card-lift h-full p-3", className)}>
-        <Link href={resolvedHref} className="block h-full">
+        <Link
+          href={resolvedHref}
+          prefetch={false}
+          onClick={handleCardClick}
+          // 按下反馈：纯 CSS，水合前按下去就有反应，不依赖任何 JS
+          className="block h-full transition-transform duration-150 active:scale-[0.98]"
+        >
           {media}
         </Link>
       </article>

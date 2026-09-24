@@ -17,6 +17,11 @@
  *
  * 比较的是**语义**而不是字符串：`?a=1&b=2` 与 `?b=2&a=1`、`/mods?` 与 `/mods`、
  * 同一个中文值的不同百分号编码，都必须判为同一个 URL。
+ *
+ * 文件末尾还放了一个点击语义的小判定（isPlainLeftClick）：站内的「卡片」现在都是
+ * 真 `<a href>`，水合前点击靠浏览器原生跳转兜底，水合后才由我们自己接管 ——
+ * 接管之前必须先问一句「这次点击该不该我们管」，三处（侧边栏 / 卡片 / 首页轮播）
+ * 口径必须一致，所以也放这里。
  */
 
 /** 路径去掉尾斜杠（根路径除外）；查询串按参数名排序后重新拼接 */
@@ -83,4 +88,35 @@ export function buildModsFilterHref(
   if (preview) params.set("preview", "1");
   const qs = params.toString();
   return qs ? `${basePath}?${qs}` : basePath;
+}
+
+/**
+ * 点击事件里与「这次点击想干什么」有关的那几个字段。
+ *
+ * 写成结构类型而不是 `MouseEvent`，是因为三处调用点传进来的分别是
+ * React 合成事件（`React.MouseEvent<HTMLAnchorElement>`）—— 它多了 nativeEvent 等字段，
+ * 但上面这几个都在，能直接传。
+ */
+export type PlainClickEvent = {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+};
+
+/**
+ * 这次点击是不是「普通的鼠标左键单击」，该不该由我们接管（preventDefault 后自己处理）。
+ *
+ * 只有普通左键才接管，两个理由：
+ * - 中键 / Ctrl / Cmd / Shift / Alt 点击是用户**明确要求**「在新标签页打开」，
+ *   必须放行给浏览器，拦下来就等于把「新标签页」变成「原地跳转」。
+ * - 中键压根不触发 click（走 auxclick），拦也拦不到，干脆统一成「不拦」，
+ *   免得左键一条规则、中键另一条规则，两边行为对不上。
+ *
+ * 键盘激活（链接上按回车）在 click 事件里同样是 button=0 且无修饰键，
+ * 因此也会被接管 —— 这正是想要的：回车与点击走同一条路径。
+ */
+export function isPlainLeftClick(event: PlainClickEvent): boolean {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
