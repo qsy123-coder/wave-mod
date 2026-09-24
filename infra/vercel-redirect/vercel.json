@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/",
+      "destination": "https://go.sunnyrose.xyz/",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "destination": "https://go.sunnyrose.xyz/:path*",
       "permanent": false
