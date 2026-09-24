@@ -5,7 +5,9 @@ import {
   listVisibleVersions,
   resolveDefaultVersion,
 } from "@/actions/tutorial/tutorial-actions";
-import type { Chapter, TutorialVersionMeta } from "@/features/tutorial/types";
+import { toCompanionVideo } from "@/features/tutorial/companion-video";
+import { getCosPublicHost } from "@/lib/cos/server-config";
+import type { Chapter, TutorialVersionMeta, VideoConfig } from "@/features/tutorial/types";
 import type { TutorialFullData, TutorialChapterFull } from "@/features/tutorial-admin/types";
 
 /** Convert database tutorial data to UI Chapter format */
@@ -14,6 +16,7 @@ function dbToChapters(data: TutorialFullData): {
   subtitle: string;
   imageBasePath: string;
   chapters: Chapter[];
+  video?: VideoConfig;
 } {
   const { image_base_path } = data.config;
   return {
@@ -21,6 +24,7 @@ function dbToChapters(data: TutorialFullData): {
     subtitle: data.config.subtitle,
     imageBasePath: image_base_path,
     chapters: data.chapters.map((ch) => convertChapter(ch, image_base_path)),
+    video: toCompanionVideo(data.config),
   };
 }
 
@@ -82,6 +86,7 @@ export default async function GuidePage({
   let subtitle: string;
   let imageBasePath: string;
   let chapters: Chapter[];
+  let video: VideoConfig | undefined;
 
   if (activeVersionId) {
     try {
@@ -92,6 +97,7 @@ export default async function GuidePage({
         subtitle = converted.subtitle;
         imageBasePath = converted.imageBasePath;
         chapters = converted.chapters;
+        video = converted.video;
       } else {
         throw new Error("No DB data");
       }
@@ -100,6 +106,7 @@ export default async function GuidePage({
       subtitle = tutorialConfig.subtitle;
       imageBasePath = tutorialConfig.imageBasePath;
       chapters = tutorialConfig.chapters;
+      video = tutorialConfig.video;
     }
   } else {
     // 没有任何版本（库未迁移）：走静态 config.ts
@@ -107,6 +114,7 @@ export default async function GuidePage({
     subtitle = tutorialConfig.subtitle;
     imageBasePath = tutorialConfig.imageBasePath;
     chapters = tutorialConfig.chapters;
+    video = tutorialConfig.video;
   }
 
   // 无可见版本时，把静态 config 也作为一个伪版本展示，保证页面不空白
@@ -125,14 +133,28 @@ export default async function GuidePage({
 
   const activeId = versions.length > 0 ? activeVersionId : "config";
 
+  // 只在这个页面预连接 COS：视频/封面都在 COS 上，握手推迟到点击播放之后就是白等一次 RTT。
+  // React 19 会把 <link rel="preconnect"> 提升进 <head>。
+  // 不加 crossOrigin：<img>/<video> 发的是 no-cors 请求，加了会另开一条用不上的连接。
+  const cosHost = video ? getCosPublicHost() : null;
+
   return (
-    <TutorialGuideClient
-      versions={displayVersions}
-      activeVersionId={activeId}
-      title={title}
-      subtitle={subtitle}
-      imageBasePath={imageBasePath}
-      chapters={chapters}
-    />
+    <>
+      {cosHost ? (
+        <>
+          <link rel="preconnect" href={`https://${cosHost}`} />
+          <link rel="dns-prefetch" href={`https://${cosHost}`} />
+        </>
+      ) : null}
+      <TutorialGuideClient
+        versions={displayVersions}
+        activeVersionId={activeId}
+        title={title}
+        subtitle={subtitle}
+        imageBasePath={imageBasePath}
+        chapters={chapters}
+        video={video}
+      />
+    </>
   );
 }

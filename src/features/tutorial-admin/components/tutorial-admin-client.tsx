@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Pencil, Database } from "lucide-react";
+import { Pencil, Database, Video } from "lucide-react";
 import COS from "cos-js-sdk-v5";
 
 import { TutorialTabs } from "@/features/tutorial/components/tutorial-tabs";
@@ -118,6 +118,11 @@ export function TutorialAdminClient({
   const [editingChapterVideo, setEditingChapterVideo] = useState<string | null>(null);
   const [editingVideoUrl, setEditingVideoUrl] = useState("");
 
+  // ── 页面级「图文教程配套视频」（整篇一个，与上面的章节视频是两回事）──
+  // 已提交值直接进 buildSaveInput；草稿非 null 表示弹窗开着，取消即丢弃。
+  const [companionVideo, setCompanionVideo] = useState({ src: "", poster: "" });
+  const [companionVideoDraft, setCompanionVideoDraft] = useState<{ src: string; poster: string } | null>(null);
+
   // ── Text chapter editor modal ──
   const [textEditorChapterId, setTextEditorChapterId] = useState<string | null>(null);
   const [textEditorData, setTextEditorData] = useState<TextChapterData | null>(null);
@@ -145,6 +150,13 @@ export function TutorialAdminClient({
         setSubtitle(src ? src.config.subtitle : "先看我");
         setImageBasePath(src?.config.image_base_path ?? "/tutorial/");
         setChapters(src ? dbChaptersToUI(src).chapters : []);
+        // 必须跟着版本一起重置：漏了这行，从「有配套视频的版本」切到「没有的版本」时，
+        // 输入框还留着上一个版本的 URL，一保存就把它写到新版本头上。
+        // 老库上这两列取到的是 undefined（而非 null），所以统一 ?? ""。
+        setCompanionVideo({
+          src: src?.config.video_src ?? "",
+          poster: src?.config.video_poster ?? "",
+        });
       } finally {
         setLoadingVersion(false);
       }
@@ -298,6 +310,21 @@ export function TutorialAdminClient({
     setEditingChapterVideo(null);
     markChanged();
   }, [editingChapterVideo, editingVideoUrl, markChanged]);
+
+  // ── 页面级配套视频（视频 + 封面两个输入框）──
+  const handleOpenCompanionVideo = useCallback(() => {
+    setCompanionVideoDraft({ ...companionVideo });
+  }, [companionVideo]);
+
+  const handleSaveCompanionVideo = useCallback(() => {
+    if (!companionVideoDraft) return;
+    setCompanionVideo({
+      src: companionVideoDraft.src.trim(),
+      poster: companionVideoDraft.poster.trim(),
+    });
+    setCompanionVideoDraft(null);
+    markChanged();
+  }, [companionVideoDraft, markChanged]);
 
   // ── Chapter delete ──
   const handleDeleteChapter = useCallback(
@@ -602,7 +629,14 @@ export function TutorialAdminClient({
 
   const buildSaveInput = useCallback((): SaveDraftInput => {
     return {
-      config: { title, subtitle, image_base_path: imageBasePath },
+      config: {
+        title,
+        subtitle,
+        image_base_path: imageBasePath,
+        // 空串交给服务端的 nullIfBlank 归一成 NULL（= 该版本没有配套视频）
+        video_src: companionVideo.src || undefined,
+        video_poster: companionVideo.poster || undefined,
+      },
       chapters: chapters.map((ch, ci) => ({
         sort_order: ci,
         chapter_key: ch.id,
@@ -627,7 +661,7 @@ export function TutorialAdminClient({
         })),
       })),
     };
-  }, [title, subtitle, imageBasePath, chapters]);
+  }, [title, subtitle, imageBasePath, chapters, companionVideo]);
 
   const handleSave = useCallback(async () => {
     if (!activeVersionId) return;
@@ -805,9 +839,21 @@ export function TutorialAdminClient({
             )}
           </div>
 
-          <div className="mt-1 flex items-center gap-2 text-2xl font-bold leading-6 text-black/70">
-            <span>每节图文教程下方</span>
-            <VideoHintBanner />
+          {/* 与 /guide 的 hero 保持同一句话：两边文案不一致时，最容易被误判成「前台没生效」。
+              旁边的按钮是页面级配套视频的入口（整篇一个，不是章节视频）。 */}
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-2xl font-bold leading-6 text-black/70">
+            <span>看不懂图文？</span>
+            <VideoHintBanner label="先看配套视频" />
+            <button
+              type="button"
+              onClick={handleOpenCompanionVideo}
+              className="group/video inline-flex items-center gap-1.5 border-[3px] border-black px-2 py-1 text-xs font-black uppercase tracking-[0.1em] text-black shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              style={{ background: companionVideo.src ? "#86efac" : "#ffb5c3" }}
+            >
+              <Video className="size-3.5" />
+              配套视频{companionVideo.src ? "已设置" : "未设置"}
+              <Pencil className="size-3 opacity-40 transition group-hover/video:opacity-100" />
+            </button>
           </div>
         </section>
       </MotionReveal>
@@ -892,6 +938,77 @@ export function TutorialAdminClient({
               <button
                 type="button"
                 onClick={handleSaveChapterVideo}
+                className="border-[3px] border-black bg-[var(--neo-accent)] px-4 py-1.5 text-xs font-black shadow-[2px_2px_0px_0px_#000]"
+              >
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 页面级配套视频 URL 弹窗 —— 两个输入框（视频 + 封面）。
+          注意别照抄上面的「章节视频」弹窗：那个只编辑 src、**不带封面**，
+          封面照抄过来就会被静默丢掉。封面可以留空（前台卡片退回无封面样式）。 */}
+      {companionVideoDraft && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/30 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCompanionVideoDraft(null);
+          }}
+        >
+          <div className="w-full max-w-xl border-4 border-black bg-white p-6 shadow-[6px_6px_0px_0px_#000]">
+            <h3 className="text-sm font-black">编辑「图文教程配套视频」URL</h3>
+            <p className="mt-1 text-xs font-bold leading-5 text-black/55">
+              整篇教程一个（不是某一章的章节视频），显示在 /guide 顶部。两项都留空 = 该版本不显示这张卡片。
+            </p>
+
+            <label className="mt-4 block text-xs font-black uppercase tracking-[0.1em] text-black/70">
+              视频 URL（mp4）
+              <input
+                type="text"
+                value={companionVideoDraft.src}
+                onChange={(e) =>
+                  setCompanionVideoDraft((d) => (d ? { ...d, src: e.target.value } : d))
+                }
+                className="mt-1 w-full border-[3px] border-black px-3 py-2 text-sm font-bold normal-case tracking-normal outline-none"
+                placeholder="https://your-bucket.cos.region.myqcloud.com/tutorial/companion/1/tutorial.mp4"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveCompanionVideo();
+                  if (e.key === "Escape") setCompanionVideoDraft(null);
+                }}
+              />
+            </label>
+
+            <label className="mt-3 block text-xs font-black uppercase tracking-[0.1em] text-black/70">
+              封面图 URL（可选，留空则卡片无封面）
+              <input
+                type="text"
+                value={companionVideoDraft.poster}
+                onChange={(e) =>
+                  setCompanionVideoDraft((d) => (d ? { ...d, poster: e.target.value } : d))
+                }
+                className="mt-1 w-full border-[3px] border-black px-3 py-2 text-sm font-bold normal-case tracking-normal outline-none"
+                placeholder="https://your-bucket.cos.region.myqcloud.com/tutorial/companion/1/poster.webp"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveCompanionVideo();
+                  if (e.key === "Escape") setCompanionVideoDraft(null);
+                }}
+              />
+            </label>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCompanionVideoDraft(null)}
+                className="border-[3px] border-black bg-white px-4 py-1.5 text-xs font-black"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCompanionVideo}
                 className="border-[3px] border-black bg-[var(--neo-accent)] px-4 py-1.5 text-xs font-black shadow-[2px_2px_0px_0px_#000]"
               >
                 确认

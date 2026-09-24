@@ -362,6 +362,8 @@ export type Database = {
           title: string;
           subtitle: string;
           image_base_path: string;
+          video_src: string | null;
+          video_poster: string | null;
           updated_at: string;
         };
         Insert: {
@@ -371,6 +373,8 @@ export type Database = {
           title: string;
           subtitle: string;
           image_base_path: string;
+          video_src?: string | null;
+          video_poster?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -380,6 +384,8 @@ export type Database = {
           title?: string;
           subtitle?: string;
           image_base_path?: string;
+          video_src?: string | null;
+          video_poster?: string | null;
           updated_at?: string;
         };
         Relationships: [

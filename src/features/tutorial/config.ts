@@ -16,6 +16,7 @@ const rawConfig: TutorialConfig = {
   title: "新版教程",
   subtitle: "先看我",
   imageBasePath: "/tutorial/",
+  video: { src: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/companion/1/tutorial.mp4", poster: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/companion/1/poster.webp" },
   chapters: [
     {
       id: "00",

@@ -3,16 +3,25 @@
 import { useState, useEffect } from "react";
 import { ArrowBigDown, X } from "lucide-react";
 
-const STORAGE_KEY = "wavemod-video-hint-dismissed";
+/**
+ * v2：文案从「每节图文教程下方 均有对应视频教程」（当时页面上根本没有任何视频入口，是句假话）
+ * 改成指向真实存在的配套视频卡片后，把键名递增一次，让当初关掉那条假提示的人能看到新提示。
+ */
+const STORAGE_KEY = "wavemod-video-hint-dismissed-v2";
+
+type VideoHintBannerProps = {
+  /** 高亮块里的文案，默认沿用旧文案以免影响其它调用点 */
+  label?: string;
+};
 
 /**
- * Animated hint arrow pointing at the "均有对应视频教程" text.
+ * Animated hint arrow pointing at the highlighted hint text.
  * - Outer span bounces (animate-bounce) so it doesn't conflict with rotation
  * - Inner SVG rotated 45° → points from upper-right diagonally toward the text
  * - Close button stays still (outside the bouncing wrapper)
  * - Uses useState(true) + useEffect to avoid SSR hydration mismatch
  */
-export function VideoHintBanner() {
+export function VideoHintBanner({ label = "均有对应视频教程" }: VideoHintBannerProps) {
   // Start hidden on server to avoid hydration mismatch;
   // useEffect runs client-side to read the real localStorage value
   const [dismissed, setDismissed] = useState(true);
@@ -43,7 +52,7 @@ export function VideoHintBanner() {
       className="relative inline-block border-[2px] border-black px-1.5 py-2"
       style={{ background: "var(--neo-accent)" }}
     >
-      均有对应视频教程
+      {label}
 
       {!dismissed && (
         <>

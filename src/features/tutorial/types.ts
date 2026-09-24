@@ -41,6 +41,8 @@ export const tutorialConfigSchema = z.object({
   subtitle: z.string(),
   chapters: z.array(chapterSchema).min(1),
   imageBasePath: z.string(),
+  /** 页面级配套视频（整篇教程一个），与 chapter.video 的章节视频不同；没有时不渲染卡片 */
+  video: videoConfigSchema.optional(),
 });
 export type TutorialConfig = z.infer<typeof tutorialConfigSchema>;
 

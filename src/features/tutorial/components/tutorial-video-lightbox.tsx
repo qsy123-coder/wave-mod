@@ -11,6 +11,12 @@ type TutorialVideoLightboxProps = {
   chapterId: string;
   chapterTitle: string;
   onClose: () => void;
+  /**
+   * 左上角徽标显示的文字，默认就是 chapterId。
+   * 页面级配套视频的 chapterId 是内部 id（如 "companion-v"），直接显示会给用户看到实现细节，
+   * 所以那时传「配套视频」。
+   */
+  badgeLabel?: string;
 };
 
 /**
@@ -26,6 +32,7 @@ export function TutorialVideoLightbox({
   chapterId,
   chapterTitle,
   onClose,
+  badgeLabel,
 }: TutorialVideoLightboxProps) {
   // Portal target — only available on the client
   const mounted = useSyncExternalStore(
@@ -67,7 +74,7 @@ export function TutorialVideoLightbox({
           className="border-4 border-black px-3 py-1.5 font-black tracking-[0.12em] text-black shadow-[4px_4px_0px_0px_#000]"
           style={{ background: "var(--neo-secondary)" }}
         >
-          <span className="text-sm">{chapterId}</span>
+          <span className="text-sm">{badgeLabel ?? chapterId}</span>
           <span className="hidden text-xs sm:inline"> — {chapterTitle}</span>
         </div>
       </div>

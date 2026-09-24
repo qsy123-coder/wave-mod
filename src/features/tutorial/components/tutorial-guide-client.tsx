@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, BookOpen } from "lucide-react";
 
 import { MotionReveal } from "@/components/layout/motion-reveal";
-import type { Chapter, TutorialVersionMeta } from "../types";
+import type { Chapter, TutorialVersionMeta, VideoConfig } from "../types";
 import { ToolDownloadCard } from "./tool-download-card";
+import { TutorialCompanionVideo } from "./tutorial-companion-video";
 import { TutorialTabs } from "./tutorial-tabs";
 import { TutorialVersionSwitcher } from "./tutorial-version-switcher";
 import { VideoHintBanner } from "./video-hint-banner";
@@ -20,6 +21,8 @@ type TutorialGuideClientProps = {
   subtitle: string;
   imageBasePath: string;
   chapters: Chapter[];
+  /** 整篇教程的配套视频；该版本没有时不传，卡片与 hero 里的提示都不渲染 */
+  video?: VideoConfig;
 };
 
 const MEMORY_KEY = "wavemod-tutorial-version";
@@ -37,6 +40,7 @@ export function TutorialGuideClient({
   subtitle,
   imageBasePath,
   chapters,
+  video,
 }: TutorialGuideClientProps) {
   const router = useRouter();
 
@@ -80,10 +84,15 @@ export function TutorialGuideClient({
         >
           <p className="text-xs font-black uppercase tracking-[0.2em] text-black/60">{subtitle}</p>
           <h1 className="mt-1 text-2xl font-black text-black">{title}</h1>
-          <div className="mt-1 flex items-center gap-2 text-2xl font-bold leading-6 text-black/70">
-            <span>每节图文教程下方</span>
-            <VideoHintBanner />
-          </div>
+          {/* 提示只在真的存在配套视频时渲染。原来的文案是「每节图文教程下方 均有对应视频教程」，
+              而页面上当时一个视频入口都没有 —— 指向不存在的东西，等于在教用户怀疑这个页面。
+              v 版本的章节视频至今仍全是 NULL，所以这里的真实卖点就是下面那张配套视频卡片。 */}
+          {video ? (
+            <div className="mt-1 flex items-center gap-2 text-2xl font-bold leading-6 text-black/70">
+              <span>看不懂图文？</span>
+              <VideoHintBanner label="先看配套视频" />
+            </div>
+          ) : null}
           <div className="mt-2 flex items-center gap-2 text-sm font-bold text-black/60">
             <span>遇到无法解决的问题？</span>
             <Link
@@ -95,6 +104,22 @@ export function TutorialGuideClient({
           </div>
         </section>
       </MotionReveal>
+
+      {/* 图文教程配套视频 — 整篇一个，与章节无关，常驻顶部。
+          key 用 activeVersionId：换版本时组件重挂载，弹层状态（open）跟着归零，
+          免得在 A 版本的视频上弹层没关就切到 B 版本。 */}
+      {video ? (
+        // shrink-0：外层是定高 flex 列，卡片里的封面是固定高度；不锁住的话高度不够时
+        // 这一条会被压扁（内容溢出边框），该被压缩的是下面 min-h-0 的章节区。
+        <MotionReveal delay={0.05} y={12} className="shrink-0">
+          <TutorialCompanionVideo
+            key={activeVersionId}
+            video={video}
+            versionId={activeVersionId}
+            chapterCount={chapters.length}
+          />
+        </MotionReveal>
+      ) : null}
 
       {/* 必要工具下载（复制网盘链接，不跳转）— 与当前章节无关，常驻顶部。
           z-40 不能省：卡片里的下拉（z-50）被关在卡片自己的层叠上下文里，

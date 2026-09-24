@@ -13,7 +13,10 @@ const VERSION_ID = "v";
 const sql = `
 select json_build_object(
   'config', (
-    select json_build_object('title', title, 'subtitle', subtitle, 'base', image_base_path)
+    select json_build_object(
+      'title', title, 'subtitle', subtitle, 'base', image_base_path,
+      'video_src', video_src, 'video_poster', video_poster
+    )
     from public.tutorial_configs
     where version_id = '${VERSION_ID}' and status = 'published'
   ),
@@ -24,6 +27,7 @@ select json_build_object(
       'type', ch.type,
       'intro', ch.intro,
       'video', ch.video_src,
+      'video_poster', ch.video_poster,
       'images', (
         select coalesce(json_agg(i.url order by i.sort_order, i.filename), '[]'::json)
         from public.tutorial_images i where i.chapter_id = ch.id
@@ -45,6 +49,16 @@ if (!data?.config) {
 /** TS 字面量：JSON.stringify 已能正确转义引号/反斜杠/中文 */
 const lit = (v) => JSON.stringify(v);
 
+/**
+ * 渲染 video 字面量。没有 src 就不输出这一项（= 该版本/该章没有视频）；
+ * poster 单独判空，不能写成 `poster: undefined` 或空串 —— 前者会破坏「可选」的语义，
+ * 后者（poster=""）会让浏览器跑到当前页面地址去取封面图。
+ */
+function renderVideo(src, poster) {
+  if (!src) return null;
+  return poster ? `{ src: ${lit(src)}, poster: ${lit(poster)} }` : `{ src: ${lit(src)} }`;
+}
+
 function renderChapter(ch) {
   const lines = [];
   lines.push("    {");
@@ -52,7 +66,8 @@ function renderChapter(ch) {
   lines.push(`      title: ${lit(ch.title)},`);
   lines.push(`      type: ${lit(ch.type)},`);
   if (ch.intro) lines.push(`      intro: ${lit(ch.intro)},`);
-  if (ch.video) lines.push(`      video: { src: ${lit(ch.video)} },`);
+  const chapterVideo = renderVideo(ch.video, ch.video_poster);
+  if (chapterVideo) lines.push(`      video: ${chapterVideo},`);
   if (ch.images?.length) {
     lines.push("      images: [");
     for (const url of ch.images) lines.push(`        ${lit(url)},`);
@@ -63,6 +78,10 @@ function renderChapter(ch) {
 }
 
 const totalImages = data.chapters.reduce((n, c) => n + (c.images?.length ?? 0), 0);
+
+// 顶层也是可选的：库里该版本没配配套视频就整行不输出
+const configVideo = renderVideo(data.config.video_src, data.config.video_poster);
+const configVideoLine = configVideo ? `  video: ${configVideo},\n` : "";
 
 const out = `import type { TutorialConfig } from "./types";
 import { tutorialConfigSchema } from "./types";
@@ -82,7 +101,7 @@ const rawConfig: TutorialConfig = {
   title: ${lit(data.config.title)},
   subtitle: ${lit(data.config.subtitle)},
   imageBasePath: ${lit(data.config.base)},
-  chapters: [
+${configVideoLine}  chapters: [
 ${data.chapters.map(renderChapter).join("\n")}
   ],
 };

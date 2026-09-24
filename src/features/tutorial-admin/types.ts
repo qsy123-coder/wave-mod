@@ -25,6 +25,13 @@ export interface TutorialConfigRow {
   title: string;
   subtitle: string;
   image_base_path: string;
+  /**
+   * 页面级配套视频（整篇教程一个）。与 TutorialChapterRow.video_src 的**章节视频**不是一回事；
+   * 未迁移的库/老版本可能取不到该键，读的时候按真值判断，不要只判 null。
+   */
+  video_src: string | null;
+  /** 页面级配套视频封面图 */
+  video_poster: string | null;
   updated_at: string;
 }
 
@@ -118,6 +125,9 @@ export const saveConfigSchema = z.object({
   title: z.string().min(1, "教程标题不能为空"),
   subtitle: z.string().min(1, "副标题不能为空"),
   image_base_path: z.string().min(1, "图片路径不能为空"),
+  /** 页面级配套视频；留空字符串 = 该版本没有配套视频 */
+  video_src: z.string().optional(),
+  video_poster: z.string().optional(),
 });
 
 // ── Version metadata schema (create / update) ──

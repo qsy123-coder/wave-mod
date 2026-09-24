@@ -27,6 +27,16 @@ function configIdFor(versionId: string, status: "published" | "draft"): string {
   return `${versionId}:${status}`;
 }
 
+/**
+ * 配套视频的两个字段：后台表单里「清空」表现为空串，写库要归一成 NULL。
+ * 留成 '' 会让前台 `if (!config.video?.src)` 之外的判空写法（如 `!== null`）判断错误，
+ * 且与「老版本没有配套视频」的 NULL 语义不一致。
+ */
+function nullIfBlank(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
 /** Map a version DB row to the frontend meta shape */
 function toVersionMeta(row: TutorialVersionRow): TutorialVersionMeta {
   return {
@@ -342,6 +352,8 @@ export async function saveDraft(versionId: string, input: SaveDraftInput): Promi
         title: config.title,
         subtitle: config.subtitle,
         image_base_path: config.image_base_path,
+        video_src: nullIfBlank(config.video_src),
+        video_poster: nullIfBlank(config.video_poster),
       },
       { onConflict: "id" },
     );
@@ -442,6 +454,9 @@ export async function publishTutorial(versionId: string): Promise<void> {
       title: draft.config.title,
       subtitle: draft.config.subtitle,
       image_base_path: draft.config.image_base_path,
+      // 这里是从 draft.config 显式复制字段的：漏掉下面两行，配套视频会在**每次发布时**被静默清空
+      video_src: draft.config.video_src ?? null,
+      video_poster: draft.config.video_poster ?? null,
     });
 
   if (pubError) throw new Error(`发布配置失败：${pubError.message}`);
@@ -566,6 +581,8 @@ export async function migrateFromConfig(): Promise<{ migrated: boolean; count: n
       title: tutorialConfig.title,
       subtitle: tutorialConfig.subtitle,
       image_base_path: tutorialConfig.imageBasePath,
+      video_src: tutorialConfig.video?.src ?? null,
+      video_poster: tutorialConfig.video?.poster ?? null,
     },
     { onConflict: "id" },
   );
