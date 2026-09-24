@@ -1,10 +1,13 @@
 "use client";
 
+import { useCallback } from "react";
+
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import type { ModSort, ModsPage } from "@/lib/mods";
 import { isDefaultModsFilters, type ModsFilters } from "@/lib/mods-domain/filter-params";
 import { buildModsFilterHref } from "@/lib/navigation-url";
+import { recallScrollPosition, rememberScrollPosition } from "@/lib/scroll-memory";
 
 /**
  * 列表页的**呈现层**。筛选条件从 props 进来（服务端给默认值、客户端从 URL 读），
@@ -22,6 +25,9 @@ const sortOptions: { label: string; value: ModSort }[] = [
 
 /** 固定排在最前的三个特殊分组；它们不参与角色列表的重复渲染 */
 const SPECIAL_CATEGORIES = ["Skins", "UI", "Other/Misc"];
+
+/** 侧栏滚动位置的记忆键，只此一处使用（见 lib/scroll-memory.ts） */
+const SIDEBAR_SCROLL_KEY = "mods-sidebar";
 
 type ModsListingViewProps = {
   /** 当前生效的筛选条件 */
@@ -43,6 +49,18 @@ export function ModsListingView({
   openModId,
 }: ModsListingViewProps) {
   const { sort, character, query, direct, preview } = filters;
+
+  /**
+   * 侧栏的滚动位置要跨分类导航保住 —— 换筛选条件时 Suspense 边界会把整棵列表换掉，
+   * 这个 `overflow-y-auto` 容器是新建节点、scrollTop 天然归零（用户看到的就是
+   * 「点一下分类，侧栏跳回最上面」）。记忆只活在当前标签页里，刷新后从头开始。
+   *
+   * 用 useCallback 拿到稳定引用：引用变了 React 会在每次渲染重新挂一遍 ref，
+   * 于是每渲染都会把 scrollTop 拽回记忆里的值，跟用户正在拖的滚动打架。
+   */
+  const attachSidebarScroll = useCallback((el: HTMLDivElement | null) => {
+    if (el) el.scrollTop = recallScrollPosition(SIDEBAR_SCROLL_KEY);
+  }, []);
 
   /**
    * 拼筛选链接：**永远从当前筛选出发**，只改传入的那一维。
@@ -102,7 +120,12 @@ export function ModsListingView({
   return (
     <>
       <div className="hidden w-[240px] shrink-0 flex-col lg:flex">
-        <div className="flex-1 overflow-y-auto pr-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        <div
+          ref={attachSidebarScroll}
+          onScroll={(event) => rememberScrollPosition(SIDEBAR_SCROLL_KEY, event.currentTarget.scrollTop)}
+          className="flex-1 overflow-y-auto pr-1"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
           <CharacterSidebar
             allLabel="全部"
             allHref={hrefFor({ character: undefined })}
