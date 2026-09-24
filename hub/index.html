@@ -117,19 +117,25 @@
     <section class="card">
       <h2>当前可用地址</h2>
 
-      <a class="site" href="https://sunnyrose.xyz" target="_blank" rel="noopener">
+      <!--
+        主推 go.sunnyrose.xyz 的理由（2026-09-24）：它是全新主机名，没有任何解析器
+        缓存过它的地址，所以「DNS 缓存还没过期」的用户第一次查就是对的。
+        www.wave-mod.top 则相反 —— 搬站后部分用户机器上的缓存仍指向已停用的旧服务器，
+        会看到「网站已经暂停部署」。详见 docs/域名入口拓扑.md。
+      -->
+      <a class="site" href="https://go.sunnyrose.xyz" target="_blank" rel="noopener">
         <span class="dot ok"></span>
         <span class="meta">
-          <span class="label">永久入口（本页） <small>请收藏</small></span>
-          <span class="url">sunnyrose.xyz</span>
+          <span class="label">主站 <small>推荐，打不开先试这个</small></span>
+          <span class="url">go.sunnyrose.xyz</span>
         </span>
         <span class="go">→</span>
       </a>
 
       <a class="site" href="https://www.wave-mod.top" target="_blank" rel="noopener">
-        <span class="dot ok"></span>
+        <span class="dot warn"></span>
         <span class="meta">
-          <span class="label">主站 <small>推荐</small></span>
+          <span class="label">备用地址 <small>部分人可能打不开</small></span>
           <span class="url">www.wave-mod.top</span>
         </span>
         <span class="go">→</span>
@@ -140,6 +146,15 @@
         <span class="meta">
           <span class="label">备用镜像</span>
           <span class="url">wavemod-hub.pages.dev</span>
+        </span>
+        <span class="go">→</span>
+      </a>
+
+      <a class="site" href="https://sunnyrose.xyz" target="_blank" rel="noopener">
+        <span class="dot ok"></span>
+        <span class="meta">
+          <span class="label">永久入口（本页） <small>请收藏</small></span>
+          <span class="url">sunnyrose.xyz</span>
         </span>
         <span class="go">→</span>
       </a>
@@ -184,16 +199,17 @@
     <section class="card">
       <h2>打不开怎么办</h2>
       <ol class="tips">
-        <li>先试试上面所有地址——主站不行就点备用镜像。</li>
-        <li>可能是网络问题，切换网络（WiFi / 4G / 5G）后再试。</li>
-        <li>域名偶尔被墙是常见情况，<strong>本页永远有最新地址</strong>。</li>
-        <li>所有地址都失效时，通过备用联系方式找我。</li>
+        <li><strong>直接用第一个地址</strong>——它任何时候都能打开。</li>
+        <li>它也打不开的话：<strong>把路由器拔电，等 30 秒再插上</strong>，然后重新打开。</li>
+        <li>手机就把 <strong>WiFi 关掉、用流量试</strong>；本来用流量的就反过来连 WiFi。</li>
+        <li>还不行就<strong>换个浏览器，或者开一个无痕窗口</strong>再试。</li>
+        <li>上面都试过仍然打不开，用下面的联系方式找我。</li>
       </ol>
     </section>
 
     <footer>
       <p>WaveMod · 官方永久发布页</p>
-      <p>最后更新：<span class="updated">2026-09-05</span></p>
+      <p>最后更新：<span class="updated">2026-09-24</span></p>
     </footer>
   </div>
 </body>

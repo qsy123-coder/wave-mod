@@ -6,15 +6,33 @@
 
 | 入口 | 地址 | 角色 |
 |---|---|---|
-| 主站 | `https://www.wave-mod.top` | 主域名（可被墙，消耗品） |
+| **主站入口（推荐）** | `https://go.sunnyrose.xyz` | **主推给用户的地址**。全新主机名，没有 DNS 缓存包袱 —— 见下 |
+| 备用地址 | `https://www.wave-mod.top` | 规范域名（`NEXT_PUBLIC_SITE_URL`），但**部分用户可能打不开** |
 | **独立域名（宣传地址）** | `https://sunnyrose.xyz` | **永久入口，用户记忆/打印的固定地址** |
 | 中转页（CF Pages） | `https://wavemod-hub.pages.dev` | 免费镜像 |
 | 备用渠道 | QQ `3372543343` / 邮箱 `2175075194@qq.com`（TG 待填） | 域外兜底 |
 
+### 为什么主推换成了 `go.sunnyrose.xyz`（2026-09-24）
+
+2026-09-23 站点从 Vercel 搬到首尔自托管时**只改了 DNS，没把域名从 Vercel 项目里摘掉**，
+于是 Vercel 至今仍在替 `www.wave-mod.top` 返回「网站已经暂停部署」。
+凡是解析链路上还留着旧 IP 缓存的用户（运营商 DNS 超额缓存、路由器、内置浏览器）打开这个
+域名就会看到那张暂停页。
+
+**本页曾经也踩这个坑**：它的「主站（推荐）」链接指向 `www.wave-mod.top`，
+小白从永久页点进去正好又被弹回暂停页 —— 所以永久页当时没能救到人。
+
+`go.sunnyrose.xyz` 是**全新主机名**，没有任何解析器缓存过它，第一次查就是对的，
+因此它不受这类残留影响。完整分析见 `docs/域名入口拓扑.md`。
+
+⚠️ 该入口**不能登录**（cookie 跨不了注册域），定位是免登录的浏览 + 下载入口；
+需要登录请走 `www.wave-mod.top`。
+
 ## 域名被封时怎么更新（5 分钟）
 
 1. 改 **`index.html`**：删除失效的 `.site` 块，把新域名加进去（复制已有的 `.site` 块，改 label + url）
-2. 改 **`domains.json`**：同步更新 `primary` / `mirrors` / `channels`（与 index.html **必须保持一致**）
+2. 改 **`domains.json`**：同步更新 `primary` / `mirrors` / `legacy` / `channels`
+   （与 index.html **必须保持一致**）
 3. 改 **`index.html`** 底部的最后更新时间、`domains.json` 的 `updatedAt`
 4. `git add hub/ && git commit -m "hub: 更新可用域名" && git push`
 5. GitHub Actions（`hub.yml`）自动部署 → `wavemod-hub.pages.dev` 及独立域名**同步更新**，几分钟内生效
@@ -43,5 +61,7 @@ push `hub/**` 后 workflow 自动跑；第一次 `wrangler pages deploy` 会自�
 ## 注意
 
 - `index.html` 是**自包含**静态页（内联 CSS，无外部依赖），JS 禁用也能正常显示链接
-- `domains.json` 供监控/脚本解析，与 HTML 手工同步维护
+- `domains.json` 供监控/脚本解析，与 HTML 手工同步维护。字段含义：
+  `permanent` 永久发布页自身、`primary` 主推给用户的入口、`mirrors` 备用镜像、
+  `legacy` 仍可用但**不推荐**的旧域名（可能有 DNS 缓存残留）
 - 本目录不进 Next.js 构建，不影响 `npm run build`
