@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-24T08:00:24.602Z",
+  "generatedAt": "2026-09-25T08:29:41.598Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,10 +8,10 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20260924-075936.dump",
-    "sha256": "df723a68e52a5bd1a2fbd74ef7f9e6d2354a10f45895b3e5369ebff2fd776d42",
-    "sizeBytes": 689000,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260924-075936",
+    "file": "db/wavemod-20260925-082215.dump",
+    "sha256": "e28a5310fc7287112e914d579d083cbd9d0aa08139bd3818476349b3899ed7cd",
+    "sizeBytes": 690221,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260925-082215",
     "tableCounts": {
       "mods": null,
       "profiles": null,
@@ -28,15 +28,15 @@
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5297,
+    "publishedRows": 5301,
     "refreshedThisRun": true,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 5493,
-    "totalBytes": 463602382,
-    "downloadedThisRun": 12,
+    "remoteCount": 5498,
+    "totalBytes": 463866300,
+    "downloadedThisRun": 5,
     "failedThisRun": 1,
     "failures": [
       {
@@ -6611,6 +6611,12 @@
         "etag": "\"7a4dac7413bc9d7aa865799aea49fc51\""
       },
       {
+        "key": "mods/ui/9127d2c3-c150-4bb5-ab95-d781e7a4caad/preview.webp",
+        "file": "images/mods/ui/9127d2c3-c150-4bb5-ab95-d781e7a4caad/preview.webp",
+        "size": 84916,
+        "etag": "\"7a77f3c404d9453f2dc439b6734de185\""
+      },
+      {
         "key": "mods/ui/918c3e04-da1b-4252-bde8-113ad265bb89/preview.webp",
         "file": "images/mods/ui/918c3e04-da1b-4252-bde8-113ad265bb89/preview.webp",
         "size": 65486,
@@ -12879,6 +12885,12 @@
         "file": "images/mods/奥古斯塔/f8ef035d-d181-4606-84ed-6f8c234e8808/preview.webp",
         "size": 68506,
         "etag": "\"d36dbf64cff2b2f94f497eb89ea6c20e\""
+      },
+      {
+        "key": "mods/奥古斯塔/fbf83f3a-da22-4864-9db4-bbba04e80d2f/preview.webp",
+        "file": "images/mods/奥古斯塔/fbf83f3a-da22-4864-9db4-bbba04e80d2f/preview.webp",
+        "size": 53284,
+        "etag": "\"8ad8bee78c03b168e3eea30acdceee1f\""
       },
       {
         "key": "mods/奥古斯塔/fd64f848-5eb6-41cc-8626-fec62c5a00ec/preview.webp",
@@ -24863,6 +24875,12 @@
         "etag": "\"89ed11d157ae0a9476ed53718144f5a4\""
       },
       {
+        "key": "mods/穗穗/d6aebfe8-d0f5-48be-85ef-5caa85f8c44b/preview.webp",
+        "file": "images/mods/穗穗/d6aebfe8-d0f5-48be-85ef-5caa85f8c44b/preview.webp",
+        "size": 38642,
+        "etag": "\"391319719705292b6207928f3d20d6ff\""
+      },
+      {
         "key": "mods/穗穗/d987857b-a7a4-4227-b3c2-94979f91db00/preview.webp",
         "file": "images/mods/穗穗/d987857b-a7a4-4227-b3c2-94979f91db00/preview.webp",
         "size": 55052,
@@ -24951,6 +24969,12 @@
         "file": "images/mods/绯雪/17781900-2956-46d0-b6a8-5003ca1b91d0/preview.webp",
         "size": 41064,
         "etag": "\"ccfb6dd8f6d827cdf3777c8c701ff951\""
+      },
+      {
+        "key": "mods/绯雪/32695064-96fa-45ae-b82d-c6fba711cce1/preview.webp",
+        "file": "images/mods/绯雪/32695064-96fa-45ae-b82d-c6fba711cce1/preview.webp",
+        "size": 35114,
+        "etag": "\"5f6adacf654d31c73c87ab754b875a22\""
       },
       {
         "key": "mods/绯雪/3438f7d9-5556-458a-aba9-5a7844b7d607/preview.webp",
@@ -33003,6 +33027,12 @@
         "file": "images/tutorial/05/step-image.webp",
         "size": 500814,
         "etag": "\"255585274428a871bf482a372ab098d1\""
+      },
+      {
+        "key": "tutorial/companion/1/poster.webp",
+        "file": "images/tutorial/companion/1/poster.webp",
+        "size": 51962,
+        "etag": "\"affbc12498aadc1230a49950ae10527e\""
       }
     ]
   }
