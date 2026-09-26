@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-25T08:29:41.598Z",
+  "generatedAt": "2026-09-26T08:09:42.873Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,10 +8,10 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20260925-082215.dump",
-    "sha256": "e28a5310fc7287112e914d579d083cbd9d0aa08139bd3818476349b3899ed7cd",
-    "sizeBytes": 690221,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260925-082215",
+    "file": "db/wavemod-20260926-080834.dump",
+    "sha256": "09cf98abf16e385c03fe570bb710ab93305e3328c951f7f228c3ad1d59e9111b",
+    "sizeBytes": 690791,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20260926-080834",
     "tableCounts": {
       "mods": null,
       "profiles": null,
@@ -28,14 +28,14 @@
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5301,
+    "publishedRows": 5306,
     "refreshedThisRun": true,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 5498,
-    "totalBytes": 463866300,
+    "remoteCount": 5503,
+    "totalBytes": 464082634,
     "downloadedThisRun": 5,
     "failedThisRun": 1,
     "failures": [
@@ -18545,6 +18545,12 @@
         "etag": "\"84cbafaf57366d7a901dcb4e4ff66b8d\""
       },
       {
+        "key": "mods/清宵/226fef40-5ca2-43d4-ae06-6bc7efff2c1b/preview.webp",
+        "file": "images/mods/清宵/226fef40-5ca2-43d4-ae06-6bc7efff2c1b/preview.webp",
+        "size": 48138,
+        "etag": "\"bdeb6b8f86fd9749e3e60ed563018d89\""
+      },
+      {
         "key": "mods/清宵/23c194e8-aa47-4d2b-acdd-b1cf964ea21b/preview.webp",
         "file": "images/mods/清宵/23c194e8-aa47-4d2b-acdd-b1cf964ea21b/preview.webp",
         "size": 55574,
@@ -18599,6 +18605,12 @@
         "etag": "\"ab26dc7b1010d9dcba3b1c80e4ef6929\""
       },
       {
+        "key": "mods/清宵/42aaf019-9bd0-4e01-b4d8-8176a16dd1bc/preview.webp",
+        "file": "images/mods/清宵/42aaf019-9bd0-4e01-b4d8-8176a16dd1bc/preview.webp",
+        "size": 52124,
+        "etag": "\"9ba8eb606efbf92a31796f7c9e346496\""
+      },
+      {
         "key": "mods/清宵/43a5ab1d-c343-4b05-94f7-edd2d155b479/preview.webp",
         "file": "images/mods/清宵/43a5ab1d-c343-4b05-94f7-edd2d155b479/preview.webp",
         "size": 37412,
@@ -18609,6 +18621,12 @@
         "file": "images/mods/清宵/46135200-c114-4a6a-8964-197188fa01bb/preview.webp",
         "size": 46648,
         "etag": "\"a699fba534de8c6f26904dc434728f0f\""
+      },
+      {
+        "key": "mods/清宵/4cb4e688-3737-47e9-9077-11490e06cea8/preview.webp",
+        "file": "images/mods/清宵/4cb4e688-3737-47e9-9077-11490e06cea8/preview.webp",
+        "size": 36388,
+        "etag": "\"207a5e69068c968d806416dedb06ad97\""
       },
       {
         "key": "mods/清宵/4e7d9a5a-575b-446e-b75b-ed75b783f875/preview.webp",
@@ -20481,6 +20499,12 @@
         "file": "images/mods/爱弥斯/36480658-bb0e-458c-93c2-852b6f2af5ed/preview.webp",
         "size": 36052,
         "etag": "\"bb0ab7202b9ac4d4d05c25215b003a50\""
+      },
+      {
+        "key": "mods/爱弥斯/3bbf5b4f-aa6a-4b79-890d-59b99555ce47/preview.webp",
+        "file": "images/mods/爱弥斯/3bbf5b4f-aa6a-4b79-890d-59b99555ce47/preview.webp",
+        "size": 35780,
+        "etag": "\"86406ac989896dcda684a15fb4308887\""
       },
       {
         "key": "mods/爱弥斯/3e145486-ffba-40bb-a63c-cd9e19753b01/preview.webp",
@@ -25107,6 +25131,12 @@
         "file": "images/mods/绯雪/d01b792c-0df0-4416-bdca-0128cd427611/preview.webp",
         "size": 46754,
         "etag": "\"eaca266d9cae459c9ca8e983bfd4930c\""
+      },
+      {
+        "key": "mods/绯雪/dc68cd89-c56c-419c-821b-cdbfbbe634ac/preview.webp",
+        "file": "images/mods/绯雪/dc68cd89-c56c-419c-821b-cdbfbbe634ac/preview.webp",
+        "size": 43904,
+        "etag": "\"5cd72104c81e438291ea21211ee1e0d6\""
       },
       {
         "key": "mods/绯雪/dec80b4e-3187-42aa-b04f-54a0489eb4ad/preview.webp",
