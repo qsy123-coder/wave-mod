@@ -122,6 +122,15 @@ const CHARACTER_PREFIX_MAP = [
   // 奥古斯塔：库内 144 条中仅 2 条带前缀（且其中一条是错别字「奥古斯特-多种发型」），
   // 其余 142 条均为剥离写法（`奥古斯塔 | 北极风暴`、`奥古斯塔 | 爱琴海 by 辉映星辰允如光`）。
   { prefix: "奥古斯塔", character: "奥古斯塔" },
+  // 爱弥斯：库内 217 条中 206 条为无前缀写法（`爱弥斯 | 丰汝肥屯（上下）by slap`、
+  // `爱弥斯 | 蕾米的礼物 by PebbleRox`），仅 11 条保留前缀——其中 10 条是
+  // 2026-09-23 起每日脚本落默认分支留下的（`爱弥斯-誓约（0）by 晨星`、
+  // `爱弥斯-心月狐（【）by woju`、`爱弥斯-薄荷-海盐金平糖（num123）`、
+  // `爱弥斯-英雄`、`爱弥斯-水晶（【）`、`爱弥斯-辣妹（F5)by Arelewd` 等），
+  // 另 1 条是「爱弥斯饰品」keepFull 先例（见下方 resolveCharacterAndTitle 的饰品护栏）。
+  // 补进来后统一剥离，与主流写法对齐；dedupKey 会把两侧的「角色-」前缀都归一化
+  // （见其函数注释），故 9.26 之前入库的带前缀记录不会被当新增重复插入。
+  { prefix: "爱弥斯", character: "爱弥斯" },
 ];
 
 /**
@@ -154,6 +163,21 @@ const CHARACTER_ALIASES = {
 
 /** 前缀 → UI 分类（如「索拉指南-长离动态nsfw」整包皮肤归 UI，title 去前缀） */
 const UI_PREFIXES = ["索拉指南"];
+
+/**
+ * 特效类（今天只有「去角色轮廓v3.6」）：整包归库内那串**历史 bucket**
+ * 「反虚化，ui界面，场景，葫芦，特效等」，**title 保留完整 key**。
+ *
+ * 为什么写这串原文、而不是直接写 `UI`：去重键是 `character|title`，而库内 21 条同
+ * bucket 的记录（2026-09-03 批次，`去角色轮廓v3.6` 本体就在其中）存的正是这串原文——
+ * 前台 getAvailableCharacters / applyModQueryFilters 都会过 normalizeCharacterName
+ * 把它归一成 UI 展示，所以两者在站上是同一个分类。
+ * 若这里返回 `UI`，与库内那条算不出同一个键 ⇒ 重分享会被当成新增再插一遍，
+ * 同一张卡在前台出现两次；而落默认分支更糟：`去角色轮廓v3.6` 会变成
+ * normalizeCharacterName 认不出的新值，前台凭空多一个角色分类。
+ */
+const EFFECT_BUCKET = "反虚化，ui界面，场景，葫芦，特效等";
+const EFFECT_BUCKET_PREFIXES = ["去角色轮廓"];
 
 /**
  * 「爱弥斯的机甲」「爱弥斯大招」整包 → 独立分类「爱弥斯的机甲」，**title 保留完整 key**。
@@ -432,6 +456,21 @@ function resolveCharacterAndTitle(key) {
     if (key.startsWith(p)) {
       return { character: "武器", title: key };
     }
+  }
+  // 特效类：整包归库内历史 bucket（前台归一成 UI），title 保留完整 key。
+  // 必须在默认分支之前 —— 默认分支会把 `去角色轮廓v3.6` 整串当角色名，凭空造出新分类。
+  for (const p of EFFECT_BUCKET_PREFIXES) {
+    if (key.startsWith(p)) {
+      return { character: EFFECT_BUCKET, title: key };
+    }
+  }
+  // 饰品类：`爱弥斯饰品[XX]-…` → 爱弥斯，**title 保留完整 key**。
+  // 库内先例 `爱弥斯 | 爱弥斯饰品[雪绒豹豹]-爱弥斯团子`（落默认分支才保住完整 key），
+  // 与 src/lib/mods-domain/sorting.ts 的 CHARACTER_ALIASES 同规则。
+  // 必须排在裸「爱弥斯」前缀分支之前：否则 title 会被剥成 `饰品[XX]-…`，
+  // 与库内既有写法冲突（同「千咲皮肤」/「琳奈皮肤」的坑）。
+  if (key.startsWith("爱弥斯饰品")) {
+    return { character: "爱弥斯", title: key };
   }
   // 角色类：前缀=角色，title 去前缀
   // 但「XX皮肤」类前缀（女漂皮肤/琳奈皮肤）保留完整 title——那是皮肤标题的一部分
