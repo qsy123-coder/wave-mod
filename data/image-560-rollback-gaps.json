@@ -1,0 +1,65 @@
+{
+  "note": "这些对象在覆盖前，本地镜像与 git 都没有旧版原件（当天新图，镜像未同步）。若需回退只能回到当日文件夹里的原图。",
+  "keys": [
+    {
+      "key": "mods/aemeath/c88a7464-b2a2-4a3f-bd0e-a9e2f984f811/preview.webp",
+      "sizeAtApplyTime": 77476,
+      "lastModified": "2026-09-27T05:55:02.000Z"
+    },
+    {
+      "key": "mods/aemeath/fb02af10-3993-460a-98e6-b13b3c781a25/preview.webp",
+      "sizeAtApplyTime": 363328,
+      "lastModified": "2026-09-27T06:07:29.000Z"
+    },
+    {
+      "key": "mods/luosela/e57334ce-e4be-4c16-95bd-a65e2d8442fd/preview.webp",
+      "sizeAtApplyTime": 46648,
+      "lastModified": "2026-07-31T05:40:57.000Z"
+    },
+    {
+      "key": "mods/ui/9127d2c3-c150-4bb5-ab95-d781e7a4caad/preview.webp",
+      "sizeAtApplyTime": 49630,
+      "lastModified": "2026-09-27T06:12:49.000Z"
+    },
+    {
+      "key": "mods/奥古斯塔/fbf83f3a-da22-4864-9db4-bbba04e80d2f/preview.webp",
+      "sizeAtApplyTime": 31824,
+      "lastModified": "2026-09-27T06:13:48.000Z"
+    },
+    {
+      "key": "mods/清宵/226fef40-5ca2-43d4-ae06-6bc7efff2c1b/preview.webp",
+      "sizeAtApplyTime": 29246,
+      "lastModified": "2026-09-27T06:14:38.000Z"
+    },
+    {
+      "key": "mods/清宵/42aaf019-9bd0-4e01-b4d8-8176a16dd1bc/preview.webp",
+      "sizeAtApplyTime": 32250,
+      "lastModified": "2026-09-27T06:14:40.000Z"
+    },
+    {
+      "key": "mods/清宵/4cb4e688-3737-47e9-9077-11490e06cea8/preview.webp",
+      "sizeAtApplyTime": 22930,
+      "lastModified": "2026-09-27T06:14:41.000Z"
+    },
+    {
+      "key": "mods/爱弥斯/3bbf5b4f-aa6a-4b79-890d-59b99555ce47/preview.webp",
+      "sizeAtApplyTime": 21370,
+      "lastModified": "2026-09-27T06:14:53.000Z"
+    },
+    {
+      "key": "mods/穗穗/d6aebfe8-d0f5-48be-85ef-5caa85f8c44b/preview.webp",
+      "sizeAtApplyTime": 24318,
+      "lastModified": "2026-09-27T06:15:45.000Z"
+    },
+    {
+      "key": "mods/绯雪/32695064-96fa-45ae-b82d-c6fba711cce1/preview.webp",
+      "sizeAtApplyTime": 20912,
+      "lastModified": "2026-09-27T06:15:47.000Z"
+    },
+    {
+      "key": "mods/绯雪/dc68cd89-c56c-419c-821b-cdbfbbe634ac/preview.webp",
+      "sizeAtApplyTime": 27262,
+      "lastModified": "2026-09-27T06:15:51.000Z"
+    }
+  ]
+}
