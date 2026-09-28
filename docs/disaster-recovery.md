@@ -169,17 +169,36 @@ node scripts/restore-from-backup.mjs --yes        # 一起恢复
 ## 10. 兜底快照的发布路径（网关被锁时怎么让新内容立刻可见）
 
 Supabase 网关被锁（`exceed_egress_quota` → REST/Auth 全站 402）期间，前台读的是兜底快照。
-快照有**两份**，读侧顺序是：
+
+快照有**两份产物**，各自独立成对象，读侧顺序都是：
 
 ```
-COS（snapshots/mods-snapshot.json.gz）→ 打包内 data/mods-snapshot.json.gz → 空数组
+COS（snapshots/*.json.gz）→ 打包内 data/*.json.gz → 空数组
 ```
+
+| 产物 | COS 对象键 | 打包内 | 生成器 | 覆盖的表 |
+|---|---|---|---|---|
+| mods（与 JASM 桌面端共用） | `snapshots/mods-snapshot.json.gz` | `data/mods-snapshot.json.gz` | `scripts/mods-snapshot-export.mjs` | `mods`（已发布） |
+| gamebanana | `snapshots/gamebanana-snapshot.json.gz` | `data/gamebanana-snapshot.json.gz` | `scripts/gamebanana-snapshot.{sql,mjs}` | `gamebanana_mods`（已发布） |
+
+**两份必须分开，不要合并成一个对象。** `snapshots/mods-snapshot.json.gz` 是 JASM
+桌面端共用的公共产物，往它的列清单里塞 `gamebanana` 的行会直接改变桌面端拿到的 shape。
+
+读侧那份通用逻辑抽在 `src/lib/snapshot/loader.ts`（`createSnapshotLoader`），
+`mods-domain/snapshot.ts` 与 `gamebanana-domain/snapshot.ts` 各传一份 config 进去。
+它守着几条踩过坑换来的不变量，改的时候别绕开：**缓存失败就会退化成 6 小时不可用**
+（所以缓存的是「COS 上的 base64 字符串」，不是解析后的行数组 —— Vercel Data Cache
+单条上限 2MB，超限 Next **静默不写**）；**解码校验通过才写缓存**；失败后 60s 冷却；
+成功结果按内容 `===` 记忆化。
 
 打包内那份**只能在构建时打进部署**，所以只靠它的话，锁定期内新入库的 mod 要等重新部署
 才可见（2026-09-21「当天 16 条 mod 在站上没有迅雷按钮」就是这么来的）。COS 那份是给
 **运行中的部署**用的：换掉对象 + 通知缓存失效，几秒内生效，不用重新部署。
+打包内那份要能进 serverless 部署，还得在 `next.config.ts` 的 `outputFileTracingIncludes`
+里按路由显式列出（`/gamebanana` 与 `/gamebanana/**`）—— 漏了的话构建产物里没有这个文件，
+回退就静默落到空数组。
 
-**发布入口**（都走 `scripts/mods-snapshot-export.mjs`）：
+**发布入口 —— mods**（都走 `scripts/mods-snapshot-export.mjs`）：
 
 | 场景 | 命令 |
 |---|---|
@@ -188,9 +207,30 @@ COS（snapshots/mods-snapshot.json.gz）→ 打包内 data/mods-snapshot.json.gz
 | 每日备份 CI（`backup-to-github.mjs`） | 导出成功即**无条件**上传（不只在内容变化时），manifest 记 `cosKey` / `cosUrl` |
 | 手工重导之后 | `node scripts/publish-mods-snapshot-to-cos.mjs [--dry-run] [--no-ping]` |
 
+**发布入口 —— gamebanana**（走 `scripts/gamebanana-snapshot.mjs`）：
+
+| 场景 | 命令 |
+|---|---|
+| 同步完 GameBanana 之后 | `sync-gamebanana.mjs` 收尾会自动 best-effort 发一次；读不到 `COS_BUCKET`/`COS_REGION` 时只告警不报错 |
+| 手工发/先看 | `node scripts/publish-gamebanana-snapshot.mjs --dry-run`（只导出到 `data/`）／加 `--export` 才真传 COS |
+
+注意两个不对称，别按 mods 的习惯套：
+
+- gamebanana 那份**不在每日备份 CI 里**（`backup-to-github.mjs` 只发 mods）。所以它的
+  COS 对象靠 `sync-gamebanana.mjs` 那次同步来刷新 —— 很久没同步的话，COS 上就是旧快照，
+  网关锁着时前台看到的是「上次同步时」的香蕉内容，不是实时的。这是可接受的兜底语义，
+  但排查时要知道。
+- 它的列清单里**没有 `description`**（实测 gz 从 142KB 降到 33KB，4.3 倍），详情页在
+  兜底路径下不显示描述 —— 这是有意的，不是漏了。
+
 **顺序必须是「导出 → 传 COS → 再 ping」**，反过来有问题：ping 会清掉 `mods:snapshot`
 缓存条目，若先 ping 后上传，ping 之后第一个走到回退的请求会把 **COS 上的旧对象**重新
-拉下来缓存一整个 TTL，新内容反而比不 ping 更晚可见。
+拉下来缓存一整个 TTL，新内容反而比不 ping 更晚可见。（gamebanana 同理，tag 是
+`gamebanana:snapshot`。）
+
+`/api/revalidate` 必须**两份都清**：`gamebanana` / `gamebanana:snapshot` 是后补的 ——
+在那之前 `sync-gamebanana.mjs` 的 ping 对 `/gamebanana` 是个 no-op（列表会旧 6 小时），
+因为 `revalidatePublicModCaches()` 只认 mods 系的 tag。改这块时别只加一边。
 
 注意 `revalidateTag` 是 **stale-while-revalidate**：ping 之后的**第一个**请求仍可能拿到
 旧 payload，第二个才是新的（实测如此）。
@@ -206,9 +246,14 @@ COS（snapshots/mods-snapshot.json.gz）→ 打包内 data/mods-snapshot.json.gz
    但这一点必须写明，不要让它变成无人知道的既成事实。
 
 排查「发了快照但前台还是旧内容」时按序看：`curl -I` 确认对象在（404 = 键写错/没传成功）；
-Vercel 运行时日志里有没有 `[mods] 已从远程快照（COS）载入`（有 = 走的是 COS 那份）；
-有没有 `[mods] 远程快照不可用` 或 `未配置 COS_BUCKET`（有 = 根本没读 COS）。
-这两个告警只在回退路径上打印，所以「日志里没有」本身也是信息。
+运行时日志里有没有 `[mods]` / `[gamebanana] 已从远程快照（COS）载入`（有 = 走的是 COS 那份）；
+有没有 `[mods]` / `[gamebanana] 远程快照不可用` 或 `未配置 COS_BUCKET`（有 = 根本没读 COS）。
+这几个告警只在回退路径上打印，所以「日志里没有」本身也是信息。
+
+判断「到底是不是在做兜底」最省事的办法是直连 REST 打一发探针看网关状态，别从页面猜：
+网关活着时页面正常渲染 ≠ 走的兜底路径。另外 `/gamebanana` 兜底为空时的文案是
+「当前筛选条件下没有搬运内容」—— 那和「筛选后真的没内容」长得一模一样，
+**空列表不等于兜底没生效，得配合上面的日志前缀判断**。
 
 ## 11. 边界与注意事项
 
@@ -234,3 +279,6 @@ Vercel 运行时日志里有没有 `[mods] 已从远程快照（COS）载入`（
 | 兜底快照同时放 COS、且匿名公开读 | 锁定期内新内容要立刻可见就得绕开「重新部署」；公开读省掉密钥管理，代价（全量数据一条公开直链）见第 10 节 |
 | 快照缓存的是 COS 上的 base64，不是解析后的行数组 | Vercel Data Cache 单条上限 2MB（解析后约 4.7MB），超限时 Next 静默不写 ⇒ 退化成每请求真拉 513KB |
 | 每日备份无条件发快照（不只在内容变化时） | 上一次上传失败会让「内容没变化」永远为真，COS 从此停在旧版且没有任何信号 |
+| gamebanana 单独一份快照，不并入 mods 那份 | `snapshots/mods-snapshot.json.gz` 是 JASM 桌面端共用的公共产物，塞新表进去会改桌面端拿到的 shape |
+| 快照读侧抽成 `src/lib/snapshot/loader.ts` 的 `createSnapshotLoader` | mods 那份攒下的不变量（失败不缓存、解码后才缓存、内容记忆化、60s 冷却）只有一份实现，行为靠 mods 原有的 15 个测试兜底 |
+| gamebanana 快照列清单不含 `description` | 实测 142KB→33KB gz（4.3 倍），代价只是兜底期间详情页没有描述，可接受 |

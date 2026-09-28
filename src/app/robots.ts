@@ -44,6 +44,8 @@ export default function robots(): MetadataRoute.Robots {
           "/*/profile",
           // mod 列表的筛选与翻页组合（近似重复页，规范地址是 /mods）
           "/mods?",
+          // GameBanana 搬运列表的筛选组合（同上；规范地址是 /gamebanana）
+          "/gamebanana?",
         ],
       },
     ],

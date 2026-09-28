@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2, BookOpen } from "lucide-react";
+import { Heart, LayoutDashboard, LogIn, LogOut, Menu, UploadCloud, Gamepad2, BookOpen, Package } from "lucide-react";
 
 import { getEnabledGames } from "@/config/games";
 import { signOutUser } from "@/actions/auth/auth-actions";
@@ -306,10 +306,15 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                   </Link>
                 )}
               </MotionReveal>
+              {/*
+                这里以前是「直链下载」→ /mods。那个文案是错的：站内入库脚本写的是
+                download_url: null，绝大部分 mod 只有国内网盘链接，没有直链可下。
+                现在指向 GameBanana 搬运合集 —— 那里每一条都真的有直链。
+              */}
               <MotionReveal delay={0.22} rotate={-1}>
-                <Link href="/mods" className="neo-button-primary inline-flex -rotate-1 items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
-                  <Sparkles className="size-3.5" />
-                  直链下载
+                <Link href="/gamebanana" className="neo-button-primary inline-flex -rotate-1 items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                  <Package className="size-3.5" />
+                  MOD 搬运
                 </Link>
               </MotionReveal>
             </>
@@ -447,12 +452,12 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                   </Link>
                 )}
                 <Link
-                  href="/mods"
+                  href="/gamebanana"
                   onClick={() => setMobileOpen(false)}
                   className="neo-button-primary inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
                 >
-                  <Sparkles className="size-4" />
-                  直链下载
+                  <Package className="size-4" />
+                  MOD 搬运
                 </Link>
               </div>
             </div>

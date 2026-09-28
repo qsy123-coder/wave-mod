@@ -43,6 +43,16 @@ type ModCardProps = {
   mediaBottomLeft?: ReactNode;
   showRatingSticker?: boolean;
   ratingStickerClassName?: string;
+  /**
+   * 是否渲染卡片右下角的「收藏」按钮。默认 true（站内 `mods` 的卡片）。
+   *
+   * 关掉是给**不是 `mods` 表**的卡片用的（目前是 GameBanana 搬运列表）：那个按钮的
+   * 点击会走 `toggleFavoriteAction` 往 `favorites` 写一行 `mod_id`，而这类卡片的 id
+   * 不是 uuid（是 GameBanana 的数字 id），写库必然失败；未登录时它还会把用户送去
+   * `/auth/login?next=/mods/<数字id>` —— 那个页面不存在。两种情况下用户看到的都是
+   * 「点了没反应」。
+   */
+  showFavoriteButton?: boolean;
   showCheckbox?: boolean;
   checkboxChecked?: boolean;
   onCheckboxChange?: (checked: boolean) => void;
@@ -174,6 +184,7 @@ export function ModCard({
   mediaBottomLeft,
   showRatingSticker = true,
   ratingStickerClassName,
+  showFavoriteButton = true,
   showCheckbox = false,
   checkboxChecked = false,
   onCheckboxChange,
@@ -387,11 +398,13 @@ export function ModCard({
       {mediaBottomLeft}
       {showRatingSticker ? <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} className={cn("z-20 max-sm:hidden shadow-[4px_4px_0px_0px_#000]", ratingStickerClassName)} /> : null}
 
-      <CardFavoriteButton
-        modId={mod.id}
-        isFavorited={mod.isFavorited ?? false}
-        isLoggedIn={isLoggedIn}
-      />
+      {showFavoriteButton ? (
+        <CardFavoriteButton
+          modId={mod.id}
+          isFavorited={mod.isFavorited ?? false}
+          isLoggedIn={isLoggedIn}
+        />
+      ) : null}
 
       <div className={cn(styles.content, contentClassName)}>
         <div className="max-w-sm space-y-1.5">

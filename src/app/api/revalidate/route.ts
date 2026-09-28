@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { revalidateGamebananaCaches } from "@/lib/gamebanana-domain/cache";
 import { revalidatePublicModCaches } from "@/lib/mod-cache";
 
 /**
@@ -16,7 +17,12 @@ import { revalidatePublicModCaches } from "@/lib/mod-cache";
  * 但 TTL 为压出口配额涨到 6 小时之后，等它自然到期就意味着当天上午上传的批次
  * 可能晚上才出现在站上 —— 所以补上这个接口，让脚本入库后主动敲一下。
  *
- * 失效范围就是 revalidatePublicModCaches() 本身，与管理后台写入完全一致。
+ * 失效范围是 revalidatePublicModCaches()（与管理后台写入完全一致）
+ * 加 revalidateGamebananaCaches()（`gamebanana_mods` 那张独立的表，它的写入
+ * 只有 scripts/sync-gamebanana.mjs 一条路，没有 Server Action 那一侧）——
+ * 两边都清，是因为这个接口没有「这次改的是哪张表」的信息，
+ * 而多清一份的代价只是下次访问重读一次表。
+ *
  * 不读数据库：网关被锁（超配额 402）时它照样返回 200，只是那时前台也读不到
  * 数据，真正让新内容露出来的是「刷新快照 + 重新部署」那条路。
  */
@@ -73,6 +79,7 @@ export async function POST(request: Request) {
   }
 
   revalidatePublicModCaches();
+  revalidateGamebananaCaches();
 
   return NextResponse.json({ ok: true, revalidatedAt: new Date().toISOString() });
 }

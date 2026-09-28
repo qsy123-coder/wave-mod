@@ -35,6 +35,20 @@ describe("POST /api/revalidate", () => {
     expect(invalidatedTags()).toContain("mods:list");
   });
 
+  /**
+   * `/gamebanana` 的列表缓存与它那份独立的兜底快照缓存也必须在这里被清掉。
+   *
+   * 这一条是补游戏香蕉快照时才发现的缺口：`sync-gamebanana.mjs` 一直在 ping，
+   * 但这个接口当时只清 `mods` 那一套 tag —— 同步成功了、缓存却纹丝不动，
+   * 新内容要等满 6 小时 TTL 才出现（与快照那边「上传成功但读不到」同形）。
+   */
+  it("同时清掉 gamebanana 的列表与快照缓存", async () => {
+    await POST(requestWith(SECRET));
+
+    expect(invalidatedTags()).toContain("gamebanana");
+    expect(invalidatedTags()).toContain("gamebanana:snapshot");
+  });
+
   // 一个「谁都能调」的失效接口等于把出口配额交给外人：每次调用都会让下一个
   // 访客重扫全表（约 4.6MB）——正是 2026-09-21 超配额事故的成因。
   it("密钥错误时拒绝，且不发生任何失效", async () => {

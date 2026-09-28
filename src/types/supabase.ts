@@ -136,6 +136,95 @@ export type Database = {
           },
         ];
       };
+      /**
+       * GameBanana 搬运 MOD（独立表，2026-09-28 新增，见 supabase/add_gamebanana_mods.sql）。
+       *
+       * 本块是**按迁移文件手写**的，不是 `supabase gen types` 生成的 —— 加这张表时
+       * CLI 没接上。结构与 `mods` 块保持一致（Row / Insert / Update / Relationships），
+       * 没有任何外键所以 Relationships 是空数组。**下次跑 gen types 时会被覆盖成同样的内容**，
+       * 若届时字段与这里不符，以库为准并回查迁移是否漏跑。
+       */
+      gamebanana_mods: {
+        Row: {
+          author_name: string | null;
+          author_url: string | null;
+          av_status: string | null;
+          character: string;
+          cover_url: string | null;
+          created_at: string;
+          description: string | null;
+          download_count: number;
+          download_url: string;
+          file_size: number | null;
+          gb_created_at: string | null;
+          gb_id: number;
+          gb_root_category: string | null;
+          gb_subcategory: string | null;
+          gb_updated_at: string | null;
+          images: string[];
+          is_published: boolean;
+          like_count: number;
+          synced_at: string;
+          title: string;
+          updated_at: string;
+          version: string | null;
+          view_count: number;
+          visibility: string;
+        };
+        Insert: {
+          author_name?: string | null;
+          author_url?: string | null;
+          av_status?: string | null;
+          character: string;
+          cover_url?: string | null;
+          created_at?: string;
+          description?: string | null;
+          download_count?: number;
+          download_url: string;
+          file_size?: number | null;
+          gb_created_at?: string | null;
+          gb_id: number;
+          gb_root_category?: string | null;
+          gb_subcategory?: string | null;
+          gb_updated_at?: string | null;
+          images?: string[];
+          is_published?: boolean;
+          like_count?: number;
+          synced_at?: string;
+          title: string;
+          updated_at?: string;
+          version?: string | null;
+          view_count?: number;
+          visibility?: string;
+        };
+        Update: {
+          author_name?: string | null;
+          author_url?: string | null;
+          av_status?: string | null;
+          character?: string;
+          cover_url?: string | null;
+          created_at?: string;
+          description?: string | null;
+          download_count?: number;
+          download_url?: string;
+          file_size?: number | null;
+          gb_created_at?: string | null;
+          gb_id?: number;
+          gb_root_category?: string | null;
+          gb_subcategory?: string | null;
+          gb_updated_at?: string | null;
+          images?: string[];
+          is_published?: boolean;
+          like_count?: number;
+          synced_at?: string;
+          title?: string;
+          updated_at?: string;
+          version?: string | null;
+          view_count?: number;
+          visibility?: string;
+        };
+        Relationships: [];
+      };
       likes: {
         Row: {
           created_at: string;
