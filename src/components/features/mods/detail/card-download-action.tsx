@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { copyToClipboard } from "@/lib/clipboard";
 import { driveCopyTip } from "@/lib/cloud-drive";
+import { launchDriveClient } from "@/lib/drive-client-launch";
 import type { DriveLink } from "@/lib/mods-domain/types";
 
 type CardDownloadActionProps = {
@@ -41,7 +42,11 @@ export function CardDownloadAction({ driveLinks, className = "" }: CardDownloadA
       toast.error("复制失败", { description: "网盘链接复制失败，请到详情页手动复制。" });
       return;
     }
-    const tip = driveCopyTip(drive.platform);
+    // 把对应客户端拉起来（它自己会读剪贴板弹转存框）。复制失败时上面已 return，
+    // 不会出现「客户端开了但剪贴板是空的」。同一条链接本会话已唤起过就跳过，
+    // 免得反复把它切到前台 —— 文案口径跟着返回值走，见 lib/cloud-drive.ts
+    const launched = launchDriveClient(drive.platform, drive.url);
+    const tip = driveCopyTip(drive.platform, { client: launched ? "launch" : "already-open" });
     toast.success("网盘链接已复制", {
       duration: 6000,
       description: `${tip.advice}；${tip.warning}`,
