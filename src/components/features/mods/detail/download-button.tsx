@@ -7,6 +7,7 @@ import Image from "next/image";
 
 import { copyToClipboard } from "@/lib/clipboard";
 import { driveCopyTip } from "@/lib/cloud-drive";
+import { launchDriveClient } from "@/lib/drive-client-launch";
 import { DIRECT_DOWNLOAD_UNAVAILABLE, resolveDownloadResponse } from "@/lib/mods-domain/download-result";
 import type { DriveLink } from "@/lib/mods-domain/types";
 
@@ -20,19 +21,24 @@ type DownloadButtonProps = {
 
 export function DownloadButton({ compact = false, modId, downloadUrl, downloadCount, driveLinks }: DownloadButtonProps) {
   const [isPending, setIsPending] = useState(false);
-  const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null);
+  // 记下「这一次复制有没有真的去唤起客户端」：这个网盘本会话已唤起过时会跳过，
+  // 文案得跟着变（否则会对着用户说「正在尝试打开」而其实没开）
+  const [copiedDrive, setCopiedDrive] = useState<{ platform: string; launched: boolean } | null>(null);
   const [showTip, setShowTip] = useState(false);
   // 直链失败时的提示。非空即渲染 —— 绝不再静默返回，见 download-result.ts 的说明。
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
   const hasDownload = Boolean(downloadUrl?.trim());
   // 只有迅雷/夸克有「粘贴链接」教程图，其它网盘不展示「?」（文案与图见 lib/cloud-drive.ts）
-  const tip = copiedPlatform ? driveCopyTip(copiedPlatform) : null;
+  // client 传的是「这次真的唤起了没有」—— 同网盘再点就是 already-open，文案不能说会打开
+  const tip = copiedDrive
+    ? driveCopyTip(copiedDrive.platform, { client: copiedDrive.launched ? "launch" : "already-open" })
+    : null;
   const tipImage = tip?.tipImage ?? null;
 
   // 复制到另一个网盘时收起教程弹层
   useEffect(() => {
     setShowTip(false);
-  }, [copiedPlatform]);
+  }, [copiedDrive]);
 
   const handleDownload = async () => {
     if (!hasDownload || isPending) return;
@@ -63,12 +69,16 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
 
   const handleCopy = async (drive: DriveLink) => {
     const ok = await copyToClipboard(drive.url);
+    // 复制失败就不唤起：客户端被拉起来了却读不到剪贴板，比不唤起更让人困惑
     if (!ok) return;
-    setCopiedPlatform(drive.platform);
+    // 把对应客户端拉起来（它自己会读剪贴板弹转存框）。同一条链接本会话已唤起过就跳过，
+    // 免得反复把它切到前台。返回值决定文案口径 —— 见 lib/drive-client-launch.ts
+    const launched = launchDriveClient(drive.platform, drive.url);
+    setCopiedDrive({ platform: drive.platform, launched });
   };
 
   const dismissCopied = () => {
-    setCopiedPlatform(null);
+    setCopiedDrive(null);
   };
 
   if (!hasDownload && driveLinks.length === 0) return null;
@@ -102,7 +112,7 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
       {driveLinks.length > 0 ? (
         <div className={`space-y-1.5 ${hasDownload ? "mt-2" : ""}`}>
           {driveLinks.map((drive) => {
-            const copied = copiedPlatform === drive.platform;
+            const copied = copiedDrive?.platform === drive.platform;
             return (
               <button
                 key={`${drive.platform}-${drive.url}`}
@@ -119,7 +129,7 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
       ) : null}
 
       <AnimatePresence initial={false}>
-        {copiedPlatform ? (
+        {copiedDrive ? (
           <motion.div
             initial={{ opacity: 0, height: 0, marginTop: 0 }}
             animate={{ opacity: 1, height: "auto", marginTop: 8 }}
@@ -159,7 +169,7 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
                   <div className={`overflow-hidden transition-all duration-200 ${showTip ? "max-h-[320px] opacity-100" : "max-h-0 opacity-0"}`}>
                     <Image
                       src={tipImage}
-                      alt={`${copiedPlatform} 粘贴链接操作教程`}
+                      alt={`${copiedDrive.platform} 粘贴链接操作教程`}
                       width={440}
                       height={263}
                       className="h-auto w-full rounded-md border-2 border-black"
