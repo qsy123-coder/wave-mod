@@ -495,6 +495,20 @@ const PREFERRED_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
 // 索引 key 去掉该段，使其与 exe 的 base 精确对应，从而匹配到预览图；读取仍用真实路径。
 const UUID_SUFFIX_RE = /-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
+/**
+ * 图片 base 与 exe base 对不上、且尾侧重名后缀也解释不了的特例。
+ *
+ * 键 = 图片 base，值 = CSV（exe）侧的 base。
+ * 2026-09-27「清宵-盛世云岚」：图片 `…v1.1(1)by辉映星辰允如光` vs exe `…v1.1(0)by…`，
+ * 只差版本位一个数字，同目录只有这一对，看图确认是同一套 mod（用户已确认）。
+ *
+ * 不写成通 regex 而逐条登记的理由：中段括号项目里一直刻意不碰 —— 见 stripRenameSuffix
+ * 的注释，把 `(N)` 当通则会把 `小卡-校园JK2.0（内附切换）` 这类真名字也削掉。
+ */
+const IMAGE_KEY_ALIASES = new Map([
+  ["清宵-盛世云岚v1.1(1)by辉映星辰允如光", "清宵-盛世云岚v1.1(0)by辉映星辰允如光"],
+]);
+
 function indexFilesInto(byBase, dir) {
   if (!existsSync(dir)) return;
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -502,10 +516,20 @@ function indexFilesInto(byBase, dir) {
     const ext = extname(e.name).toLowerCase();
     if (!IMAGE_EXTS.has(ext)) continue;
     const base = basename(e.name, ext);
-    const indexKey = base.replace(UUID_SUFFIX_RE, "");
-    if (!byBase.has(indexKey)) byBase.set(indexKey, []);
-    // 记录文件所在目录，避免子目录图片被拼到顶层路径
-    byBase.get(indexKey).push({ file: join(dir, e.name), ext });
+    // 登记多个 key：去尾随 UUID 的（原有规则）+ 再叠一层「去重名后缀」的别名。
+    // 与迅雷侧 loadXunleiIndex 同构 —— 索引侧两种写法都登记，查询侧才敢先精确、再退化。
+    // 为什么图片也要这一层：图片名常带 ` (2)`（Windows/浏览器重复下载的改名），
+    // 例 2026-09-27「弗洛洛-校园服饰v3.6（9） (2).png」对不上干净的 exe 名。
+    const trimmed = base.replace(UUID_SUFFIX_RE, "");
+    const entry = { file: join(dir, e.name), ext };
+    const keys = new Set([trimmed, stripRenameSuffix(trimmed)]);
+    const alias = IMAGE_KEY_ALIASES.get(trimmed);
+    if (alias) keys.add(alias);
+    for (const indexKey of keys) {
+      if (!byBase.has(indexKey)) byBase.set(indexKey, []);
+      // 记录文件所在目录，避免子目录图片被拼到顶层路径
+      byBase.get(indexKey).push(entry);
+    }
   }
 }
 
@@ -520,6 +544,11 @@ function buildImageIndex(dir) {
     map.set(base, list[0].file);
   }
   return map;
+}
+
+/** 与 lookupXunlei 同构：先试精确 key，再退到「去重名后缀」的别名。找不到返回 null。 */
+function lookupImage(imageMap, key) {
+  return imageMap.get(key) || imageMap.get(stripRenameSuffix(key)) || null;
 }
 
 // ==================== 图片转换 ====================
@@ -751,7 +780,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
       const versionMatch = title.match(/v(\d+[\d.]*)/i);
       const version = versionMatch ? `v${versionMatch[1]}` : DEFAULT_VERSION;
 
-      const imagePath = imageMap.get(record.key) || null;
+      const imagePath = lookupImage(imageMap, record.key);
       let imageUrl;
       if (!imagePath) {
         imageUrl = PLACEHOLDER_IMAGE_URL;
