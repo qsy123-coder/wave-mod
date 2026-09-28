@@ -2,7 +2,7 @@ import { gzipSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
 
-import { decodeSnapshotBase64, decodeSnapshotGzip } from "@/lib/mods-domain/snapshot-codec";
+import { decodeSnapshotBase64, decodeSnapshotGzip } from "@/lib/snapshot/codec";
 
 /** 构造一份「看起来像真实导出」的快照：字段名与库里的 snake_case 一致 */
 const gz = (value: unknown) => gzipSync(Buffer.from(JSON.stringify(value), "utf8"));
@@ -76,5 +76,12 @@ describe("decodeSnapshotGzip", () => {
     // Buffer.from 对非法字符是宽松的（会忽略它们、产出空 buffer），
     // 由 gunzip 兜住，不能变成「返回空数组」。
     expect(() => decodeSnapshotBase64("@@@@")).toThrow(/gzip/);
+  });
+
+  // gamebanana 那份快照走的是同一套解码口径（它在库里没有 game_key 这一列），
+  // 这里顺手钉一下「行里有什么字段都不影响解码」这件事。
+  it("行里没有 game_key 也能解（gamebanana 那份的形状）", () => {
+    const rows = [{ gb_id: 718362, title: "测试搬运 MOD", character: "清宵" }];
+    expect(decodeSnapshotGzip(gz(rows))).toEqual(rows);
   });
 });

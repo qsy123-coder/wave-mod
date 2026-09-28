@@ -240,8 +240,14 @@ export async function exportModsSnapshot({
   // 写完再验一次。上面所有校验都只证明「文件没写坏」，这一条才证明「内容是当前库」。
   if (validate) await validate(rows);
 
-  const featured = rows.filter((r) => r.is_featured === true).length;
-  log(`✅ 快照已写出：${rows.length} 条已发布（推荐位 ${featured}）  ${(gz.length / 1024).toFixed(0)}KB`);
+  // 只有 `mods` 那份快照有推荐位概念（`gamebanana_mods` 表根本没有 `is_featured` 列）。
+  // 对本模块的第二个调用方打「推荐位 0」是句假话 —— 输出要能照着排查，就不能编。
+  const hasFeatured = rows.some((r) => "is_featured" in r);
+  const featured = hasFeatured ? rows.filter((r) => r.is_featured === true).length : 0;
+  log(
+    `✅ 快照已写出：${rows.length} 条已发布${hasFeatured ? `（推荐位 ${featured}）` : ""}  ` +
+      `${(gz.length / 1024).toFixed(0)}KB`,
+  );
   return { count: rows.length, changed: true, gzipBytes: gz.length, body: gz, rows };
 }
 

@@ -164,6 +164,21 @@ describe("getSnapshotRows：没有 COS 配置时", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(warnCountOf("未配置 COS_BUCKET")).toBe(1);
   });
+
+  /**
+   * 读的是**哪个文件**必须钉住：加载器是与 gamebanana 那份共用的（createSnapshotLoader），
+   * 打包内文件名是调用方传进去的参数，传错了在其它用例里完全看不出来 ——
+   * readFile 是 mock 的，给什么路径都返回同一份数据，于是「mods 的兜底读成香蕉数据」
+   * 这种错位会一路静默到线上。
+   */
+  it("读的是 mods 那一份文件，不是香蕉那份", async () => {
+    const { getSnapshotRows } = await loadSnapshot();
+    await getSnapshotRows(GAME_KEY);
+
+    const readPath = String(vi.mocked(readFile).mock.calls[0]?.[0]);
+    expect(readPath).toContain("mods-snapshot.json.gz");
+    expect(readPath).not.toContain("gamebanana");
+  });
 });
 
 describe("getSnapshotRows：两条来源都不可用时", () => {

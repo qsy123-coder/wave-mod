@@ -82,7 +82,7 @@ function requireEnv(names) {
 /**
  * 上传前的自检：必须是能解开的 gzip、根节点是非空数组。
  *
- * 判据与 src/lib/mods-domain/snapshot-codec.ts 一致（scripts 无法 import TS）。
+ * 判据与 src/lib/snapshot/codec.ts 一致（scripts 无法 import TS）。
  * 传一份坏的上去比不传更糟 —— 前台会解不开、直接静默回退到打包内那份，
  * 看起来「上传成功了」却没有任何效果。
  */
