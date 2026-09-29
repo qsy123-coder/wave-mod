@@ -40,6 +40,9 @@ export function revalidatePublicModCaches(modId?: string) {
 
   revalidatePath("/");
   revalidatePath("/mods");
+  // 每日更新页也吃 getDailyUpdates，此前没人清它 ⇒ 上传后只能干等它自己的 300s
+  // ISR 周期。2026-09-29 实测「上传完 8 分钟页面才更新」里，有一半时间是耗在这。
+  revalidatePath("/updates");
 }
 
 /**

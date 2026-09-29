@@ -70,7 +70,21 @@ export const SNAPSHOT_OBJECT_KEY = "snapshots/mods-snapshot.json.gz";
 
 const BUNDLED_SNAPSHOT_FILE = "mods-snapshot.json.gz";
 
-const REMOTE_TIMEOUT_MS = 5_000;
+/**
+ * 拉远程快照的墙钟上限。
+ *
+ * 2026-09-29 从首尔服务器实测：**冷连接要 12.77s**（随后两次热连接 0.39s / 1.72s），
+ * 原来的 5s 根本不够。而这个超时的后果不是「慢一点」，是**静默降级**：
+ * loadRemoteRows 捕获后返回 null ⇒ 读侧落到打包内那份**构建期**快照，
+ * 而那份按定义不含部署之后新上传的 mod ⇒ 每日更新页显示「今天 0 条」，
+ * 要等下一个 ISR 周期恰好赶上热连接才自愈（实测滞后约 8 分钟）。
+ *
+ * 这条降级最难发现：接口 200、日志只有一行 warn，用户眼里就是「页面没更新」。
+ *
+ * 20s 覆盖实测冷连接并留余量。代价是 COS 真挂时第一个请求会等满 20s ——
+ * 由下面的 FAILURE_COOLDOWN_MS 兜住（每实例每 60s 最多真拉一次），不会每请求都等。
+ */
+const REMOTE_TIMEOUT_MS = 20_000;
 
 /**
  * 刻意短于列表缓存的 TTL（public.ts 里是 6 小时）：降级期的正常刷新手段是脚本

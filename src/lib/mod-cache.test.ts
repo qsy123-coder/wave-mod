@@ -84,6 +84,13 @@ describe("revalidatePublicModCaches（内容写入）", () => {
     expect(tagCalls()).toContain(modCacheTags.snapshot);
   });
 
+  // 2026-09-29：/updates 此前只挂着自己的 300s ISR，写入后**没有任何人**清它 ——
+  // 实测上传完滞后约 8 分钟才显示当天的 mod。这条兜住「别再把 /updates 漏掉」。
+  it("刷新每日更新页 /updates", () => {
+    revalidatePublicModCaches();
+    expect(pathCalls()).toContain("/updates");
+  });
+
   it("带 modId 时额外刷新该 mod 的详情", () => {
     revalidatePublicModCaches("mod-1");
     expect(tagCalls()).toContain(modCacheTags.detail("mod-1"));
