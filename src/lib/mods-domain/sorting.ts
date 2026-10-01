@@ -152,6 +152,9 @@ export function normalizeCharacterName(value: string) {
     "反虚化，ui界面，场景，葫芦，特效等": "UI",
     "千咲皮肤[蜜桃冰]": "千咲",
     "科考摩托": "滑翔翼,翱翔翼,科考摩托",
+    // 文件名常用简称「心-」写 心月狐（2026-10-02 批次，预览图确认同一角色）。
+    // 与 scripts/upload-daily-by-date.mjs 的 CHARACTER_ALIASES 同步。
+    "心": "心月狐",
   };
   const trimmed = value.trim();
   return CHARACTER_ALIASES[trimmed] ?? trimmed;

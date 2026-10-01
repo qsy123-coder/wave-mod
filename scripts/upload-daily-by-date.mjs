@@ -131,6 +131,13 @@ const CHARACTER_PREFIX_MAP = [
   // 补进来后统一剥离，与主流写法对齐；dedupKey 会把两侧的「角色-」前缀都归一化
   // （见其函数注释），故 9.26 之前入库的带前缀记录不会被当新增重复插入。
   { prefix: "爱弥斯", character: "爱弥斯" },
+  // 心月狐：库内 character='心月狐' **0 条**（2026-10-01 的 W-2026.10.1 是首批），
+  // 没有任何历史写法要对齐，直接按全站惯例剥掉「心月狐-」前缀。
+  // 加在第一批之前是为了别再复制爱弥斯那段的由来——那批落默认分支保留前缀的记录
+  // 后来全成了「遗留写法」，还得靠 dedupKey 前缀归一化去兜。
+  // ⚠️ 去重键不受影响：dedupKey 会把 title 开头的「角色-」归一化掉，
+  // 加不加这条算出的 `心月狐|xxx` 完全一致，所以不会造成重复入库。
+  { prefix: "心月狐", character: "心月狐" },
 ];
 
 /**
@@ -138,10 +145,18 @@ const CHARACTER_PREFIX_MAP = [
  *   - 任意「<角色>全ui…」（库内既有约定：`UI | 吟霖全ui-动态nsfw-v2.2.6`、`UI | 椿全ui-…`），
  *     含裸「全ui…」开头（`UI | 全ui背景-美图v3.5`）——故 `.*?` 允许零个前缀字符。
  *   - 「编队界面-…」「编队图片-…」（`UI | 编队界面-狐妻猫咪内衣-新增穗穗/清宵`）
+ *   - 「加载界面-…」「隐藏UID…」——2026-10-01 补。这两个前缀一直没进本表，
+ *     库内既有同族记录 character **全部**是 `UI`（当初怎么落进去的未考证）：
+ *       `UI | 加载界面-动态静态随机美图-v3.6更新`、`UI | 加载界面-随机nsfw-v3.5`
+ *       `UI | 隐藏UID UI 雾-v3.6（f11 f9切换）`、`UI | 隐藏UID UI 雾-v3.5fix（f11 f9切换）`
+ *     （仅 v3.5 那一条落在历史 bucket「反虚化，ui界面…」，v3.6 起都是 UI。）
+ *     W-2026.10.1 的 v3.7 两条若不加，就会落默认分支，被 `key.split(/[-－]/)[0]` 切成
+ *     站内**不存在**的假分类「加载界面」和「隐藏UID UI 雾」，前台凭空多两个角色分类。
+ *     两条标题都保留完整 key，与上面 v3.6 的写法逐字对齐。
  * 这里不写死角色清单——否则遇到清单外的角色（如「椿」）会落到默认分支，
  * 切出 `椿全ui` 这类站内不存在的假分类。
  */
-const UI_FULL_KEY_RE = /^(?:.*?全ui|编队界面|编队图片)/;
+const UI_FULL_KEY_RE = /^(?:.*?全ui|编队界面|编队图片|加载界面|隐藏UID)/;
 
 /**
  * 武器皮：`<武器名>-<皮肤名>`，整包归 `武器`，title 保留完整 key。
@@ -155,6 +170,10 @@ const CHARACTER_ALIASES = {
   "反虚化，ui界面，场景，葫芦，特效等": "UI",
   "千咲皮肤[蜜桃冰]": "千咲",
   "科考摩托": "滑翔翼,翱翔翼,科考摩托",
+  // 文件名常用简称「心-」写心月狐的 mod（2026-10-02 批次，预览图确认与
+  // 「心月狐-点绛唇v0.5」同角色：白发狐耳 + 同款点绛唇红旗袍，用户已确认）。
+  // 不加这条会落默认分支，让前台凭空多出一个「心」分类。
+  "心": "心月狐",
   // 库内「背包 编队 商城 用户界面-nsfw v2.5.2~2.5.5」4 条先例均归 UI
   "背包 编队 商城 用户界面": "UI",
   // 与「千咲皮肤[蜜桃冰]」同一规则：饰品名带后缀 → 归基础角色，title 保留完整 key
@@ -165,8 +184,12 @@ const CHARACTER_ALIASES = {
 const UI_PREFIXES = ["索拉指南"];
 
 /**
- * 特效类（今天只有「去角色轮廓v3.6」）：整包归库内那串**历史 bucket**
+ * 特效类（「去角色轮廓」「去葫芦和葫芦光」）：整包归库内那串**历史 bucket**
  * 「反虚化，ui界面，场景，葫芦，特效等」，**title 保留完整 key**。
+ *
+ * 「去葫芦和葫芦光」是库内 `去葫芦和葫芦光v3.5`（2026-08-10，同 bucket）的版本更新，
+ * 2026-10-02 的 v3.7 必须落同一个 bucket：落默认分支会把整串当角色名，
+ * 造出前台不存在的「去葫芦和葫芦光v3.7」分类。
  *
  * 为什么写这串原文、而不是直接写 `UI`：去重键是 `character|title`，而库内 21 条同
  * bucket 的记录（2026-09-03 批次，`去角色轮廓v3.6` 本体就在其中）存的正是这串原文——
@@ -177,7 +200,7 @@ const UI_PREFIXES = ["索拉指南"];
  * normalizeCharacterName 认不出的新值，前台凭空多一个角色分类。
  */
 const EFFECT_BUCKET = "反虚化，ui界面，场景，葫芦，特效等";
-const EFFECT_BUCKET_PREFIXES = ["去角色轮廓"];
+const EFFECT_BUCKET_PREFIXES = ["去角色轮廓", "去葫芦和葫芦光"];
 
 /**
  * 「爱弥斯的机甲」「爱弥斯大招」整包 → 独立分类「爱弥斯的机甲」，**title 保留完整 key**。
@@ -413,6 +436,24 @@ function dedupKey(character, title) {
   if (c && t.startsWith(c)) t = t.slice(c.length).replace(/^[-－\s]+/, "").trim();
   return `${c}|${t}`;
 }
+
+/**
+ * 网盘导出名 → 本地规范名的桥接表（键 = CSV/xlsx 导出名，值 = 本地 exe / 预览图名）。
+ *
+ * 实例（W-2026.10.1）：夸克 CSV 与迅雷 xlsx 都把这条导出成
+ * `心月狐-切换版by weiwuxc888.exe`，而目录里的 exe 与预览图叫
+ * `心月狐-大招体型切换版by weiwuxc888`，库里那条（2026-10-01 入库，夸克链接
+ * …/73f2225eb2e0 与 CSV 逐字一致）存的也是后者。
+ * 不桥接的两个后果：①去重键算成 `心月狐|切换版…`，与库内 `心月狐|大招体型切换版…`
+ * 不等 ⇒ 全量重跑会把同一条 mod 再插一遍（前台多一张重复卡）；
+ * ②预览图 base 对不上，只能落占位图。
+ *
+ * 只改分类解析与预览图查找 —— **迅雷链接查找仍用原始 key**：xlsx 侧导出的也是短名，
+ * 拿桥接后的长名去查会查不到（见主循环里 lookupXunlei 的调用点）。
+ */
+const KEY_ALIASES = new Map([
+  ["心月狐-切换版by weiwuxc888", "心月狐-大招体型切换版by weiwuxc888"],
+]);
 
 function resolveCharacterAndTitle(key) {
   // 特例：`尤诺的月环-XXX` → 尤诺，title 保留「的月环-XXX」
@@ -760,7 +801,10 @@ where game_key = ${dollarQuote(GAME_KEY)};
 
     // 3e. 逐条处理
     for (const record of unique) {
-      const { character, title } = resolveCharacterAndTitle(record.key);
+      // 导出名 → 本地规范名（见 KEY_ALIASES）。分类与预览图走规范名，
+      // 迅雷链接仍按导出名查（xlsx 侧的键就是导出名）。
+      const canonicalKey = KEY_ALIASES.get(record.key) ?? record.key;
+      const { character, title } = resolveCharacterAndTitle(canonicalKey);
       const xunlei = lookupXunlei(xunleiDay?.index, record.key);
       // 覆盖表按「查到了链接」计数，不看这条最后有没有入库 —— 否则重跑（全被去重跳过）
       // 会显示成「有导出但一条都没匹配上」，把正常的去重误报成漏盘。
@@ -780,7 +824,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
       const versionMatch = title.match(/v(\d+[\d.]*)/i);
       const version = versionMatch ? `v${versionMatch[1]}` : DEFAULT_VERSION;
 
-      const imagePath = lookupImage(imageMap, record.key);
+      const imagePath = lookupImage(imageMap, canonicalKey);
       let imageUrl;
       if (!imagePath) {
         imageUrl = PLACEHOLDER_IMAGE_URL;
