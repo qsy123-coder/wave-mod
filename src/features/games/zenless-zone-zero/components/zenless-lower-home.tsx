@@ -515,14 +515,20 @@ export function ZenlessLowerHome({
 }: ZenlessLowerHomeProps) {
   return (
     <section className="relative z-10 -mt-20 px-4 pb-24 pt-0 text-white sm:px-5 lg:px-6 2xl:px-4">
+      {/* 两个网格项都带 min-w-0，不能省。
+          网格项默认 `min-width: auto`，会被内容的 min-content 顶住：左栏里的
+          跑马灯轨道是 `w-max`（实测 3168px），这个宽度会一路把网格项撑到 3168，
+          再被外层 section 的 overflow-hidden 裁到视口宽 —— 手机上看到的就是
+          「一个按 3168px 排版的第二屏，只露出左边一条」（2026-10-02 实测）。
+          模板里的 `minmax(0,1fr)` 只保证了**轨道**能收缩，管不到**项**的下限。 */}
       <div className="mx-auto grid max-w-[1500px] gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-10">
+        <div className="min-w-0 space-y-10">
           <MotionReveal delay={0.04} y={24} rotate={-1}>
             <ZenlessStatsBar stats={statsOverride} />
           </MotionReveal>
           <ZenlessFeaturedMods game={game} mods={mods} displayMods={displayModsOverride} />
         </div>
-        <aside className="grid gap-5 lg:auto-rows-max">
+        <aside className="grid min-w-0 gap-5 lg:auto-rows-max">
           <MotionReveal delay={0.18} y={26} rotate={1}>
             <ZenlessLatestUpdates game={game} mods={latestMods} todayMods={todayMods} displayMods={displayModsOverride} fallbackUpdates={fallbackUpdatesOverride} />
           </MotionReveal>

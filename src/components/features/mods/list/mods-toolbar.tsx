@@ -4,7 +4,7 @@ import { ChevronDown, Columns2, LayoutGrid, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import type { MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
+import { DESKTOP_DEFAULT_COLUMNS, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { buildModsFilterHref, isCurrentNavigationUrl } from "@/lib/navigation-url";
 import { cn } from "@/lib/utils";
 import {
@@ -119,6 +119,22 @@ export function ModsToolbar({
 }: ModsToolbarProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
+
+  /**
+   * 高亮哪一项要按**当前生效**的列数算，不能只看 masonryColumns。
+   *
+   * 用户没显式选过时 masonryColumns 是 null（网格会按屏幕宽度自适应），只比对 null
+   * 的话两个按钮都是灰的，看不出现在到底几列。口径复用同一个 defaultColumnsForWidth，
+   * 保证与网格算出来的列数一致。
+   */
+  const [autoColumns, setAutoColumns] = useState<MasonryColumns>(DESKTOP_DEFAULT_COLUMNS);
+  useEffect(() => {
+    const update = () => setAutoColumns(defaultColumnsForWidth(window.innerWidth));
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  const activeColumns = masonryColumns ?? autoColumns;
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   // 本地已提交搜索词：提交瞬间用于渲染「搜索: xxx」筛选条，随后与服务端 activeQuery 对齐
@@ -363,19 +379,19 @@ export function ModsToolbar({
       {/* 布局切换 */}
       {onLayoutChange ? (
         <div className="ml-auto flex items-center gap-0.5">
-          {/* 瀑布流列数选择器。
-              「2」必须在选项里：手机上的自适应默认值就是 2 列（见 use-layout-preference），
-              少了这一项的话用户切到密排之后就没法再选回大图，且面板上没有任何一项高亮。 */}
+          {/* 瀑布流列数选择器：只有 2 / 3（用户 2026-10-02 决定去掉 4/5/6）。
+              两项都必须在这里 —— 手机自适应默认 2 列、桌面 3 列（见 use-layout-preference），
+              少了哪一项，用户切过去之后就没法再选回来，面板上也不会高亮任何一项。 */}
           {layoutMode === "masonry" && onMasonryColumnsChange ? (
             <div className="mr-2 flex items-center gap-0.5 border-4 border-black bg-white shadow-[4px_4px_0px_0px_#000]">
-              {([2, 3, 4, 5, 6] as const).map((n) => (
+              {([2, 3] as const).map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => onMasonryColumnsChange(n)}
                   className={cn(
                     "px-1.5 py-1 text-xs font-black transition",
-                    masonryColumns === n
+                    activeColumns === n
                       ? "bg-black text-white"
                       : "text-black/40 hover:text-black"
                   )}

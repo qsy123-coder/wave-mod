@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 
 export type LayoutMode = "grid" | "masonry";
-export type MasonryColumns = 2 | 3 | 4 | 5 | 6;
+/**
+ * 瀑布流列数。只保留 2 / 3（2026-10-02 用户决定去掉 4/5/6）——
+ * 更密的列数在窄屏上只会让预览图小到看不清，而预览图是这个列表页的核心信息。
+ */
+export type MasonryColumns = 2 | 3;
 
 const STORAGE_KEY = "mod-layout-preference";
 const COLUMNS_KEY = "mod-masonry-columns";
@@ -18,10 +22,16 @@ const COLUMNS_KEY = "mod-masonry-columns";
 const MOBILE_BREAKPOINT = 640;
 const MOBILE_DEFAULT_COLUMNS: MasonryColumns = 2;
 /** 网格在 SSR / 首次渲染时的初值：服务端量不到视口，先按桌面口径渲染，客户端挂载后按窗口宽度纠正 */
-export const DESKTOP_DEFAULT_COLUMNS: MasonryColumns = 5;
+export const DESKTOP_DEFAULT_COLUMNS: MasonryColumns = 3;
 
+/**
+ * 只认 2 / 3。
+ *
+ * 旧版本存过 4/5/6，这里判为**非法**而不是原样返回 —— 于是老用户的 localStorage
+ * 会自然落回「未选择」⇒ 走自适应（手机 2 列 / 桌面 3 列），不需要写迁移代码。
+ */
 function isMasonryColumns(value: number): value is MasonryColumns {
-  return value === 2 || value === 3 || value === 4 || value === 5 || value === 6;
+  return value === 2 || value === 3;
 }
 
 /**
