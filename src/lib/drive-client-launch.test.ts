@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   hasLaunched,
   LAUNCH_MEMORY_LIMIT,
+  launchDriveClient,
   launchMemoryKey,
   rememberLaunched,
 } from "./drive-client-launch";
@@ -85,5 +86,98 @@ describe("唤起记忆：记过的键认得出，没记过的认不出", () => {
     }
 
     expect(hasLaunched(storage, "quark")).toBe(true);
+  });
+});
+
+/**
+ * 唤起动作本身。
+ *
+ * vitest 跑在 node 环境（没有 jsdom），所以这里手搓最小的 window 桩。
+ * 重点是**锁住发起方式**：必须是顶层导航（写 window.location.href），
+ * 绝不能回到隐藏 iframe —— Chrome 的「始终允许 <站点> 打开关联应用」只对顶层导航生效，
+ * 走 iframe 会让它彻底失效，用户每次进站都要重新同意一次（2026-10-02 线上反馈）。
+ */
+type DomStub = {
+  location: { href: string };
+  createdTags: string[];
+  storage: Map<string, string>;
+};
+
+function installDomStub(): DomStub {
+  const storage = new Map<string, string>();
+  const createdTags: string[] = [];
+  const location = { href: "" };
+
+  const windowStub = {
+    location,
+    sessionStorage: {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+    },
+    setTimeout: () => 0,
+  };
+
+  const documentStub = {
+    // 一旦有人在这里建 iframe，createdTags 会记下来，测试就会红
+    createElement: (tag: string) => {
+      createdTags.push(tag);
+      return { style: {}, setAttribute: () => {}, remove: () => {} };
+    },
+    body: { appendChild: () => {} },
+  };
+
+  const globals = globalThis as unknown as Record<string, unknown>;
+  globals.window = windowStub;
+  globals.document = documentStub;
+
+  return { location, createdTags, storage };
+}
+
+afterEach(() => {
+  const globals = globalThis as unknown as Record<string, unknown>;
+  delete globals.window;
+  delete globals.document;
+});
+
+describe("launchDriveClient：必须走顶层导航，不能建 iframe", () => {
+  it("夸克：写的是 window.location.href，且没有创建任何 iframe", () => {
+    const dom = installDomStub();
+
+    expect(launchDriveClient("夸克网盘", "https://pan.quark.cn/s/abc")).toBe(true);
+    expect(dom.location.href).toBe("qklink://pan.quark.cn/s/abc");
+    expect(dom.createdTags).not.toContain("iframe");
+  });
+
+  it("迅雷：拼成 thunder:// + base64", () => {
+    const dom = installDomStub();
+
+    expect(launchDriveClient("迅雷网盘", "https://pan.xunlei.com/s/xyz")).toBe(true);
+    expect(dom.location.href.startsWith("thunder://")).toBe(true);
+  });
+
+  it("同一网盘本会话只唤起一次：第二次返回 false 且不再导航", () => {
+    const dom = installDomStub();
+
+    expect(launchDriveClient("夸克网盘", "https://pan.quark.cn/s/a")).toBe(true);
+    dom.location.href = "sentinel";
+    expect(launchDriveClient("夸克网盘", "https://pan.quark.cn/s/b")).toBe(false);
+    expect(dom.location.href).toBe("sentinel");
+  });
+
+  it("没有桌面客户端的平台：不唤起也不导航", () => {
+    const dom = installDomStub();
+
+    expect(launchDriveClient("百度网盘", "https://pan.baidu.com/s/1")).toBe(false);
+    expect(dom.location.href).toBe("");
+    expect(dom.createdTags).toEqual([]);
+  });
+
+  it("链接不是 http(s)：拒绝，别拼出无意义的协议串", () => {
+    const dom = installDomStub();
+
+    expect(launchDriveClient("夸克网盘", "not-a-url")).toBe(false);
+    expect(dom.location.href).toBe("");
   });
 });

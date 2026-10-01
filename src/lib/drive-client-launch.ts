@@ -15,7 +15,9 @@ import { buildDriveClientUrl, driveClientKind } from "./drive-client";
  *    Firefox 可能弹「不受支持的协议」）。所以这里是**静默**的：不报错、不弹提示。
  *    复制是主路径，唤起只是顺手。
  *
- * ⚠️ headless 浏览器没有协议处理器，这条路径无法自动化验证，真机行为待实测。
+ * ⚠️ 「客户端有没有真的被拉起来」「确认框有没有被跳过」只能在真机上验证 ——
+ *    headless 浏览器没有协议处理器。但**发起唤起的方式**（顶层导航还是隐藏 iframe）
+ *    是可以用桩单测锁住的，见 drive-client-launch.test.ts；那正是上一版出事的地方。
  */
 
 const LAUNCH_MEMORY_KEY = "wavemod:drive-client-launched";
@@ -94,7 +96,7 @@ function safeSessionStorage(): LaunchMemoryStorage | null {
  *   返回 false 时客户端并没有被拉起来，文案就不能说「正在尝试打开」。
  */
 export function launchDriveClient(platform: string, shareUrl: string): boolean {
-  if (typeof document === "undefined") return false;
+  if (typeof window === "undefined") return false;
 
   // 两道门槛顺序有讲究：先问「这个平台有没有桌面客户端」，再问「这条链接能不能拼成深链」。
   // 今天后者为 null 时前者必然也是 null，但两句话是两件事（没客户端 / 链接是脏数据），
@@ -108,19 +110,20 @@ export function launchDriveClient(platform: string, shareUrl: string): boolean {
   const storage = safeSessionStorage();
   if (hasLaunched(storage, memoryKey)) return false;
 
-  // 用隐藏 iframe 而不是 `window.location.href = clientUrl`：顶层导航遇到未注册协议时
-  // 可能弹「找不到应用」提示页、甚至离开当前页 —— 这个动作是尽力而为，绝不能干扰
-  // 用户正在浏览的内容，也不能留一条历史记录。iframe 里触发不改变当前页。
-  // 真机上若不生效，备选方案就是顶层导航（代价即上述那条）。
-  const frame = document.createElement("iframe");
-  frame.style.display = "none";
-  frame.setAttribute("aria-hidden", "true");
-  frame.src = clientUrl;
-  document.body.appendChild(frame);
+  // ⚠️ 必须用**顶层导航**，不要用隐藏 iframe。
+  //
+  // Chrome 的「始终允许 <站点> 在此类链接中打开关联的应用」**只对顶层导航生效**。
+  // 子框架里发起的 `qklink://` / `thunder://` 每次都会重新弹确认框 —— 用户勾了
+  // 「始终允许」也不作数，表现就是「每次进站都得再同意一遍」（2026-10-02 用户反馈）。
+  //
+  // 这条是替换掉原先的隐藏 iframe 方案的。当初选 iframe 的理由是「顶层导航遇到
+  // 未注册协议时可能弹找不到应用提示页、甚至离开当前页」；但真机上 Chrome / Firefox
+  // 对未注册协议都是**弹框后留在原页**、不留历史记录，而 iframe 的代价是让「始终允许」
+  // 彻底失效 —— 明显更糟。这个函数本来就被包在用户点击里，手势条件成立。
+  //
+  // 先记账再导航：顶层导航一旦被浏览器/系统接管，它后面的代码不保证还会执行。
   rememberLaunched(storage, memoryKey);
-
-  // 协议是同步交给系统的，iframe 留一小会儿就够；不清理会在 DOM 里堆积。
-  window.setTimeout(() => frame.remove(), 1000);
+  window.location.href = clientUrl;
 
   return true;
 }
