@@ -30,7 +30,8 @@ type ModsToolbarProps = {
   className?: string;
   layoutMode?: "grid" | "masonry";
   onLayoutChange?: (mode: "grid" | "masonry") => void;
-  masonryColumns?: MasonryColumns;
+  /** 用户显式选过的列数；`null` = 跟随网格自适应（手机上默认 2 列） */
+  masonryColumns?: MasonryColumns | null;
   onMasonryColumnsChange?: (cols: MasonryColumns) => void;
   onFilterChange?: () => void;
 };
@@ -112,7 +113,7 @@ export function ModsToolbar({
   className,
   layoutMode = "grid",
   onLayoutChange,
-  masonryColumns = 5,
+  masonryColumns = null,
   onMasonryColumnsChange,
   onFilterChange,
 }: ModsToolbarProps) {
@@ -362,10 +363,12 @@ export function ModsToolbar({
       {/* 布局切换 */}
       {onLayoutChange ? (
         <div className="ml-auto flex items-center gap-0.5">
-          {/* 瀑布流列数选择器 */}
+          {/* 瀑布流列数选择器。
+              「2」必须在选项里：手机上的自适应默认值就是 2 列（见 use-layout-preference），
+              少了这一项的话用户切到密排之后就没法再选回大图，且面板上没有任何一项高亮。 */}
           {layoutMode === "masonry" && onMasonryColumnsChange ? (
             <div className="mr-2 flex items-center gap-0.5 border-4 border-black bg-white shadow-[4px_4px_0px_0px_#000]">
-              {([3, 4, 5, 6] as const).map((n) => (
+              {([2, 3, 4, 5, 6] as const).map((n) => (
                 <button
                   key={n}
                   type="button"

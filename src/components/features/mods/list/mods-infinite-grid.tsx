@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
 import { CardDownloadAction } from "@/components/features/mods/detail/card-download-action";
-import type { MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
+import { DESKTOP_DEFAULT_COLUMNS, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { ModSort, ModsPage, SiteMod } from "@/lib/mods";
@@ -110,7 +110,8 @@ type ModsInfiniteGridProps = {
   onStatusChange?: (status: ModsGridStatus) => void;
   isLoggedIn?: boolean;
   layoutMode?: "grid" | "masonry";
-  masonryColumns?: MasonryColumns;
+  /** 用户显式选过的列数；`null` / 不给 = 按容器宽度自适应 */
+  masonryColumns?: MasonryColumns | null;
 };
 
 /** 网格对外汇报的取数状态 */
@@ -219,26 +220,25 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
   const isMasonry = layoutMode === "masonry";
 
-  // 列数：用户手动选择优先，否则自动根据容器宽度计算
-  const masonryRef = useRef<HTMLElement | null>(null);
-  const [autoColCount, setAutoColCount] = useState(5);
+  // 列数：用户显式选过就用它，否则按屏幕宽度自适应（手机 2 列 / 桌面 5 列）。
+  //
+  // `masonryColumns` 为 null 才会走到自适应那条路 —— 所以 use-layout-preference
+  // 读不到用户选择时必须返回 null 而不是兜一个数字，否则这里右边永远取不到值，
+  // 自适应就是死代码（这正是修复前手机上一屏 5 列、预览图只有 23px 的原因）。
+  //
+  // 用**视口宽度**判定，而不是绑在网格容器上的 ResizeObserver：加载中渲染的是骨架
+  // 分支，真正的网格容器还没挂上，观察器建不起来 —— 骨架会先按 5 列铺开，数据到达
+  // 后才跳成 2 列。视口与容器在手机上只差两侧 padding，对 640px 这个断点没有影响。
+  const [autoColCount, setAutoColCount] = useState<MasonryColumns>(DESKTOP_DEFAULT_COLUMNS);
   const colCount = masonryColumns ?? autoColCount;
 
-  // 依赖里的 isLoading 不能省：加载中渲染的是骨架分支（没有 masonryRef 挂上去），
-  // 只依赖 [isMasonry, masonryColumns] 的话，等数据到达、真正带 ref 的那层挂上来时
-  // 这个 effect 不会重跑，observer 就永远没建 —— 列数会一直停在初始值，
-  // 窗口拉宽拉窄都不再响应。
   useEffect(() => {
-    if (!isMasonry || masonryColumns || isLoading) return;
-    const el = masonryRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const w = entry?.contentRect.width ?? 0;
-      if (w > 0) setAutoColCount(Math.max(1, Math.floor(w / 220)));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [isMasonry, masonryColumns, isLoading]);
+    if (!isMasonry) return;
+    const update = () => setAutoColCount(defaultColumnsForWidth(window.innerWidth));
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [isMasonry]);
 
   // 列归属记忆：mod.id → 列索引，列数不变时保证已有卡片零抖动。
   // 额外记录该记忆对应的列数；列数切换时重建，否则旧列分配会残留，导致新增列空置。
@@ -373,7 +373,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
     <div className="space-y-5">
       {isMasonry ? (
         /* 瀑布流：JS 列分配 + flex 列容器，零抖动 */
-        <section ref={masonryRef} className="flex gap-4">
+        <section className="flex gap-4">
           {columns.map((col, colIdx) => (
             <div key={colIdx} className="relative flex flex-1 flex-col gap-4">
               {col.map((mod) => {

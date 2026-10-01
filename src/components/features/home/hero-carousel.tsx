@@ -146,9 +146,17 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
     );
   }
 
+  // 下面 MotionReveal 上的 min-w-0 不能省：这层是首页那个 `grid`
+  // （`lg:grid-cols-[0.9fr_1.1fr]`）的网格项，网格项默认 `min-width: auto`，
+  // 会被内容的 min-content 顶住 —— 轮播的 min-content 实测 351px，于是它比 295px 的
+  // 网格轨道宽出 56px，而外层面板是 overflow-hidden，超出的部分就被硬切掉。
+  // 这就是「轮播右边没显示全、要双指缩小才看得到」的**主因**（2026-10-02 实测；
+  // 倾斜只是额外多顶出约 4px，不是根因）。
   return (
-    <MotionReveal delay={0.14} y={32} rotate={2}>
-      <div ref={cardRef} className="neo-card-lg relative rotate-2 p-3" style={{ background: "var(--neo-panel)" }}>
+    <MotionReveal delay={0.14} y={32} rotate={2} className="min-w-0">
+      {/* 窄屏不倾斜、md 以上保留 —— 倾斜是这套 neo 风格的标志，但旋转元素的包围盒
+          会随高度变宽（694px 高的卡片转 2° 横向多出约 24px），窄屏不值得为它冒险。 */}
+      <div ref={cardRef} className="neo-card-lg relative p-3 md:rotate-2" style={{ background: "var(--neo-panel)" }}>
         <Carousel setApi={setApi} plugins={[plugin.current]} opts={{ loop: mods.length > 1 }}>
           <CarouselContent className="ml-0">
             {mods.map((mod, index) => (
@@ -223,7 +231,10 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
         </Carousel>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          {/* 内层这行也必须 flex-wrap：外层虽能换行，但圆点 + 「推荐精选 02/06」
+              这一组本身在窄屏就超过内容宽（295px），不换行会撑到 375px，
+              被面板的 overflow-hidden 在 359px 处裁掉 —— 「06」的右边就没了。 */}
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5">
               {mods.map((mod, index) => (
                 <button
