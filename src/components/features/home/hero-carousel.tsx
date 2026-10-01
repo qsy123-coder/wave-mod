@@ -19,8 +19,31 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
+import { useEngagement } from "@/lib/engagement/use-engagement";
 import { isPlainLeftClick } from "@/lib/navigation-url";
 import type { SiteMod } from "@/lib/mods";
+
+/**
+ * 轮播图底部的「浏览 / 收藏」两个计数。
+ *
+ * 为什么单独抽一个组件：slides 是 `mods.map()` 出来的，hook 不能写在循环里。
+ * 为什么不能直接渲染 `mod.views`：那两个字段来自服务端快照（源头是 Supabase），
+ * 而互动写入已经不再进 Supabase ⇒ 直接渲染会**永远停在基线**，等多久都不动。
+ */
+function HeroCountPills({ mod }: { mod: SiteMod }) {
+  const { counts } = useEngagement(mod.id, {
+    likes: mod.likes,
+    favorites: mod.favorites,
+    views: mod.views,
+  });
+
+  return (
+    <>
+      <div className="border-2 border-black bg-white/92 px-2.5 py-1.5 shadow-[3px_3px_0px_0px_#000]">浏览 {counts.views}</div>
+      <div className="border-2 border-black bg-white/92 px-2.5 py-1.5 shadow-[3px_3px_0px_0px_#000]">收藏 {counts.favorites}</div>
+    </>
+  );
+}
 
 
 type HeroCarouselProps = {
@@ -180,8 +203,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                         <h2 className="text-sm font-black uppercase leading-tight tracking-[0.16em] text-white/50 transition-colors group-hover:text-white md:text-base">{mod.title.length > 8 ? `${mod.title.slice(0, 8)}...` : mod.title}</h2>
                         <p className="line-clamp-2 text-xs font-bold leading-5 text-white/78 md:text-sm md:leading-6">{mod.description}</p>
                         <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-black/80">
-                          <div className="border-2 border-black bg-white/92 px-2.5 py-1.5 shadow-[3px_3px_0px_0px_#000]">浏览 {mod.views}</div>
-                          <div className="border-2 border-black bg-white/92 px-2.5 py-1.5 shadow-[3px_3px_0px_0px_#000]">收藏 {mod.favorites}</div>
+                          <HeroCountPills mod={mod} />
                         </div>
                       </div>
 

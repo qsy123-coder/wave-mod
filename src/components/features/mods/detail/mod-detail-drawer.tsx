@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { reportView } from "@/lib/engagement/client";
+import { useEngagement } from "@/lib/engagement/use-engagement";
 import type { SiteMod } from "@/lib/mods";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 import { cn } from "@/lib/utils";
@@ -107,6 +108,19 @@ export function ModDetailDrawer({
   });
 
   const safeRatingAverage = mod && Number.isFinite(mod.ratingAverage) ? mod.ratingAverage : 0;
+
+  /**
+   * 统计行里的浏览 / 点赞 / 收藏。
+   *
+   * 抽屉是默认游戏（鸣潮）真正的详情视图 —— `/mods/<id>` 其实渲染的是列表页外壳，
+   * 详情由它按 id 拉 `/api/mods/[id]` 填进来。而那个接口的计数源头是 Supabase 快照，
+   * 互动写入早已不再进 Supabase ⇒ 直接渲染 `mod.*` 会永远停在基线。
+   */
+  const { counts } = useEngagement(modId, {
+    likes: mod?.likes ?? 0,
+    favorites: mod?.favorites ?? 0,
+    views: mod?.views ?? 0,
+  });
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
@@ -250,21 +264,21 @@ export function ModDetailDrawer({
                   <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/50">浏览</p>
                   <p className="mt-0.5 inline-flex items-center justify-center gap-1 text-sm font-black">
                     <Eye className="size-3" />
-                    {mod.views}
+                    {counts.views}
                   </p>
                 </div>
                 <div className="border-[3px] border-black bg-[#ff7a7a] px-2 py-1.5 text-center shadow-[3px_3px_0px_0px_#000]">
                   <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/50">点赞</p>
                   <p className="mt-0.5 inline-flex items-center justify-center gap-1 text-sm font-black">
                     <ThumbsUp className="size-3" />
-                    {mod.likes}
+                    {counts.likes}
                   </p>
                 </div>
                 <div className="border-[3px] border-black bg-[#bcaeff] px-2 py-1.5 text-center shadow-[3px_3px_0px_0px_#000]">
                   <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/50">收藏</p>
                   <p className="mt-0.5 inline-flex items-center justify-center gap-1 text-sm font-black">
                     <Heart className="size-3" />
-                    {mod.favorites}
+                    {counts.favorites}
                   </p>
                 </div>
               </div>

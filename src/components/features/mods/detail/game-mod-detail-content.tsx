@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Copy, Heart, Sparkles, Star, ThumbsUp } from "lucide-react";
+import { Copy, Sparkles } from "lucide-react";
 
 import { defaultGameKey, getGameBySlug } from "@/config/games";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -10,6 +10,7 @@ import { getFeaturedMods, getModComments, getPublicModBaseById, getViewerModStat
 
 import { CommentsPanel } from "@/components/features/mods/detail/comments-panel";
 import { HeroSectionNav } from "@/components/features/mods/detail/hero-section-nav";
+import { LiveModStats } from "@/components/features/mods/detail/live-mod-stats";
 import { ModDetailLayoutShell } from "@/components/features/mods/detail/mod-detail-layout-shell";
 import { ModPreviewGallery } from "@/components/features/mods/detail/mod-preview-gallery";
 import { ModViewTracker } from "@/components/features/mods/detail/mod-view-tracker";
@@ -112,14 +113,14 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
                   </div>
 
                   <RightSummaryDownloadTrigger className="inline-flex h-12 w-full items-center justify-center gap-2 border-4 border-black bg-[#FFD93D] px-4 text-sm font-black uppercase tracking-[0.14em] shadow-[5px_5px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none" />
-                  <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-2">
-                    <div className="border-4 border-black bg-[#ffd84f] p-3 shadow-[5px_5px_0px_0px_#000]"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-black/55">当前评分</p><p className="mt-1.5 inline-flex items-center gap-1.5 text-xl font-black"><Star className="size-4 fill-[#ff7a00] text-[#ff7a00]" />{mod.ratingAverage.toFixed(1)}</p></div>
-                    <div className="border-4 border-black bg-[#fff0cf] p-3 shadow-[5px_5px_0px_0px_#000]"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-black/55">下载量</p><p className="mt-1.5 text-xl font-black">{mod.downloads}</p></div>
-                    <div className="border-4 border-black bg-[#ff7a7a] p-3 shadow-[5px_5px_0px_0px_#000]"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-black/55">点赞量</p><p className="mt-1.5 inline-flex items-center gap-1.5 text-xl font-black"><ThumbsUp className="size-4" />{mod.likes}</p></div>
-                    <div className="border-4 border-black bg-[#bcaeff] p-3 shadow-[5px_5px_0px_0px_#000]"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-black/55">收藏量</p><p className="mt-1.5 inline-flex items-center gap-1.5 text-xl font-black"><Heart className="size-4" />{mod.favorites}</p></div>
-                  </div>
-
-                  <div className="border-4 border-black bg-white p-3 shadow-[5px_5px_0px_0px_#000]"><div className="grid gap-2 text-[11px] font-black leading-6 sm:grid-cols-2"><div className="flex items-center justify-between gap-3 sm:col-span-2"><span>浏览量</span><span>{mod.views}</span></div></div></div>
+                  <LiveModStats
+                    modId={mod.id}
+                    likes={mod.likes}
+                    favorites={mod.favorites}
+                    views={mod.views}
+                    ratingAverage={mod.ratingAverage}
+                    downloads={mod.downloads}
+                  />
 
                   <div className="border-4 border-black bg-[#bcaeff] p-4 shadow-[6px_6px_0px_0px_#000]"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-black"><Copy className="size-3.5" />使用说明</p><p className="mt-2 text-sm font-bold leading-6 text-black/80">下载入口已移到右侧摘要区；左侧 dock 继续保留收藏、点赞和评分等核心操作。</p></div>
                 </div>
