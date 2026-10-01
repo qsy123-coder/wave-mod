@@ -7,6 +7,7 @@ import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
+import { useEngagement } from "@/lib/engagement/use-engagement";
 import { normalizeCharacterName } from "@/lib/mods-domain/sorting";
 import { isPlainLeftClick } from "@/lib/navigation-url";
 import type { SiteMod } from "@/lib/mods";
@@ -49,6 +50,10 @@ type ModCardProps = {
   bodyAfterDescription?: ReactNode;
   bodyBottom?: ReactNode;
   actions?: ReactNode;
+  /**
+   * @deprecated 互动（点赞/收藏）已不再要求登录，这个 prop 不再被 ModCard 使用。
+   * 保留是为了不改动十余处调用方；下次动到那些文件时顺手删掉。
+   */
   isLoggedIn?: boolean;
   /** 点击整张卡时回调（列表页/更新页用来就地在右侧开详情抽屉），卡片本身仍是真链接 */
   onCardClick?: (modId: string) => void;
@@ -180,13 +185,19 @@ export function ModCard({
   bodyAfterDescription,
   bodyBottom,
   actions,
-  isLoggedIn = false,
   onCardClick,
   onCardSelect,
 }: ModCardProps) {
   const badgeTone = metaBadgeStyles[metaBadgeTone];
   const styles = variantStyles[variant];
   const limits = textLimits[variant];
+
+  // 互动计数：先用服务端快照里的值打底，客户端批量拉到新值后无缝替换（拉不到就一直是它）
+  const { counts, mine, favorite } = useEngagement(mod.id, {
+    likes: mod.likes,
+    favorites: mod.favorites,
+    views: mod.views,
+  });
 
   // hover 卡片时标题显示全称（默认 6 字缩写）；竖排换行见 styles.title 的 group-hover:line-clamp-none
   const [isTitleExpanded, setIsTitleExpanded] = useState(false);
@@ -220,10 +231,10 @@ export function ModCard({
   const compactStats = showInteractionBar ? (
     <div className="flex flex-wrap items-center gap-1.5 max-sm:hidden px-1.5 py-0.5 text-xs font-bold text-black/80 bg-[#fff8ef]/20">
       <span className="inline-flex items-center gap-1">
-        <Eye className="size-3.5" />{mod.views}
+        <Eye className="size-3.5" />{counts.views}
       </span>
       <span className="inline-flex items-center gap-1">
-        <Heart className="size-3.5" />{mod.favorites}
+        <Heart className="size-3.5" />{counts.favorites}
       </span>
     </div>
   ) : null;
@@ -387,11 +398,7 @@ export function ModCard({
       {mediaBottomLeft}
       {showRatingSticker ? <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} className={cn("z-20 max-sm:hidden shadow-[4px_4px_0px_0px_#000]", ratingStickerClassName)} /> : null}
 
-      <CardFavoriteButton
-        modId={mod.id}
-        isFavorited={mod.isFavorited ?? false}
-        isLoggedIn={isLoggedIn}
-      />
+      <CardFavoriteButton isFavorited={mine.favorited} onToggle={favorite} />
 
       <div className={cn(styles.content, contentClassName)}>
         <div className="max-w-sm space-y-1.5">

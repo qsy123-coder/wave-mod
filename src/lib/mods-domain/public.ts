@@ -352,6 +352,30 @@ export async function getPublicModsPage(page: number, pageSize: number, filters:
   return paginateMods(allMods, page, pageSize);
 }
 
+/**
+ * 按 id 批量取 mod，**保持传入顺序**（「我的收藏」要按收藏时间倒序展示）。
+ *
+ * 走 getAllPublishedMods（快照 + unstable_cache 分片）再在内存里筛：
+ * 既不碰 Supabase（网关 402 时它照样能用），也不必为这个低频场景新开一个查询维度。
+ * 收藏通常只有几十条，整表扫描的成本可以忽略。
+ */
+export async function getPublicModsByIds(ids: string[], gameKey = defaultGameKey): Promise<SiteMod[]> {
+  if (ids.length === 0) return [];
+
+  let allMods: SiteMod[];
+  try {
+    allMods = await getAllPublishedMods(gameKey);
+  } catch (error) {
+    logger.warn("[mods] getPublicModsByIds failed, fallback to empty list", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
+    return [];
+  }
+
+  const byId = new Map(allMods.map((mod) => [mod.id, mod]));
+  return ids.map((id) => byId.get(id)).filter((mod): mod is SiteMod => Boolean(mod));
+}
+
 export async function getPublicModBaseById(id: string, gameKey?: string) {
   const parsedId = modIdSchema.safeParse(id);
 

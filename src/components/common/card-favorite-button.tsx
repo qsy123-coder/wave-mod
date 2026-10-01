@@ -1,21 +1,22 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
 import { Heart } from "lucide-react";
+import { toast } from "sonner";
 
+/**
+ * 卡片上的收藏按钮。
+ *
+ * 已改成**受控组件**：收藏态与切换动作都由父级（ModCard）从互动 store 里取。
+ * 原来的「未登录就跳登录页」整段删掉了 —— 现在游客点一下就直接收藏。
+ * 乐观更新发生在 store 层，所以 `isFavorited` 在点击后立刻就会变。
+ */
 type Props = {
-  modId: string;
   isFavorited: boolean;
-  isLoggedIn: boolean;
+  onToggle: () => Promise<boolean>;
   inline?: boolean;
 };
 
-export function CardFavoriteButton({ modId, isFavorited, isLoggedIn, inline }: Props) {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
-  const [optimistic, setOptimistic] = useState(isFavorited);
-
+export function CardFavoriteButton({ isFavorited, onToggle, inline }: Props) {
   const sharedClass = inline
     ? "inline-flex items-center gap-0.5 border-[2px] border-black bg-[#fff8ef] px-1 py-0.5 shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5"
     : "absolute bottom-12 right-2 z-20 inline-flex items-center gap-0.5 border-[2px] border-black bg-[#fff8ef] px-1 py-0.5 shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5";
@@ -24,23 +25,9 @@ export function CardFavoriteButton({ modId, isFavorited, isLoggedIn, inline }: P
     e.stopPropagation();
     e.preventDefault();
 
-    if (!isLoggedIn) {
-      router.push(`/auth/login?next=${encodeURIComponent(`/mods/${modId}`)}&mode=user`);
-      return;
-    }
-
-    const prev = optimistic;
-    setOptimistic(!prev);
-    startTransition(async () => {
-      try {
-        const formData = new FormData();
-        formData.set("id", modId);
-        const { toggleFavoriteAction } = await import("@/actions/mods/favorite-actions");
-        await toggleFavoriteAction(formData);
-        router.refresh();
-      } catch {
-        setOptimistic(prev);
-      }
+    void onToggle().then((ok) => {
+      // 失败时 store 已经回滚了状态，这里只负责让用户知道原因
+      if (!ok) toast.error("收藏没存上，稍后再试一次");
     });
   };
 
@@ -48,6 +35,7 @@ export function CardFavoriteButton({ modId, isFavorited, isLoggedIn, inline }: P
     <span
       role="button"
       tabIndex={0}
+      aria-pressed={isFavorited}
       className={`${sharedClass} cursor-pointer`}
       onClick={handleClick}
       onKeyDown={(e) => {
@@ -58,8 +46,8 @@ export function CardFavoriteButton({ modId, isFavorited, isLoggedIn, inline }: P
         }
       }}
     >
-      <Heart className={`size-2.5 ${optimistic ? "fill-[#ff7a7a] text-[#ff7a7a]" : "text-black/50"}`} />
-      <span className={`text-[8px] font-black uppercase ${optimistic ? "text-[#ff7a7a]" : "text-black/50"}`}>收藏</span>
+      <Heart className={`size-2.5 ${isFavorited ? "fill-[#ff7a7a] text-[#ff7a7a]" : "text-black/50"}`} />
+      <span className={`text-[8px] font-black uppercase ${isFavorited ? "text-[#ff7a7a]" : "text-black/50"}`}>收藏</span>
     </span>
   );
 }

@@ -14,6 +14,7 @@ export {
   getLatestMods,
   getPublicModBaseById,
   getPublicMods,
+  getPublicModsByIds,
   getPublicModsPage,
   getTopRatedMods,
   getWeeklyHotMods,

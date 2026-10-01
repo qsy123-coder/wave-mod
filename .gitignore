@@ -53,6 +53,10 @@ yarn-error.log*
 # script runtime logs
 /scripts/logs/
 
+# 互动计数器的运行时增量（游客点赞/浏览/收藏）
+# 注意：data/engagement-baseline.json 是**故意提交**的部署种子，别一起忽略
+/data/runtime/
+
 # backup runtime artifacts (not committed; backups/images + backups/manifest.json ARE committed)
 # backups/db 下的 dump 走 GitHub Release，不进 git
 /backups/logs/

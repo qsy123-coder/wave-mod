@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { reportView } from "@/lib/engagement/client";
 import type { SiteMod } from "@/lib/mods";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 import { cn } from "@/lib/utils";
@@ -81,12 +82,10 @@ export function ModDetailDrawer({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [lightboxVisible, setLightboxVisible] = useState(false);
 
-  // 打开抽屉时记录一次浏览
+  // 打开抽屉时记录一次浏览（设备 + 日期的去重在服务端，重复打开不会重复计数）
   useEffect(() => {
     if (!modId) return;
-    fetch(`/api/mods/${modId}/view`, { method: "POST" }).catch(() => {
-      // 静默失败，不影响用户体验
-    });
+    reportView(modId);
   }, [modId]);
 
   const {
