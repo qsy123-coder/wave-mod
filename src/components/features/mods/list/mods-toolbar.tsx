@@ -4,7 +4,7 @@ import { ChevronDown, Columns2, LayoutGrid, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { DESKTOP_DEFAULT_COLUMNS, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
+import { columnOptionsForWidth, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { buildModsFilterHref, isCurrentNavigationUrl } from "@/lib/navigation-url";
 import { cn } from "@/lib/utils";
 import {
@@ -121,20 +121,23 @@ export function ModsToolbar({
   const [query, setQuery] = useState(initialQuery);
 
   /**
-   * 高亮哪一项要按**当前生效**的列数算，不能只看 masonryColumns。
+   * 选择器的**选项**与**高亮**都按当前屏幕宽度算。
    *
-   * 用户没显式选过时 masonryColumns 是 null（网格会按屏幕宽度自适应），只比对 null
-   * 的话两个按钮都是灰的，看不出现在到底几列。口径复用同一个 defaultColumnsForWidth，
-   * 保证与网格算出来的列数一致。
+   * - 选项：手机只要 2/3，桌面保持 3/4/5/6（口径见 columnOptionsForWidth）。
+   * - 高亮：用户没显式选过时 masonryColumns 是 null，只比对 null 的话没有任何一项
+   *   会高亮、看不出当前几列，所以按「当前生效列数」算。
+   *
+   * 初值用 Infinity ⇒ 首帧按桌面口径渲染，与服务端一致，不会 hydration mismatch。
    */
-  const [autoColumns, setAutoColumns] = useState<MasonryColumns>(DESKTOP_DEFAULT_COLUMNS);
+  const [viewportWidth, setViewportWidth] = useState(Number.POSITIVE_INFINITY);
   useEffect(() => {
-    const update = () => setAutoColumns(defaultColumnsForWidth(window.innerWidth));
+    const update = () => setViewportWidth(window.innerWidth);
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
-  const activeColumns = masonryColumns ?? autoColumns;
+  const columnOptions = columnOptionsForWidth(viewportWidth);
+  const activeColumns = masonryColumns ?? defaultColumnsForWidth(viewportWidth);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   // 本地已提交搜索词：提交瞬间用于渲染「搜索: xxx」筛选条，随后与服务端 activeQuery 对齐
@@ -379,12 +382,12 @@ export function ModsToolbar({
       {/* 布局切换 */}
       {onLayoutChange ? (
         <div className="ml-auto flex items-center gap-0.5">
-          {/* 瀑布流列数选择器：只有 2 / 3（用户 2026-10-02 决定去掉 4/5/6）。
-              两项都必须在这里 —— 手机自适应默认 2 列、桌面 3 列（见 use-layout-preference），
-              少了哪一项，用户切过去之后就没法再选回来，面板上也不会高亮任何一项。 */}
+          {/* 瀑布流列数选择器。选项按屏幕宽度切换（手机 2/3、桌面 3/4/5/6，
+              口径见 columnOptionsForWidth）；每个档位的**默认值**必须在自己的选项里，
+              否则自适应切过去之后用户没法再选回来、面板上也不会高亮任何一项。 */}
           {layoutMode === "masonry" && onMasonryColumnsChange ? (
             <div className="mr-2 flex items-center gap-0.5 border-4 border-black bg-white shadow-[4px_4px_0px_0px_#000]">
-              {([2, 3] as const).map((n) => (
+              {columnOptions.map((n) => (
                 <button
                   key={n}
                   type="button"

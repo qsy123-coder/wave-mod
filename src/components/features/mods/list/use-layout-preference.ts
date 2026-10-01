@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 export type LayoutMode = "grid" | "masonry";
-/**
- * 瀑布流列数。只保留 2 / 3（2026-10-02 用户决定去掉 4/5/6）——
- * 更密的列数在窄屏上只会让预览图小到看不清，而预览图是这个列表页的核心信息。
- */
-export type MasonryColumns = 2 | 3;
+export type MasonryColumns = 2 | 3 | 4 | 5 | 6;
 
 const STORAGE_KEY = "mod-layout-preference";
 const COLUMNS_KEY = "mod-masonry-columns";
@@ -21,17 +17,36 @@ const COLUMNS_KEY = "mod-masonry-columns";
  */
 const MOBILE_BREAKPOINT = 640;
 const MOBILE_DEFAULT_COLUMNS: MasonryColumns = 2;
-/** 网格在 SSR / 首次渲染时的初值：服务端量不到视口，先按桌面口径渲染，客户端挂载后按窗口宽度纠正 */
-export const DESKTOP_DEFAULT_COLUMNS: MasonryColumns = 3;
+/**
+ * 桌面默认列数：5。
+ *
+ * 网格在 SSR / 首次渲染时的初值也用它 —— 服务端量不到视口，先按桌面口径渲染，
+ * 客户端挂载后按窗口宽度纠正。**桌面行为保持与本次改动前一致，不要动。**
+ */
+export const DESKTOP_DEFAULT_COLUMNS: MasonryColumns = 5;
+
+/** 桌面可选列数 —— 与本次改动前逐字一致 */
+const DESKTOP_COLUMN_OPTIONS: MasonryColumns[] = [3, 4, 5, 6];
+/**
+ * 手机可选列数：只要 2 / 3。
+ *
+ * 手机屏幕窄，4 列以上会把预览图压到看不清（390px 视口下 5 列实测每张仅 23px），
+ * 而「一眼看清预览图」正是这个列表页存在的意义（2026-10-02 用户要求）。
+ * **只作用于手机**，桌面端选项保持原样。
+ */
+const MOBILE_COLUMN_OPTIONS: MasonryColumns[] = [2, 3];
+
+function isMasonryColumns(value: number): value is MasonryColumns {
+  return value === 2 || value === 3 || value === 4 || value === 5 || value === 6;
+}
 
 /**
- * 只认 2 / 3。
+ * 该屏幕宽度下**允许**的列数。
  *
- * 旧版本存过 4/5/6，这里判为**非法**而不是原样返回 —— 于是老用户的 localStorage
- * 会自然落回「未选择」⇒ 走自适应（手机 2 列 / 桌面 3 列），不需要写迁移代码。
+ * 默认值与选择器选项共用这一个口径，避免两处各写一份而漂移。
  */
-function isMasonryColumns(value: number): value is MasonryColumns {
-  return value === 2 || value === 3;
+export function columnOptionsForWidth(width: number): MasonryColumns[] {
+  return width < MOBILE_BREAKPOINT ? MOBILE_COLUMN_OPTIONS : DESKTOP_COLUMN_OPTIONS;
 }
 
 /**
@@ -61,13 +76,18 @@ function writePreference(mode: LayoutMode) {
  *
  * 这个 `null` 是本次修复的关键：只要这里返回数字，网格里
  * `masonryColumns ?? autoColCount` 的右边就永远取不到值，
- * 「按屏幕宽度自适应」那条分支事实上是**死代码** —— 默认列数就被钉死在 5。
+ * 「按屏幕宽度自适应」那条分支事实上是**死代码** —— 默认列数就被钉死。
+ *
+ * 存的值还必须落在**当前屏幕档位**的候选里，否则视为「这一端没选过」：
+ * 桌面选的 5 列不该在手机上生效（手机上 5 列预览图只剩 23px），
+ * 反过来手机上选的 2 列也不该把桌面压成两张大图。
  */
 function readColumns(): MasonryColumns | null {
   if (typeof window === "undefined") return null;
   const stored = window.localStorage.getItem(COLUMNS_KEY);
   const n = Number(stored);
-  return isMasonryColumns(n) ? n : null;
+  if (!isMasonryColumns(n)) return null;
+  return columnOptionsForWidth(window.innerWidth).includes(n) ? n : null;
 }
 
 function writeColumns(cols: MasonryColumns) {
