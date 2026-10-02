@@ -191,6 +191,11 @@ const UI_PREFIXES = ["索拉指南"];
  * 2026-10-02 的 v3.7 必须落同一个 bucket：落默认分支会把整串当角色名，
  * 造出前台不存在的「去葫芦和葫芦光v3.7」分类。
  *
+ * 「RabbitFX反虚化」同理：库内 5 条历史版本（v74/v75/v80/v81/v82，均为该 bucket）
+ * 的 key 都带这个前缀。2026-10-03 的 v8.3.2 若不拦，key 里没有横杠
+ * ⇒ 默认分支的 `key.split(/[-－]/)[0]` 会把整串当角色名，
+ * 前台凭空多出「RabbitFX反虚化+发光前置v8.3.2(内附说明）」这个分类。
+ *
  * 为什么写这串原文、而不是直接写 `UI`：去重键是 `character|title`，而库内 21 条同
  * bucket 的记录（2026-09-03 批次，`去角色轮廓v3.6` 本体就在其中）存的正是这串原文——
  * 前台 getAvailableCharacters / applyModQueryFilters 都会过 normalizeCharacterName
@@ -200,7 +205,7 @@ const UI_PREFIXES = ["索拉指南"];
  * normalizeCharacterName 认不出的新值，前台凭空多一个角色分类。
  */
 const EFFECT_BUCKET = "反虚化，ui界面，场景，葫芦，特效等";
-const EFFECT_BUCKET_PREFIXES = ["去角色轮廓", "去葫芦和葫芦光"];
+const EFFECT_BUCKET_PREFIXES = ["去角色轮廓", "去葫芦和葫芦光", "RabbitFX反虚化"];
 
 /**
  * 「爱弥斯的机甲」「爱弥斯大招」整包 → 独立分类「爱弥斯的机甲」，**title 保留完整 key**。
