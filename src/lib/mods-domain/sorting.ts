@@ -125,13 +125,51 @@ const KNOWN_CHARACTER_NAMES = Object.keys(characterImageMap)
  */
 const LOOSE_SEPARATOR = /[,，\s\-_—–·、。.:：;；!！?？/\\|+*&^%$#@~()（）\[\]【】{}<>《》'"]+/;
 
-/** 以已知角色名开头的长词切开：「爱弥斯誓约」→ [`爱弥斯`, `誓约`] */
+/** 两个等长串是否只差一个字符（允许一次替换错：米/弥、艾/爱 这类打错） */
+function differsByOneChar(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) {
+      diff += 1;
+      if (diff > 1) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * 三等字以下的角色名允许「一个字打错」（爱米斯 → 爱弥斯）。
+ *
+ * 二字名**故意不放开**：一个字的差异就占了整串的一半，信号太弱 —— 「白止」能对上
+ * 「白芷」，那随便一个二字词都可能对到某个角色上。三字及以上时，一个字之差只占
+ * 三分之一，才谈得上"像是打错了"。
+ */
+const FUZZY_MIN_NAME_LENGTH = 3;
+
+/** 把已知角色名从词首认出来并切开：「爱弥斯誓约」→ [`爱弥斯`, `誓约`]；「爱米斯fjslf」→ [`爱弥斯`, `fjslf`] */
 function splitKnownPrefix(token: string): string[] {
-  // 必须**严格长于**角色名才拆：`守岸人` 本身就是角色名，不能被切成 `守岸` + `人`
-  const hit = KNOWN_CHARACTER_NAMES.find(
-    (name) => token.length > name.length && token.startsWith(name.toLowerCase()),
-  );
-  return hit ? [hit.toLowerCase(), token.slice(hit.length)] : [token];
+  for (const name of KNOWN_CHARACTER_NAMES) {
+    const lower = name.toLowerCase();
+    const fuzzable = lower.length >= FUZZY_MIN_NAME_LENGTH;
+
+    // 整个词就是角色名（含一个字打错）⇒ 归一到标准名，没有余下部分
+    if (token.length === lower.length) {
+      if (token === lower || (fuzzable && differsByOneChar(token, lower))) return [lower];
+      continue;
+    }
+
+    // 比角色名长：认词首，余下部分另成一个词。等长时已经处理过，所以这里必然有余下部分
+    if (token.length > lower.length) {
+      const prefix = token.slice(0, lower.length);
+      if (prefix === lower || (fuzzable && differsByOneChar(prefix, lower))) {
+        return [lower, token.slice(lower.length)];
+      }
+    }
+  }
+
+  return [token];
 }
 
 /**

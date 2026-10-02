@@ -278,6 +278,22 @@ describe("搜索拆词：让放宽对中文连写生效", () => {
     expect(looseSplitQuery("zzz不存在")).toEqual(["zzz不存在"]);
   });
 
+  it("拆词：三字以上角色名允许一个字打错", () => {
+    // 米/弥 是常见打错；艾/爱 同音不同字
+    expect(looseSplitQuery("爱米斯")).toEqual(["爱弥斯"]);
+    expect(looseSplitQuery("艾弥斯")).toEqual(["爱弥斯"]);
+    // 打错 + 尾巴上的噪音：认得的部分拆出来，认不出的另成一个词（它会走 OR 放宽）
+    expect(looseSplitQuery("爱米斯fjslf")).toEqual(["爱弥斯", "fjslf"]);
+    expect(looseSplitQuery("爱米斯誓约")).toEqual(["爱弥斯", "誓约"]);
+  });
+
+  it("拆词：二字名**故意**不放开模糊（一个字的差异占了一半，信号太弱）", () => {
+    expect(looseSplitQuery("白止")).toEqual(["白止"]);
+    expect(looseSplitQuery("今夕")).toEqual(["今夕"]);
+    // 但二字名的**精确**前缀仍然认
+    expect(looseSplitQuery("白芷剑")).toEqual(["白芷", "剑"]);
+  });
+
   it("严格解析 0 条时，拆词救回来并置 relaxed", () => {
     // 标题是「爱弥斯-誓约」：严格解析下「爱弥斯誓约」是一个词，子串匹配不上
     const target = createMod({ title: "爱弥斯-誓约（0）by 晨星", character: "爱弥斯" });
@@ -315,6 +331,26 @@ describe("搜索拆词：让放宽对中文连写生效", () => {
     const { mods, relaxed } = applyModQueryFilters([onlyChar], { query: "千咲女仆" }, { relaxQuery: true });
 
     expect(mods).toEqual([onlyChar]);
+    expect(relaxed).toBe(true);
+  });
+
+  it("打错字 + 尾巴噪音：认得的部分生效，认不出的走放宽", () => {
+    // 用户想搜「爱弥斯」，打成了「爱米斯」，后面还带了一串没意义的东西
+    const target = createMod({ title: "爱弥斯-誓约（0）by 晨星", character: "爱弥斯" });
+    const other = createMod({ title: "长离-礼服", character: "长离" });
+
+    const { mods, relaxed } = applyModQueryFilters([target, other], { query: "爱米斯fjslf" }, { relaxQuery: true });
+
+    expect(mods).toEqual([target]);
+    expect(relaxed).toBe(true);
+  });
+
+  it("打错字且只有这一个词：照样能归一", () => {
+    const target = createMod({ title: "爱弥斯-誓约（0）by 晨星", character: "爱弥斯" });
+
+    const { mods, relaxed } = applyModQueryFilters([target], { query: "爱米斯" }, { relaxQuery: true });
+
+    expect(mods).toEqual([target]);
     expect(relaxed).toBe(true);
   });
 
