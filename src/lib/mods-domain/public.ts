@@ -9,7 +9,7 @@ import { modCacheTags } from "@/lib/mod-cache";
 import { mapMod, publicModColumns, publicModDetailColumns } from "@/lib/mods-domain/mappers";
 import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
 import { MODS_MAX_PAGE_SIZE, MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
-import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
+import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, rankModsByQuery, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
 import type { ModRow, ModsPage, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
@@ -234,7 +234,27 @@ export async function getCharacterSuggestions(gameKey = defaultGameKey) {
   return mergedCharacters.sort((a, b) => a.localeCompare(b, "zh-CN"));
 }
 
-export async function getPublicMods(limit?: number, filters: PublicModsFilters = {}) {
+/**
+ * 服务端行为选项（**不是**用户筛选条件，所以不塞进 `PublicModsFilters`）。
+ *
+ * `relaxQuery`：多关键词严格取交集一个都没中时，是否放宽成「命中任一关键词」。
+ * 只有 /api/mods（即 /mods 的无限网格）打开它 —— 那条路径会渲染「没有精确匹配」
+ * 的提示条，放宽是可见的。分站、ZZZ、后台一律保持严格 AND，避免出现「结果莫名
+ * 变多了却没人解释」的静默行为变化。
+ */
+export type PublicModsOptions = { relaxQuery?: boolean };
+
+/**
+ * 公开读的**唯一**收口：拉整表 → 筛选 → 相关度重排 → 用户排序。
+ *
+ * 抽出来是为了让 `getPublicMods` 与 `getPublicModsPage` 共用同一趟整表扫描：
+ * `relaxed` 是「0 结果才放宽」的结果，而判断「是否 0 结果」本身就要扫完一遍，
+ * 让 page 版再算一次等于把最贵的那趟跑两遍。
+ */
+async function loadPublicMods(
+  filters: PublicModsFilters,
+  options: PublicModsOptions = {},
+): Promise<{ mods: SiteMod[]; relaxed: boolean }> {
   const { gameKey = defaultGameKey, sort = "default" } = filters;
 
   let allMods: SiteMod[];
@@ -244,16 +264,33 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
     // Supabase env 缺失、或某批拉取失败：回退空列表（与改动前行为一致），
     // 且失败结果不会被写入缓存，下一请求会重试。
     logger.warn("[mods] getPublicMods failed, fallback to empty list", { error: error instanceof Error ? error.message : "unknown" });
-    return [] satisfies SiteMod[];
+    return { mods: [], relaxed: false };
   }
 
   // filter/sort 保持在内存中完成：applyModQueryFilters 用 filter、applyModSort/sortModsByHot
   // 用 slice().sort()，均不修改入参，因此可以安全复用缓存里的领域对象。
   // mapMod 已在 getCachedModShard 内做过，这里不再重复映射。
-  const mods = applyModQueryFilters(allMods, filters);
-  const sortedMods = sort === "hot" ? sortModsByHot(mods) : applyModSort(sort)(mods);
+  const filtered = applyModQueryFilters(allMods, filters, options);
+  const sortedMods = sort === "hot" ? sortModsByHot(filtered.mods) : applyModSort(sort)(filtered.mods);
 
-  return typeof limit === "number" ? sortedMods.slice(0, limit) : sortedMods;
+  /**
+   * 相关度是**主**排序键、用户选的 sort 是**次**键。
+   *
+   * 顺序不能反：先按相关度排、再按 sort 排的话，第二趟会把相关度完全覆盖掉 —— 那样
+   * 「标题里就写着关键词的排在描述里顺带提一句的前面」这条就永远不生效了。
+   * 所以先 sort 把它当底，再用稳定排序按相关度重排（rankModsByQuery 对同分返回 0）。
+   */
+  const rankedMods = rankModsByQuery(sortedMods, filtered.queryRanks, filtered.relaxed);
+
+  return { mods: rankedMods, relaxed: filtered.relaxed };
+}
+
+export async function getPublicMods(limit?: number, filters: PublicModsFilters = {}) {
+  // 签名与返回值都保持不变：它有 8+ 个调用方（首页、榜单、分站、种子…），
+  // 那些地方要么没有 query、要么不关心放宽，没必要让它们一起改。
+  const { mods } = await loadPublicMods(filters);
+
+  return typeof limit === "number" ? mods.slice(0, limit) : mods;
 }
 
 export async function getFeaturedMods(limit: number, gameKey = defaultGameKey) {
@@ -322,7 +359,7 @@ export async function getLatestMods(limit: number, gameKey = defaultGameKey) {
  * 入参钳制也在这里做一遍（`/api/mods` 还会再钳一次并写进缓存头）：pageSize 上限
  * `MODS_MAX_PAGE_SIZE` 是**防呆**用的 —— 见 filter-params.ts 里那个常量的注释。
  */
-export function paginateMods(allMods: SiteMod[], page: number, pageSize: number): ModsPage {
+export function paginateMods(allMods: SiteMod[], page: number, pageSize: number, relaxed = false): ModsPage {
   const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
   const safePageSize = Number.isFinite(pageSize)
     ? Math.min(MODS_MAX_PAGE_SIZE, Math.max(1, Math.floor(pageSize)))
@@ -337,19 +374,27 @@ export function paginateMods(allMods: SiteMod[], page: number, pageSize: number)
     nextPage: hasMore ? safePage + 1 : null,
     page: safePage,
     pageSize: safePageSize,
+    // 默认 false：预渲染种子那条路径（ModsListing）根本没有 query，只传三个参数
+    relaxed,
     totalCount: allMods.length,
     totalPages: Math.max(1, Math.ceil(allMods.length / safePageSize)),
   };
 }
 
-export async function getPublicModsPage(page: number, pageSize: number, filters: PublicModsFilters = {}): Promise<ModsPage> {
+export async function getPublicModsPage(
+  page: number,
+  pageSize: number,
+  filters: PublicModsFilters = {},
+  options: PublicModsOptions = {},
+): Promise<ModsPage> {
   const sort = filters.sort ?? "default";
-  const allMods = await getPublicMods(undefined, { ...filters, sort });
 
-  // 注意：整表 filter+sort 已经在上面的 getPublicMods 里做完，这里只剩切片。
+  // 注意：整表 filter+sort 已经在上面的 loadPublicMods 里做完，这里只剩切片。
   // 调用方（如 ModsListing）自己要拿总数时，应当复用同一份 allMods 调 paginateMods，
   // 而不是再调一次本函数 —— 那会把整表扫描白跑第二遍。
-  return paginateMods(allMods, page, pageSize);
+  const { mods, relaxed } = await loadPublicMods({ ...filters, sort }, options);
+
+  return paginateMods(mods, page, pageSize, relaxed);
 }
 
 /**

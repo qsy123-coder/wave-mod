@@ -124,5 +124,10 @@ export type PaginatedResult<T> = {
  *
  * 列表页工具栏那句「共 N 个 MOD」要的就是它。非默认筛选时页面没有预渲染的种子，
  * 客户端只能等第一页回来才知道总数（见 mods-page-client）。
+ *
+ * `relaxed`：多关键词严格取交集一个都没中，于是放宽成「命中任一关键词」并把结果按
+ * 命中数排序 —— 前端据此渲染那条「没有精确匹配」的提示。**它是当次结果的属性，不是
+ * 用户的意图**，所以不进 URL，由服务端每次按同一份筛选重算（因此每页的值一致）。
+ * 只有显式打开 `relaxQuery` 的路径（/api/mods）才可能为 true。
  */
-export type ModsPage = PaginatedResult<SiteMod> & { totalCount: number };
+export type ModsPage = PaginatedResult<SiteMod> & { relaxed: boolean; totalCount: number };

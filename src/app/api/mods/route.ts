@@ -42,14 +42,24 @@ export async function GET(request: NextRequest) {
   const query = parseModQuery(searchParams.get("query") ?? undefined);
   const sort = parseModSort(searchParams.get("sort") ?? undefined);
 
-  const result = await getPublicModsPage(page, pageSize, {
-    character,
-    direct,
-    gameKey,
-    preview,
-    query,
-    sort,
-  });
+  const result = await getPublicModsPage(
+    page,
+    pageSize,
+    {
+      character,
+      direct,
+      gameKey,
+      preview,
+      query,
+      sort,
+    },
+    // 多关键词严格取交集一个都没中时，放宽成「命中任一关键词」并按命中数排序。
+    //
+    // 只有这条路径打开：/mods 的无限网格会读响应里的 `relaxed` 渲染「没有精确匹配」
+    // 的提示条，所以放宽是**可见**的。分站、ZZZ、后台走各自的服务端渲染，一律保持
+    // 严格 AND —— 结果悄悄变多却没人解释，比搜不到更让人困惑。
+    { relaxQuery: true },
+  );
 
   /**
    * 分级 CDN 缓存。

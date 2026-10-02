@@ -102,8 +102,12 @@ export function applyAdminModsView<T extends SiteMod>(
   mods: T[],
   filters: Pick<AdminModsFilters, "character" | "query" | "sort">,
 ): T[] {
-  // 过滤：复用（签名 applyModQueryFilters(mods, filters)，非柯里化）
-  const filtered = applyModQueryFilters(mods, filters) as T[];
+  // 过滤：复用公共匹配（applyModQueryFilters 是泛型的，T = AdminMod 会原样保留，
+  // 不需要任何断言 —— 它以前返回数组时这里写的是 `as T[]`）。
+  //
+  // 后台**刻意不放宽**：站主在后台搜「千咲 女仆」是想确认「到底有没有同时满足的」，
+  // 混进只中一个词的结果会让他得不出结论 —— 放宽是前台面向浏览者的体验优化。
+  const { mods: filtered } = applyModQueryFilters(mods, filters, { relaxQuery: false });
 
   const sort = (filters.sort as AdminModSort) ?? "latest";
 

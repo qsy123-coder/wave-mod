@@ -86,10 +86,14 @@ export function SiteSearchForm() {
       style={{ background: "var(--neo-search)" }}
     >
       <Search className="size-4 text-black" />
+      {/*
+       * 第四样是**网盘平台名**（夸克/百度…），不是标签：站内根本没有 tags 字段，
+       * 可搜字段只有这四个，见 sorting.ts 的 modQueryFields。原文案写的「标签」是错的。
+       */}
       <input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="搜索角色 / 标题 / 描述 / 标签"
+        placeholder="搜索角色 / 标题 / 描述 / 网盘"
         className="min-w-0 flex-1 bg-transparent text-sm font-bold text-black placeholder:text-black/55 outline-none"
       />
       <button

@@ -141,6 +141,8 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         nextPage: initialMods.length === MODS_PAGE_SIZE ? 2 : null,
         page: 1,
         pageSize: MODS_PAGE_SIZE,
+        // 种子只在默认筛选（没有 query）时才给，不可能发生放宽
+        relaxed: false,
         totalCount: initialTotalCount ?? initialMods.length,
         totalPages: 1,
       }
@@ -173,6 +175,13 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   // 拿到的就是当页真正的结果 —— 计数也就能用服务端的总数。
   // 没有 initialData 时 data 是 undefined，必须兜住。
   const mods = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data]);
+
+  /**
+   * 「放宽」是**整次查询**的属性，不是某一页的属性 —— 服务端每次都用同一份筛选
+   * 重新判定，所以各页的值必然一致，取第一页即可（`totalCount` 也是这个约定）。
+   * 分页合并在上面只并 `items`，这个字段压根不参与合并。
+   */
+  const relaxed = data?.pages[0]?.relaxed ?? false;
 
   /**
    * 把取数状态**镜像**给上层：顶部进度条按它起停，工具栏那句「共 N 个 MOD」用它的真总数。
@@ -371,6 +380,20 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
   return (
     <div className="space-y-5">
+      {/*
+       * 放宽提示条。放在列表**上方**、不改动也不遮挡搜索框 —— 用户刚打完词，
+       * 搜索框还在原地，只是结果换成了「部分匹配」。
+       *
+       * 必须说出来：搜「千咲 女仆」却看到一堆只有「千咲」的结果，如果没有任何解释，
+       * 用户会以为搜索把「女仆」当耳旁风。样式沿用列表底部那条「已经翻到底了」。
+       */}
+      {relaxed ? (
+        <div data-slot="search-relaxed-notice" className="flex flex-wrap items-center gap-2 border-4 border-black bg-[#bcaeff] px-4 py-2.5 text-xs font-black shadow-[4px_4px_0px_0px_#000]">
+          <Search className="size-4 shrink-0" />
+          没有精确匹配的结果，以下是包含部分关键词的 MOD
+        </div>
+      ) : null}
+
       {isMasonry ? (
         /* 瀑布流：JS 列分配 + flex 列容器，零抖动 */
         <section className="flex gap-4">

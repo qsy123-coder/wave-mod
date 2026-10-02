@@ -52,6 +52,7 @@ beforeEach(() => {
     nextPage: null,
     page: 1,
     pageSize: 16,
+    relaxed: false,
     totalCount: 0,
     totalPages: 1,
   });
@@ -104,6 +105,33 @@ describe("GET /api/mods —— 入参钳制", () => {
       query: "abc",
       sort: "hot",
     });
+  });
+
+  /**
+   * 放宽开关只由这条路径打开：/mods 的无限网格会读响应里的 `relaxed` 渲染提示条，
+   * 所以放宽是可见的。分站/ZZZ/后台走各自的服务端渲染，一律保持严格 AND。
+   */
+  it("显式打开 relaxQuery（放宽只在 /mods 这条路径生效）", async () => {
+    await GET(request("query=abc"));
+
+    expect(getPublicModsPageMock.mock.calls.at(-1)?.[3]).toEqual({ relaxQuery: true });
+  });
+
+  it("响应体原样带上 relaxed，供前端渲染「没有精确匹配」提示条", async () => {
+    getPublicModsPageMock.mockResolvedValue({
+      hasMore: false,
+      items: [],
+      nextPage: null,
+      page: 1,
+      pageSize: 12,
+      relaxed: true,
+      totalCount: 3,
+      totalPages: 1,
+    });
+
+    const body = await (await GET(request("query=abc"))).json();
+
+    expect(body.relaxed).toBe(true);
   });
 });
 

@@ -153,6 +153,9 @@ export function ModsPageClient({
         activePreview={activePreview}
         activeCharacter={activeCharacter}
         activeQuery={initialQuery || undefined}
+        gameKey={gameKey}
+        // 联想候选项点开就地开抽屉 —— 与点卡片走同一个机制
+        onSelectMod={openDrawer}
         modCount={modCount}
         layoutMode={layoutMode}
         onLayoutChange={setLayoutMode}
