@@ -10,6 +10,7 @@ import {
   parseModQuery,
   parseModSort,
   rankModsByQuery,
+  looseSplitQuery,
   sortModsByHot,
 } from "./sorting";
 import type { SiteMod } from "./types";
@@ -253,5 +254,89 @@ describe("搜索：相关度排序", () => {
     const { queryRanks, relaxed } = applyModQueryFilters(input, {});
 
     expect(rankModsByQuery(input, queryRanks, relaxed)).toEqual(input);
+  });
+});
+
+describe("搜索拆词：让放宽对中文连写生效", () => {
+  it("拆词：角色名前缀切开，标点也当分隔符", () => {
+    expect(looseSplitQuery("爱弥斯誓约")).toEqual(["爱弥斯", "誓约"]);
+    expect(looseSplitQuery("爱弥斯机甲")).toEqual(["爱弥斯", "机甲"]);
+    expect(looseSplitQuery("千咲-皮肤")).toEqual(["千咲", "皮肤"]);
+    expect(looseSplitQuery("千咲 女仆")).toEqual(["千咲", "女仆"]);
+  });
+
+  it("拆词：整体就是角色名时**不能**拆（长者优先 + 严格长于）", () => {
+    expect(looseSplitQuery("守岸人")).toEqual(["守岸人"]);
+    expect(looseSplitQuery("爱弥斯")).toEqual(["爱弥斯"]);
+  });
+
+  it("拆词：长者优先——「爱弥斯的机甲」不能被「爱弥斯」抢走", () => {
+    expect(looseSplitQuery("爱弥斯的机甲元祖高达")).toEqual(["爱弥斯的机甲", "元祖高达"]);
+  });
+
+  it("拆词：认不出的串原样返回", () => {
+    expect(looseSplitQuery("zzz不存在")).toEqual(["zzz不存在"]);
+  });
+
+  it("严格解析 0 条时，拆词救回来并置 relaxed", () => {
+    // 标题是「爱弥斯-誓约」：严格解析下「爱弥斯誓约」是一个词，子串匹配不上
+    const target = createMod({ title: "爱弥斯-誓约（0）by 晨星", character: "爱弥斯" });
+    const unrelated = createMod({ title: "别人家的剑", character: "长离" });
+
+    const strict = applyModQueryFilters([target, unrelated], { query: "爱弥斯誓约" }, { relaxQuery: true });
+
+    expect(strict.mods).toEqual([target]);
+    expect(strict.relaxed).toBe(true);
+  });
+
+  it("拆词后仍然 0 条 ⇒ 空结果且不置 relaxed", () => {
+    // 拆得开（爱弥斯 + 誓约），但库里的这条两个词都不沾
+    const unrelated = createMod({ title: "长离-礼服", character: "长离" });
+
+    const result = applyModQueryFilters([unrelated], { query: "爱弥斯誓约" }, { relaxQuery: true });
+
+    expect(result.mods).toEqual([]);
+    expect(result.relaxed).toBe(false);
+  });
+
+  it("拆词后 AND 命中 ⇒ 只返回 AND 集，不放宽成 OR", () => {
+    const both = createMod({ title: "千咲 女仆装", character: "千咲" });
+    const onlyChar = createMod({ title: "千咲 战斗服", character: "千咲" });
+
+    const { mods, relaxed } = applyModQueryFilters([onlyChar, both], { query: "千咲女仆" }, { relaxQuery: true });
+
+    expect(mods).toEqual([both]);
+    expect(relaxed).toBe(true); // 对**原始输入**而言仍是部分匹配，所以标记要亮
+  });
+
+  it("拆词后 AND 为空但 OR 非空 ⇒ 放宽成 OR", () => {
+    const onlyChar = createMod({ title: "千咲 战斗服", character: "千咲" });
+
+    const { mods, relaxed } = applyModQueryFilters([onlyChar], { query: "千咲女仆" }, { relaxQuery: true });
+
+    expect(mods).toEqual([onlyChar]);
+    expect(relaxed).toBe(true);
+  });
+
+  it("护栏：严格解析有结果时，拆词绝不介入", () => {
+    // 「守岸人」是完整角色名，严格解析本来就能中
+    const hit = createMod({ title: "守岸人-礼服", character: "守岸人" });
+    const other = createMod({ title: "长离-礼服", character: "长离" });
+
+    const baseline = applyModQueryFilters([hit, other], { query: "守岸人" });
+    const withRelax = applyModQueryFilters([hit, other], { query: "守岸人" }, { relaxQuery: true });
+
+    expect(baseline.mods).toEqual([hit]);
+    expect(withRelax.mods).toEqual([hit]);
+    expect(withRelax.relaxed).toBe(false);
+  });
+
+  it("relaxQuery 关闭时拆词不跑（后台与分站行为不变的凭据）", () => {
+    const target = createMod({ title: "爱弥斯-誓约（0）by 晨星", character: "爱弥斯" });
+
+    const result = applyModQueryFilters([target], { query: "爱弥斯誓约" });
+
+    expect(result.mods).toEqual([]);
+    expect(result.relaxed).toBe(false);
   });
 });

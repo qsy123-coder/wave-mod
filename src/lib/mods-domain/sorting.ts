@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { characterImageMap } from "@/lib/constants/character-images";
 import { hasPreviewImage } from "@/lib/mods-domain/preview-image";
 import type { ModSort, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 
@@ -105,14 +106,99 @@ export function parseQueryKeywords(query: string | undefined): string[] {
 }
 
 /**
+ * 站内标准角色名，**从既有的头像映射表派生**，不新建一份手写清单。
+ *
+ * `scripts/upload-daily-by-date.mjs` 的头部注释专门警告过「前缀表两处维护」这个坑，
+ * 这里不能再造第三份。含逗号的 key（`滑翔翼,翱翔翼,科考摩托`）是历史别名串、不是
+ * 一个角色名，排除掉。
+ *
+ * 长者优先排序：`爱弥斯的机甲` 必须比 `爱弥斯` 先匹配上，否则「爱弥斯的机甲」会被
+ * 切成 `[爱弥斯, 的机甲]`。
+ */
+const KNOWN_CHARACTER_NAMES = Object.keys(characterImageMap)
+  .filter((name) => name.length >= 2 && !name.includes(","))
+  .sort((a, b) => b.length - a.length);
+
+/**
+ * 放宽解析用的宽分隔符。中文用户不打空格，标题里却常写「爱弥斯-誓约」，
+ * 用 `-` 输入的「千咲-皮肤」在严格解析下是一个词 ⇒ 一条都搜不到。
+ */
+const LOOSE_SEPARATOR = /[,，\s\-_—–·、。.:：;；!！?？/\\|+*&^%$#@~()（）\[\]【】{}<>《》'"]+/;
+
+/** 以已知角色名开头的长词切开：「爱弥斯誓约」→ [`爱弥斯`, `誓约`] */
+function splitKnownPrefix(token: string): string[] {
+  // 必须**严格长于**角色名才拆：`守岸人` 本身就是角色名，不能被切成 `守岸` + `人`
+  const hit = KNOWN_CHARACTER_NAMES.find(
+    (name) => token.length > name.length && token.startsWith(name.toLowerCase()),
+  );
+  return hit ? [hit.toLowerCase(), token.slice(hit.length)] : [token];
+}
+
+/**
+ * 放宽解析：宽分隔符切一遍，再把每个词按「已知角色名前缀」切开。
+ *
+ * 只在严格解析**一条都没搜到**时才会被调用（见 applyModQueryFilters 的 pass 2），
+ * 所以它怎么拆都影响不到任何现在能搜出结果的查询。
+ */
+export function looseSplitQuery(query: string): string[] {
+  return query
+    .split(LOOSE_SEPARATOR)
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean)
+    .flatMap(splitKnownPrefix);
+}
+
+/**
+ * 按一组关键词扫一遍，**同时**算出全命中（AND）与命中任一（OR）两个集合。
+ *
+ * 一次遍历而不是两趟：整表 filter 不缓存（见 public.ts 里 getAllPublishedMods 的注释），
+ * 分两趟扫等于把每次查询最贵的那部分成本翻倍。
+ */
+function matchModsByKeywords<T extends SiteMod>(
+  mods: T[],
+  keywords: string[],
+): { all: T[]; any: T[]; ranks: Map<string, ModQueryRank> } {
+  const all: T[] = [];
+  const any: T[] = [];
+  const ranks = new Map<string, ModQueryRank>();
+
+  for (const mod of mods) {
+    const fields = modQueryFields(mod);
+
+    let hits = 0;
+    let weight = 0;
+    for (const keyword of keywords) {
+      // 同一关键词命中多个字段只取最高权重（标题命中不必因为描述里也提到而重复加分）
+      let bestWeight = 0;
+      for (let i = 0; i < fields.length; i += 1) {
+        if (fields[i].includes(keyword) && QUERY_FIELD_WEIGHTS[i] > bestWeight) {
+          bestWeight = QUERY_FIELD_WEIGHTS[i];
+        }
+      }
+      if (bestWeight > 0) {
+        hits += 1;
+        weight += bestWeight;
+      }
+    }
+
+    if (hits === 0) continue;
+
+    ranks.set(mod.id, { hits, weight });
+    (hits === keywords.length ? all : any).push(mod);
+  }
+
+  return { all, any, ranks };
+}
+
+/**
  * 关键词匹配 + 相关度打分。
  *
- * **一次遍历同时算出两个集合**：全命中（AND）与命中任一（OR）。整表 filter 不缓存
- * （见 public.ts 里 getAllPublishedMods 的注释），分两趟扫等于把每次查询的成本翻倍，
- * 所以 AND / OR 的判定必须共用同一趟。
+ * 两段式：pass 1 用严格解析（只认 `[,，\s]`），AND 优先、0 结果才放宽为 OR；
+ * 仍然一条都没有时，pass 2 换宽分隔符 + 角色名前缀拆词再试一次。
  *
- * `relaxQuery` 默认 false ⇒ 调用方不显式打开时行为与改动前**完全一致**（只有 AND）。
- * 放宽是「0 结果」这一个场景的补救，不该悄悄改变别人对这套匹配的预期。
+ * `relaxQuery` 默认 false ⇒ 调用方不显式打开时行为与改动前**完全一致**（只有 AND，
+ * 且 pass 2 根本不会跑）。放宽是「0 结果」这一个场景的补救，不该悄悄改变别人对这套
+ * 匹配的预期。
  */
 export function applyModQueryFilters<T extends SiteMod>(
   mods: T[],
@@ -145,48 +231,60 @@ export function applyModQueryFilters<T extends SiteMod>(
   }
 
   const keywords = parseQueryKeywords(filters.query);
-  const queryRanks = new Map<string, ModQueryRank>();
+  let queryRanks = new Map<string, ModQueryRank>();
   let relaxed = false;
 
   if (keywords.length > 0) {
-    const allMatched: T[] = [];
-    const anyMatched: T[] = [];
+    // ---- pass 1：严格解析（只认 [,，\s]）----
+    const strict = matchModsByKeywords(nextMods, keywords);
 
-    for (const mod of nextMods) {
-      const fields = modQueryFields(mod);
-
-      let hits = 0;
-      let weight = 0;
-      for (const keyword of keywords) {
-        // 同一关键词命中多个字段只取最高权重（标题命中不必因为描述里也提到而重复加分）
-        let bestWeight = 0;
-        for (let i = 0; i < fields.length; i += 1) {
-          if (fields[i].includes(keyword) && QUERY_FIELD_WEIGHTS[i] > bestWeight) {
-            bestWeight = QUERY_FIELD_WEIGHTS[i];
-          }
-        }
-        if (bestWeight > 0) {
-          hits += 1;
-          weight += bestWeight;
-        }
-      }
-
-      if (hits === 0) continue;
-
-      queryRanks.set(mod.id, { hits, weight });
-      (hits === keywords.length ? allMatched : anyMatched).push(mod);
-    }
-
-    if (allMatched.length > 0) {
-      nextMods = allMatched;
-    } else if (options.relaxQuery && anyMatched.length > 0) {
+    if (strict.all.length > 0) {
+      nextMods = strict.all;
+      queryRanks = strict.ranks;
+    } else if (options.relaxQuery && strict.any.length > 0) {
       // 一个都全中才放宽：只要有一个精确命中，就绝不混入部分命中的结果
-      nextMods = anyMatched;
+      nextMods = strict.any;
+      queryRanks = strict.ranks;
       relaxed = true;
+    } else if (options.relaxQuery) {
+      // ---- pass 2：换一种拆法再试 ----
+      //
+      // 只在 pass 1 **一条都没有**时跑。要救的是中文连写：「爱弥斯誓约」在严格解析下
+      // 是**一个**词，而单词时 AND 集与 OR 集完全相同 ⇒ 「AND 为空」必然「OR 也为空」，
+      // 放宽机制根本没有可放宽的余地。分词的失败发生在放宽的上游，所以得先把词切开。
+      //
+      // ⚠️ 这是**第二趟全表遍历**，与 PRD「不得让遍历翻倍」的硬要求是有意破例：
+      // 常态查询在 pass 1 就返回了、永远不会走到这里；只有本来毫无产出的 0 结果查询
+      // 才多付这一趟，换回结果。该约束的原意是「别让常规路径翻倍」，不是「任何情况下
+      // 都不许第二趟」。
+      const looseKeywords = looseSplitQuery(filters.query ?? "");
+      const sameAsStrict =
+        looseKeywords.length === keywords.length && looseKeywords.every((k, i) => k === keywords[i]);
+
+      if (!sameAsStrict) {
+        const loose = matchModsByKeywords(nextMods, looseKeywords);
+
+        if (loose.all.length > 0) {
+          nextMods = loose.all;
+          queryRanks = loose.ranks;
+          relaxed = true;
+        } else if (loose.any.length > 0) {
+          nextMods = loose.any;
+          queryRanks = loose.ranks;
+          relaxed = true;
+        } else {
+          nextMods = [];
+        }
+      } else {
+        // 拆不开（如「千咲女仆」在严格解析下已经就是两个词）：别白扫第二趟
+        nextMods = [];
+      }
     } else {
       nextMods = [];
-      queryRanks.clear(); // 空结果没有排序可言，别让 rankModsByQuery 白跑
     }
+
+    // 空结果没有排序可言，别让 rankModsByQuery 白跑
+    if (nextMods.length === 0) queryRanks.clear();
   }
 
   return { mods: nextMods, queryRanks, relaxed };
