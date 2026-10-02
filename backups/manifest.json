@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-01T09:38:26.330Z",
+  "generatedAt": "2026-10-02T09:12:29.361Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,10 +8,10 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20261001-093743.dump",
-    "sha256": "7a6451e5c0f71176594ee15760eebb32b1a30c9761b071528218938b581df236",
-    "sizeBytes": 840048,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261001-093743",
+    "file": "db/wavemod-20261002-091146.dump",
+    "sha256": "f9e1f754592d42c1dc5878ef1a837ff9ae9497e5e4099832051f3156ed2d5a14",
+    "sizeBytes": 841076,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261002-091146",
     "tableCounts": {
       "mods": null,
       "profiles": null,
@@ -28,15 +28,15 @@
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5345,
-    "refreshedThisRun": true,
+    "publishedRows": 5353,
+    "refreshedThisRun": false,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 5559,
-    "totalBytes": 361037108,
-    "downloadedThisRun": 11,
+    "remoteCount": 5567,
+    "totalBytes": 361423402,
+    "downloadedThisRun": 8,
     "failedThisRun": 1,
     "failures": [
       {
@@ -6401,6 +6401,12 @@
         "etag": "\"96360b114a7d668bf3757ad7d8cd7e91\""
       },
       {
+        "key": "mods/ui/12e06d62-c710-4595-b1d6-a89aa6878843/preview.webp",
+        "file": "images/mods/ui/12e06d62-c710-4595-b1d6-a89aa6878843/preview.webp",
+        "size": 40316,
+        "etag": "\"47d4e5341654d5fbc3d0b82c69b3fe06\""
+      },
+      {
         "key": "mods/ui/1864153a-af63-4377-995c-c43e458b8352/preview.webp",
         "file": "images/mods/ui/1864153a-af63-4377-995c-c43e458b8352/preview.webp",
         "size": 37194,
@@ -9459,6 +9465,12 @@
         "file": "images/mods/反虚化-ui界面-场景-葫芦-特效等/a526cae1-9646-4a12-9b39-c9a0beb9a16b/preview.webp",
         "size": 11938,
         "etag": "\"7b19b27648bdb75663fca8163c5702e9\""
+      },
+      {
+        "key": "mods/反虚化-ui界面-场景-葫芦-特效等/aa5e5f23-3fbe-49bc-86ce-d217a155f00d/preview.webp",
+        "file": "images/mods/反虚化-ui界面-场景-葫芦-特效等/aa5e5f23-3fbe-49bc-86ce-d217a155f00d/preview.webp",
+        "size": 59606,
+        "etag": "\"6b156e3ae03fcca23d560ba179b96464\""
       },
       {
         "key": "mods/反虚化-ui界面-场景-葫芦-特效等/b48743f0-4c20-4bc0-8fd4-ee3d89b18576/preview.webp",
@@ -16949,6 +16961,12 @@
         "etag": "\"313d2aa6567c256d46109e4bdf207e6a\""
       },
       {
+        "key": "mods/心月狐/200cfb67-388b-4ebe-af0e-f9dc9ea99fc6/preview.webp",
+        "file": "images/mods/心月狐/200cfb67-388b-4ebe-af0e-f9dc9ea99fc6/preview.webp",
+        "size": 61554,
+        "etag": "\"53cc2a5f42eaab4a2a1b2c308bd5fadf\""
+      },
+      {
         "key": "mods/心月狐/241b88e7-381b-4f2b-a6a5-0c3a6fe94cac/preview-2.webp",
         "file": "images/mods/心月狐/241b88e7-381b-4f2b-a6a5-0c3a6fe94cac/preview-2.webp",
         "size": 69630,
@@ -16973,10 +16991,28 @@
         "etag": "\"d71f810e7b15fb46d923c37d71fd5762\""
       },
       {
+        "key": "mods/心月狐/45984e84-8d3d-4867-bd07-374c4ccb48dc/preview.webp",
+        "file": "images/mods/心月狐/45984e84-8d3d-4867-bd07-374c4ccb48dc/preview.webp",
+        "size": 45302,
+        "etag": "\"3dfb930c07e89b39816e920ef053a921\""
+      },
+      {
+        "key": "mods/心月狐/7b16f065-8e03-4c7e-bfd3-35d5080ed815/preview.webp",
+        "file": "images/mods/心月狐/7b16f065-8e03-4c7e-bfd3-35d5080ed815/preview.webp",
+        "size": 43258,
+        "etag": "\"67855d2f800b6ddcbc862c1b704d75fb\""
+      },
+      {
         "key": "mods/心月狐/81858664-6b11-4445-b3f7-7b9c304fe6aa/preview.webp",
         "file": "images/mods/心月狐/81858664-6b11-4445-b3f7-7b9c304fe6aa/preview.webp",
         "size": 45792,
         "etag": "\"dd9b5fd666713d2b3421d115e43a8668\""
+      },
+      {
+        "key": "mods/心月狐/f3705472-b126-43e6-ab4e-1c5083790aea/preview.webp",
+        "file": "images/mods/心月狐/f3705472-b126-43e6-ab4e-1c5083790aea/preview.webp",
+        "size": 61660,
+        "etag": "\"9da864042fbb0afa57607c1922211563\""
       },
       {
         "key": "mods/忌炎/0cacd9d8-a108-4f02-89dd-7113075704fa/preview.webp",
@@ -18033,6 +18069,12 @@
         "file": "images/mods/景燃/4555d1bb-5b4f-4524-af13-f45ac06a3670/preview.webp",
         "size": 27404,
         "etag": "\"27a94f2a57f9a20b89c32072d47a75ca\""
+      },
+      {
+        "key": "mods/景燃/8a9f9435-951f-4b55-a673-01fdb780295c/preview.webp",
+        "file": "images/mods/景燃/8a9f9435-951f-4b55-a673-01fdb780295c/preview.webp",
+        "size": 42846,
+        "etag": "\"7428d465dc0548d36c1ff77728a98292\""
       },
       {
         "key": "mods/景燃/b06ee5e0-208e-47b3-adf5-05230b7687fe/preview.webp",
@@ -30021,6 +30063,12 @@
         "file": "images/mods/鉴心/f24d1585-966b-47cd-a76a-3fd3d78a9b9a/preview.webp",
         "size": 21836,
         "etag": "\"49ca5cfe81ebd2d6ce3cbacc37fdc70b\""
+      },
+      {
+        "key": "mods/锁暝/3d5da387-7049-4948-8535-40a9c4b4cb4e/preview.webp",
+        "file": "images/mods/锁暝/3d5da387-7049-4948-8535-40a9c4b4cb4e/preview.webp",
+        "size": 31752,
+        "etag": "\"7bf89978ad282972be02b435aa485176\""
       },
       {
         "key": "mods/长离/00907cb7-06a0-48c8-9143-9653dfe3c3a3/preview.webp",
