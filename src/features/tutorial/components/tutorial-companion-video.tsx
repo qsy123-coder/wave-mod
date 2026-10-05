@@ -39,7 +39,15 @@ export function TutorialCompanionVideo({
   // 与章节视频的进度分开存（use-video-progress 的 key 是 wavemod-video-{chapterId}），
   // 否则看到一半的章节进度会被这段全流程视频覆盖。
   const chapterId = `companion-${versionId}`;
-  const title = "图文教程配套视频";
+
+  // 章节数为 0 = 这个版本没有图文（图文已下架、只留视频）。此时「与下面 0 节图文教程
+  // 一一对应」是句错话，卡片标题也不该再叫「图文教程配套视频」。
+  const hasChapters = chapterCount > 0;
+  const title = hasChapters ? "图文教程配套视频" : "启动器更新后·完整流程";
+  const badge = hasChapters ? "配套视频" : "视频教程";
+  const description = hasChapters
+    ? `整篇流程演示，与下面 ${chapterCount} 节图文教程一一对应 —— 只看图文卡住了，就先看这个。`
+    : "启动器更新后的完整流程演示，跟着走一遍就能装好。";
 
   return (
     <>
@@ -87,13 +95,13 @@ export function TutorialCompanionVideo({
               style={{ background: "var(--neo-secondary)" }}
             >
               <Play className="size-3 fill-black" />
-              配套视频
+              {badge}
             </span>
             <span className="mt-1 block text-base font-black leading-6 text-black">
               {title}
             </span>
             <span className="block text-xs font-bold leading-5 text-black/60">
-              整篇流程演示，与下面 {chapterCount} 节图文教程一一对应 —— 只看图文卡住了，就先看这个。
+              {description}
             </span>
           </span>
         </a>
@@ -104,7 +112,7 @@ export function TutorialCompanionVideo({
           video={video}
           chapterId={chapterId}
           chapterTitle={title}
-          badgeLabel="配套视频"
+          badgeLabel={badge}
           onClose={() => setOpen(false)}
         />
       ) : null}

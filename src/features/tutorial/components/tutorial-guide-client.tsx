@@ -44,6 +44,11 @@ export function TutorialGuideClient({
 }: TutorialGuideClientProps) {
   const router = useRouter();
 
+  // 该版本有没有图文章节。为 0 说明这是个「只有配套视频」的版本（如「启动器更新后」：
+  // 启动器改版后旧图文已经不对，先把图文下架、只留新录屏），此时不渲染 Tab 区，
+  // 也不要在文案里提「图文」—— 指向不存在的东西会让人以为教程坏了。
+  const hasChapters = chapters.length > 0;
+
   // 挂载时校正版本：若 URL 无显式选择，且记忆版本存在且仍可见，则跳到记忆版本
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -86,11 +91,12 @@ export function TutorialGuideClient({
           <h1 className="mt-1 text-2xl font-black text-black">{title}</h1>
           {/* 提示只在真的存在配套视频时渲染。原来的文案是「每节图文教程下方 均有对应视频教程」，
               而页面上当时一个视频入口都没有 —— 指向不存在的东西，等于在教用户怀疑这个页面。
-              v 版本的章节视频至今仍全是 NULL，所以这里的真实卖点就是下面那张配套视频卡片。 */}
+              v 版本的章节视频至今仍全是 NULL，所以这里的真实卖点就是下面那张配套视频卡片。
+              没有图文的版本（hasChapters=false）不能说「看不懂图文」，改成直接指向视频。 */}
           {video ? (
             <div className="mt-1 flex items-center gap-2 text-2xl font-bold leading-6 text-black/70">
-              <span>看不懂图文？</span>
-              <VideoHintBanner label="先看配套视频" />
+              <span>{hasChapters ? "看不懂图文？" : "不会安装？"}</span>
+              <VideoHintBanner label={hasChapters ? "先看配套视频" : "先看视频教程"} />
             </div>
           ) : null}
           <div className="mt-2 flex items-center gap-2 text-sm font-bold text-black/60">
@@ -144,14 +150,19 @@ export function TutorialGuideClient({
         </div>
       )}
 
-      {/* Tab-based chapter navigation + content */}
-      <MotionReveal delay={0.08} y={24} className="flex min-h-0 flex-1 flex-col">
-        <TutorialTabs
-          key={activeVersionId}
-          chapters={chapters}
-          imageBasePath={imageBasePath}
-        />
-      </MotionReveal>
+      {/* Tab-based chapter navigation + content — 只在真有章节时渲染。
+          TutorialTabs 自己有「0 章节」空态可用（后台新建版本时靠它显示「新增章节」），
+          但前台把空 Tab 条 + 「该教程内容暂未发布。」摆出来，只会让人以为教程坏了；
+          图文下架的版本本来就该是「只有一张视频卡片」的样子，所以整块不渲染。 */}
+      {hasChapters ? (
+        <MotionReveal delay={0.08} y={24} className="flex min-h-0 flex-1 flex-col">
+          <TutorialTabs
+            key={activeVersionId}
+            chapters={chapters}
+            imageBasePath={imageBasePath}
+          />
+        </MotionReveal>
+      ) : null}
     </div>
   );
 }
