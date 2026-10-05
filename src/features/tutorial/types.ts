@@ -36,14 +36,24 @@ export const chapterSchema = z.object({
 export type Chapter = z.infer<typeof chapterSchema>;
 
 // --- Full tutorial config ---
-export const tutorialConfigSchema = z.object({
-  title: z.string(),
-  subtitle: z.string(),
-  chapters: z.array(chapterSchema).min(1),
-  imageBasePath: z.string(),
-  /** 页面级配套视频（整篇教程一个），与 chapter.video 的章节视频不同；没有时不渲染卡片 */
-  video: videoConfigSchema.optional(),
-});
+/**
+ * chapters 现在**允许为空**：存在「图文下架、只留视频」的版本（如「启动器更新后」——
+ * 启动器改版后旧图文不再适用，新图文还没做）。原先的 .min(1) 会把这类版本挡在
+ * 构建期（config.ts 在模块加载时 parse），所以改成用 refine 守住真正该守的约束：
+ * **图文和视频至少得有一样**，否则这个版本在页面上就是个空壳。
+ */
+export const tutorialConfigSchema = z
+  .object({
+    title: z.string(),
+    subtitle: z.string(),
+    chapters: z.array(chapterSchema),
+    imageBasePath: z.string(),
+    /** 页面级配套视频（整篇教程一个），与 chapter.video 的章节视频不同；没有时不渲染卡片 */
+    video: videoConfigSchema.optional(),
+  })
+  .refine((c) => c.chapters.length > 0 || Boolean(c.video), {
+    message: "教程至少要有图文章节或配套视频其中之一",
+  });
 export type TutorialConfig = z.infer<typeof tutorialConfigSchema>;
 
 // --- Resolved image (for component consumption) ---

@@ -1,5 +1,10 @@
-// 一次性脚本：按库里 published 的 'v'（新版教程）重生成 src/features/tutorial/config.ts
-// 用法: node scripts/_tmp-gen-tutorial-config.mjs [--check]
+// 按库里「前台实际展示的那个版本」重生成 src/features/tutorial/config.ts
+// 用法: node scripts/sync-tutorial-fallback.mjs [--check]
+//
+// ⚠️ 兜底是**在被真的用到**的：Supabase 出口配额打满时 REST 网关一律 402，
+// listVisibleVersions() 返回空数组，这时 /guide 渲染的就是这个文件
+// （见 [[tutorial-static-fallback-sync]]）。改完教程别只改库 —— 不跑这个脚本，
+// 前台在配额恢复前看不到任何变化。
 import { resolve } from "node:path";
 import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { config } from "dotenv";
@@ -8,7 +13,27 @@ import { psqlJson } from "./psql-db.mjs";
 config({ path: resolve(process.cwd(), ".env"), override: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
-const VERSION_ID = "v";
+/**
+ * 兜底要镜像的是「前台当前实际展示的版本」，即 is_visible + is_default 的那个。
+ *
+ * 这里曾经硬编码 'v'（新版教程）。「启动器更新后」上线、v 被下架后，硬编码会把
+ * 已经下架的旧图文又写回兜底 —— 而兜底正是配额打满时唯一被渲染的东西，等于
+ * 「下架」下架了个寂寞。所以改成从库里解析，前后端认同一个版本。
+ */
+const versionRow = await psqlJson(
+  `select json_build_object('id', (
+     select id from public.tutorial_versions
+      where is_visible and is_default
+      order by sort_order, id limit 1
+   ))::text;`,
+);
+const VERSION_ID = versionRow?.id;
+
+if (!VERSION_ID) {
+  console.error("❌ 库里找不到 is_visible + is_default 的版本，无法确定该镜像哪一份");
+  process.exit(1);
+}
+console.log(`镜像版本：${VERSION_ID}`);
 
 const sql = `
 select json_build_object(
@@ -87,15 +112,19 @@ const out = `import type { TutorialConfig } from "./types";
 import { tutorialConfigSchema } from "./types";
 
 /**
- * 静态兜底教程。
+ * 静态兜底教程。**由 scripts/sync-tutorial-fallback.mjs 生成，不要手改。**
  *
- * 真源是数据库（\`tutorial_configs\` / \`tutorial_chapters\`，后台 /admin/tutorial 编辑），
- * 本文件只在 **读库失败** 时兜底渲染 —— 见 src/app/(site)/guide/page.tsx：
- * listVisibleVersions() 返回空数组时，用这里的内容充当一个伪版本，保证页面不空白。
+ * 真源是数据库（\`tutorial_configs\` / \`tutorial_chapters\`，后台 /admin/tutorial 编辑）。
+ * 本文件在读库失败时兜底 —— 见 src/app/(site)/guide/page.tsx：listVisibleVersions()
+ * 返回空数组时，用这里的内容充当一个伪版本。
  *
- * ⚠️ 内容镜像自库里 published 的 \`${VERSION_ID}\` 版本（${data.config.title}，${data.chapters.length} 章 / ${totalImages} 张图），
- * 图片用 COS 绝对地址（与库内 url 列一致），不要改成本地文件名 —— 本地没有这些图。
- * 后台改完教程后，这里不会自动同步；兜底内容需要跟着更新时，重新生成本文件。
+ * ⚠️ 「读库失败」不是罕见分支：Supabase 出口配额打满时 REST 网关一律 402，
+ * 那时 /guide 渲染的**就是**这个文件。所以后台改完教程必须跟着跑一次生成脚本，
+ * 否则前台在配额恢复前看不到任何变化。见 [[tutorial-static-fallback-sync]]。
+ *
+ * 内容镜像自库里 published 的 \`${VERSION_ID}\` 版本（${data.config.title}，${data.chapters.length} 章 / ${totalImages} 张图）。${totalImages > 0 ? `
+ * 图片用 COS 绝对地址（与库内 url 列一致），不要改成本地文件名 —— 本地没有这些图。` : `
+ * 该版本没有图文章节（图文已下架、只留配套视频），所以 chapters 是空数组。`}
  */
 const rawConfig: TutorialConfig = {
   title: ${lit(data.config.title)},
