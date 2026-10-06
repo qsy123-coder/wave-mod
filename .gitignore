@@ -47,6 +47,11 @@ yarn-error.log*
 # generated audit artifact (delete after review)
 /preview-audit.html
 
+# 临时审计/探测目录：一次性排查脚本 + GameBanana ZZZ 汉化管线的工作数据
+# （profile/ 1500 个提交、pages/ 672 页等，约 2400 个文件 / 43MB）。都不入库，
+# 否则每次 git status 都多出两千多条未跟踪文件。
+/.tmp-audit/
+
 # downloaded offline mod images (blur & re-upload work)
 /offline-blur-src/
 
