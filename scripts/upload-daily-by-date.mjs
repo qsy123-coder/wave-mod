@@ -196,6 +196,12 @@ const UI_PREFIXES = ["索拉指南"];
  * ⇒ 默认分支的 `key.split(/[-－]/)[0]` 会把整串当角色名，
  * 前台凭空多出「RabbitFX反虚化+发光前置v8.3.2(内附说明）」这个分类。
  *
+ * 「鼠标指针」是从老上传器 upload-fifth.mjs 的 `UI_MISC_PREFIXES` 漏搬的一条：
+ * 库内 10 条同系列记录（`鼠标指针-赞妮弗洛洛尤诺一体化v1.05/v1.1/v1.15/v1.8.1/
+ * v1.8.2`、`鼠标指针-赞妮`、`鼠标指针-弗洛洛`、`鼠标指针-尤诺` 等，2026-08-10 与
+ * 2026-09-03 两批）全部存在这个 bucket 原文下。2026-10-05 的 v1.8.8 是切到本脚本后
+ * 第一次撞上该前缀，不拦就会凭空造出新分类「鼠标指针」。
+ *
  * 为什么写这串原文、而不是直接写 `UI`：去重键是 `character|title`，而库内 21 条同
  * bucket 的记录（2026-09-03 批次，`去角色轮廓v3.6` 本体就在其中）存的正是这串原文——
  * 前台 getAvailableCharacters / applyModQueryFilters 都会过 normalizeCharacterName
@@ -205,7 +211,7 @@ const UI_PREFIXES = ["索拉指南"];
  * normalizeCharacterName 认不出的新值，前台凭空多一个角色分类。
  */
 const EFFECT_BUCKET = "反虚化，ui界面，场景，葫芦，特效等";
-const EFFECT_BUCKET_PREFIXES = ["去角色轮廓", "去葫芦和葫芦光", "RabbitFX反虚化"];
+const EFFECT_BUCKET_PREFIXES = ["去角色轮廓", "去葫芦和葫芦光", "RabbitFX反虚化", "鼠标指针"];
 
 /**
  * 「爱弥斯的机甲」「爱弥斯大招」整包 → 独立分类「爱弥斯的机甲」，**title 保留完整 key**。
