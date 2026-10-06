@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import { defaultGameKey } from "@/config/games";
 import { defaultCharacterSuggestions } from "@/lib/constants/characters";
 import { logger } from "@/lib/logger";
+import { readEngagement } from "@/lib/engagement/store";
 import { modCacheTags } from "@/lib/mod-cache";
 import { mapMod, publicModColumns, publicModDetailColumns } from "@/lib/mods-domain/mappers";
 import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
@@ -245,6 +246,37 @@ export async function getCharacterSuggestions(gameKey = defaultGameKey) {
 export type PublicModsOptions = { relaxQuery?: boolean };
 
 /**
+ * 用互动计数器的**实时值**覆盖 views / likes / favorites。
+ *
+ * 为什么非做不可：这三个字段的 Supabase 列**早已没有写入方** —— 点赞、收藏、浏览
+ * 都改走 `src/lib/engagement` 的本地计数器了（`like-actions` / `favorite-actions`
+ * 在组件里零引用，`/api/mods/[id]/view` 也没有调用方）。而热度公式仍在读那几列，
+ * 于是卡片上用 `useEngagementCounts` 渲染的是实时值、排序用的却是冻结在基线导入那天
+ * （2026-10-02）的旧值 —— 前台「浏览 200+ 却排在后面」就是这么来的。
+ *
+ * downloads / comments / rating 三列由 Supabase 正常写入（下载路由、评论、评分），
+ * 是活的，**不要**在这里覆盖。
+ *
+ * 必须返回**新对象**：入参是 `unstable_cache` 里缓存的那一份，就地改会污染缓存
+ * （见 loadPublicMods 里那段「均不修改入参」的注释）。
+ */
+function withLiveEngagement(mods: SiteMod[]): SiteMod[] {
+  if (mods.length === 0) return mods;
+
+  // deviceId 传空：排序只需要计数，不需要「我有没有赞过」
+  const { counts } = readEngagement(
+    mods.map((mod) => mod.id),
+    "",
+  );
+
+  return mods.map((mod) => {
+    const live = counts[mod.id];
+    if (!live) return mod;
+    return { ...mod, favorites: live.favorites, likes: live.likes, views: live.views };
+  });
+}
+
+/**
  * 公开读的**唯一**收口：拉整表 → 筛选 → 相关度重排 → 用户排序。
  *
  * 抽出来是为了让 `getPublicMods` 与 `getPublicModsPage` 共用同一趟整表扫描：
@@ -271,7 +303,13 @@ async function loadPublicMods(
   // 用 slice().sort()，均不修改入参，因此可以安全复用缓存里的领域对象。
   // mapMod 已在 getCachedModShard 内做过，这里不再重复映射。
   const filtered = applyModQueryFilters(allMods, filters, options);
-  const sortedMods = sort === "hot" ? sortModsByHot(filtered.mods) : applyModSort(sort)(filtered.mods);
+
+  // hot 与 favorites 这两种排序读的正是 views/likes/favorites 那三个死列（见 withLiveEngagement），
+  // 排序前必须换成实时值，否则「热度榜」和「收藏榜」都建立在冻结的数字上。
+  // 其余排序（default / latest / rating）不读这三列，跳过以免白付一次全表覆盖。
+  const sortInput =
+    sort === "hot" || sort === "favorites" ? withLiveEngagement(filtered.mods) : filtered.mods;
+  const sortedMods = sort === "hot" ? sortModsByHot(sortInput) : applyModSort(sort)(sortInput);
 
   /**
    * 相关度是**主**排序键、用户选的 sort 是**次**键。

@@ -7,8 +7,20 @@ import type { ModSort, PublicModsFilters, SiteMod } from "@/lib/mods-domain/type
 export const modIdSchema = z.uuid();
 export const modSortSchema = z.enum(["default", "latest", "favorites", "rating", "hot"]);
 
+/**
+ * 热度 = 人气（浏览/收藏/点赞）+ 参与（下载/评论）+ 质量（评分）。
+ *
+ * 浏览权重 0.5 是**按线上真实分布定的**，不是拍的（2026-10-06）：修好数据源之后量了一轮
+ * 实时计数，浏览量级是 0~400，而收藏/下载/评分的上限都只有 5 —— 于是 ratingAverage*18
+ * 一次满分就是 90 分，比全站浏览之最（408×0.08 = 32.6）还高，榜单实际退化成了评分榜。
+ * 取 0.5 后全站浏览之最得 204 分居首，而一个满分评价（90 分）仍足以把 mod 顶到第 2。
+ *
+ * ⚠️ 入参的 views / likes / favorites 必须是**实时值** —— 它们那三个 Supabase 列早已没有
+ * 写入方，直接读会拿到冻结在 2026-10-02 的旧数。公开读路径由 loadPublicMods 的
+ * withLiveEngagement 在排序前覆盖（见 mods-domain/public.ts）。
+ */
 export function calculateHotScore(mod: Pick<SiteMod, "views" | "downloads" | "favorites" | "likes" | "commentsCount" | "ratingCount" | "ratingAverage">) {
-  return mod.views * 0.08 + mod.downloads * 5 + mod.favorites * 4 + mod.likes * 3 + mod.commentsCount * 5 + mod.ratingCount * 2 + mod.ratingAverage * 18;
+  return mod.views * 0.5 + mod.downloads * 5 + mod.favorites * 4 + mod.likes * 3 + mod.commentsCount * 5 + mod.ratingCount * 2 + mod.ratingAverage * 18;
 }
 
 export function applyModSort(sort: Exclude<ModSort, "hot">) {

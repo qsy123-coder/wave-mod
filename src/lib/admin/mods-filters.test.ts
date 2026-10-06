@@ -221,13 +221,15 @@ describe("applyAdminModsView", () => {
     expect(result[0].id).toBe("a");
   });
 
-  it("hot sort weights downloads over views", () => {
+  it("hot sort：一次下载仍重于十次浏览（浏览权重 0.08 → 0.5 之后）", () => {
     const hotMods = makeMods([
-      { id: "high-dl", downloads: 1000, views: 100, createdAt: new Date("2026-01-01").toISOString() },
-      { id: "high-view", downloads: 10, views: 10000, createdAt: new Date("2026-01-01").toISOString() },
+      { id: "high-dl", downloads: 100, views: 0, createdAt: new Date("2026-01-01").toISOString() },
+      { id: "high-view", downloads: 0, views: 900, createdAt: new Date("2026-01-01").toISOString() },
     ]);
     const result = applyAdminModsView(hotMods, { sort: "hot" });
-    // downloads*5=5000 >> views*0.08=800 → high-dl should rank first
+    // 下载 5 分/次、浏览 0.5 分/次 ⇒ 1 次下载 = 10 次浏览。
+    // high-dl = 100*5 = 500；high-view = 900*0.5 = 450 ⇒ 下载方仍然胜，
+    // 但比例已从原来的一次下载顶 62 次浏览收窄到 10 次（见 calculateHotScore 的注释）。
     expect(result[0].id).toBe("high-dl");
   });
 
