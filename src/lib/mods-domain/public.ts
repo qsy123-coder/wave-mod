@@ -251,8 +251,11 @@ export type PublicModsOptions = { relaxQuery?: boolean };
  * 为什么非做不可：这三个字段的 Supabase 列**早已没有写入方** —— 点赞、收藏、浏览
  * 都改走 `src/lib/engagement` 的本地计数器了（`like-actions` / `favorite-actions`
  * 在组件里零引用，`/api/mods/[id]/view` 也没有调用方）。而热度公式仍在读那几列，
- * 于是卡片上用 `useEngagementCounts` 渲染的是实时值、排序用的却是冻结在基线导入那天
+ * 于是卡片上用 `useEngagement` 渲染的是实时值、排序用的却是冻结在基线导入那天
  * （2026-10-02）的旧值 —— 前台「浏览 200+ 却排在后面」就是这么来的。
+ *
+ * 顺带的好处：覆盖之后 SSR 出来的 `views` 就是实时值，卡片首屏不再先显示冻结的旧数
+ * 再等客户端拉到新值 —— `useEngagement` 是**替换**语义（不是叠加），所以不会双计。
  *
  * downloads / comments / rating 三列由 Supabase 正常写入（下载路由、评论、评分），
  * 是活的，**不要**在这里覆盖。
