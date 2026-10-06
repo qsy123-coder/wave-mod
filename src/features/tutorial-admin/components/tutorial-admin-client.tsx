@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Pencil, Database, Video } from "lucide-react";
 import COS from "cos-js-sdk-v5";
 
+import { COS_IMAGE_CACHE_CONTROL } from "@/lib/cos/shared";
 import { TutorialTabs } from "@/features/tutorial/components/tutorial-tabs";
 import { VideoHintBanner } from "@/features/tutorial/components/video-hint-banner";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -464,6 +465,7 @@ export function TutorialAdminClient({
                 Region: signData.region,
                 Key: signData.objectKey,
                 Body: uploadFile,
+                CacheControl: COS_IMAGE_CACHE_CONTROL,
               },
               (err, data) => {
                 if (err) {
@@ -543,6 +545,7 @@ export function TutorialAdminClient({
               Region: signData.region,
               Key: signData.objectKey,
               Body: file,
+              CacheControl: COS_IMAGE_CACHE_CONTROL,
             },
             (err, data) => {
               if (err) {

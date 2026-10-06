@@ -245,6 +245,11 @@ if (!cosSecretId || !cosSecretKey || !cosBucket || !cosRegion) {
 }
 const cos = new COS({ SecretId: cosSecretId, SecretKey: cosSecretKey });
 
+// 预览图缓存策略。**必须与 src/lib/cos/shared.ts 的 COS_IMAGE_CACHE_CONTROL 保持一致**
+// （脚本不能 import TS，只能复制）。改一边就要改两边。
+// 不用 immutable：键无内容哈希、换图原地覆盖，永久缓存会让换掉的图刷不出来。
+const IMAGE_CACHE_CONTROL = "public, max-age=604800, stale-while-revalidate=86400";
+
 function buildCosUrl(objectKey) {
   return `https://${cosBucket}.cos.${cosRegion}.myqcloud.com/${objectKey}`;
 }
@@ -252,7 +257,14 @@ function buildCosUrl(objectKey) {
 function uploadToCos(objectKey, body, contentType) {
   return new Promise((resolvePromise, rejectPromise) => {
     cos.putObject(
-      { Bucket: cosBucket, Region: cosRegion, Key: objectKey, Body: body, ContentType: contentType },
+      {
+        Bucket: cosBucket,
+        Region: cosRegion,
+        Key: objectKey,
+        Body: body,
+        ContentType: contentType,
+        CacheControl: IMAGE_CACHE_CONTROL,
+      },
       (err, data) => {
         if (err) rejectPromise(new Error(`COS 上传失败: ${err.message}`));
         else resolvePromise(data);

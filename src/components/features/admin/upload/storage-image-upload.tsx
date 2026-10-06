@@ -14,6 +14,7 @@ import {
   formatStorageFileSize,
 } from "@/lib/storage/shared";
 import {
+  COS_IMAGE_CACHE_CONTROL,
   COS_IMAGE_CONTENT_TYPES,
   COS_MAX_IMAGE_BYTES,
   formatCosFileSize,
@@ -143,6 +144,7 @@ function uploadToCos(file: File, sign: CosSignResult, onProgress?: (pct: number)
         Region: sign.region,
         Key: sign.objectKey,
         Body: file,
+        CacheControl: COS_IMAGE_CACHE_CONTROL,
         onProgress: (info) => {
           if (onProgress && info.total > 0) {
             onProgress(Math.round((info.loaded / info.total) * 100));

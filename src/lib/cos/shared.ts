@@ -6,6 +6,19 @@ export const COS_IMAGE_CONTENT_TYPES = ["image/png", "image/jpeg", "image/webp",
 export const COS_STS_DURATION_SECONDS = 1800;
 
 /**
+ * 图片对象的缓存策略。**故意不用 immutable**：对象键没有内容哈希，换图是原地覆盖
+ * 同一个键（见 scripts/reupload-mod-image.mjs），永久缓存会让换掉的图再也刷不出来。
+ * 与 next.config.ts 里 character-imgs 的策略一致，也对应 docs/mods-image-optimization-prd.md:148。
+ *
+ * 一周 + 一天 stale-while-revalidate：正常浏览完全命中缓存，换图一周内自然过期；
+ * 过期后也是先返回缓存、后台校验，用户侧看不到延迟。
+ *
+ * 通过 STS 直传的脚本无法 import TS，在 scripts/upload-daily-by-date.mjs 里复制了一份，
+ * 改这里要同步改那边。
+ */
+export const COS_IMAGE_CACHE_CONTROL = "public, max-age=604800, stale-while-revalidate=86400";
+
+/**
  * 构建 COS 公开访问 URL。
  * 格式：https://{bucket}.cos.{region}.myqcloud.com/{objectKey}
  */
