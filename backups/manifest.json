@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-06T09:39:05.045Z",
+  "generatedAt": "2026-10-07T09:35:07.830Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,10 +8,10 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20261006-093817.dump",
-    "sha256": "ac9e9db63e7864adca0040c9fb8a97304ac30d7e99501a5556f72d52c2678856",
-    "sizeBytes": 847557,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261006-093817",
+    "file": "db/wavemod-20261007-093405.dump",
+    "sha256": "f605c0effb1f6e91e65018f16ceafc6f86cf55b75affa84603e9f130fb78a932",
+    "sizeBytes": 848592,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261007-093405",
     "tableCounts": {
       "mods": null,
       "profiles": null,
@@ -28,15 +28,15 @@
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5405,
+    "publishedRows": 5414,
     "refreshedThisRun": true,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 5620,
-    "totalBytes": 363777240,
-    "downloadedThisRun": 13,
+    "remoteCount": 5629,
+    "totalBytes": 364155714,
+    "downloadedThisRun": 9,
     "failedThisRun": 1,
     "failures": [
       {
@@ -6501,6 +6501,12 @@
         "file": "images/mods/ui/47c52b46-95b6-4871-915f-75baeb025c34/preview.webp",
         "size": 17910,
         "etag": "\"dc50ea2f0d947fc3abc98105c48620d6\""
+      },
+      {
+        "key": "mods/ui/4863ec72-8a15-47d4-a99a-b499c8fd10b0/preview.webp",
+        "file": "images/mods/ui/4863ec72-8a15-47d4-a99a-b499c8fd10b0/preview.webp",
+        "size": 51352,
+        "etag": "\"a86e9b741135e650fa82496dd1894795\""
       },
       {
         "key": "mods/ui/50eb0824-eb02-4134-9460-52834d3b5f62/preview.webp",
@@ -17117,10 +17123,22 @@
         "etag": "\"b80df5320df20d480c669b490a2e978b\""
       },
       {
+        "key": "mods/心月狐/3a466d88-67ef-437a-b960-d6c6bec935a6/preview.webp",
+        "file": "images/mods/心月狐/3a466d88-67ef-437a-b960-d6c6bec935a6/preview.webp",
+        "size": 45830,
+        "etag": "\"8fbd3dbf8730c488a66662ce32321829\""
+      },
+      {
         "key": "mods/心月狐/3d4bf011-7f9e-4edb-a848-1d766667ffcd/preview.webp",
         "file": "images/mods/心月狐/3d4bf011-7f9e-4edb-a848-1d766667ffcd/preview.webp",
         "size": 53516,
         "etag": "\"a071649d8105fc882c9a755de93d5dd3\""
+      },
+      {
+        "key": "mods/心月狐/443d276d-efc5-4c72-8838-188b406d3351/preview.webp",
+        "file": "images/mods/心月狐/443d276d-efc5-4c72-8838-188b406d3351/preview.webp",
+        "size": 42500,
+        "etag": "\"43b274f1d32afefdab81b5cbe666097e\""
       },
       {
         "key": "mods/心月狐/45984e84-8d3d-4867-bd07-374c4ccb48dc/preview.webp",
@@ -17133,6 +17151,12 @@
         "file": "images/mods/心月狐/491d6f08-fd44-4347-96f9-c5131fb11a90/preview.webp",
         "size": 44290,
         "etag": "\"1b050df8a019b7fc68a079444cb5f16f\""
+      },
+      {
+        "key": "mods/心月狐/52c4b3cb-3dc5-4ad6-9ef6-5c1c73a7a140/preview.webp",
+        "file": "images/mods/心月狐/52c4b3cb-3dc5-4ad6-9ef6-5c1c73a7a140/preview.webp",
+        "size": 41860,
+        "etag": "\"3d0e11c55f1d86c2882573757cfd3bf0\""
       },
       {
         "key": "mods/心月狐/5d862c20-3369-4a2a-a88c-64cc8db2460c/preview.webp",
@@ -17183,10 +17207,22 @@
         "etag": "\"8b2e86263c8ee6631c8d0c46ead105af\""
       },
       {
+        "key": "mods/心月狐/807957ce-528e-4605-a584-8f2ed2070cc0/preview.webp",
+        "file": "images/mods/心月狐/807957ce-528e-4605-a584-8f2ed2070cc0/preview.webp",
+        "size": 39910,
+        "etag": "\"bdef7d2bf6502f19de57c10f3ef5b7f6\""
+      },
+      {
         "key": "mods/心月狐/81858664-6b11-4445-b3f7-7b9c304fe6aa/preview.webp",
         "file": "images/mods/心月狐/81858664-6b11-4445-b3f7-7b9c304fe6aa/preview.webp",
         "size": 45792,
         "etag": "\"dd9b5fd666713d2b3421d115e43a8668\""
+      },
+      {
+        "key": "mods/心月狐/87aa966f-376c-4a95-8588-cfeaa940cb70/preview.webp",
+        "file": "images/mods/心月狐/87aa966f-376c-4a95-8588-cfeaa940cb70/preview.webp",
+        "size": 47014,
+        "etag": "\"184b6e19762e67ae8522e933122d9643\""
       },
       {
         "key": "mods/心月狐/8a63ec72-3fbf-47c0-95e3-ee61d382bb96/preview.webp",
@@ -17217,6 +17253,12 @@
         "file": "images/mods/心月狐/b059ced1-70ae-4246-962d-9c0d1ec23828/preview.webp",
         "size": 45800,
         "etag": "\"158e270ff364b53be41a0ac2e5779f2c\""
+      },
+      {
+        "key": "mods/心月狐/bd0fa1ef-a66c-4f0e-b223-e5e5ebe1c661/preview.webp",
+        "file": "images/mods/心月狐/bd0fa1ef-a66c-4f0e-b223-e5e5ebe1c661/preview.webp",
+        "size": 45488,
+        "etag": "\"a8a94d6aa63f29e84dcea95f77a55f96\""
       },
       {
         "key": "mods/心月狐/d4f09fe3-e215-4603-9510-4bc253f7ddb0/preview.webp",
@@ -19623,6 +19665,12 @@
         "file": "images/mods/滑翔翼-翱翔翼-科考摩托/0286500b-e947-4fe6-b022-5b430d2fc365/preview.webp",
         "size": 16290,
         "etag": "\"32a4384aae4fbf27957a118314aa6887\""
+      },
+      {
+        "key": "mods/滑翔翼-翱翔翼-科考摩托/03995eaa-b665-48c7-a2d1-e4922739c858/preview.webp",
+        "file": "images/mods/滑翔翼-翱翔翼-科考摩托/03995eaa-b665-48c7-a2d1-e4922739c858/preview.webp",
+        "size": 36360,
+        "etag": "\"0428c6e9b2e6a447162260b929a9ee59\""
       },
       {
         "key": "mods/滑翔翼-翱翔翼-科考摩托/04e5fad9-83cb-42c4-a40e-0676cb4a7487/preview.webp",
@@ -23967,6 +24015,12 @@
         "file": "images/mods/男漂/90ee724e-ed59-494c-a464-04e71a158eed/preview.webp",
         "size": 27078,
         "etag": "\"02f2891269636175777695a463b92378\""
+      },
+      {
+        "key": "mods/男漂/93db2639-8404-4118-b3f3-8baea515958f/preview.webp",
+        "file": "images/mods/男漂/93db2639-8404-4118-b3f3-8baea515958f/preview.webp",
+        "size": 28160,
+        "etag": "\"7375912fdd3877cb489b90400ec46b55\""
       },
       {
         "key": "mods/男漂/991a42bb-4263-447b-8b61-0d360a797b45/preview.webp",
