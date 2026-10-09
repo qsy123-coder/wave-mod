@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-08T09:45:47.592Z",
+  "generatedAt": "2026-10-09T09:50:51.336Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,10 +8,10 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20261008-094508.dump",
-    "sha256": "49d76a8003c86ba64358d1a4cdf3b81df54dcc566ff10554d8eda456010a8c00",
-    "sizeBytes": 849659,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261008-094508",
+    "file": "db/wavemod-20261009-095005.dump",
+    "sha256": "3069fb25705157e13ba01c6ccc69ef33addd836ef6c6f6657a099a4966d6dc02",
+    "sizeBytes": 850626,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261009-095005",
     "tableCounts": {
       "mods": null,
       "profiles": null,
@@ -28,14 +28,14 @@
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5422,
+    "publishedRows": 5429,
     "refreshedThisRun": true,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 5637,
-    "totalBytes": 364546420,
+    "remoteCount": 5645,
+    "totalBytes": 364959058,
     "downloadedThisRun": 8,
     "failedThisRun": 1,
     "failures": [
@@ -8031,6 +8031,12 @@
         "file": "images/mods/今汐/f461993c-589e-4d85-84bd-7d9fbb90a632/preview.webp",
         "size": 32386,
         "etag": "\"1712694173f7dab9b8945b5be2e724e7\""
+      },
+      {
+        "key": "mods/全女角色抽卡界面/44d9a9a5-7584-4999-824a-882a54033e3d/preview.webp",
+        "file": "images/mods/全女角色抽卡界面/44d9a9a5-7584-4999-824a-882a54033e3d/preview.webp",
+        "size": 84118,
+        "etag": "\"25db7dc10f98436a1e3f208b42d610b3\""
       },
       {
         "key": "mods/凌阳/034488c8-b88a-42cd-91c8-ae4ad7f636ca/preview.webp",
@@ -17057,6 +17063,12 @@
         "etag": "\"313d2aa6567c256d46109e4bdf207e6a\""
       },
       {
+        "key": "mods/心-含大招/2d456b9b-31f8-4fba-9987-6cd6bcb215c0/preview.webp",
+        "file": "images/mods/心-含大招/2d456b9b-31f8-4fba-9987-6cd6bcb215c0/preview.webp",
+        "size": 43414,
+        "etag": "\"3bcecb6c08c0d28b592d2e763a93bce1\""
+      },
+      {
         "key": "mods/心月狐/00d05426-947f-42fa-8a45-63e7cad6bb6d/preview.webp",
         "file": "images/mods/心月狐/00d05426-947f-42fa-8a45-63e7cad6bb6d/preview.webp",
         "size": 39282,
@@ -17207,6 +17219,12 @@
         "etag": "\"fa368f4013219bc464a5b5f1c0c3f2bc\""
       },
       {
+        "key": "mods/心月狐/62049cd6-c4ec-498d-be9c-9d4e8bcd533c/preview.webp",
+        "file": "images/mods/心月狐/62049cd6-c4ec-498d-be9c-9d4e8bcd533c/preview.webp",
+        "size": 55988,
+        "etag": "\"b8325045bdbd1afd10157b60e16edcba\""
+      },
+      {
         "key": "mods/心月狐/63876a94-5644-4e16-88ee-266246f90f33/preview.webp",
         "file": "images/mods/心月狐/63876a94-5644-4e16-88ee-266246f90f33/preview.webp",
         "size": 36122,
@@ -17319,6 +17337,12 @@
         "file": "images/mods/心月狐/e5e8005c-2993-445a-824a-0a62ed922101/preview.webp",
         "size": 45190,
         "etag": "\"ff5f5dcd695bfb5f82785524101a631e\""
+      },
+      {
+        "key": "mods/心月狐/e7e50162-6902-4c80-9675-a85788420dff/preview.webp",
+        "file": "images/mods/心月狐/e7e50162-6902-4c80-9675-a85788420dff/preview.webp",
+        "size": 35130,
+        "etag": "\"84e6ad78018a0a9ffcc117c33a1f26e6\""
       },
       {
         "key": "mods/心月狐/e8e3112f-7a3c-4198-b714-078f9d233896/preview.webp",
@@ -19445,6 +19469,12 @@
         "etag": "\"4a95241d24379304cd0d37868979c66f\""
       },
       {
+        "key": "mods/清宵/bd33e8cc-2a4a-4222-a0a7-1ac9746ab718/preview.webp",
+        "file": "images/mods/清宵/bd33e8cc-2a4a-4222-a0a7-1ac9746ab718/preview.webp",
+        "size": 38664,
+        "etag": "\"687df182ee58fd3d151360c23790d838\""
+      },
+      {
         "key": "mods/清宵/bd50b8d8-4de1-49d4-899e-7a902ae49f48/preview.webp",
         "file": "images/mods/清宵/bd50b8d8-4de1-49d4-899e-7a902ae49f48/preview.webp",
         "size": 31566,
@@ -21315,6 +21345,12 @@
         "file": "images/mods/爱弥斯/dad91524-10a7-4cbc-a871-f4076c223a66/preview.webp",
         "size": 31598,
         "etag": "\"dfea5b76f36a282e40d5ad1ad25b148d\""
+      },
+      {
+        "key": "mods/爱弥斯/de8e6036-3d8a-4c19-b60e-155c642a94d4/preview.webp",
+        "file": "images/mods/爱弥斯/de8e6036-3d8a-4c19-b60e-155c642a94d4/preview.webp",
+        "size": 32900,
+        "etag": "\"35ec4766724e28a96176ef51e8071b29\""
       },
       {
         "key": "mods/爱弥斯/e2ebc566-d670-4bd4-ad0f-4dd96c6500c3/preview.webp",
@@ -32447,6 +32483,12 @@
         "etag": "\"40e25eaaf0e4404c109dc10fafdb9371\""
       },
       {
+        "key": "mods/隐藏心的红方块和清宵飞剑/d70d9471-c8ee-4951-ab92-da37a2ecb39f/preview.webp",
+        "file": "images/mods/隐藏心的红方块和清宵飞剑/d70d9471-c8ee-4951-ab92-da37a2ecb39f/preview.webp",
+        "size": 46392,
+        "etag": "\"c53f35facc5d7de112b9b8d01945ede8\""
+      },
+      {
         "key": "mods/露帕/007bdf26-f810-43b0-94dd-49f809a19ca9/preview.webp",
         "file": "images/mods/露帕/007bdf26-f810-43b0-94dd-49f809a19ca9/preview.webp",
         "size": 29012,
@@ -33867,6 +33909,12 @@
         "file": "images/tutorial/companion/3/poster.webp",
         "size": 130326,
         "etag": "\"b69ab604cd7b8f21ddaafb4d1a6eec71\""
+      },
+      {
+        "key": "tutorial/companion/4/poster.webp",
+        "file": "images/tutorial/companion/4/poster.webp",
+        "size": 76032,
+        "etag": "\"47e37fd88323d544be8b315d8e12c93a\""
       }
     ]
   }
