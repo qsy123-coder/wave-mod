@@ -40,8 +40,7 @@ import { dollarQuote, psqlJson } from "./psql-db.mjs";
 config({ path: resolve(process.cwd(), ".env"), override: true, quiet: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true, quiet: true });
 
-/** 目标版本：前台 /guide 实际展示的就是 v（新版教程，is_default=true） */
-const TARGET_VERSION_ID = "v";
+/** 目标状态：写 published。draft 不在前台展示，写了也不生效 */
 const TARGET_STATUS = "published";
 
 /** 长缓存：键带版本号、内容不覆盖，所以可以当 immutable 用 */
@@ -94,6 +93,25 @@ const videoUrl = buildCosUrl(videoKey);
 const posterUrl = buildCosUrl(posterKey);
 
 const mb = (n) => `${(n / 1024 / 1024).toFixed(2)}MB`;
+
+/**
+ * 解析该把视频写给哪个版本：**库里的 is_visible + is_default 那个**，
+ * 也就是前台 /guide 实际渲染的版本。
+ *
+ * 这里以前硬编码 'v'。后来「启动器更新后」(launcher-update) 顶掉它成为默认版本，
+ * 硬编码就把新视频写进了**没人看的**下架版本 —— 前台照旧放旧视频，而脚本报「写入成功」。
+ * 和 sync-tutorial-fallback.mjs 是同一个坑、同一个解法：从库里解析，别写死。
+ */
+async function resolveDefaultVersionId() {
+  const row = await psqlJson(
+    `select json_build_object('id', (
+       select id from public.tutorial_versions
+        where is_visible and is_default
+        order by sort_order, id limit 1
+     ))::text;`,
+  );
+  return row?.id ?? null;
+}
 
 console.log("=== 图文教程配套视频 ===");
 console.log(`  版本段      ${version}`);
@@ -163,6 +181,13 @@ if (skipDb) {
   console.log(`  video_src    = ${videoUrl}`);
   console.log(`  video_poster = ${posterUrl}`);
 } else {
+  const targetVersionId = await resolveDefaultVersionId();
+  if (!targetVersionId) {
+    console.error("\n❌ 库里找不到 is_visible + is_default 的版本，不知道该把这套视频写给谁");
+    process.exit(1);
+  }
+  console.log(`\n目标版本：${targetVersionId}:${TARGET_STATUS}`);
+
   // 多语句 SQL，末尾产出一条 JSON 供 psqlJson 解析并回读校验。
   // 带 where 的 update：版本/状态不存在时 row_count 为 0，下面会据此报错，不会静默成功。
   const sql = `
@@ -170,22 +195,22 @@ update public.tutorial_configs
    set video_src    = ${dollarQuote(videoUrl)},
        video_poster = ${dollarQuote(posterUrl)},
        updated_at   = now()
- where version_id = ${dollarQuote(TARGET_VERSION_ID)}
+ where version_id = ${dollarQuote(targetVersionId)}
    and status     = ${dollarQuote(TARGET_STATUS)};
 
 select json_build_object(
   'row_count',       (select count(*) from public.tutorial_configs
-                       where version_id = ${dollarQuote(TARGET_VERSION_ID)}
+                       where version_id = ${dollarQuote(targetVersionId)}
                          and status = ${dollarQuote(TARGET_STATUS)}),
   'updated_rows',    (select count(*) from public.tutorial_configs
-                       where version_id = ${dollarQuote(TARGET_VERSION_ID)}
+                       where version_id = ${dollarQuote(targetVersionId)}
                          and status = ${dollarQuote(TARGET_STATUS)}
                          and video_src = ${dollarQuote(videoUrl)}),
   'video_src',       (select video_src from public.tutorial_configs
-                       where version_id = ${dollarQuote(TARGET_VERSION_ID)}
+                       where version_id = ${dollarQuote(targetVersionId)}
                          and status = ${dollarQuote(TARGET_STATUS)}),
   'video_poster',    (select video_poster from public.tutorial_configs
-                       where version_id = ${dollarQuote(TARGET_VERSION_ID)}
+                       where version_id = ${dollarQuote(targetVersionId)}
                          and status = ${dollarQuote(TARGET_STATUS)})
 )::text;
 `;
@@ -194,11 +219,11 @@ select json_build_object(
 
   if (!result || result.updated_rows !== 1) {
     console.error(`\n❌ 写库未生效：匹配到 ${result?.row_count ?? 0} 行、成功写入 ${result?.updated_rows ?? 0} 行`);
-    console.error(`   目标 ${TARGET_VERSION_ID}:${TARGET_STATUS} 是否存在于 tutorial_configs？`);
+    console.error(`   目标 ${targetVersionId}:${TARGET_STATUS} 是否存在于 tutorial_configs？`);
     process.exit(1);
   }
 
-  console.log(`\n✅ 已写入 tutorial_configs（${TARGET_VERSION_ID}:${TARGET_STATUS}）`);
+  console.log(`\n✅ 已写入 tutorial_configs（${targetVersionId}:${TARGET_STATUS}）`);
   console.log(`  video_src    = ${result.video_src}`);
   console.log(`  video_poster = ${result.video_poster}`);
 }
