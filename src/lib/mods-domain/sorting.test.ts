@@ -11,6 +11,7 @@ import {
   parseModSort,
   rankModsByQuery,
   looseSplitQuery,
+  normalizeCharacterName,
   sortModsByHot,
 } from "./sorting";
 import type { SiteMod } from "./types";
@@ -374,5 +375,27 @@ describe("搜索拆词：让放宽对中文连写生效", () => {
 
     expect(result.mods).toEqual([]);
     expect(result.relaxed).toBe(false);
+  });
+});
+
+describe("角色名归一：括号形状不影响别名匹配", () => {
+  it("裸「心」写 心月狐（2026-10-02 起的既有行为）", () => {
+    expect(normalizeCharacterName("心")).toBe("心月狐");
+  });
+
+  it("「心(含大招)」四种括号写法全部归 心月狐", () => {
+    // 2026-10-09 只加了全角两端的那条；10-10 的文件名换成半角与混排，
+    // 逐条补追不上 ⇒ 改成折叠。四种组合都必须命中。
+    expect(normalizeCharacterName("心(含大招)")).toBe("心月狐"); // 半角两端 U+0028/U+0029
+    expect(normalizeCharacterName("心（含大招）")).toBe("心月狐"); // 全角两端 U+FF08/U+FF09
+    expect(normalizeCharacterName("心(含大招）")).toBe("心月狐"); // 半角开 + 全角闭
+    expect(normalizeCharacterName("心（含大招)")).toBe("心月狐"); // 全角开 + 半角闭
+  });
+
+  it("折叠只作用于别名查表，认不出的名字原样返回（不误伤）", () => {
+    expect(normalizeCharacterName("今汐")).toBe("今汐");
+    expect(normalizeCharacterName("鉴心")).toBe("鉴心");
+    // 含括号但不该被归一的名字，不能被折叠改写成半角形式
+    expect(normalizeCharacterName("某某（皮肤）")).toBe("某某（皮肤）");
   });
 });

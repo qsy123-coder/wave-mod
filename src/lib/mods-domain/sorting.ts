@@ -386,6 +386,16 @@ export function parseModFlag(value: string | undefined): boolean {
   return normalized === "1" || normalized === "true";
 }
 
+/**
+ * 全角/半角括号折叠：「心(含大招)」「心（含大招）」「心(含大招）」写的是同一个前缀，
+ * 只是括号形状不同。别名表只登记半角 canonical 形式，查表前先折叠一次 ——
+ * 2026-10-09 逐条补过一条全角别名，10-10 又冒出半角与混排写法，追不上，改成折叠。
+ * 与 scripts/upload-daily-by-date.mjs 的同名函数保持一致。
+ */
+function canonicalizeParens(value: string) {
+  return value.replace(/（/g, "(").replace(/）/g, ")");
+}
+
 export function normalizeCharacterName(value: string) {
   // 角色名别名映射：规范化数据库中的变体名到标准名
   const CHARACTER_ALIASES: Record<string, string> = {
@@ -396,9 +406,13 @@ export function normalizeCharacterName(value: string) {
     // 文件名常用简称「心-」写 心月狐（2026-10-02 批次，预览图确认同一角色）。
     // 与 scripts/upload-daily-by-date.mjs 的 CHARACTER_ALIASES 同步。
     "心": "心月狐",
+    // 「心(含大招)-…」（2026-10-09 起）落默认分支留下的变体：前缀写成了「心(含大招)」
+    // 而非裸「心」，全等别名匹配不到 ⇒ 前台多出假分类。与「心-大招状态-…」是同一角色
+    // 的同一套东西，归一回去。括号形状有全角/半角/混排多种写法，由 canonicalizeParens 折叠。
+    "心(含大招)": "心月狐",
   };
   const trimmed = value.trim();
-  return CHARACTER_ALIASES[trimmed] ?? trimmed;
+  return CHARACTER_ALIASES[trimmed] ?? CHARACTER_ALIASES[canonicalizeParens(trimmed)] ?? trimmed;
 }
 
 export function isMissingTableError(message: string) {
