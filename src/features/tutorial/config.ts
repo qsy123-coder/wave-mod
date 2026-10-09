@@ -19,7 +19,7 @@ const rawConfig: TutorialConfig = {
   title: "启动器更新后教程",
   subtitle: "先看我",
   imageBasePath: "/tutorial/",
-  video: { src: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/companion/3/tutorial.mp4", poster: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/companion/3/poster.webp" },
+  video: { src: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/companion/4/tutorial.mp4", poster: "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/tutorial/companion/4/poster.webp" },
   chapters: [
 
   ],
