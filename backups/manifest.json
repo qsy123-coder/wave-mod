@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-09T09:50:51.336Z",
+  "generatedAt": "2026-10-10T09:14:57.933Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,35 +8,35 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20261009-095005.dump",
-    "sha256": "3069fb25705157e13ba01c6ccc69ef33addd836ef6c6f6657a099a4966d6dc02",
-    "sizeBytes": 850626,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261009-095005",
+    "file": "db/wavemod-20261010-091415.dump",
+    "sha256": "0e6f0d9db0a2e65a6e6f5d87b61fffd70809304fa5a5ac092387ff82aef7a310",
+    "sizeBytes": 851382,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261010-091415",
     "tableCounts": {
-      "mods": null,
-      "profiles": null,
-      "favorites": null,
-      "likes": null,
-      "comments": null,
-      "comment_reactions": null,
-      "ratings": null,
-      "tutorial_configs": null,
-      "tutorial_chapters": null,
-      "tutorial_images": null,
-      "tutorial_tools": null
+      "mods": 5434,
+      "profiles": 122,
+      "favorites": 34,
+      "likes": 10,
+      "comments": 0,
+      "comment_reactions": 0,
+      "ratings": 1,
+      "tutorial_configs": 3,
+      "tutorial_chapters": 12,
+      "tutorial_images": 138,
+      "tutorial_tools": 6
     }
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5429,
+    "publishedRows": 5434,
     "refreshedThisRun": true,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 5645,
-    "totalBytes": 364959058,
-    "downloadedThisRun": 8,
+    "remoteCount": 5650,
+    "totalBytes": 365189416,
+    "downloadedThisRun": 5,
     "failedThisRun": 1,
     "failures": [
       {
@@ -17075,6 +17075,12 @@
         "etag": "\"0be266924ec1a91b4b25a36211f8c0a5\""
       },
       {
+        "key": "mods/心月狐/05adb002-b68c-4136-892d-fa104573461e/preview.webp",
+        "file": "images/mods/心月狐/05adb002-b68c-4136-892d-fa104573461e/preview.webp",
+        "size": 43554,
+        "etag": "\"07efb4f84aaae5760157ffa02d976719\""
+      },
+      {
         "key": "mods/心月狐/0afb35a6-a8dd-41ad-97f1-0c9ad7f75103/preview.webp",
         "file": "images/mods/心月狐/0afb35a6-a8dd-41ad-97f1-0c9ad7f75103/preview.webp",
         "size": 72680,
@@ -17127,6 +17133,12 @@
         "file": "images/mods/心月狐/245b796a-3c58-4660-b61e-4b03b2f739f3/preview.webp",
         "size": 52420,
         "etag": "\"9c776384ff4eab03fd17fa1485a50adb\""
+      },
+      {
+        "key": "mods/心月狐/2a7b0afa-013a-4742-b3f3-48d310907eb5/preview.webp",
+        "file": "images/mods/心月狐/2a7b0afa-013a-4742-b3f3-48d310907eb5/preview.webp",
+        "size": 38702,
+        "etag": "\"df2acd28945c86644155a1a7e09b9eac\""
       },
       {
         "key": "mods/心月狐/2ab2629f-1bfa-4cc5-8719-9239af326ff9/preview.webp",
@@ -17217,6 +17229,12 @@
         "file": "images/mods/心月狐/5ef7a0ca-4381-4a88-b9fe-7024be8417b9/preview.webp",
         "size": 37124,
         "etag": "\"fa368f4013219bc464a5b5f1c0c3f2bc\""
+      },
+      {
+        "key": "mods/心月狐/612b60e0-66bb-4bfb-9f2f-5c5fc631bb05/preview.webp",
+        "file": "images/mods/心月狐/612b60e0-66bb-4bfb-9f2f-5c5fc631bb05/preview.webp",
+        "size": 64392,
+        "etag": "\"acbe0583216734c91e254fd090a79c31\""
       },
       {
         "key": "mods/心月狐/62049cd6-c4ec-498d-be9c-9d4e8bcd533c/preview.webp",
@@ -17315,10 +17333,22 @@
         "etag": "\"158e270ff364b53be41a0ac2e5779f2c\""
       },
       {
+        "key": "mods/心月狐/b827972c-1525-40f1-9450-be14db172506/preview.webp",
+        "file": "images/mods/心月狐/b827972c-1525-40f1-9450-be14db172506/preview.webp",
+        "size": 44232,
+        "etag": "\"d36630be48b726c1219963ad87386e44\""
+      },
+      {
         "key": "mods/心月狐/bd0fa1ef-a66c-4f0e-b223-e5e5ebe1c661/preview.webp",
         "file": "images/mods/心月狐/bd0fa1ef-a66c-4f0e-b223-e5e5ebe1c661/preview.webp",
         "size": 45488,
         "etag": "\"a8a94d6aa63f29e84dcea95f77a55f96\""
+      },
+      {
+        "key": "mods/心月狐/c6e26a7d-5379-451d-9618-5e5c41a01118/preview.webp",
+        "file": "images/mods/心月狐/c6e26a7d-5379-451d-9618-5e5c41a01118/preview.webp",
+        "size": 39478,
+        "etag": "\"4efa14b5fc53a0fb851cdc200c0b021e\""
       },
       {
         "key": "mods/心月狐/d4f09fe3-e215-4603-9510-4bc253f7ddb0/preview.webp",
