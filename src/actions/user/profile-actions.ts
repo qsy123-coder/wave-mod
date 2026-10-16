@@ -5,7 +5,8 @@ import { z } from "zod";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { zLayoutStyle, type LayoutStyle } from "@/lib/layout-style/constants";
+import { type LayoutStyle } from "@/lib/layout-style/constants";
+import { zLayoutStyle } from "@/lib/layout-style/schema";
 import { logger } from "@/lib/logger";
 
 const updateProfileSchema = z.object({

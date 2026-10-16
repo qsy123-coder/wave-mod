@@ -548,6 +548,35 @@
   100% { background-position: -200% 0; }
 }
 
+/* ── 入场动画（MotionReveal）─────────────────────────────────────────────
+   以前用 framer-motion：本动画在 40 个文件里用到，而它只是一个 0.45 秒的
+   淡入 + 上移 + 微旋转 —— 为此把整个动画库（压缩后约 48KB）打进每个页面
+   的客户端包不值得。语义与原来一致：**挂载即播**（不是滚动进入触发），
+   结束后停在终态（fill-mode: both）。
+
+   `animation-fill-mode` 必须是 **backwards 而不是 both**：
+   - backwards：动画开始**前**（delay 期间）套用 from 态（不会先闪一下再动）；
+     结束后**不**套用任何填充，元素回到自己的样式 —— 也就是 opacity:1、
+     transform:none。
+   - both：结束后会一直套用 to 帧。即使 to 帧写的是 `transform: none`，
+     Chrome 的 computed 值也会落在矩阵上（实测 matrix(1,0,0,1,0,0)），
+     而那会给后代创建 containing block，`position: fixed` 的子元素被关住。
+   framer-motion 结束时会把 transform 收回 `none`，这里要对齐同样的终态。 */
+@keyframes motionRevealIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--reveal-y, 24px)) rotate(var(--reveal-r, 0deg));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.motion-reveal {
+  animation: motionRevealIn 0.45s ease-out backwards;
+}
+
 /* 文字颜色 — 面板变暗后，黑字 → 纯白（与原始 text-white 一致） */
 .theme-zzz-dark .zzz-skin-scope .text-black,
 .theme-zzz-dark .zzz-skin-scope [class*="text-black/"] {

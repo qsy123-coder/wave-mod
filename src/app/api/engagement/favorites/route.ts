@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readFavoritedIds } from "@/lib/engagement/store";
-import { deviceIdSchema } from "@/lib/engagement/types";
+import { deviceIdSchema } from "@/lib/engagement/schemas";
 
 /**
  * 「我的收藏」的 id 清单：按设备号返回这台机器收藏过的资源 id（最近收藏在前）。

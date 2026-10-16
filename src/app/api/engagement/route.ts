@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readEngagement, writeEngagement } from "@/lib/engagement/store";
-import { deviceIdSchema, engagementIdsSchema, engagementWriteSchema } from "@/lib/engagement/types";
+import { deviceIdSchema, engagementIdsSchema, engagementWriteSchema } from "@/lib/engagement/schemas";
 
 /**
  * 游客互动的读写入口：**不读 cookie、不要求登录、不碰 Supabase**。

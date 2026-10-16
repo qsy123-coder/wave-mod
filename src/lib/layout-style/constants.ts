@@ -17,4 +17,7 @@ export const LAYOUT_STYLE_STORAGE_KEY = "wavemod-layout-style";
 export const DEFAULT_LAYOUT_STYLE: LayoutStyle = "zzz-immersive";
 export const LAYOUT_STYLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-export { zLayoutStyle } from "./schema";
+// 刻意**不**在这里 re-export `zLayoutStyle`（见 ./schema）：本模块被客户端组件
+// （layout-style-provider / -toggle / -transition）引用，转出去就等于把整个 zod
+// 打进每个页面的客户端包（2026-10-16 实测首页因此多下 63KB 压缩后的 zod）。
+// 需要 schema 的服务端直接 import "@/lib/layout-style/schema"。
