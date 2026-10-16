@@ -7,6 +7,12 @@ export const characterImageMap: Record<string, string> = {
   "Skins": "/character-imgs/皮肤.png",
   "Other/Misc": "/character-imgs/其他角色.webp",
   "UI": "/character-imgs/UI界面.png",
+  // 怪物（2026-10-17 由用户明确要求新建）：放周本 Boss 型 mod —— 改的是怪物模型、
+  // 不是可操作角色，与同角色的本体 mod 不是一套东西（同「爱弥斯的机甲」的思路）。
+  // 名字取自用户选定；头像由用户提供的 npc.webp 缩到 128×128。
+  // ⚠️ 这里**不是** SPECIAL_CATEGORIES（Skins/UI/Other/Misc）那组置顶分类，
+  // 所以它会按 zh-CN 排序出现在普通角色列表里。
+  "怪物": "/character-imgs/怪物.webp",
 
   // 主站角色
   "秋水": "/character-imgs/秋水.webp",

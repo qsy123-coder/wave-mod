@@ -244,6 +244,26 @@ const EFFECT_BUCKET_PREFIXES = ["去角色轮廓", "去葫芦和葫芦光", "Rab
  */
 const AEMEATH_MECH_PREFIXES = ["爱弥斯的机甲", "爱弥斯大招"];
 
+/**
+ * 「周本*」→ 独立分类「怪物」，**title 保留完整 key**。
+ *
+ * 该分类由用户于 2026-10-17 明确要求新建（再次突破 CLAUDE.md「不得新增 character 值」
+ * 的默认约束）。首条是 W-2026.10.16 的 `周本心月狐-艳色灼人 by 晨星`：改的是**周本 Boss
+ * 模型**，不是可操作角色「心月狐」的本体皮肤，故不并回 心月狐（同「爱弥斯的机甲」的思路）。
+ *
+ * 用裸前缀「周本」而不是写死「周本心月狐」：以后再来「周本XX」自动落到同一个桶，
+ * 否则每条都会走默认分支、被 `key.split(/[-－]/)[0]` 切出各自站内不存在的假分类。
+ *
+ * title 保留完整 key，理由与副作用：
+ *   - 库里没有「周本」先例（character / title 均 0 条），没有历史写法要对齐；
+ *     保留完整 key 才看得出这条改的是哪只怪物（keepFull 同 EFFECT_BUCKET / 爱弥斯饰品）。
+ *   - 由此去重键 = `怪物|周本心月狐-艳色灼人 by 晨星`。dedupKey 只归一化 title 开头的
+ *     「角色-」前缀，而 title 开头是「周本」不是「怪物」，不会被剥 ⇒ 键稳定。
+ *
+ * 放在默认分支之前是硬要求：落默认分支就会造出前台不存在的「周本心月狐」分类。
+ */
+const MONSTER_PREFIXES = ["周本"];
+
 // ==================== 数据库连接 ====================
 
 // 直连 Postgres(5432 pooler) 而不是 supabase-js：Supabase 出口配额超限时
@@ -515,6 +535,12 @@ function resolveCharacterAndTitle(key) {
   for (const p of AEMEATH_MECH_PREFIXES) {
     if (key.startsWith(p)) {
       return { character: "爱弥斯的机甲", title: key };
+    }
+  }
+  // 独立分类：周本 Boss（`周本心月狐-…`）→ 「怪物」，title 保留完整 key
+  for (const p of MONSTER_PREFIXES) {
+    if (key.startsWith(p)) {
+      return { character: "怪物", title: key };
     }
   }
   // 大卡：「卡提希娅-大卡-*」与「大卡提希娅的剑/武器-*」归 芙露德莉斯。
