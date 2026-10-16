@@ -16,6 +16,14 @@ import { pickPageSkeleton } from "@/components/layout/page-skeletons";
  *
  * 覆盖在内容之上（`z-45`），但位于顶部导航（`z-50`）之下 —— 所以加载期间导航始终可点，
  * 用户随时可以改主意点别处。
+ *
+ * **从导航栏下方开始**（`top: var(--site-header-h)`，不是 `inset-0`）：遮罩在导航栏之下，
+ * 若从视口顶端铺起，骨架顶上那一条会正好藏在导航栏背后（用户报告过）。
+ * 导航栏自己用 ResizeObserver 把实测高度写进 `--site-header-h`（见 site-header-client.tsx），
+ * 顶部那条「近期上新」横条开/关会改变它，所以这里也**不写死像素值**。
+ *
+ * 用 `top` 而不是给 `inset-0` 加 `padding-top`：后者是滚动容器内部的 padding，
+ * 一滚动内容就会滑到导航栏背后去；`top` 则把遮罩自己的视口整体下移，滚不出界。
  */
 export function PageLoadingOverlay() {
   const { isPageLoading, pendingPagePath } = useNavigationLoading();
@@ -25,7 +33,11 @@ export function PageLoadingOverlay() {
   const { background, content } = pickPageSkeleton(pendingPagePath);
 
   return (
-    <div aria-hidden="true" className={`fixed inset-0 z-[45] overflow-y-auto ${background}`}>
+    <div
+      aria-hidden="true"
+      className={`fixed inset-x-0 bottom-0 z-[45] overflow-y-auto ${background}`}
+      style={{ top: "var(--site-header-h, 0px)" }}
+    >
       {content}
     </div>
   );

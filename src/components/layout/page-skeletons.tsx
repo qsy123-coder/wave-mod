@@ -98,13 +98,12 @@ export function pickPageSkeleton(target: string | null): PageSkeleton {
 /** `/mods` —— 复用为它写好的 `ModsPageSkeleton`（此前全站无人使用）。 */
 function ModsNavSkeleton() {
   return (
-    // 外层按 /mods 应用壳的高度撑开：`(site)/mods/layout.tsx` 是
-    // `h-[calc(100dvh-var(--site-header-h))] overflow-hidden`，骨架得同高才不会跳。
-    <div
-      data-slot="page-skeleton-mods"
-      className={`${SITE_WIDTH} py-3`}
-      style={{ height: "calc(100dvh - var(--site-header-h, 0px))" }}
-    >
+    // 用 `h-full` 而不是再算一遍 `100dvh - var(--site-header-h)`：遮罩层自己已经整体
+    // 下移了一个导航栏的高度（见 page-loading-overlay），它的内容区高度**就等于**
+    // `(site)/mods/layout.tsx` 那个 `h-[calc(100dvh-var(--site-header-h))]`。
+    // 再扣一次会双重扣减、骨架比真页面矮一截。
+    // `[&>*]:h-full` 让 ModsPageSkeleton 的根（`flex gap-6`）撑满，侧栏才会像真页面那样通高。
+    <div data-slot="page-skeleton-mods" className={`${SITE_WIDTH} h-full py-3 [&>*]:h-full`}>
       <ModsPageSkeleton />
     </div>
   );
@@ -113,11 +112,9 @@ function ModsNavSkeleton() {
 /** 首页 —— SnapContainer 的第一屏：满视口居中大描边卡，左文案右轮播。 */
 function HomePageSkeleton() {
   return (
-    <div
-      data-slot="page-skeleton-home"
-      className="flex items-center"
-      style={{ minHeight: "calc(100dvh - var(--home-hero-h, 0px))" }}
-    >
+    // `min-h-full` = 填满遮罩自己的内容区（已扣掉导航栏）。首页 SnapContainer 用的是
+    // `100vh - var(--home-hero-h)`、且它在文档流里位于 header **之后**，所以这里等价。
+    <div data-slot="page-skeleton-home" className="flex min-h-full items-center">
       <div className={`${SITE_WIDTH} pb-[15vh] pt-[11vh]`}>
         <div className="neo-card-lg grid gap-6 bg-[var(--neo-panel)] p-4 shadow-[12px_12px_0px_0px_#000] lg:grid-cols-[0.9fr_1.1fr]">
           <div className="space-y-5">
@@ -151,7 +148,8 @@ function HomePageSkeleton() {
  */
 function GallerySkeleton() {
   return (
-    <div data-slot="page-skeleton-gallery" className="min-h-dvh px-3 py-6 sm:px-5">
+    // `min-h-full` 而不是 `min-h-dvh`：遮罩已整体下移一个导航栏高度，再按整屏算会溢出。
+    <div data-slot="page-skeleton-gallery" className="min-h-full px-3 py-6 sm:px-5">
       <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {Array.from({ length: 18 }).map((_, i) => (
           <div
