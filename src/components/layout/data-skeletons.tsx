@@ -1,6 +1,6 @@
 import { MotionReveal } from "@/components/layout/motion-reveal";
 
-function SkeletonBar({ className }: { className: string }) {
+export function SkeletonBar({ className }: { className: string }) {
   return <div className={`animate-pulse border-4 border-black bg-white/80 ${className}`} />;
 }
 

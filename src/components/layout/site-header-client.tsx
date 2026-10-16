@@ -141,7 +141,8 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
       e.preventDefault();
       return;
     }
-    startPageLoading();
+    // 把目标 href 一起带上 —— 覆盖层要靠它挑「目标页面自己的那套骨架」
+    startPageLoading(href);
   };
 
   // 点击导航里"图库"进入 /gallery 时，记录当前来源页，供图库返回按钮一步跳回。

@@ -15,8 +15,18 @@ type NavigationLoadingContextType = {
   setPendingCharacter: (character: string | null) => void;
   /** 是否正在跨页导航（顶部导航点击等），用于站点级骨架屏 */
   isPageLoading: boolean;
-  /** 标记跨页导航开始（顶部导航链接点击时调用） */
-  startPageLoading: () => void;
+  /**
+   * 正在导航去的目标路径（形如 `/mods?character=心月狐`，未在加载中时为 null）。
+   *
+   * `PageLoadingOverlay` 靠它挑「目标页面自己的那套骨架」—— 图库是暗色沉浸网格、
+   * 问题解答是可拖拽双栏、每日更新带日期侧栏，用同一套网格骨架会明显对不上版。
+   */
+  pendingPagePath: string | null;
+  /**
+   * 标记跨页导航开始（顶部导航链接点击时调用）。
+   * @param targetPath 目标 href。给了才能按页面选骨架；不给则回落到通用骨架。
+   */
+  startPageLoading: (targetPath?: string) => void;
   /** 标记跨页导航结束（目标路由确认时自动调用） */
   stopPageLoading: () => void;
 };
@@ -28,6 +38,7 @@ const NavigationLoadingContext = createContext<NavigationLoadingContextType>({
   pendingCharacter: null,
   setPendingCharacter: () => {},
   isPageLoading: false,
+  pendingPagePath: null,
   startPageLoading: () => {},
   stopPageLoading: () => {},
 });
@@ -50,6 +61,7 @@ export function NavigationLoadingProvider({ children }: { children: ReactNode })
   const [isLoading, setIsLoading] = useState(false);
   const [pendingCharacter, setPendingCharacter] = useState<string | null>(null);
   const [isPageLoading, setIsPageLoading] = useState(false);
+  const [pendingPagePath, setPendingPagePath] = useState<string | null>(null);
   const pageWatchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startLoading = useCallback(() => setIsLoading(true), []);
@@ -61,15 +73,18 @@ export function NavigationLoadingProvider({ children }: { children: ReactNode })
       pageWatchdog.current = null;
     }
     setIsPageLoading(false);
+    setPendingPagePath(null);
   }, []);
 
-  const startPageLoading = useCallback(() => {
+  const startPageLoading = useCallback((targetPath?: string) => {
     setIsPageLoading(true);
+    setPendingPagePath(targetPath ?? null);
     // 重复点击要重新计时，否则第二次点击会沿用第一次的剩余时间、提前收掉
     if (pageWatchdog.current) clearTimeout(pageWatchdog.current);
     pageWatchdog.current = setTimeout(() => {
       pageWatchdog.current = null;
       setIsPageLoading(false);
+      setPendingPagePath(null);
     }, PAGE_LOADING_WATCHDOG_MS);
   }, []);
 
@@ -83,7 +98,7 @@ export function NavigationLoadingProvider({ children }: { children: ReactNode })
 
   return (
     <NavigationLoadingContext.Provider
-      value={{ isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter, isPageLoading, startPageLoading, stopPageLoading }}
+      value={{ isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter, isPageLoading, pendingPagePath, startPageLoading, stopPageLoading }}
     >
       {children}
     </NavigationLoadingContext.Provider>
