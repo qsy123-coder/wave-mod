@@ -374,7 +374,18 @@ export async function verifyEmailOtp(_prevState: AuthActionState, formData: Form
     await ensureProfile();
   }
 
-  redirect(next);
+  // ⚠️ 必须 encodeURI 后再交给 redirect()。
+  //
+  // `next` 来自表单字段（`formData.get("next")`），是 URL 解码后的**原始串** —— 用户在
+  // `/mods?character=心月狐` 这类带中文筛选的页面上登录时，它就是 `/mods?character=心月狐`。
+  // 直接 redirect(next) 会让 Next 把原始中文写进 `Location` 响应头，Node 抛
+  // `TypeError: Cannot convert argument to a ByteString`（HTTP 头只能是 latin-1），
+  // 登录后落到 500 而不是回到原页面。
+  //
+  // 用 encodeURI 而不是 encodeURIComponent：这里是一个「路径 + 查询串」，
+  // `/ ? = &` 必须原样保留（encodeURIComponent 会把 `?` 也编码掉、路径就废了）。
+  // 本文件其它同类调用（如 `?next=${encodeURIComponent(next)}`）是在查询参数里，那才该用后者。
+  redirect(encodeURI(next));
 }
 
 export async function sendPhoneOtp(_prevState: PhoneAuthActionState, formData: FormData): Promise<PhoneAuthActionState> {
