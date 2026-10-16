@@ -33,7 +33,7 @@ import {
 import { siteConfig } from "@/lib/constants/site";
 import { GALLERY_BACK_KEY } from "@/lib/constants/gallery-nav";
 import { LOGIN_BACK_KEY } from "@/lib/constants/auth-nav";
-import { isCurrentNavigationUrl } from "@/lib/navigation-url";
+import { isCurrentNavigationUrl, isPlainLeftClick } from "@/lib/navigation-url";
 
 type SiteHeaderClientProps = {
   /** 顶部附加条（首页"近期上新"滚动通知），渲染在导航行上方 */
@@ -110,13 +110,31 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
   const games = getEnabledGames();
   const currentGameKey = getCurrentGameKey(pathname);
 
-  // 顶部导航任意链接点击 → 立即站点级骨架屏；同址或被自身 onClick 拦截（如当前游戏）的点击跳过
+  /**
+   * 顶部导航任意链接点击 → 立即站点级骨架屏。
+   *
+   * ⚠️ **不要在这里判 `e.defaultPrevented`。**
+   *
+   * 原先的第一句是 `if (e.defaultPrevented) return;`，本意是「别人已经处理过这次点击了」。
+   * 但 Next 的 `<Link>` 在做客户端导航时**自己就会调 `preventDefault()`**，而它在**目标
+   * 节点**上执行、事件冒泡到 `<header>` 时标志早已置上 ⇒ 这个守卫把**每一次**链接点击都
+   * 挡掉了，`startPageLoading()` 从来没被调用过，整套站点级骨架是死代码。
+   * （2026-10-16 实测：点导航链接时 `defaultPrevented` 为 true，骨架采样命中 0 次。）
+   *
+   * 换成逐个显式判掉「点了也不会跳到新页」的几种情形，剩下的才起骨架。
+   */
   const handleHeaderNavClick = (e: React.MouseEvent) => {
-    if (e.defaultPrevented) return;
+    // 带修饰键 / 中键的点击是「在新标签页打开」，当前页压根不动 —— 起骨架只会盖住
+    // 用户还在看的这一页。与 mod-card、character-sidebar 同一口径（共用 isPlainLeftClick）。
+    if (!isPlainLeftClick(e)) return;
     const anchor = (e.target as Element | null)?.closest?.("a");
     if (!anchor) return;
     const href = anchor.getAttribute("href");
     if (!href || href.startsWith("http") || href.startsWith("mailto")) return;
+    // 显式标了「这就是当前所在、点了不会跳」的链接（当前分站那两个），跳过。
+    // 它们的 onClick 里会 preventDefault，但我们**不能**靠 defaultPrevented 反推 ——
+    // 见上面那段：Next 的 Link 对正常导航同样会 preventDefault，两者没法区分。
+    if (anchor.hasAttribute("data-nav-skip")) return;
     // 用语义判等（参数顺序 / 尾斜杠 / 百分号编码差异都不算差异），
     // 口径与侧边栏筛选链接一致（两处共用 navigation-url.ts）。
     if (isCurrentNavigationUrl(href)) {
@@ -191,6 +209,8 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                   <Link
                     href={game.nav.home}
                     onClick={(e) => { if (isActive) e.preventDefault(); }}
+                    // 当前分站：点了不会跳，别起骨架屏（见 handleHeaderNavClick）
+                    data-nav-skip={isActive ? "" : undefined}
                     className={`flex w-full items-center justify-between border-4 border-black px-3 py-2 text-sm font-black text-black shadow-[4px_4px_0px_0px_#000] ${
                       isActive
                         ? "theme-selected-chip bg-black text-white border-white"
@@ -374,6 +394,8 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     key={game.key}
                     href={game.nav.home}
                     onClick={(e) => { if (isActive) { e.preventDefault(); } setMobileOpen(false); }}
+                    // 当前分站：点了不会跳，别起骨架屏（见 handleHeaderNavClick）
+                    data-nav-skip={isActive ? "" : undefined}
                     className={`border-4 border-black px-4 py-3 text-sm font-black uppercase tracking-[0.14em] shadow-[6px_6px_0px_0px_#000] ${
                       isActive
                         ? "theme-selected-chip bg-black text-white border-white"

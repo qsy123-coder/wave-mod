@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 
 type NavigationLoadingContextType = {
   /** 当前是否正在导航加载中（骨架屏 + 进度条显示中） */
@@ -36,15 +36,50 @@ export function useNavigationLoading() {
   return useContext(NavigationLoadingContext);
 }
 
+/**
+ * 跨页骨架的看门狗上限。
+ *
+ * `PageLoadingOverlay` 是 `fixed inset-0`、**会挡住内容区的点击**，所以「起了加载却没有
+ * 真的导航」这种情形必须有个兜底，否则整页被锁到用户手动刷新。实测本站弱网下跨洋导航
+ * 最长到过 40 秒（2026-10-16），所以上限给得比它宽裕 —— 正常导航会在 `RouteChangeListener`
+ * 里路由一变就立刻收掉，根本够不到这个值。
+ */
+const PAGE_LOADING_WATCHDOG_MS = 60_000;
+
 export function NavigationLoadingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [pendingCharacter, setPendingCharacter] = useState<string | null>(null);
   const [isPageLoading, setIsPageLoading] = useState(false);
+  const pageWatchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startLoading = useCallback(() => setIsLoading(true), []);
   const stopLoading = useCallback(() => setIsLoading(false), []);
-  const startPageLoading = useCallback(() => setIsPageLoading(true), []);
-  const stopPageLoading = useCallback(() => setIsPageLoading(false), []);
+
+  const stopPageLoading = useCallback(() => {
+    if (pageWatchdog.current) {
+      clearTimeout(pageWatchdog.current);
+      pageWatchdog.current = null;
+    }
+    setIsPageLoading(false);
+  }, []);
+
+  const startPageLoading = useCallback(() => {
+    setIsPageLoading(true);
+    // 重复点击要重新计时，否则第二次点击会沿用第一次的剩余时间、提前收掉
+    if (pageWatchdog.current) clearTimeout(pageWatchdog.current);
+    pageWatchdog.current = setTimeout(() => {
+      pageWatchdog.current = null;
+      setIsPageLoading(false);
+    }, PAGE_LOADING_WATCHDOG_MS);
+  }, []);
+
+  // 卸载时清掉定时器，别让它在没有 Provider 的树上触发 setState
+  useEffect(
+    () => () => {
+      if (pageWatchdog.current) clearTimeout(pageWatchdog.current);
+    },
+    [],
+  );
 
   return (
     <NavigationLoadingContext.Provider
