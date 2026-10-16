@@ -9,6 +9,7 @@ import { PageLoadingOverlay } from "@/components/layout/page-loading-overlay";
 import { RouteChangeListener } from "@/components/layout/route-change-listener";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { getCosPublicHost } from "@/lib/cos/server-config";
 import { getSiteUrl } from "@/lib/site-url";
 import { DEFAULT_THEME, THEMES, THEME_COOKIE, THEME_STORAGE_KEY } from "@/lib/theme/constants";
 import "./globals.css";
@@ -69,6 +70,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // 未配 COS_BUCKET / COS_REGION 时为 null（本地开发），则不输出预连接标签
+  const cosHost = getCosPublicHost();
+
   return (
     <html
       lang="zh-CN"
@@ -80,6 +84,15 @@ export default function RootLayout({
         {/* suppressHydrationWarning：脚本会在水合前改掉 <html> 的 class，
             水合时 React 看到的 className 与它记录的不一致，需显式静音。 */}
         <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+        {/* 图片全在 COS 上，是**另一个域名**。慢链路上「DNS 4s + TCP 4.5s + TLS 5s」
+            才是首屏图片的真正成本（2026-10-16 实测），而不是图片字节数 ——
+            452KB 的原图缩到 960px 只省下几十 KB，但一次握手就是好几秒。
+            preconnect 让这套连接在 HTML 还在下载时就并行建好，不用等解析到 <img>。
+            dns-prefetch 给不支持 preconnect 的浏览器兜底。
+            ⚠️ 不要加 crossOrigin：站里的图是普通 <img>（no-cors），带 crossOrigin
+            的预连接走的是另一条连接池，复用不上，等于白预连。 */}
+        {cosHost ? <link rel="preconnect" href={`https://${cosHost}`} /> : null}
+        {cosHost ? <link rel="dns-prefetch" href={`https://${cosHost}`} /> : null}
       </head>
       <body className="min-h-full bg-background text-foreground">
         <ThemeProvider>
