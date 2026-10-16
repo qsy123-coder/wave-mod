@@ -63,6 +63,19 @@ export const COS_IMG_CARD = 800;
 export const COS_IMG_HERO = 1280;
 
 /**
+ * 大图位用的 `srcset` 档位。
+ *
+ * 单档（只给 `src`）是个跨设备的折中：同一张图发给所有设备，必然有一头不合适。
+ * 2026-10-16 实测首页 hero 位：手机需要 1170 设备像素、1280 刚好；1440 桌面
+ * 只需要 ~683（多发了近一倍）、1920 Retina 却需要 1647（1280 被放大 1.28 倍，发虚）。
+ * 给浏览器三档让它自己挑，两头都能修。
+ *
+ * ⚠️ 只能用在**原生 `<img>`** 上：`next/image` 的 `getImgProps` 里有
+ * `delete rest.srcSet`（实测 next 16.2.12），自定义 srcSet 会被丢掉。
+ */
+export const COS_IMG_SRCSET = [640, 960, 1280, 1920] as const;
+
+/**
  * 给 COS 图片 URL 拼上「缩到 width 宽」的处理参数。
  *
  * ⚠️ **只在渲染层用，不要把结果写回数据库。** 库里 `images` 的值被好几处按精确字符串比较：
@@ -88,6 +101,23 @@ export function withCosImageTransform<T extends string | null | undefined>(url: 
   // 实测把 2560×1600 的图请求成 `thumbnail/4000x` 真的返回了 4000×2500。
   // 带上 `>` 等于「只在比 width 大时才缩」，小图不会被撑大。
   return `${url}${separator}imageMogr2/thumbnail/${width}x%3E/format/webp` as T;
+}
+
+/**
+ * 生成 `srcset` 字符串，配合 `sizes` 让浏览器按屏幕自己挑档。
+ *
+ * 非 COS 地址返回 `undefined` —— React 会直接不渲染这个属性，元素回落到 `src`，
+ * 所以调用方不需要自己判断。
+ */
+export function cosImageSrcSet<T extends string | null | undefined>(
+  url: T,
+  widths: readonly number[] = COS_IMG_SRCSET,
+): string | undefined {
+  if (!url || !isCosStorageUrl(url)) {
+    return undefined;
+  }
+
+  return widths.map((width) => `${withCosImageTransform(url, width)} ${width}w`).join(", ");
 }
 
 /**

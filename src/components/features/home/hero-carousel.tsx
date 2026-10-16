@@ -19,7 +19,7 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
-import { COS_IMG_HERO, withCosImageTransform } from "@/lib/cos/shared";
+import { COS_IMG_HERO, cosImageSrcSet, withCosImageTransform } from "@/lib/cos/shared";
 import { useEngagement } from "@/lib/engagement/use-engagement";
 import { isPlainLeftClick } from "@/lib/navigation-url";
 import type { SiteMod } from "@/lib/mods";
@@ -183,8 +183,13 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                 >
                   <div className="theme-photo-frame relative h-[500px] w-full overflow-hidden border-4 border-black bg-black md:h-[560px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {/* srcset 让浏览器按屏幕自己挑档：手机 390@3x 要 1170 设备像素（挑 1280），
+                        1440 普通屏只要 683（挑 960，比单档的 1280 再省一半），
+                        高分屏要 1367~1647（挑 1920，比单档更清晰）。 */}
                     <img
                       src={withCosImageTransform(mod.coverImage, COS_IMG_HERO)}
+                      srcSet={cosImageSrcSet(mod.coverImage)}
+                      sizes="(max-width: 768px) 100vw, 50vw"
                       alt={mod.title}
                       loading={index === 0 ? "eager" : "lazy"}
                       referrerPolicy="no-referrer"
