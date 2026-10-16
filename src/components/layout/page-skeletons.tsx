@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
-import { ModGridSkeleton, ModsPageSkeleton, SkeletonBar } from "@/components/layout/data-skeletons";
+import { HomeHeroIntro } from "@/components/features/home/home-hero-intro";
+import { FeaturedCarouselSkeleton, ModGridSkeleton, ModsPageSkeleton, SkeletonBar } from "@/components/layout/data-skeletons";
 
 /**
  * 跨页导航骨架屏的**逐页版本**。
@@ -109,34 +110,21 @@ function ModsNavSkeleton() {
   );
 }
 
-/** 首页 —— SnapContainer 的第一屏：满视口居中大描边卡，左文案右轮播。 */
+/**
+ * 首页 —— SnapContainer 的第一屏。
+ *
+ * **左半用真文案、只有右半是骨架**：首页左列（徽标 / 大标题 / 正文 / 两个按钮）
+ * 本来就是静态的、渲染即得，不需要等任何数据 —— 首页自己也只在右半轮播上挂了
+ * `FeaturedCarouselSkeleton`。把它一并糊成灰条既难看也没必要，所以这里直接复用
+ * 首页那份 `HomeHeroIntro`（与真实页面同一份 JSX，文案不会两边脱节）。
+ */
 function HomePageSkeleton() {
   return (
     // `min-h-full` = 填满遮罩自己的内容区（已扣掉导航栏）。首页 SnapContainer 用的是
     // `100vh - var(--home-hero-h)`、且它在文档流里位于 header **之后**，所以这里等价。
     <div data-slot="page-skeleton-home" className="flex min-h-full items-center">
       <div className={`${SITE_WIDTH} pb-[15vh] pt-[11vh]`}>
-        <div className="neo-card-lg grid gap-6 bg-[var(--neo-panel)] p-4 shadow-[12px_12px_0px_0px_#000] lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="space-y-5">
-            <SkeletonBar className="h-6 w-36 bg-[var(--neo-accent)]" />
-            <div className="space-y-3">
-              <SkeletonBar className="h-14 w-full" />
-              <SkeletonBar className="h-14 w-4/5" />
-            </div>
-            <div className="space-y-3 border-4 border-black bg-white/75 p-4">
-              <SkeletonBar className="h-4 w-full" />
-              <SkeletonBar className="h-4 w-5/6" />
-              <SkeletonBar className="h-4 w-2/3" />
-            </div>
-            <div className="flex gap-3">
-              <SkeletonBar className="h-12 w-40 bg-[var(--neo-accent)]" />
-              <SkeletonBar className="h-12 w-36 bg-[var(--neo-secondary)]" />
-            </div>
-          </div>
-          <div className="relative overflow-hidden border-4 border-black bg-black">
-            <div className="h-[320px] w-full animate-pulse bg-[var(--neo-muted)] md:h-[480px]" />
-          </div>
-        </div>
+        <HomeHeroIntro right={<FeaturedCarouselSkeleton />} />
       </div>
     </div>
   );

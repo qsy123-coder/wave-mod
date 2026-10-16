@@ -1,13 +1,10 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
 
 import { DailyUpdateDialog } from "@/components/common/daily-update-dialog";
-import { LazyHomeLower } from "@/components/features/home/lazy-lower-home";
 import { HeroCarousel } from "@/components/features/home/hero-carousel";
+import { HomeHeroIntro } from "@/components/features/home/home-hero-intro";
+import { LazyHomeLower } from "@/components/features/home/lazy-lower-home";
 import { FeaturedCarouselSkeleton } from "@/components/layout/data-skeletons";
-import { MotionReveal } from "@/components/layout/motion-reveal";
-import { Badge } from "@/components/ui/badge";
 import { getFeaturedMods } from "@/lib/mods";
 
 /**
@@ -65,69 +62,15 @@ export default function HomePage() {
           style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
         >
           <div className="mx-auto w-full max-w-[1680px] px-4 sm:px-5 lg:px-6">
-            <div className="relative overflow-hidden border-4 border-black bg-[var(--neo-panel)] px-5 py-6 shadow-[12px_12px_0px_0px_#000] sm:px-6 lg:px-8 lg:py-8">
-              <div className="neo-grid absolute inset-0 opacity-40" />
-              <div className="absolute -left-4 top-6 h-14 w-14 rotate-12 border-4 border-black bg-[var(--neo-secondary)]" />
-              <div className="absolute right-8 top-8 hidden h-16 w-16 rounded-full border-4 border-black bg-[var(--neo-muted)] lg:block" />
-              <div className="relative grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-                <div className="max-w-xl space-y-5 lg:pr-2">
-                  {/* 眉标行：徽章 + 卖点合并成一行 */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <MotionReveal delay={0.02} rotate={-2}>
-                      <Badge className="neo-sticker -rotate-2 bg-[var(--neo-accent)] px-4 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-black hover:bg-[var(--neo-accent)]">
-                        <Sparkles className="mr-1 size-3" />
-                        单主理人精选发布
-                      </Badge>
-                    </MotionReveal>
-                    <MotionReveal delay={0.06}>
-                      <p className="neo-label text-black/60">高清预览 · 高速直链 · 移动端友好</p>
-                    </MotionReveal>
-                  </div>
-
-                  {/* 大标题：唯一视觉焦点（去掉多余贴纸盒/旋转） */}
-                  <MotionReveal delay={0.1}>
-                    <div className="space-y-2">
-                      <h1 className="max-w-3xl text-[2.65rem] font-black uppercase leading-[0.92] tracking-tight text-black md:text-5xl xl:text-[3.6rem]">
-                        角色外观资源
-                      </h1>
-                      <p className="neo-headline-stroke max-w-3xl text-[1.7rem] font-black uppercase leading-[0.94] tracking-tight md:text-[2.15rem] xl:text-[2.7rem]">
-                        PREVIEW FIRST. DOWNLOAD FAST.
-                      </p>
-                    </div>
-                  </MotionReveal>
-
-                  {/* 正文（恢复为文字卡片，不旋转） */}
-                  <MotionReveal delay={0.2}>
-                    <p className="max-w-lg border-4 border-black bg-white px-4 py-3 text-sm leading-6 text-black md:text-[15px] md:leading-6">
-                      以角色为中心整理外观资源，突出高清预览与直链下载体验，减少网盘跳转和限速干扰。
-                    </p>
-                  </MotionReveal>
-
-                  {/* 主操作 */}
-                  <MotionReveal delay={0.24}>
-                    <div className="flex flex-wrap gap-3 pt-1">
-                      <Link
-                        href="/mods?sort=hot"
-                        className="neo-button-primary inline-flex items-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-[0.16em]"
-                      >
-                        查看热度榜
-                        <ArrowRight className="size-4" />
-                      </Link>
-                      <Link
-                        href="/guide"
-                        className="neo-button-secondary inline-flex items-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-[0.16em]"
-                      >
-                        先看安装教程
-                        <ArrowRight className="size-4" />
-                      </Link>
-                    </div>
-                  </MotionReveal>
-                </div>
+            {/* 左半文案是静态的、渲染即得；只有右半轮播要等 getFeaturedMods。
+                外壳与左半抽到 HomeHeroIntro，跨页导航骨架复用同一份（见 page-skeletons.tsx）。 */}
+            <HomeHeroIntro
+              right={
                 <Suspense fallback={<FeaturedCarouselSkeleton />}>
                   <HomeFeaturedCarousel />
                 </Suspense>
-              </div>
-            </div>
+              }
+            />
           </div>
         </section>
 
