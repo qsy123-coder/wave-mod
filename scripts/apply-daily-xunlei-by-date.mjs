@@ -102,12 +102,25 @@ const CHARACTER_ALIASES = {
   "反虚化，ui界面，场景，葫芦，特效等": "UI",
   "千咲皮肤[蜜桃冰]": "千咲",
   "科考摩托": "滑翔翼,翱翔翼,科考摩托",
+  // 文件名常用简称「心-」写心月狐的 mod（与 upload-daily-by-date.mjs 同步）。
+  // 缺这两条的后果在 2026-10-14/15 实测过：默认分支把 character 解析成
+  // 「心」/「心(含大招)」，与库内 `心月狐` 不等 ⇒ 18 条迅雷链接整批「未匹配」。
+  "心": "心月狐",
+  "心(含大招)": "心月狐",
   "背包 编队 商城 用户界面": "UI",
   "爱弥斯饰品[雪绒豹豹]": "爱弥斯",
 };
 
+/**
+ * 全角/半角括号折叠：「心(含大招)」「心（含大招）」「心(含大招）」是同一个前缀。
+ * 与 upload-daily-by-date.mjs、src/lib/mods-domain/sorting.ts 的同名函数保持一致。
+ */
+function canonicalizeParens(value) {
+  return value.replace(/（/g, "(").replace(/）/g, ")");
+}
+
 function normalizeCharacter(character) {
-  return CHARACTER_ALIASES[character] ?? character;
+  return CHARACTER_ALIASES[character] ?? CHARACTER_ALIASES[canonicalizeParens(character)] ?? character;
 }
 
 function resolveCharacterAndTitle(key) {
