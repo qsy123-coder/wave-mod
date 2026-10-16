@@ -62,7 +62,7 @@ const DEFAULT_CHARACTER = "今汐";
 const PLACEHOLDER_IMAGE_URL =
   "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/placeholder/mod-placeholder.webp";
 
-const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://www.wave-mod.top";
+const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://go.sunnyrose.xyz";
 
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp"];
 

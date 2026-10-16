@@ -1,12 +1,7 @@
 {
-  "updatedAt": "2026-09-24",
+  "updatedAt": "2026-10-16",
   "permanent": "https://sunnyrose.xyz",
   "primary": "https://go.sunnyrose.xyz",
   "mirrors": ["https://wavemod-hub.pages.dev"],
-  "legacy": ["https://www.wave-mod.top"],
-  "channels": {
-    "qq": "3372543343",
-    "telegram": "",
-    "email": "2175075194@qq.com"
-  }
+  "legacy": []
 }

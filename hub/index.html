@@ -3,8 +3,151 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星澜资源站 · 永久发布页</title>
+<meta name="description" content="星澜资源站永久发布页 —— 主站域名打不开时，从这里获取最新可用地址。">
 <meta name="robots" content="noindex,nofollow">
-<title></title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #161a23;
+    --card-2: #1c2130;
+    --text: #e6e9f0;
+    --muted: #9aa3b5;
+    --accent: #7c5cff;
+    --accent-soft: rgba(124, 92, 255, 0.14);
+    --ok: #34d399;
+    --border: #262c3a;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(124, 92, 255, 0.10), transparent 60%),
+      radial-gradient(900px 500px at 90% 10%, rgba(52, 211, 153, 0.06), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 40px 20px 60px; }
+
+  header { text-align: center; margin-bottom: 28px; }
+  .logo {
+    width: 64px; height: 64px; margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 22px; color: #fff;
+    border-radius: 18px;
+    background: linear-gradient(135deg, var(--accent), #4f39d8);
+    box-shadow: 0 8px 30px rgba(124, 92, 255, 0.35);
+  }
+  h1 { font-size: 22px; letter-spacing: 1px; }
+  .tagline { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .badge {
+    display: inline-block; margin-top: 12px; padding: 4px 12px;
+    font-size: 12px; color: var(--ok);
+    background: rgba(52, 211, 153, 0.12);
+    border: 1px solid rgba(52, 211, 153, 0.30);
+    border-radius: 999px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 14px; color: var(--muted); font-weight: 600;
+    letter-spacing: 0.5px; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .site { text-decoration: none; display: flex; align-items: center; gap: 12px;
+          padding: 12px 14px; border-radius: 10px; background: var(--card-2);
+          border: 1px solid var(--border); margin-bottom: 10px; transition: border-color .15s, transform .15s; }
+  .site:last-child { margin-bottom: 0; }
+  .site:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--muted); }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(52, 211, 153, 0.6); }
+  .site .meta { flex: 1; min-width: 0; }
+  .site .label { font-size: 14px; color: var(--text); }
+  .site .label small { color: var(--muted); font-size: 12px; margin-left: 8px; }
+  .site .url { font-size: 13px; color: var(--accent); word-break: break-all; }
+  .site .go { color: var(--muted); font-size: 16px; flex-shrink: 0; }
+
+  ol.tips { padding-left: 20px; }
+  ol.tips li { font-size: 14px; color: var(--text); margin-bottom: 8px; }
+  ol.tips li::marker { color: var(--accent); font-weight: 700; }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+  footer .updated { color: var(--accent); }
+</style>
 </head>
-<body></body>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">X</div>
+      <h1>星澜资源站 · 永久发布页</h1>
+      <p class="tagline">主站域名打不开？从这里获取最新可用地址</p>
+      <span class="badge">永久发布 · 收藏此页</span>
+    </header>
+
+    <section class="card">
+      <h2>当前可用地址</h2>
+
+      <!--
+        主推 go.sunnyrose.xyz 的理由：它是全新主机名，没有任何解析器缓存过它的地址，
+        所以「DNS 缓存还没过期」的用户第一次查就是对的。
+        （2026-10-16 起 wave-mod.top / www.wave-mod.top 已整站关闭，页面上不再列出。）
+      -->
+      <a class="site" href="https://go.sunnyrose.xyz" target="_blank" rel="noopener">
+        <span class="dot ok"></span>
+        <span class="meta">
+          <span class="label">主站 <small>推荐，打不开先试这个</small></span>
+          <span class="url">go.sunnyrose.xyz</span>
+        </span>
+        <span class="go">→</span>
+      </a>
+
+      <a class="site" href="https://wavemod-hub.pages.dev" target="_blank" rel="noopener">
+        <span class="dot ok"></span>
+        <span class="meta">
+          <span class="label">备用镜像</span>
+          <span class="url">wavemod-hub.pages.dev</span>
+        </span>
+        <span class="go">→</span>
+      </a>
+
+      <a class="site" href="https://sunnyrose.xyz" target="_blank" rel="noopener">
+        <span class="dot ok"></span>
+        <span class="meta">
+          <span class="label">永久入口（本页） <small>请收藏</small></span>
+          <span class="url">sunnyrose.xyz</span>
+        </span>
+        <span class="go">→</span>
+      </a>
+
+      <!-- 新增域名时在这里追加，同时更新 domains.json -->
+    </section>
+
+    <section class="card">
+      <h2>打不开怎么办</h2>
+      <ol class="tips">
+        <li><strong>直接用第一个地址</strong>——它任何时候都能打开。</li>
+        <li>它也打不开的话：<strong>把路由器拔电，等 30 秒再插上</strong>，然后重新打开。</li>
+        <li>手机就把 <strong>WiFi 关掉、用流量试</strong>；本来用流量的就反过来连 WiFi。</li>
+        <li>还不行就<strong>换个浏览器，或者开一个无痕窗口</strong>再试。</li>
+      </ol>
+    </section>
+
+    <footer>
+      <p>星澜资源站 · 永久发布页</p>
+      <p>最后更新：<span class="updated">2026-10-16</span></p>
+    </footer>
+  </div>
+</body>
 </html>

@@ -59,7 +59,7 @@ const GAME_VERSION = "未标注";
 const DEFAULT_VERSION = "未标注";
 
 /** 站点地址：默认线上域名；本地调试可设 WAVE_MOD_SITE_URL=http://localhost:3000 */
-const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://www.wave-mod.top";
+const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://go.sunnyrose.xyz";
 
 const XXMI_GUIDE = [
   "1. 下载并解压对应 MOD 压缩包。",
