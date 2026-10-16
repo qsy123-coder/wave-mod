@@ -7,7 +7,7 @@ import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
-import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
+import { COS_IMG_CARD, cosImageSrcSet, withCosImageTransform } from "@/lib/cos/shared";
 import { useEngagement } from "@/lib/engagement/use-engagement";
 import { normalizeCharacterName } from "@/lib/mods-domain/sorting";
 import { isPlainLeftClick } from "@/lib/navigation-url";
@@ -162,7 +162,10 @@ export function ModCard({
   mediaClassName,
   imageAspectClassName,
   imageClassName,
-  imageSizes = "(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw",
+  // 断点如实描述卡片宽度（窄屏 2 列 / 中屏 3 列 / 宽屏 5 列，另有 240px 侧栏）：
+  // 写大了浏览器会挑大档、白花字节，写小了会糊。调用方有更准的值就传 imageSizes 覆盖。
+  // （这个 prop 此前一直被解构却没用上，等于让 sizes 缺省 —— 与 srcSet 一起补上。）
+  imageSizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 18vw",
   imagePriority = false,
   imageFetchPriority = imagePriority ? "high" : "auto",
   titleClassName,
@@ -302,10 +305,27 @@ export function ModCard({
   // 变换必须在拼 `_retry` 之前做：实测 `?imageMogr2/...&_retry=` 两种顺序结果一致。
   const coverImage = withCosImageTransform(mod.coverImage, COS_IMG_CARD);
 
-  // 图片 URL 附加重试参数绕过缓存
-  const imageSrc = retryTimestamp > 0
-    ? `${coverImage}${coverImage.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`
-    : coverImage;
+  /**
+   * 卡片图的 `srcset` 档位。
+   *
+   * ⚠️ **必须低于 560**，否则一个字节都省不下来：库存的预览图已统一成 560px webp，
+   * 而 `%3E` 不放大 —— 640 / 800 这些档返回的都是**同一张 560 图**，体积分毫不差
+   * （2026-10-16 从服务器实测：原图 57.8KB、`thumbnail/800` 55.8KB）。
+   * 只有真正下采样的档才有意义：同一次实测 `thumbnail/320` 是 26.2KB，约 1/3。
+   *
+   * 480 是照「槽位实际需要多少设备像素」定的：/mods 网格 xl 下 5 列、单卡约 260 CSS px，
+   * 2x 屏需要 ~520，480 覆盖 93%（肉眼无差）而体积明显更小 —— 卡在 560 那条线上等于白做。
+   */
+  const CARD_IMAGE_WIDTHS = [320, 480] as const;
+
+  // 重试要绕过缓存，src 与 srcSet **都得带** `_retry` —— 只给 src 的话浏览器会从 srcSet
+  // 里挑回那张已经失败的。srcSet 必须由**未变换**的原 URL 现算：已经把 imageMogr2 拼进去的
+  // URL 再喂给 cosImageSrcSet 会被它幂等短路，每个档返回同一个地址。
+  const withRetry = (url: string | undefined) =>
+    !url || retryTimestamp === 0 ? url : `${url}${url.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`;
+
+  const imageSrc = withRetry(coverImage) ?? coverImage;
+  const imageSrcSet = withRetry(cosImageSrcSet(mod.coverImage, CARD_IMAGE_WIDTHS));
 
   const media = (
     <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>
@@ -328,6 +348,8 @@ export function ModCard({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={imageSrc}
+            srcSet={imageSrcSet}
+            sizes={imageSizes}
             alt={mod.title}
             loading={imagePriority ? "eager" : "lazy"}
             fetchPriority={imageFetchPriority}
@@ -357,6 +379,8 @@ export function ModCard({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageSrc}
+              srcSet={imageSrcSet}
+              sizes={imageSizes}
               alt={mod.title}
               loading={imagePriority ? "eager" : "lazy"}
               fetchPriority={imageFetchPriority}
