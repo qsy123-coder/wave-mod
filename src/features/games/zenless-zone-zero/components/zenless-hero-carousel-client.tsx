@@ -97,7 +97,7 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
       {/* Fullscreen 模式：固定全屏背景图（导航栏下方），跟随轮播切换 */}
       {fullscreen && (
         <div
-          className={`theme-hero-backdrop fixed inset-0 top-[74px] z-0 transition-opacity duration-500 ${bgVisible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          className={`fixed inset-0 top-[74px] z-0 transition-opacity duration-500 ${bgVisible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         >
           {activeSlide.coverImage ? (
             <Image
@@ -111,7 +111,7 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
               className="object-cover"
             />
           ) : (
-            <div className="theme-photo-frame h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
+            <div className="h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
           )}
           {/* 顶部渐变：导航栏与图片边界自然过渡 */}
           <div className="absolute inset-x-0 top-0 h-28 bg-[linear-gradient(to_bottom,var(--zzz-hero-bg,#3a2418)_0%,rgba(58,36,24,0.55)_40%,transparent_100%)]" />
@@ -140,7 +140,7 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
                 style={imagePosition ? { objectPosition: imagePosition } : undefined}
               />
             ) : (
-              <div className="theme-photo-frame h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
+              <div className="h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
             )}
             <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(to_bottom,transparent_0%,rgba(var(--zzz-hero-bg-rgb,58,36,24),0.62)_44%,var(--zzz-hero-bg,#3a2418)_82%,var(--zzz-hero-bg,#3a2418)_100%)]" />
             <div className="neo-grid absolute inset-0 opacity-[0.16] mix-blend-screen" />

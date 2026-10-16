@@ -181,7 +181,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
           <Link
             href="/"
             prefetch={false}
-            className="theme-logo-card neo-card flex -rotate-1 items-center gap-2 px-3 py-2"
+            className="neo-card flex -rotate-1 items-center gap-2 px-3 py-2"
             style={{ background: "var(--neo-accent)" }}
           >
             <span className="flex size-9 items-center justify-center border-[3px] border-black bg-white text-sm font-black">
@@ -215,7 +215,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     data-nav-skip={isActive ? "" : undefined}
                     className={`flex w-full items-center justify-between border-4 border-black px-3 py-2 text-sm font-black text-black shadow-[4px_4px_0px_0px_#000] ${
                       isActive
-                        ? "theme-selected-chip bg-black text-white border-white"
+                        ? "bg-black text-white border-white"
                         : index % 3 === 0 ? "bg-[#ffd84f]" : index % 3 === 1 ? "bg-[#ff7a7a]" : "bg-[#bcaeff]"
                     }`}
                   >
@@ -380,7 +380,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
            * 右抽屉共用，改它会波及那两处。同一套写法在 character-picker-drawer.tsx 已验证过。
            */}
           <SheetContent side="right" className="flex w-[86vw] flex-col gap-0 border-l-4 border-black bg-[var(--neo-panel)] p-0 text-black" showCloseButton>
-            <SheetHeader className="theme-solid-panel shrink-0 border-b-4 border-black bg-[var(--neo-accent)] px-5 py-4">
+            <SheetHeader className="shrink-0 border-b-4 border-black bg-[var(--neo-accent)] px-5 py-4">
               <SheetTitle className="text-xl font-black uppercase tracking-[0.16em] text-black">站点导航</SheetTitle>
               <SheetDescription className="text-sm font-bold text-black/70">
                 角色分类、安装教程、收藏入口都放在这里。
@@ -407,7 +407,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     data-nav-skip={isActive ? "" : undefined}
                     className={`border-4 border-black px-4 py-3 text-sm font-black uppercase tracking-[0.14em] shadow-[6px_6px_0px_0px_#000] ${
                       isActive
-                        ? "theme-selected-chip bg-black text-white border-white"
+                        ? "bg-black text-white border-white"
                         : index % 3 === 0 ? "bg-[#ffd84f] text-black" : index % 3 === 1 ? "bg-[#ff7a7a] text-black" : "bg-[#bcaeff] text-black"
                     }`}
                   >
@@ -442,7 +442,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
               </nav>
 
               {/* 移动端风格切换入口：桌面端那个下拉是 hidden md:block，
-                  手机上原本没有任何换肤入口（见 docs/neumorphism-theme-prd.md）。 */}
+                  手机上原本没有任何换肤入口。 */}
               <div className="border-t-4 border-black pt-4">
                 <ThemeToggle variant="mobile" />
               </div>

@@ -45,13 +45,6 @@ const THEME_OPTION_BY_ID: Record<ThemeName, Omit<ThemeOption, "id">> = {
     text: "#FFF7ED",
     desc: "落日海报感暖色拼贴",
   },
-  "theme-neumorphism": {
-    label: "新拟物",
-    color: "#6D5DFC",
-    panel: "#E0E5EC",
-    text: "#3B4256",
-    desc: "浅色同色系 + 柔和双重阴影",
-  },
 };
 
 // 对象字符串键的遍历顺序＝插入顺序，所以下拉里的排列与上面声明一致。
@@ -89,18 +82,18 @@ function ThemeDropdown() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="theme-switcher-trigger neo-card inline-flex items-center gap-2 bg-[var(--neo-search)] px-3 py-2 text-black"
+        className="neo-card inline-flex items-center gap-2 bg-[var(--neo-search)] px-3 py-2 text-black"
         aria-expanded={open}
         aria-label="展开风格切换"
       >
         <Palette className="size-4" />
         <span className="text-xs font-black uppercase tracking-[0.12em]">风格</span>
         {mounted ? (
-          <span className="theme-switcher-swatch inline-flex items-center border-4 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[3px_3px_0px_0px_#000]" style={{ background: activeTheme.color }}>
+          <span className="inline-flex items-center border-4 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[3px_3px_0px_0px_#000]" style={{ background: activeTheme.color }}>
             {activeTheme.label}
           </span>
         ) : (
-          <span className="theme-switcher-swatch inline-flex items-center border-4 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[3px_3px_0px_0px_#000]" style={{ background: THEME_OPTIONS[0].color }}>
+          <span className="inline-flex items-center border-4 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[3px_3px_0px_0px_#000]" style={{ background: THEME_OPTIONS[0].color }}>
             {THEME_OPTIONS[0].label}
           </span>
         )}
@@ -108,8 +101,8 @@ function ThemeDropdown() {
       </button>
 
       {open ? (
-        <div className="theme-switcher-panel absolute right-0 top-[calc(100%+12px)] z-50 w-[320px] border-4 border-black bg-[#FFFDF5] p-3 shadow-[10px_10px_0px_0px_#000]">
-          <div className="theme-switcher-heading mb-3 border-4 border-black bg-[#FFD93D] px-3 py-2 shadow-[4px_4px_0px_0px_#000]">
+        <div className="absolute right-0 top-[calc(100%+12px)] z-50 w-[320px] border-4 border-black bg-[#FFFDF5] p-3 shadow-[10px_10px_0px_0px_#000]">
+          <div className="mb-3 border-4 border-black bg-[#FFD93D] px-3 py-2 shadow-[4px_4px_0px_0px_#000]">
             <p className="text-[10px] font-black uppercase tracking-[0.18em]">Theme Switcher</p>
             <p className="mt-1 text-sm font-black uppercase">选择页面风格</p>
           </div>
@@ -126,7 +119,7 @@ function ThemeDropdown() {
                     setTheme(item.id);
                     setOpen(false);
                   }}
-                  className={`theme-switcher-item border-4 border-black p-3 text-left shadow-[5px_5px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${isActive ? "rotate-[-1deg]" : "rotate-0"}`}
+                  className={`border-4 border-black p-3 text-left shadow-[5px_5px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${isActive ? "rotate-[-1deg]" : "rotate-0"}`}
                   style={{ background: item.panel, color: item.text }}
                   aria-pressed={isActive}
                 >
@@ -135,7 +128,7 @@ function ThemeDropdown() {
                       <p className="text-sm font-black uppercase tracking-[0.14em]">{item.label}</p>
                       <p className="mt-1 text-[11px] font-bold leading-5 opacity-80">{item.desc}</p>
                     </div>
-                    <div className="theme-switcher-swatch size-8 shrink-0 border-4 border-black shadow-[3px_3px_0px_0px_#000]" style={{ background: item.color }} />
+                    <div className="size-8 shrink-0 border-4 border-black shadow-[3px_3px_0px_0px_#000]" style={{ background: item.color }} />
                   </div>
                 </button>
               );
@@ -159,7 +152,7 @@ function ThemeInlinePicker() {
 
   return (
     <div className="grid gap-3">
-      <div className="theme-switcher-heading border-4 border-black bg-[#FFD93D] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
+      <div className="border-4 border-black bg-[#FFD93D] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
         页面风格
       </div>
       {THEME_OPTIONS.map((item, index) => {
@@ -170,7 +163,7 @@ function ThemeInlinePicker() {
             type="button"
             onClick={() => setTheme(item.id)}
             aria-pressed={isActive}
-            className="theme-switcher-item flex min-h-11 items-center justify-between gap-3 border-4 border-black px-4 py-3 text-left text-sm font-black uppercase tracking-[0.14em] shadow-[6px_6px_0px_0px_#000]"
+            className="flex min-h-11 items-center justify-between gap-3 border-4 border-black px-4 py-3 text-left text-sm font-black uppercase tracking-[0.14em] shadow-[6px_6px_0px_0px_#000]"
             style={{ background: item.panel, color: item.text }}
           >
             <span className="min-w-0">
@@ -179,7 +172,7 @@ function ThemeInlinePicker() {
                 {item.desc}
               </span>
             </span>
-            <span className="theme-switcher-swatch size-8 shrink-0 border-4 border-black shadow-[3px_3px_0px_0px_#000]" style={{ background: item.color }} />
+            <span className="size-8 shrink-0 border-4 border-black shadow-[3px_3px_0px_0px_#000]" style={{ background: item.color }} />
           </button>
         );
       })}

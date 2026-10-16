@@ -212,7 +212,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                   // 按下反馈：纯 CSS，水合前按下去就有反应
                   className="group block cursor-pointer transition-transform duration-150 active:scale-[0.99] focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-black"
                 >
-                  <div className="theme-photo-frame relative h-[500px] w-full overflow-hidden border-4 border-black bg-black md:h-[560px]">
+                  <div className="relative h-[500px] w-full overflow-hidden border-4 border-black bg-black md:h-[560px]">
                     {/* srcset 让浏览器按屏幕自己挑档：手机 390@3x 要 1170 设备像素（挑 1280），
                         1440 普通屏只要 683（挑 960，比单档的 1280 再省一半），
                         高分屏要 1367~1647（挑 1920，比单档更清晰）。

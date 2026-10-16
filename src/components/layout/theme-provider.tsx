@@ -15,7 +15,6 @@ import {
   isThemeName,
   parseThemeCookie,
   THEMES,
-  THEME_CHANGE_EVENT,
   THEME_COOKIE,
   THEME_COOKIE_MAX_AGE,
   THEME_STORAGE_KEY,
@@ -36,8 +35,6 @@ function applyTheme(theme: ThemeName) {
   const root = document.documentElement;
   root.classList.remove(...THEME_CLASSES);
   root.classList.add(theme);
-  // 通知 LayoutStyleProvider 重新裁决 zzz-dark 的去留（新拟物优先）。
-  window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: theme }));
 }
 
 /**
