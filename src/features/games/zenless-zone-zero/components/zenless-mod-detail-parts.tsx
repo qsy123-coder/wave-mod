@@ -13,6 +13,7 @@ import {
 import { ModCard } from "@/components/common/mod-card";
 import { DownloadButton } from "@/components/features/mods/detail/download-button";
 import { FavoriteButton } from "@/components/features/mods/detail/favorite-button";
+import { COS_IMG_CARD, COS_IMG_THUMB, withCosImageTransform } from "@/lib/cos/shared";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 import { LikeButton } from "@/components/features/mods/detail/like-button";
 import { MiniRatingControl, RatingPanel } from "@/components/features/mods/detail/rating-panel";
@@ -156,7 +157,7 @@ export function ZenlessRightRail({
         <div className="mt-2.5 flex items-center gap-2.5">
           <div className="relative size-10 overflow-hidden rounded-full border-[3px] border-black bg-[#0f172a] shadow-[2px_2px_0px_0px_#000]">
             <Image
-              src={mod.coverImage}
+              src={withCosImageTransform(mod.coverImage, COS_IMG_THUMB)}
               alt={mod.character}
               fill
               sizes="40px"
@@ -234,7 +235,7 @@ export function ZenlessScreenshots({ mod }: { mod: SiteMod }) {
             className={`relative h-[74px] overflow-hidden border-4 border-black bg-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 ${index === 2 ? "rotate-1" : index % 2 === 0 ? "-rotate-1" : "rotate-0"}`}
           >
             <Image
-              src={image}
+              src={withCosImageTransform(image, COS_IMG_CARD)}
               alt={`${mod.title} screenshot ${index + 1}`}
               fill
               sizes="(max-width: 768px) 45vw, 150px"

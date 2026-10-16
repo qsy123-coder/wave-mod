@@ -19,6 +19,7 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
+import { COS_IMG_HERO, withCosImageTransform } from "@/lib/cos/shared";
 import { useEngagement } from "@/lib/engagement/use-engagement";
 import { isPlainLeftClick } from "@/lib/navigation-url";
 import type { SiteMod } from "@/lib/mods";
@@ -183,7 +184,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                   <div className="theme-photo-frame relative h-[500px] w-full overflow-hidden border-4 border-black bg-black md:h-[560px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={mod.coverImage}
+                      src={withCosImageTransform(mod.coverImage, COS_IMG_HERO)}
                       alt={mod.title}
                       loading={index === 0 ? "eager" : "lazy"}
                       referrerPolicy="no-referrer"

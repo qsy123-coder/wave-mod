@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Eye, Heart, Star } from "lucide-react";
 
 import type { GameConfig } from "@/config/games";
+import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
 import type { SiteMod } from "@/lib/mods";
 import { GlowCard } from "@/components/ui/spotlight-card";
 
@@ -20,9 +21,9 @@ export function ZenlessModsCard({ game, index, mod }: { game: GameConfig; index:
     <Link href={`${game.nav.mods}/${mod.id}`} className="group block min-h-[136px] overflow-hidden border-4 border-black bg-black text-white shadow-[5px_5px_0_0_#000] transition hover:-translate-y-0.5 hover:shadow-[7px_7px_0_0_#000]">
       <div className="relative h-[88px] overflow-hidden bg-black">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={mod.coverImage} alt="" loading="lazy" className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl" aria-hidden="true" />
+        <img src={withCosImageTransform(mod.coverImage, COS_IMG_CARD)} alt="" loading="lazy" className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl" aria-hidden="true" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={mod.coverImage} alt={mod.title} loading="lazy" className="absolute inset-0 h-full w-full object-contain object-center transition duration-500 group-hover:scale-105" />
+        <img src={withCosImageTransform(mod.coverImage, COS_IMG_CARD)} alt={mod.title} loading="lazy" className="absolute inset-0 h-full w-full object-contain object-center transition duration-500 group-hover:scale-105" />
         <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black via-black/62 to-transparent" />
         <div className="absolute left-2 top-2 flex gap-1">
           <span className={`border-2 border-black px-2 py-0.5 text-[8px] font-black text-black shadow-[2px_2px_0_0_#000] ${tone}`}>{tag}</span>

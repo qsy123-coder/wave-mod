@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { COS_IMG_THUMB, withCosImageTransform } from "@/lib/cos/shared";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 import {
   Download,
@@ -334,7 +335,7 @@ function RatingSidebar({
             >
               <div className="relative size-[52px] overflow-hidden border-2 border-black bg-[#050914]">
                 <Image
-                  src={item.coverImage}
+                  src={withCosImageTransform(item.coverImage, COS_IMG_THUMB)}
                   alt={item.title}
                   fill
                   sizes="52px"

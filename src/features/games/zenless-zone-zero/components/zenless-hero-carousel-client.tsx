@@ -7,6 +7,7 @@ import { ArrowRight, Bell, ChevronLeft, ChevronRight, Download, Sparkles } from 
 
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { GameConfig } from "@/config/games";
+import { COS_IMG_HERO, withCosImageTransform } from "@/lib/cos/shared";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 
 export type ZenlessHeroSlide = {
@@ -101,7 +102,7 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
           {activeSlide.coverImage ? (
             <Image
               key={`bg-${activeSlide.id}`}
-              src={activeSlide.coverImage}
+              src={withCosImageTransform(activeSlide.coverImage, COS_IMG_HERO)}
               alt=""
               fill
               unoptimized={isExternalStorageUrl(activeSlide.coverImage ?? "")}
@@ -129,7 +130,7 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
             {activeSlide.coverImage ? (
               <Image
                 key={activeSlide.id}
-                src={activeSlide.coverImage}
+                src={withCosImageTransform(activeSlide.coverImage, COS_IMG_HERO)}
                 alt={activeSlide.title}
                 fill
                 unoptimized={isExternalStorageUrl(activeSlide.coverImage ?? "")}

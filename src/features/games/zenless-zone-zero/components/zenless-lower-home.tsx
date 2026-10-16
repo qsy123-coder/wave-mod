@@ -15,6 +15,7 @@ import {
 
 import multiAgentPlaceholder from "../../../../../bg-zzz/多人占位.png";
 import pinkWideBackground from "../../../../../bg-zzz/长图粉色.png";
+import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -156,7 +157,7 @@ function ZenlessFeaturedCard({
     >
       <div className="relative h-[188px] overflow-hidden border-b-4 border-black bg-black">
         <Image
-          src={mod.coverImage}
+          src={withCosImageTransform(mod.coverImage, COS_IMG_CARD)}
           alt=""
           fill
           sizes="250px"
@@ -165,7 +166,7 @@ function ZenlessFeaturedCard({
           unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
         />
         <Image
-          src={mod.coverImage}
+          src={withCosImageTransform(mod.coverImage, COS_IMG_CARD)}
           alt={mod.title}
           fill
           sizes="250px"

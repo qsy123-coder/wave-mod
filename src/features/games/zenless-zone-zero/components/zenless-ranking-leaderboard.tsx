@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Crown, ShieldCheck, TrendingDown, TrendingUp } from "lucide-react";
 
 import type { GameConfig } from "@/config/games";
+import { COS_IMG_THUMB, withCosImageTransform } from "@/lib/cos/shared";
 import type { SiteMod, TopCreator } from "@/lib/mods";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 
@@ -79,7 +80,7 @@ function ModRow({
     >
       <RankBadge rank={rank} />
       <span className="relative size-7 sm:size-8 shrink-0 overflow-hidden border-2 border-black bg-black">
-        <Image src={mod.coverImage} alt={mod.title} fill sizes="32px" className="object-cover" unoptimized={isExternalStorageUrl(mod.coverImage ?? "")} />
+        <Image src={withCosImageTransform(mod.coverImage, COS_IMG_THUMB)} alt={mod.title} fill sizes="32px" className="object-cover" unoptimized={isExternalStorageUrl(mod.coverImage ?? "")} />
       </span>
       <div className="min-w-0">
         <p className="truncate text-[10px] sm:text-[11px] font-black text-black group-hover:text-[var(--neo-accent)] transition">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRef } from "react";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 
+import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
 import type { SiteMod } from "@/lib/mods-domain/types";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 
@@ -42,7 +43,7 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
     >
       <div className="relative h-[118px] w-full overflow-hidden">
         <Image
-          src={mod.coverImage}
+          src={withCosImageTransform(mod.coverImage, COS_IMG_CARD)}
           alt=""
           fill
           sizes="224px"
@@ -51,7 +52,7 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
           unoptimized={isExternalStorageUrl(mod.coverImage ?? "")}
         />
         <Image
-          src={mod.coverImage}
+          src={withCosImageTransform(mod.coverImage, COS_IMG_CARD)}
           alt={mod.title}
           fill
           sizes="224px"

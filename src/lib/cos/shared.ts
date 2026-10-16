@@ -45,6 +45,52 @@ export function isCosStorageUrl(url: string): boolean {
 }
 
 /**
+ * 数据万象（COS 图片处理）的尺寸档位。
+ *
+ * 站里所有图都是 2560×1600 原图直出 —— `next.config.ts` 的 `images.unoptimized: true`
+ * 配一个恒等 loader（见 src/lib/image-loader.ts），等于没有任何按屏适配：列表卡位显示
+ * 170 CSS px、榜单位 28px、首页 hero 位 270×492，拿到的都是同一张 452KB 的图。
+ * 2026-10-16 实测：手机冷启动首页要下 2480KB，其中图片占 1898KB（76%）。
+ *
+ * COS 的数据万象是开着的，加 query 参数就能现场缩图（同一张图实测）：
+ *   原图 452KB → 1280px 71KB / 800px 36KB / 320px 10KB
+ * 变换后的响应带 `Cache-Control: max-age=604800`，浏览器缓存 7 天，不会每次回源重算。
+ *
+ * 分档按「那个位的实际显示宽度」取，不按组件名取。宁可先量一眼再填。
+ */
+export const COS_IMG_THUMB = 320;
+export const COS_IMG_CARD = 800;
+export const COS_IMG_HERO = 1280;
+
+/**
+ * 给 COS 图片 URL 拼上「缩到 width 宽」的处理参数。
+ *
+ * ⚠️ **只在渲染层用，不要把结果写回数据库。** 库里 `images` 的值被好几处按精确字符串比较：
+ * `isPlaceholderImage` 的 `===`（src/lib/mods-domain/preview-image.ts）、
+ * `getZenlessGallery` 的按 URL 去重、后台把 images join 成 textarea 回填、
+ * 以及 scripts/*.mjs 里的占位图判据。改了数据这些判定会**静默**失效。
+ *
+ * 非 COS 地址原样返回：Supabase Storage、mappers.ts 的 unsplash 兜底图、本地
+ * /character-imgs 的 host 都不支持 imageMogr2。
+ *
+ * 幂等：已经带 imageMogr2 的 URL 再调一次不会重复叠加。
+ */
+export function withCosImageTransform<T extends string | null | undefined>(url: T, width: number): T {
+  if (!url || !isCosStorageUrl(url) || url.includes("imageMogr2")) {
+    return url;
+  }
+
+  // 已有的查询串要留着（比如 mod-card 失败重试拼的 `_retry=`）：实测
+  // `?imageMogr2/thumbnail/800x&_retry=123` 与调换顺序的结果完全一致，COS 只挑自己认识的参数。
+  const separator = url.includes("?") ? "&" : "?";
+
+  // `%3E` 就是 `>`，**不能省**：不带它时 thumbnail 会**放大**小图 ——
+  // 实测把 2560×1600 的图请求成 `thumbnail/4000x` 真的返回了 4000×2500。
+  // 带上 `>` 等于「只在比 width 大时才缩」，小图不会被撑大。
+  return `${url}${separator}imageMogr2/thumbnail/${width}x%3E/format/webp` as T;
+}
+
+/**
  * 构建 COS 对象路径（与 Supabase Storage 路径结构保持一致）。
  * 格式：mods/{safe-char}/{modId}/{filename}
  */

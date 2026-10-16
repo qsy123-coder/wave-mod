@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight, ShieldCheck, Trophy } from "lucide-react";
 
 import type { GameConfig } from "@/config/games";
+import { COS_IMG_THUMB, withCosImageTransform } from "@/lib/cos/shared";
 import type { SiteMod, TopCreator } from "@/lib/mods";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 
@@ -98,7 +99,7 @@ export function ZenlessRankingSidebarRight({
               className="flex items-center gap-1.5 border-2 border-black bg-white/30 p-1.5 shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5 group"
             >
               <span className="relative size-7 shrink-0 overflow-hidden border-2 border-black bg-black">
-                <Image src={mod.coverImage} alt={mod.title} fill sizes="28px" className="object-cover" unoptimized={isExternalStorageUrl(mod.coverImage ?? "")} />
+                <Image src={withCosImageTransform(mod.coverImage, COS_IMG_THUMB)} alt={mod.title} fill sizes="28px" className="object-cover" unoptimized={isExternalStorageUrl(mod.coverImage ?? "")} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[10px] font-black text-black group-hover:text-[var(--neo-accent)] transition">

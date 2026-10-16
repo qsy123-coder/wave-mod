@@ -6,6 +6,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 
+import { COS_IMG_HERO, withCosImageTransform } from "@/lib/cos/shared";
+
 type CategoryContent = {
   key: string;
   label: string;
@@ -114,6 +116,22 @@ const markdownComponents: Partial<Components> = {
       >
         {children}
       </code>
+    );
+  },
+  // 正文里的 58 张图都是 md 里写死的 COS 完整 URL，此前走 react-markdown 的默认渲染 ——
+  // 也就是 2560px 原图直出（单张 400KB+）。这里只加缩放与懒加载，**不加 className**：
+  // 默认渲染靠 Tailwind preflight 的 `img { max-width: 100% }` 约束宽度，加样式会改版式。
+  img({ src, alt, ...props }) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={typeof src === "string" ? withCosImageTransform(src, COS_IMG_HERO) : src}
+        alt={alt ?? ""}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        {...props}
+      />
     );
   },
 };

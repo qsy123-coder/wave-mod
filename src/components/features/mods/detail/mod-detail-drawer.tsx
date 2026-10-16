@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
 import { reportView } from "@/lib/engagement/client";
 import { useEngagement } from "@/lib/engagement/use-engagement";
 import type { SiteMod } from "@/lib/mods";
@@ -335,7 +336,7 @@ export function ModDetailDrawer({
                         className="shrink-0 cursor-zoom-in overflow-hidden border-[3px] border-black bg-white shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5"
                       >
                         <Image
-                          src={src}
+                          src={withCosImageTransform(src, COS_IMG_CARD)}
                           alt={`${mod.title} 预览 ${index + 1}`}
                           width={320}
                           height={0}

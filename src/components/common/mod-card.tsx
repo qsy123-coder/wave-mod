@@ -7,6 +7,7 @@ import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
+import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
 import { useEngagement } from "@/lib/engagement/use-engagement";
 import { normalizeCharacterName } from "@/lib/mods-domain/sorting";
 import { isPlainLeftClick } from "@/lib/navigation-url";
@@ -297,10 +298,14 @@ export function ModCard({
     }
   }, []);
 
+  // 原始图是 2560px 直出（452KB），卡片位只显示一两百 CSS px，先按卡片档缩一档再渲染。
+  // 变换必须在拼 `_retry` 之前做：实测 `?imageMogr2/...&_retry=` 两种顺序结果一致。
+  const coverImage = withCosImageTransform(mod.coverImage, COS_IMG_CARD);
+
   // 图片 URL 附加重试参数绕过缓存
   const imageSrc = retryTimestamp > 0
-    ? `${mod.coverImage}${mod.coverImage.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`
-    : mod.coverImage;
+    ? `${coverImage}${coverImage.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`
+    : coverImage;
 
   const media = (
     <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>

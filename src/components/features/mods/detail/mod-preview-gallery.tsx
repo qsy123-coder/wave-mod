@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Eye, ImageIcon, PlayCircle, X } from "lucide-react";
 
+import { COS_IMG_CARD, COS_IMG_HERO, withCosImageTransform } from "@/lib/cos/shared";
 import { cn } from "@/lib/utils";
 
 type PreviewItem =
@@ -75,7 +76,7 @@ export function ModPreviewGallery({ images, title, videoUrl }: ModPreviewGallery
               <button type="button" onClick={() => setIsLightboxOpen(true)} className="relative block max-h-[75vh] w-full text-left">
                 <div className="relative w-full" style={{ aspectRatio: "auto" }}>
                   <Image
-                    src={activeItem.src}
+                    src={withCosImageTransform(activeItem.src, COS_IMG_HERO)}
                     alt={activeItem.alt}
                     width={1200}
                     height={0}
@@ -158,7 +159,7 @@ export function ModPreviewGallery({ images, title, videoUrl }: ModPreviewGallery
                     {item.type === "image" ? (
                       <div className="relative aspect-[3/2] w-full">
                         <Image
-                          src={item.src}
+                          src={withCosImageTransform(item.src, COS_IMG_CARD)}
                           alt={item.alt}
                           fill
                           sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
