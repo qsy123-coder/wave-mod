@@ -7,31 +7,31 @@ import { revalidateModEngagementCaches } from "@/lib/mod-cache";
 import { createClient, ensureProfile, getCurrentUser, isAdminUser } from "@/lib/supabase/server";
 
 const commentSchema = z.object({
-  id: z.uuid("无效的 MOD ID。"),
+  id: z.uuid("无效的资源 ID。"),
   content: z.string().trim().min(1, "评论内容不能为空。").max(1000, "评论内容不能超过 1000 字。"),
 });
 
 const deleteCommentSchema = z.object({
   commentId: z.uuid("无效的评论 ID。"),
-  modId: z.uuid("无效的 MOD ID。"),
+  modId: z.uuid("无效的资源 ID。"),
 });
 
 const commentReactionSchema = z.object({
   commentId: z.uuid("无效的评论 ID。"),
-  modId: z.uuid("无效的 MOD ID。"),
+  modId: z.uuid("无效的资源 ID。"),
   value: z.coerce.number().pipe(z.union([z.literal(-1), z.literal(1)])),
 });
 
 const replyCommentSchema = z.object({
   content: z.string().trim().min(1, "回复内容不能为空。").max(1000, "回复内容不能超过 1000 字。"),
-  modId: z.uuid("无效的 MOD ID。"),
+  modId: z.uuid("无效的资源 ID。"),
   parentId: z.uuid("无效的评论 ID。"),
 });
 
 const pinCommentSchema = z.object({
   commentId: z.uuid("无效的评论 ID。"),
   isPinned: z.enum(["true", "false"]).transform((value) => value === "true"),
-  modId: z.uuid("无效的 MOD ID。"),
+  modId: z.uuid("无效的资源 ID。"),
 });
 
 type CommentProfileRow = {

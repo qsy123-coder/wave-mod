@@ -95,7 +95,7 @@ export function DailyUpdateDialog() {
             </span>
           </p>
           <p className="mt-1 text-sm font-bold leading-6 text-black/70">
-            今天上新了 {count} 个鸣潮 MOD，快来看看最新内容。
+            今天上新了 {count} 个外观资源，快来看看最新内容。
           </p>
         </div>
 

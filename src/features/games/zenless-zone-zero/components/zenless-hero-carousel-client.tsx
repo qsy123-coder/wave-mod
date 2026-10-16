@@ -96,7 +96,7 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
       {/* Fullscreen 模式：固定全屏背景图（导航栏下方），跟随轮播切换 */}
       {fullscreen && (
         <div
-          className={`fixed inset-0 top-[74px] z-0 transition-opacity duration-500 ${bgVisible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          className={`theme-hero-backdrop fixed inset-0 top-[74px] z-0 transition-opacity duration-500 ${bgVisible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         >
           {activeSlide.coverImage ? (
             <Image
@@ -110,7 +110,7 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
               className="object-cover"
             />
           ) : (
-            <div className="h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
+            <div className="theme-photo-frame h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
           )}
           {/* 顶部渐变：导航栏与图片边界自然过渡 */}
           <div className="absolute inset-x-0 top-0 h-28 bg-[linear-gradient(to_bottom,var(--zzz-hero-bg,#3a2418)_0%,rgba(58,36,24,0.55)_40%,transparent_100%)]" />
@@ -139,7 +139,7 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
                 style={imagePosition ? { objectPosition: imagePosition } : undefined}
               />
             ) : (
-              <div className="h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
+              <div className="theme-photo-frame h-full w-full bg-[radial-gradient(circle_at_68%_36%,var(--neo-accent)_0,transparent_26%),linear-gradient(135deg,#090909_0%,#1b1b1b_48%,#030303_100%)]" />
             )}
             <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(to_bottom,transparent_0%,rgba(var(--zzz-hero-bg-rgb,58,36,24),0.62)_44%,var(--zzz-hero-bg,#3a2418)_82%,var(--zzz-hero-bg,#3a2418)_100%)]" />
             <div className="neo-grid absolute inset-0 opacity-[0.16] mix-blend-screen" />
@@ -186,13 +186,13 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
         <div className="max-w-2xl pt-1">
           <MotionReveal delay={0.02} rotate={-2}>
             <div className="mb-2 inline-flex -rotate-1 items-center gap-2 border-4 border-black bg-[var(--neo-accent)] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-black shadow-[5px_5px_0px_0px_#000]">
-              <Sparkles className="size-3.5" /> {c?.badge ?? "Shape Your New Eridu"}
+              <Sparkles className="size-3.5" /> {c?.badge ?? "Shape Your Style"}
             </div>
           </MotionReveal>
 
           <MotionReveal delay={0.08} y={28}>
             <h1 className="tahoe-glass-text max-w-xl text-[2.35rem] font-black uppercase leading-[0.86] tracking-tight sm:text-5xl lg:text-[2.45rem] xl:text-[3.05rem]">
-              {c?.headingLine1 ?? "Zenless Zone Zero"}<br />{c?.headingLine2 ?? "Mod Hub"}
+              {c?.headingLine1 ?? "XINGLAN"}<br />{c?.headingLine2 ?? "Appearance Hub"}
             </h1>
           </MotionReveal>
 
@@ -205,7 +205,7 @@ export function ZenlessHeroCarouselClient({ game, slides, copy, className, image
             >
               <p className="mt-2 max-w-md text-sm font-black text-white/90 sm:text-base">{c?.subtitle ?? "Explore. Customize. Download Fast."}</p>
               <p className="mt-1.5 max-w-lg border-4 border-black bg-white/30 px-4 py-2.5 text-xs font-bold leading-5 text-black shadow-[5px_5px_0px_0px_#000] backdrop-blur-[2px] sm:text-[13px]">
-                {activeSlide.description || c?.fallbackDesc || "围绕绝区零代理人 MOD 构建的高速直链分站。"}
+                {activeSlide.description || c?.fallbackDesc || "围绕代理人外观资源构建的高速直链分站。"}
               </p>
             </div>
           </MotionReveal>

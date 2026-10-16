@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import CubeLoader from "@/components/ui/cube-loader";
+import { defaultGameKey, games } from "@/config/games";
 
 /** 已知游戏 slug 集合 */
 const GAME_SLUGS = new Set(["zenless-zone-zero", "genshin-impact"]);
@@ -13,10 +14,14 @@ function normalizeGameKey(segment: string): string {
   return "";
 }
 
+/**
+ * 展示名一律从 `@/config/games` 取，不在这里另存一份映射表 ——
+ * 之前硬编码的游戏名会在改分站名之后跟配置对不上。
+ */
 function getGameName(key: string): string {
-  if (!key) return "鸣潮";
-  const map: Record<string, string> = { "zenless-zone-zero": "绝区零", "genshin-impact": "原神" };
-  return map[key] ?? key;
+  const found =
+    games.find((game) => game.key === key) ?? games.find((game) => game.key === defaultGameKey);
+  return found?.name ?? "";
 }
 
 /**

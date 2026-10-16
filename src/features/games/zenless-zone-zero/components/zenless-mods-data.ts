@@ -10,7 +10,9 @@ export const zenlessSortOptions: { label: string; value: ModSort }[] = [
   { label: "最新发布", value: "latest" },
 ];
 
-export const zenlessAgents = ["全部 MOD", "星见雅", "艾莲", "妮可", "安比", "朱鸢", "青衣"] as const;
+// ⚠️ 首项是「全部」筛选标签（zenless-mods-filter-panel 对 index === 0 特判、不会进 URL 参数），
+// 其余 6 项是**角色名**，同时也是数据库 character 去重键的一部分 —— 一个字都不能动。
+export const zenlessAgents = ["全部", "星见雅", "艾莲", "妮可", "安比", "朱鸢", "青衣"] as const;
 export const zenlessTags = ["女性", "男性", "服装", "武器", "动漫", "写实", "SFW", "贴合原作"] as const;
 
 export const zenlessDisplayMods = [
@@ -33,7 +35,7 @@ export const zenlessCategories = [
   [Flame, "玩法增强", "玩法", "231"],
 ] as const;
 
-export const zenlessCreators = ["NewEriduLab", "HollowWorks", "ProxyForge", "BunnyHouse", "Section6"] as const;
+export const zenlessCreators = ["NeoLab", "HollowWorks", "ProxyForge", "BunnyHouse", "Section6"] as const;
 
 export function buildZenlessModsHref(game: GameConfig, sort: ModSort, character?: string, query?: string) {
   const params = new URLSearchParams();
@@ -50,5 +52,5 @@ export function getZenlessDisplayMod(index: number) {
 
 export function toZenlessDisplayMod(mod: SiteMod, index: number): SiteMod {
   const [character, title, tag] = getZenlessDisplayMod(index);
-  return { ...mod, character, title, description: `${character} 主题绝区零 MOD，适合新艾利都分站预览、直链下载与 XXMI 安装流程。` };
+  return { ...mod, character, title, description: `${character} 主题外观资源，适合分站预览、直链下载与 XXMI 安装流程。` };
 }

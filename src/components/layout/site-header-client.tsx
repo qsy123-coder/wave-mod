@@ -79,7 +79,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
 
   // 用 ResizeObserver 实测 header 高度，写入 CSS 变量供各"占满余下视口"的外壳自适应
   // （首页 SnapContainer、/mods 应用壳都用 --site-header-h 减掉头部高度）。
-  // 顶部"近期更新的 MOD"横条开/关会改变 header 高度；若外壳高度不跟随，
+  // 顶部"近期更新的外观资源"横条开/关会改变 header 高度；若外壳高度不跟随，
   // header 变矮后网格几何断裂，scroll-snap(mandatory) 会把视口拽到第二屏边缘。
   // 同时另存一个"仅导航栏行"的基准高度 --home-hero-h：横条开/关不改变导航栏行高度，
   // 首页 Hero 用该恒定值居中，保证大卡片与导航栏的间距在横条开关两种状态下一致。
@@ -160,17 +160,17 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
         <MotionReveal delay={0.02} rotate={-2}>
           <Link
             href="/"
-            className="neo-card flex -rotate-1 items-center gap-2 px-3 py-2"
+            className="theme-logo-card neo-card flex -rotate-1 items-center gap-2 px-3 py-2"
             style={{ background: "var(--neo-accent)" }}
           >
             <span className="flex size-9 items-center justify-center border-[3px] border-black bg-white text-sm font-black">
-              W
+              X
             </span>
             <div className="min-w-0">
               <p className="truncate text-[10px] font-black uppercase tracking-[0.28em] text-black/70">
-                WaveMod
+                XINGLAN
               </p>
-              <p className="text-xs font-black text-black">鸣潮角色MOD个人站</p>
+              <p className="text-xs font-black text-black">星澜资源站</p>
             </div>
           </Link>
         </MotionReveal>
@@ -181,7 +181,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
               <Gamepad2 className="size-3.5" />游戏切换
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]" onClick={handleHeaderNavClick}>
-              <DropdownMenuLabel className="text-xs font-black uppercase tracking-[0.16em] text-black/60">选择 MOD 分站</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs font-black uppercase tracking-[0.16em] text-black/60">选择分站</DropdownMenuLabel>
               <DropdownMenuSeparator className="my-2 h-1 bg-black" />
               {games.map((game, index) => {
                 const isActive = game.key === currentGameKey;
@@ -192,12 +192,15 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     onClick={(e) => { if (isActive) e.preventDefault(); }}
                     className={`flex w-full items-center justify-between border-4 border-black px-3 py-2 text-sm font-black text-black shadow-[4px_4px_0px_0px_#000] ${
                       isActive
-                        ? "bg-black text-white border-white"
+                        ? "theme-selected-chip bg-black text-white border-white"
                         : index % 3 === 0 ? "bg-[#ffd84f]" : index % 3 === 1 ? "bg-[#ff7a7a]" : "bg-[#bcaeff]"
                     }`}
                   >
                     <span>{game.name} {isActive ? "✓" : ""}</span>
-                    <span className="text-[10px] uppercase tracking-[0.16em]">{game.shortName}</span>
+                    {/* name 与 shortName 相同时不重复渲染（改中性代号后三个分站都是这种情形） */}
+                    {game.shortName !== game.name ? (
+                      <span className="text-[10px] uppercase tracking-[0.16em]">{game.shortName}</span>
+                    ) : null}
                   </Link>
                 </DropdownMenuItem>
                 );
@@ -336,7 +339,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
             <Menu className="size-4" />
           </SheetTrigger>
           <SheetContent side="right" className="w-[86vw] border-l-4 border-black bg-[var(--neo-panel)] p-0 text-black" showCloseButton>
-            <SheetHeader className="border-b-4 border-black bg-[var(--neo-accent)] px-5 py-4">
+            <SheetHeader className="theme-solid-panel border-b-4 border-black bg-[var(--neo-accent)] px-5 py-4">
               <SheetTitle className="text-xl font-black uppercase tracking-[0.16em] text-black">站点导航</SheetTitle>
               <SheetDescription className="text-sm font-bold text-black/70">
                 角色分类、安装教程、收藏入口都放在这里。
@@ -361,11 +364,11 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     onClick={(e) => { if (isActive) { e.preventDefault(); } setMobileOpen(false); }}
                     className={`border-4 border-black px-4 py-3 text-sm font-black uppercase tracking-[0.14em] shadow-[6px_6px_0px_0px_#000] ${
                       isActive
-                        ? "bg-black text-white border-white"
+                        ? "theme-selected-chip bg-black text-white border-white"
                         : index % 3 === 0 ? "bg-[#ffd84f] text-black" : index % 3 === 1 ? "bg-[#ff7a7a] text-black" : "bg-[#bcaeff] text-black"
                     }`}
                   >
-                    {game.name} MOD {isActive ? "✓" : ""}
+                    {game.name} {isActive ? "✓" : ""}
                   </Link>
                   );
                 })}
@@ -383,6 +386,12 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                   </Link>
                 ))}
               </nav>
+
+              {/* 移动端风格切换入口：桌面端那个下拉是 hidden md:block，
+                  手机上原本没有任何换肤入口（见 docs/neumorphism-theme-prd.md）。 */}
+              <div className="border-t-4 border-black pt-4">
+                <ThemeToggle variant="mobile" />
+              </div>
 
               <div className="grid gap-3 border-t-4 border-black pt-4">
                 <Link

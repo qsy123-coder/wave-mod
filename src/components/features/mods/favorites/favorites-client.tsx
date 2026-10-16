@@ -103,7 +103,7 @@ export function FavoritesClient({ serverMods, signedIn, gameKey }: Props) {
                 <p className="text-2xl font-black">收藏夹还是空的</p>
                 <p className="max-w-xl text-sm font-bold leading-7 text-black/75">
                   {signedIn
-                    ? "去卡片或详情页点一下收藏，这里就会出现你保存的 MOD。"
+                    ? "去卡片或详情页点一下收藏，这里就会出现你保存的资源。"
                     : "去卡片或详情页点一下收藏即可 —— 现在不用登录，收藏会存在这台设备上。"}
                 </p>
               </div>
@@ -111,7 +111,7 @@ export function FavoritesClient({ serverMods, signedIn, gameKey }: Props) {
                 href="/mods?sort=hot"
                 className="neo-button-primary inline-flex items-center gap-2 px-5 py-3 text-sm font-black uppercase tracking-[0.14em]"
               >
-                先去挑 MOD
+                先去挑资源
                 <ArrowRight className="size-4" />
               </Link>
             </CardContent>
@@ -163,7 +163,7 @@ export function FavoritesClient({ serverMods, signedIn, gameKey }: Props) {
                 favoriteCount={mod.favorites}
                 nextPath="/favorites"
                 variant="destructive"
-                favoriteLabel="收藏 MOD"
+                favoriteLabel="收藏资源"
                 unfavoriteLabel="移出收藏"
               />
             }

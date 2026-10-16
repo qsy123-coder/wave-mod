@@ -44,7 +44,7 @@ export function MiniRatingControl({ className, isLoggedIn, modId, nextPath, rati
 
       try {
         await rateModAction(formData);
-        toast.success("评分已提交。", { description: `你刚刚给这条 MOD 打了 ${score} 星。` });
+        toast.success("评分已提交。", { description: `你刚刚给这条资源打了 ${score} 星。` });
       } catch (error) {
         setOptimisticUserRating(previousRating);
         toast.error("评分失败", { description: error instanceof Error ? error.message : "请稍后再试。" });
@@ -113,7 +113,7 @@ export function RatingPanel({ modId, isLoggedIn, ratingAverage, ratingCount, use
       try {
         await rateModAction(formData);
         toast.success("评分已提交。", {
-          description: `你刚刚给这条 MOD 打了 ${score} 星。`,
+          description: `你刚刚给这条资源打了 ${score} 星。`,
         });
       } catch (error) {
         toast.error("评分失败", {

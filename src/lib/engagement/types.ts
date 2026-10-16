@@ -7,14 +7,14 @@ import { z } from "zod";
  * 服务端专有的落盘逻辑在 ./store（带 `server-only`），别从这里 re-export。
  */
 
-/** 单个 MOD 的三个互动计数（已含基线，见 store 里的 baseline 说明） */
+/** 单个资源的三个互动计数（已含基线，见 store 里的 baseline 说明） */
 export type EngagementCounts = {
   likes: number;
   favorites: number;
   views: number;
 };
 
-/** 当前设备对某个 MOD 的互动状态 */
+/** 当前设备对某个资源的互动状态 */
 export type EngagementMine = {
   liked: boolean;
   favorited: boolean;
@@ -43,7 +43,7 @@ export const deviceIdSchema = z
   .regex(/^[A-Za-z0-9_-]+$/, "设备号格式不合法");
 
 export const engagementWriteSchema = z.object({
-  modId: z.uuid("无效的 MOD ID。"),
+  modId: z.uuid("无效的资源 ID。"),
   action: engagementActionSchema,
 });
 
@@ -53,6 +53,6 @@ export const engagementIdsSchema = z
   .trim()
   .min(1)
   .transform((value) => value.split(",").map((id) => id.trim()).filter(Boolean))
-  .refine((ids) => ids.length > 0, "至少需要一个 MOD ID")
-  .refine((ids) => ids.length <= ENGAGEMENT_MAX_IDS, `单次最多查询 ${ENGAGEMENT_MAX_IDS} 个 MOD ID`)
-  .refine((ids) => ids.every((id) => z.uuid().safeParse(id).success), "存在无效的 MOD ID");
+  .refine((ids) => ids.length > 0, "至少需要一个资源 ID")
+  .refine((ids) => ids.length <= ENGAGEMENT_MAX_IDS, `单次最多查询 ${ENGAGEMENT_MAX_IDS} 个资源 ID`)
+  .refine((ids) => ids.every((id) => z.uuid().safeParse(id).success), "存在无效的资源 ID");

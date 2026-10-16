@@ -9,7 +9,7 @@ import type { SiteMod, TopCreator } from "@/lib/mods";
 import { ZenlessHeroStage } from "@/features/games/zenless-zone-zero/components/zenless-hero-stage";
 import { ZenlessLowerHome } from "@/features/games/zenless-zone-zero/components/zenless-lower-home";
 
-// 鸣潮 slide 默认数据（Fallback 时使用）
+// 主站 slide 默认数据（Fallback 时使用）
 const wuwaSlideDefaults = {
   titles: [
     "今汐 · 时序之曦",
@@ -20,23 +20,23 @@ const wuwaSlideDefaults = {
   ],
   characters: ["今汐", "长离", "女漂", "吟霖", "白芷"],
   descriptions: [
-    "以鸣潮世界观为核心的角色外观 MOD，突出高清预览与直链下载体验。",
-    "展示鸣潮角色的战斗姿态与个性化皮肤，保持本站硬边框高对比风格。",
-    "面向角色外观、武器替换和 UI 增强 MOD 的主站精选展示位。",
+    "以角色世界观为核心的外观资源，突出高清预览与直链下载体验。",
+    "展示角色的战斗姿态与个性化皮肤，保持本站硬边框高对比风格。",
+    "面向角色外观、武器替换和 UI 增强资源的主站精选展示位。",
     "保留原站 neo-brutalism 视觉系统，仅按参考图重排首屏结构。",
-    "精选鸣潮 MOD 内容入口，每日更新最新发布和热门作品。",
+    "精选外观资源入口，每日更新最新发布和热门作品。",
   ],
 };
 
-// 鸣潮 Hero 文案
+// 主站 Hero 文案
 const wuwaCopy = {
-  badge: "鸣潮 MOD 精选",
-  headingLine1: "Wuthering Waves",
-  headingLine2: "Mod Hub",
+  badge: "外观资源精选",
+  headingLine1: "XINGLAN",
+  headingLine2: "Appearance Hub",
   subtitle: "高清预览 · 高速直链 · 每日更新",
   fallbackDesc:
-    "以鸣潮角色为中心整理 MOD，突出高清预览与直链下载体验，减少网盘跳转和限速干扰。",
-  browseLabel: "浏览 MOD",
+    "以角色为中心整理外观资源，突出高清预览与直链下载体验，减少网盘跳转和限速干扰。",
+  browseLabel: "浏览外观资源",
   guideLabel: "XXMI 教程",
   updateBadge: "最新更新",
   featuredSuffix: "精选",
@@ -74,7 +74,7 @@ export function LazyHomeLower() {
   const [data, setData] = useState<LowerHomeData | null>(null);
   const [failed, setFailed] = useState(false);
 
-  // 鸣潮主页 entry：固定 default game + 导航覆盖
+  // 主站首页 entry：固定 default game + 导航覆盖
   const game = useMemo(() => {
     const raw = getDefaultGame();
     return { ...raw, nav: { ...raw.nav, mods: "/mods", guide: "/guide" } };
@@ -120,14 +120,14 @@ export function LazyHomeLower() {
       <div ref={ref} className="flex min-h-full items-center justify-center">
         <div className="space-y-4 text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-black border-t-[var(--neo-accent)]" />
-          <p className="text-sm font-black text-white/60">加载鸣潮精选内容...</p>
+          <p className="theme-on-canvas text-sm font-black text-white/60">加载精选内容...</p>
         </div>
       </div>
     );
   }
 
   const stats = [
-    { icon: Download, value: `${resolved.totalMods}+`, label: "MOD 可用" },
+    { icon: Download, value: `${resolved.totalMods}+`, label: "可用资源" },
     { icon: Users, value: `${resolved.topCreators.length}+`, label: "创作者" },
     { icon: Star, value: resolved.avgRating, label: "用户评分" },
     { icon: Grid3X3, value: `${resolved.characters.length}+`, label: "角色分类" },

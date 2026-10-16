@@ -90,7 +90,7 @@ export function buildFeaturedOrderMap(ids: string[], maxSlots: number): Array<{ 
  * 必须在**服务端**过滤（这里是唯一的收口），不能放到客户端卡片列表上做：全库只有
  * 个位数条直链 mod，客户端只拿得到已加载的那几十条，翻不到它们 —— 表现为「勾了
  * 含直链，一条都没有」（2026-09-22 用户报告）。挂在 URL 上由服务端过滤，还能顺带
- * 让总数（共 N 个 MOD）准确。
+ * 让总数（共 N 个资源）准确。
  */
 /** query 命中信息：hits = 命中的关键词个数；weight = 各命中关键词最高字段权重之和 */
 export type ModQueryRank = { hits: number; weight: number };

@@ -8,7 +8,7 @@ type HeroSectionNavProps = {
 
 const navItems = [
   { id: "comments", label: "评论区", icon: MessageSquareMore },
-  { id: "gallery", label: "MOD 展示", icon: ImageIcon },
+  { id: "gallery", label: "资源展示", icon: ImageIcon },
   { id: "details", label: "详细内容", icon: FileText },
 ] as const;
 

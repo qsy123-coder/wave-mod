@@ -37,7 +37,7 @@ export async function getTopCreators(
   try {
     const supabase = createPublicReadClient();
 
-    // 获取该游戏所有已发布 MOD 的 creator 和下载量
+    // 获取该游戏所有已发布资源的 creator 和下载量
     const { data: mods, error } = await supabase
       .from("mods")
       .select("created_by, downloads_count")
@@ -54,7 +54,7 @@ export async function getTopCreators(
       return [];
     }
 
-    // 按 created_by 聚合：MOD 数量 + 总下载量
+    // 按 created_by 聚合：资源数量 + 总下载量
     const creatorMap = new Map<
       string,
       { modCount: number; totalDownloads: number }

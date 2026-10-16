@@ -7,7 +7,7 @@ import { revalidateModEngagementCaches } from "@/lib/mod-cache";
 import { createClient, ensureProfile, getCurrentUser } from "@/lib/supabase/server";
 
 const ratingSchema = z.object({
-  modId: z.uuid("无效的 MOD ID。"),
+  modId: z.uuid("无效的资源 ID。"),
   score: z.coerce.number().int().min(1, "评分最低为 1 分。").max(5, "评分最高为 5 分。"),
 });
 

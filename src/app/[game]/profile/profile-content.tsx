@@ -108,8 +108,8 @@ export function ProfileContent({
                   </h1>
                   <p className="mt-0.5 sm:mt-1 text-sm sm:text-base font-bold text-black">
                     {profile.stats.modCount > 0
-                      ? `已创作 ${profile.stats.modCount} 个 MOD`
-                      : "还没有发布 MOD"}
+                      ? `已创作 ${profile.stats.modCount} 个资源`
+                      : "还没有发布资源"}
                   </p>
                   <div className="mt-1 sm:mt-1.5 flex flex-wrap gap-1.5 sm:gap-2">
                     <span className="border-2 border-black bg-[var(--neo-secondary)]/80 px-2 py-0.5 text-[10px] sm:text-[11px] font-black uppercase text-black">
@@ -146,10 +146,10 @@ export function ProfileContent({
               ))}
             </section>
 
-            {/* MOD 列表 + 右侧 Rail */}
+            {/* 资源列表 + 右侧 Rail */}
             <div className="mt-4 grid gap-2.5 xl:grid-cols-[minmax(0,1fr)_320px] flex-1 min-h-0">
               <div className="flex flex-col min-h-0 space-y-1 ">
-                {/* MOD 列表（已发布 / 收藏） */}
+                {/* 资源列表（已发布 / 收藏） */}
                 <section
                   className={`${panel} flex flex-col flex-1 min-h-0 p-2.5`}
                 >
@@ -243,18 +243,18 @@ export function ProfileContent({
                         <div className="flex items-center justify-center h-full">
                           <div className="text-center py-8">
                             <p className="text-sm font-bold text-black">
-                              还没有收藏任何 MOD
+                              还没有收藏任何外观资源
                             </p>
                             <Link
                               href={game.nav.mods}
                               className="mt-1.5 inline-block text-xs font-black text-[var(--neo-accent)] hover:underline"
                             >
-                              去 MOD 列表逛逛 →
+                              去外观资源列表逛逛 →
                             </Link>
                           </div>
                         </div>
                       )
-                    ) : /* 已发布 MOD */
+                    ) : /* 已发布资源 */
                     published.length > 0 ? (
                       <ScrollableRow className="mt-1 h-full">
                         {published.map((mod, index) => (
@@ -294,7 +294,7 @@ export function ProfileContent({
                     ) : (
                       <div className="flex items-center justify-center h-full">
                         <p className="text-sm font-bold text-black">
-                          暂无已发布的 MOD
+                          暂无已发布的资源
                         </p>
                       </div>
                     )}

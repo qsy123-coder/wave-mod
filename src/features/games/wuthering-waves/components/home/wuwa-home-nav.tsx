@@ -3,9 +3,9 @@ import { Bell, ChevronDown, Search, User } from "lucide-react";
 
 const navItems = [
   ["/", "Home"],
-  ["/mods", "Browse Mods"],
-  ["/mods?character=今汐", "Character Mods"],
-  ["/mods?query=weapon", "Weapon Mods"],
+  ["/mods", "Browse Resources"],
+  ["/mods?character=今汐", "Character Resources"],
+  ["/mods?query=weapon", "Weapon Resources"],
   ["/guide", "Tutorials"],
   ["/support", "Statement"],
 ] as const;
@@ -16,11 +16,11 @@ export function WuwaHomeNav() {
       <div className="mx-auto flex h-full max-w-[1440px] items-center px-8 xl:px-11">
         <Link href="/" className="flex h-full w-[226px] shrink-0 items-center gap-4 text-white">
           <span className="font-serif text-[34px] font-black uppercase leading-none tracking-[-0.16em] text-white drop-shadow-[0_0_18px_rgba(255,255,255,0.16)]">
-            WW
+            XL
           </span>
           <span className="flex flex-col justify-center leading-none">
-            <span className="text-[12px] font-black uppercase italic tracking-[0.24em] text-white">Mod Hub</span>
-            <span className="mt-1 text-[8px] font-bold uppercase tracking-[0.34em] text-white/58">Wuthering Waves</span>
+            <span className="text-[12px] font-black uppercase italic tracking-[0.24em] text-white">Appearance Hub</span>
+            <span className="mt-1 text-[8px] font-bold uppercase tracking-[0.34em] text-white/58">XINGLAN</span>
           </span>
         </Link>
 

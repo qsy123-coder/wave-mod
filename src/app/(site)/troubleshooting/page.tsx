@@ -4,9 +4,9 @@ import { troubleshootingConfig } from "@/features/troubleshooting/troubleshootin
 import { TroubleshootingContent } from "@/features/troubleshooting/components/troubleshooting-content";
 
 export const metadata = {
-  title: "问题解答 — 鸣潮 Mod 常见问题排查指南",
+  title: "问题解答 — 常见问题排查指南",
   description:
-    "安装失败、闪退、贴图错误、Mod 不生效？查看鸣潮 Mod 问题解答，35 个常见问题及解决方法，持续更新。",
+    "安装失败、闪退、贴图错误、资源不生效？查看常见问题解答，35 个常见问题及解决方法，持续更新。",
 };
 
 /** Read a markdown file from content/troubleshooting/ */

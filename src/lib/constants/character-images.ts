@@ -8,7 +8,7 @@ export const characterImageMap: Record<string, string> = {
   "Other/Misc": "/character-imgs/其他角色.webp",
   "UI": "/character-imgs/UI界面.png",
 
-  // 鸣潮角色
+  // 主站角色
   "秋水": "/character-imgs/秋水.webp",
   "奥古斯塔": "/character-imgs/奥古斯塔.webp",
   "白芷": "/character-imgs/白芷.webp",

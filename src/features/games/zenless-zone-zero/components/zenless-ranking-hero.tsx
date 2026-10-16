@@ -1,9 +1,8 @@
-import type { GameConfig } from "@/config/games";
 import { GooeyText } from "@/components/ui/gooey-text-morphing";
 
 const RANKING_TEXTS = [
   "TOP CREATORS",
-  "BEST MODS",
+  "BEST RESOURCES",
   "LEADERBOARD",
   "HALL OF FAME",
   "TRENDING NOW",
@@ -12,7 +11,8 @@ const RANKING_TEXTS = [
   "RISING STARS",
 ];
 
-export function ZenlessRankingHero({ game }: { game: GameConfig }) {
+// 文案改中性后不再需要 game —— 那一句原本拼的是 `{game.name} community`。
+export function ZenlessRankingHero() {
   return (
     <section className="relative -mt-[74px] mb-8 flex items-center pt-[74px] h-[180px] sm:h-[190px] lg:h-[205px] shrink-0">
       <div className="relative z-10 mx-auto w-full max-w-[1680px] px-5 py-3.5 sm:py-4 lg:py-4 lg:px-6">
@@ -27,8 +27,7 @@ export function ZenlessRankingHero({ game }: { game: GameConfig }) {
           textClassName="text-xl sm:text-2xl lg:text-3xl font-black leading-none text-black !left-0"
         />
         <p className="mt-2 sm:mt-2.5 lg:mt-3 max-w-xl text-[10px] sm:text-xs font-bold leading-snug text-black">
-          Discover the most popular mods and talented creators in the{" "}
-          {game.name} community.
+          Discover the most popular appearance resources and talented creators.
         </p>
       </div>
     </section>

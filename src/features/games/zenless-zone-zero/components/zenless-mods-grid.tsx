@@ -10,8 +10,8 @@ export function ZenlessModsGrid({ game, mods }: { game: GameConfig; mods: SiteMo
   if (!mods.length) {
     return (
       <div className="border-4 border-black bg-white p-8 text-center text-black shadow-[8px_8px_0_0_#000]">
-        <p className="text-2xl font-black">暂无匹配的绝区零 MOD</p>
-        <p className="mt-3 text-sm font-bold text-black/65">尝试清空筛选，或等待管理员上传更多代理人 MOD。</p>
+        <p className="text-2xl font-black">暂无匹配的外观资源</p>
+        <p className="mt-3 text-sm font-bold text-black/65">尝试清空筛选，或等待管理员上传更多代理人外观资源。</p>
       </div>
     );
   }

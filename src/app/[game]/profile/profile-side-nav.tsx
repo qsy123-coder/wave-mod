@@ -32,10 +32,10 @@ export function ProfileSideNav({
 }: ProfileSideNavProps) {
   const items: SideItem[] = [
     { icon: <UserRound className="size-4" />, label: "Profile", href: profileHref, active: true },
-    { icon: <Sparkles className="size-4" />, label: "My Mods", href: `${profileHref}?tab=published` },
+    { icon: <Sparkles className="size-4" />, label: "My Resources", href: `${profileHref}?tab=published` },
     { icon: <Bookmark className="size-4" />, label: "Collections", href: favoritesHref },
     { icon: <Users className="size-4" />, label: "Following" },
-    { icon: <Heart className="size-4" />, label: "Liked Mods", href: `${profileHref}?tab=favorites` },
+    { icon: <Heart className="size-4" />, label: "Liked Resources", href: `${profileHref}?tab=favorites` },
     { icon: <Mail className="size-4" />, label: "Messages" },
     { icon: <Bell className="size-4" />, label: "Notifications" },
     { icon: <Settings className="size-4" />, label: "Settings", href: editProfileHref },

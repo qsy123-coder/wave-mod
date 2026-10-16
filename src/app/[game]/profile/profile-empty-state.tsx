@@ -4,7 +4,7 @@ import { UserRound } from "lucide-react";
 
 import { panel } from "./profile-shared";
 
-/** 空状态：未指定用户且未登录 → 引导登录或浏览 MOD */
+/** 空状态：未指定用户且未登录 → 引导登录或浏览外观资源 */
 export function ProfileEmptyState({
   gameHomeHref,
 }: {
@@ -30,7 +30,7 @@ export function ProfileEmptyState({
               href={gameHomeHref}
               className="border-2 border-black bg-white px-4 py-2 text-xs font-black uppercase text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5"
             >
-              浏览 MOD
+              浏览外观资源
             </Link>
           </div>
         </div>

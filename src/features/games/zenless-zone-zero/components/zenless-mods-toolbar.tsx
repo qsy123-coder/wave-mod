@@ -27,7 +27,7 @@ export function ZenlessModsToolbar({ character, game, query, sort }: ZenlessMods
           <form method="GET" action={game.nav.mods} className="flex items-center gap-1">
             {character ? <input type="hidden" name="character" value={character} /> : null}
             {sort !== "hot" ? <input type="hidden" name="sort" value={sort} /> : null}
-            <input type="text" name="query" defaultValue={query ?? ""} placeholder="搜索 MOD..." className="border-2 border-black px-2 py-1.5 text-[10px] font-bold text-black placeholder:text-black/40 shadow-[2px_2px_0_0_#000] outline-none w-[140px]" />
+            <input type="text" name="query" defaultValue={query ?? ""} placeholder="搜索外观资源..." className="border-2 border-black px-2 py-1.5 text-[10px] font-bold text-black placeholder:text-black/40 shadow-[2px_2px_0_0_#000] outline-none w-[140px]" />
             <button type="submit" className="border-2 border-black bg-[var(--neo-accent)] px-2 py-1.5 shadow-[2px_2px_0_0_#000]">
               <Search className="size-3.5" />
             </button>

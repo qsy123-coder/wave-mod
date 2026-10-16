@@ -36,7 +36,7 @@ export function ProfileRightRail({
           </p>
         )}
         <p className="mt-1.5 text-[10px] font-bold text-black">
-          已发布 {profile.stats.modCount} 个 MOD ·{" "}
+          已发布 {profile.stats.modCount} 个资源 ·{" "}
           {compact(profile.stats.totalDownloads)} 次下载
         </p>
         <div className="mt-2 flex gap-2 text-black">

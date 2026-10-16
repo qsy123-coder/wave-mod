@@ -59,12 +59,12 @@ export function ModActionDrawer({
   return (
     <aside
       className={`fixed left-4 top-5 z-50 border-4 border-black bg-[#FFFDF5] text-black shadow-[10px_10px_0px_0px_#000] transition-all duration-300 ease-in-out ${expanded ? "w-[274px] -rotate-1" : "w-14 rotate-[0.5deg] opacity-82"}`}
-      aria-label="Mod 操作面板"
+      aria-label="资源操作面板"
     >
       <div className={`flex items-start justify-between border-b-4 border-black px-2.5 py-2.5 ${expanded ? "bg-[#FFD93D]" : "bg-[#fff2b8]"}`}>
         <div className={`min-w-0 transition-all duration-200 ${expanded ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}>
           <p className="text-[10px] font-black uppercase tracking-[0.2em]">Action Dock</p>
-          <h2 className="mt-1 truncate text-sm font-black uppercase">Mod 面板</h2>
+          <h2 className="mt-1 truncate text-sm font-black uppercase">资源面板</h2>
         </div>
         <button
           type="button"

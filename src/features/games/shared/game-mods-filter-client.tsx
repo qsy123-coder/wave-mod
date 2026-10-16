@@ -49,7 +49,7 @@ export function GameModsFilterClient({
         activePreview={activePreview}
         activeCharacter={initialCharacter}
         activeQuery={initialQuery}
-        // 必须传：不传的话 /api/mods 会当成默认游戏（鸣潮），联想框里会冒出别的游戏的 MOD
+        // 必须传：不传的话 /api/mods 会当成默认分站（主站），联想框里会冒出别的分站的资源
         gameKey={game.key}
         // 刻意不传 onSelectMod：分站没有详情抽屉（点卡片本来就是整页跳转），
         // 联想项会退化成同样的整页跳转，两边行为一致

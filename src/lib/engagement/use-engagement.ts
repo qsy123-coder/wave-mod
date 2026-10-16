@@ -15,7 +15,7 @@ import {
 import type { EngagementCounts } from "./types";
 
 /**
- * 订阅某个 MOD 的互动状态。
+ * 订阅某个资源的互动状态。
  *
  * `initialCounts` 是服务端渲染时快照里的旧值：它保证**首屏/hydration 与 SSR 一致**，
  * 等客户端批量拉到新值后再无缝替换。拉不到就一直是它 —— 这就是「静默降级」。

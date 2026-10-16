@@ -9,7 +9,7 @@ export function ZenlessModsFooterCta() {
       <MotionReveal delay={0.06} y={20} rotate={-1}>
         <div className="flex min-h-[80px] items-center justify-between gap-4 border-4 border-black bg-[var(--neo-panel)] px-4 py-3 text-black shadow-[6px_6px_0_0_#000]">
           <div className="min-w-0">
-            <p className="truncate text-base font-black">本站 MOD 转载自玩家社区</p>
+            <p className="truncate text-base font-black">本站外观资源转载自玩家社区</p>
             <p className="mt-2 truncate text-xs font-bold text-black/65">版权归原作者所有，详情请查看转载与版权声明。</p>
           </div>
           <Link href="/zenless-zone-zero/support" className="neo-button-primary inline-flex shrink-0 items-center gap-2 px-4 py-2 text-[10px] font-black uppercase">
@@ -21,10 +21,10 @@ export function ZenlessModsFooterCta() {
         <div className="flex min-h-[80px] items-center justify-between gap-4 border-4 border-black bg-[var(--neo-muted)] px-4 py-3 text-black shadow-[6px_6px_0_0_#000]">
           <div className="min-w-0">
             <p className="inline-flex max-w-full items-center gap-2 truncate text-base font-black"><Trophy className="size-5 shrink-0" />分享你的作品</p>
-            <p className="mt-2 truncate text-xs font-bold text-black/65">上传绝区零 MOD，获得推荐位。</p>
+            <p className="mt-2 truncate text-xs font-bold text-black/65">上传外观资源，获得推荐位。</p>
           </div>
           <Link href="/admin/upload" className="neo-button-secondary inline-flex shrink-0 items-center gap-2 px-4 py-2 text-[10px] font-black uppercase">
-            上传 MOD<ArrowRight className="size-3.5" />
+            上传资源<ArrowRight className="size-3.5" />
           </Link>
         </div>
       </MotionReveal>

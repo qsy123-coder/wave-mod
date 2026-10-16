@@ -36,7 +36,7 @@ export default async function UpdatesPage() {
             <h1 className="text-2xl font-black uppercase tracking-tight">每日更新</h1>
           </div>
           <p className="mt-1 text-sm font-bold text-white/60">
-            最近 {DAYS} 天按日期汇总 · 共 {totalThisWeek} 个 mod 上新
+            最近 {DAYS} 天按日期汇总 · 共 {totalThisWeek} 个资源上新
           </p>
         </div>
         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/60">

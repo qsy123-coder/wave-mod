@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, ensureProfile, getCurrentUser } from "@/lib/supabase/server";
 
 const likeSchema = z.object({
-  modId: z.uuid("无效的 MOD ID。"),
+  modId: z.uuid("无效的资源 ID。"),
 });
 
 async function syncLikeCount(modId: string) {

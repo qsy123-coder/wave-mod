@@ -21,7 +21,7 @@ export const defaultUploadFormValues: UploadFormValues = {
   authorUrl: "https://space.bilibili.com/349437683",
   character: "今汐",
   description:
-    "今汐主题角色外观 MOD，包含战斗待机、近景展示与基础兼容说明。推荐搭配黑紫系 UI 截图使用，如遇贴图冲突请先停用同角色其他外观模组。",
+    "今汐主题角色外观资源，包含战斗待机、近景展示与基础兼容说明。推荐搭配黑紫系 UI 截图使用，如遇贴图冲突请先停用同角色其他外观模组。",
   downloadUrl: "",
   driveLinksText: "",
   gameKey: defaultGameKey,

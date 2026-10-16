@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { ModsListing } from "@/components/features/mods/list/mods-listing";
 
 export const metadata: Metadata = {
-  title: "MOD 列表 — 高清预览与直链下载",
+  title: "外观资源列表 — 高清预览与直链下载",
   description:
-    "按角色分类浏览鸣潮 Mod，支持关键词搜索、热度/收藏/评分排序与「含直链」「含预览图」筛选，卡片点击就地查看详情。",
+    "按角色分类浏览外观资源，支持关键词搜索、热度/收藏/评分排序与「含直链」「含预览图」筛选，卡片点击就地查看详情。",
   // 筛选/翻页组合（?character= / ?sort= / ?page=）是近乎无限的近似重复页，
   // robots.ts 里已用 `/mods?` 挡住抓取；这里再声明规范地址，把已收录的
   // 带参 URL 的权重并回无参的 /mods。

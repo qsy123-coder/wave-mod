@@ -95,14 +95,14 @@ export function ZenlessGlassNav({ game }: ZenlessGlassNavProps) {
           className="group flex min-w-0 items-center gap-2"
         >
           <div className="flex size-9 -rotate-2 items-center justify-center border-4 border-black bg-[var(--neo-accent)] text-base font-black text-black shadow-[3px_3px_0px_0px_#000] transition duration-100 group-hover:-translate-y-0.5 group-hover:shadow-[5px_5px_0px_0px_#000]">
-            Z
+            X
           </div>
           <div className="hidden leading-none sm:block">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-black">
-              WaveMod
+              XINGLAN
             </p>
             <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.2em] text-white/62">
-              绝区零 MOD 分站
+              分站二
             </p>
           </div>
         </Link>

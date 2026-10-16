@@ -15,10 +15,10 @@ export function WuwaCtaBanner() {
     <div className="flex flex-col items-start justify-between gap-3 rounded-lg border border-white/5 bg-[#161b22] px-5 py-4 sm:flex-row sm:items-center">
       <div>
         <h3 className="mb-1 text-base font-black text-white">Create. Share. Inspire.</h3>
-        <p className="text-xs text-slate-400">Become a creator and share your mods with the community.</p>
+        <p className="text-xs text-slate-400">Become a creator and share your appearance resources with the community.</p>
       </div>
       <Link href="/admin/upload" className="inline-flex flex-shrink-0 items-center gap-2 rounded bg-blue-500 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-blue-400">
-        <Upload className="size-3.5" />Upload Your Mod
+        <Upload className="size-3.5" />Upload Your Resource
       </Link>
     </div>
   );

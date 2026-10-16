@@ -29,10 +29,10 @@ export const defaultGameKey = "wuthering-waves" satisfies GameKey;
 export const games = [
   {
     key: "wuthering-waves",
-    name: "鸣潮",
-    shortName: "鸣潮",
+    name: "主站",
+    shortName: "主站",
     slug: "wuthering-waves",
-    description: "鸣潮角色 MOD、XXMI 安装指引与直链下载。",
+    description: "角色外观资源、XXMI 安装指引与直链下载。",
     enabled: true,
     useCustomLayout: false,
     theme: {
@@ -51,10 +51,10 @@ export const games = [
   },
   {
     key: "zenless-zone-zero",
-    name: "绝区零",
-    shortName: "ZZZ",
+    name: "分站二",
+    shortName: "分站二",
     slug: "zenless-zone-zero",
-    description: "绝区零 MOD 分站预留入口，当前复用通用 MOD 功能。",
+    description: "分站二预留入口，当前复用通用外观资源功能。",
     enabled: true,
     useCustomLayout: false,
     theme: {
@@ -73,10 +73,10 @@ export const games = [
   },
   {
     key: "genshin-impact",
-    name: "原神",
-    shortName: "原神",
+    name: "分站三",
+    shortName: "分站三",
     slug: "genshin-impact",
-    description: "原神 MOD 分站预留入口，当前复用通用 MOD 功能。",
+    description: "分站三预留入口，当前复用通用外观资源功能。",
     enabled: true,
     useCustomLayout: false,
     theme: {

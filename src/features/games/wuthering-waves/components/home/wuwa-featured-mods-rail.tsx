@@ -101,7 +101,7 @@ export function WuwaFeaturedModsRail({ mods }: { mods: SiteMod[] }) {
     <section>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white">
-          Featured Mods
+          Featured Resources
         </h2>
         <div className="flex items-center gap-3">
           <Link
@@ -139,7 +139,7 @@ export function WuwaFeaturedModsRail({ mods }: { mods: SiteMod[] }) {
         </div>
       ) : (
         <div className="flex h-48 items-center justify-center rounded-lg border border-white/5 bg-[#161b22] text-sm text-slate-500">
-          暂无精选 MOD，发布后自动展示
+          暂无精选资源，发布后自动展示
         </div>
       )}
     </section>

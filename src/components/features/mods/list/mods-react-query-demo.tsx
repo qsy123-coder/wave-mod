@@ -85,7 +85,7 @@ export function ModsReactQueryDemo({ character, query, sort }: ModsReactQueryDem
         </div>
         <div className="inline-flex items-center gap-2 border-4 border-black bg-white px-4 py-3 text-sm font-black uppercase tracking-[0.14em] shadow-[6px_6px_0px_0px_#000]">
           <Trophy className="size-4" />
-          共载入 {mods.length} 个 MOD
+          共载入 {mods.length} 个资源
         </div>
       </div>
 

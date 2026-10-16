@@ -60,8 +60,8 @@ function RankingPodium({ game, mods }: { game: GameConfig; mods: SiteMod[] }) {
         <section className="neo-card-lg bg-[var(--neo-panel)] p-8 text-black">
           <div className="border-4 border-black bg-white px-5 py-6 shadow-[8px_8px_0px_0px_#000]">
             <p className="neo-label text-black/60">Ranking Empty</p>
-            <h2 className="mt-2 text-3xl font-black">{game.name} 暂无可排行 MOD。</h2>
-            <p className="mt-4 text-sm font-bold leading-7 text-black/75">发布更多公开 MOD 后，这里会自动生成下载、收藏、评分和热度榜单。</p>
+            <h2 className="mt-2 text-3xl font-black">{game.name} 暂无可排行的资源。</h2>
+            <p className="mt-4 text-sm font-bold leading-7 text-black/75">发布更多公开资源后，这里会自动生成下载、收藏、评分和热度榜单。</p>
           </div>
         </section>
       </MotionReveal>
@@ -92,7 +92,7 @@ function RankingPodium({ game, mods }: { game: GameConfig; mods: SiteMod[] }) {
   );
 }
 
-/** 创作者排行榜 — 支持按下载量 / 按 MOD 数切换维度 */
+/** 创作者排行榜 — 支持按下载量 / 按资源数切换维度 */
 function CreatorRanking({
   creators,
   game,
@@ -110,7 +110,7 @@ function CreatorRanking({
               {game.name} 暂无创作者排名。
             </h2>
             <p className="mt-2 text-sm font-bold leading-7 text-black/75">
-              发布更多 MOD 后，创作者排名将自动生成。
+              发布更多资源后，创作者排名将自动生成。
             </p>
           </div>
         </section>
@@ -189,7 +189,7 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
           <div className="relative">
             <p className="neo-label text-black/60">{game.name} Ranking</p>
             <h1 className="mt-2 text-4xl font-black uppercase leading-none md:text-5xl">{game.name} 排行榜</h1>
-            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-black/75">按创作者影响力、MOD 下载、收藏、评分和互动热度生成运营榜单，发现最受欢迎的内容和创作者。</p>
+            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-black/75">按创作者影响力、资源下载、收藏、评分和互动热度生成运营榜单，发现最受欢迎的内容和创作者。</p>
           </div>
         </section>
       </MotionReveal>
@@ -211,7 +211,7 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
             <Flame className="size-4" />综合热度说明
           </div>
           <p className="mt-4 text-sm font-bold leading-7 text-black/75">
-            创作者排名基于 MOD 总下载量聚合；综合热度由浏览、下载、收藏、点赞、评论、评分人数和平均评分共同计算，适合作为首页推荐和每周热门的基础信号。
+            创作者排名基于资源总下载量聚合；综合热度由浏览、下载、收藏、点赞、评论、评分人数和平均评分共同计算，适合作为首页推荐和每周热门的基础信号。
           </p>
         </section>
       </MotionReveal>
