@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { cn } from "@/lib/utils";
 import { getCharacterImagePath } from "@/lib/constants/character-images";
 import { isCurrentNavigationUrl, isPlainLeftClick } from "@/lib/navigation-url";
+import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import { CharacterPickerDrawer } from "./character-picker-drawer";
 
 export type CharacterSidebarItem = {
@@ -31,24 +32,43 @@ const tagColors = [
 ];
 
 /**
- * 点击分类卡片：只拦「原地踏步」，其余一律交给 <Link> 自己走客户端导航。
+ * 点击分类卡片：拦「原地踏步」，其余**先把选中的角色写成乐观值**再交给 `<Link>` 走导航。
  *
  * 卡片从 `<button onClick={router.push}>` 换成真 `<a href>`，是为了**水合之前**那一段：
- * 那时 button 上的事件处理器还不存在，点了完全没反应；真链接则会走浏览器原生跳转，
- * 自带加载指示。坏网络下这个死窗口实测有 11~23 秒（memory: prerender-click-dead-window）。
+ * 那时 button 上的事件处理器还不存在，点了完全没反应；真链接则会走浏览器原生跳转、
+ * 自带加载指示。坏网络下那个死窗口实测有 11~23 秒（memory: prerender-click-dead-window）。
+ * 三处卡片都写了 `prefetch={false}`：几十个分类链接默认预取会在慢网络下同时打出几十个
+ * 请求，正好和用户当前正看的那页抢带宽 —— 那正是要治的病。
  *
  * 拦「原地踏步」的理由见 navigation-url.ts 顶部：push 一个与当前相同的 URL 不会带来任何
- * 变化（同 URL 不会；旧链接里角色名写成别名时解析结果也相同），只会白白多一条历史记录。
- * 顶部导航早就有同样的短路（site-header-client.tsx 里那句 href === currentUrl）。
+ * 变化（旧链接里角色名写成别名时解析结果也相同），只会白多一条历史记录。
  *
- * 三处卡片都写了 `prefetch={false}`：侧边栏几十个分类链接，默认预取会在慢网络下
- * 同时打出几十个请求，正好和用户当前正在看的这一页抢带宽 —— 那正是要治的病。
+ * 为什么要点亮乐观值：右侧网格的骨架由**它自己的取数状态**驱动，而取数要等客户端导航
+ * 把 RSC 拿回来、queryKey 变了才开始 —— 在那之前界面完全没反应（用户报告：「点左侧
+ * 角色头像，右侧骨架屏没有秒出」）。
+ *
+ * ⚠️ 写法上有个硬约束：**不能去写 `isLoading`**。那是网格独有的写入口
+ * （mods-page-client 的 handleStatusChange），别处写会被它下一次回报当场覆盖（实测过）。
+ * 所以这里写的是**另一个**状态 `pendingCharacter`，由网格加算进加载态，两边互不打架。
+ * 被 preventDefault 拦掉的分支不能写：那次点击不导航，写了只能等看门狗兜底。
  */
-function handleCardClick(event: MouseEvent<HTMLAnchorElement>, href: string, alreadyActive: boolean) {
+function handleCardClick(
+  event: MouseEvent<HTMLAnchorElement>,
+  href: string,
+  alreadyActive: boolean,
+  label: string,
+  setPendingCharacter: (character: string | null) => void,
+) {
   // 带修饰键的点击（Ctrl/Cmd/中键 → 新标签页）放行给浏览器，见 isPlainLeftClick。
   if (!isPlainLeftClick(event)) return;
 
-  if (alreadyActive || isCurrentNavigationUrl(href)) event.preventDefault();
+  if (alreadyActive || isCurrentNavigationUrl(href)) {
+    event.preventDefault();
+    return;
+  }
+
+  // 认不出标签就不写：宁可没有乐观值，也不要写一个永远不会被匹配清掉的进去
+  if (label) setPendingCharacter(label);
 }
 
 export function CharacterSidebar({
@@ -65,6 +85,22 @@ export function CharacterSidebar({
   // 下面这个 pickerOpen 是抽屉自己的开合，与筛选无关。
   const [pickerOpen, setPickerOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const { pendingCharacter, setPendingCharacter } = useNavigationLoading();
+
+  /**
+   * 导航落地就把乐观值清掉。
+   *
+   * `isActive` 由 URL 派生（mods-url-driven）：URL 一更新，被选中的那条就翻转成 active，
+   * 此时乐观值已完成使命 —— 网格自己也已经接手在转圈了。清晚了没有副作用，但不清会让
+   * 骨架一直挂到看门狗（60s）。
+   */
+  useEffect(() => {
+    if (pendingCharacter === null) return;
+    const landed =
+      (isAllActive && pendingCharacter === allLabel) ||
+      characters.some((c) => c.isActive && c.label === pendingCharacter);
+    if (landed) setPendingCharacter(null);
+  }, [allLabel, characters, isAllActive, pendingCharacter, setPendingCharacter]);
 
   /**
    * 四条关闭路径（点遮罩 / Esc / 右上 ✕ / 点选角色）都汇到这里，统一回收焦点。
@@ -90,10 +126,15 @@ export function CharacterSidebar({
     (event: MouseEvent<HTMLAnchorElement>, href: string, isActive: boolean) => {
       if (!isPlainLeftClick(event)) return;
 
-      handleCardClick(event, href, isActive);
+      // 抽屉里的格子只回调 (event, href, isActive)，标签得自己按 href 反查 ——
+      // 这样不用为了一个 label 去改 character-picker-drawer 的接口。
+      const label =
+        href === allHref ? allLabel : characters.find((c) => c.href === href)?.label ?? "";
+
+      handleCardClick(event, href, isActive, label, setPendingCharacter);
       handlePickerOpenChange(false);
     },
-    [handlePickerOpenChange]
+    [allHref, allLabel, characters, handlePickerOpenChange, setPendingCharacter]
   );
 
   const specialCategories = characters.filter((c) =>
@@ -130,7 +171,7 @@ export function CharacterSidebar({
         <Link
           href={allHref}
           prefetch={false}
-          onClick={(event) => handleCardClick(event, allHref, isAllActive)}
+          onClick={(event) => handleCardClick(event, allHref, isAllActive, allLabel, setPendingCharacter)}
           className={cn(
             "border-[3px] border-black px-2.5 py-1.5 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
             // 按下反馈（按下态在 hover 之后出，Tailwind 的变体顺序保证它赢过 hover 的位移）
@@ -153,7 +194,7 @@ export function CharacterSidebar({
               key={item.label}
               href={item.href}
               prefetch={false}
-              onClick={(event) => handleCardClick(event, item.href, item.isActive)}
+              onClick={(event) => handleCardClick(event, item.href, item.isActive, item.label, setPendingCharacter)}
               className={cn(
                 "flex items-center gap-2 border-[3px] border-black px-2.5 py-2 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
                 // 按下反馈（按下态在 hover 之后出，Tailwind 的变体顺序保证它赢过 hover 的位移）
@@ -192,7 +233,7 @@ export function CharacterSidebar({
                 key={item.label}
                 href={item.href}
                 prefetch={false}
-                onClick={(event) => handleCardClick(event, item.href, item.isActive)}
+                onClick={(event) => handleCardClick(event, item.href, item.isActive, item.label, setPendingCharacter)}
                 className={cn(
                   "flex items-center gap-2 border-[3px] border-black px-2.5 py-2 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
                   // 按下反馈（按下态在 hover 之后出，Tailwind 的变体顺序保证它赢过 hover 的位移）

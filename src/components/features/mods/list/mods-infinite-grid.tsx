@@ -9,6 +9,7 @@ import { CardDownloadAction } from "@/components/features/mods/detail/card-downl
 import { DESKTOP_DEFAULT_COLUMNS, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
+import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import type { ModSort, ModsPage, SiteMod } from "@/lib/mods";
 import { MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
 
@@ -147,6 +148,9 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         totalPages: 1,
       }
     : null;
+
+  // 侧栏刚点下、导航还没落地时的那一半加载态（见下面 `if (isLoading || pendingCharacter …)`）
+  const { pendingCharacter } = useNavigationLoading();
 
   const {
     data,
@@ -343,8 +347,15 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    *
    * 只有「完全没有种子、第一页还在路上」才会走到这里（换筛选、或硬加载一个带筛选的
    * URL）；默认筛选有预渲染的种子，一挂载就是完成态。
+   *
+   * ⚠️ `pendingCharacter !== null` 是**乐观的那一半**：网格自己的 `isLoading` 要等
+   * queryKey 变（= 客户端导航把 RSC 拿回来、URL 更新）才开始，而点侧栏角色之后到那一刻
+   * 之间界面是死的（用户报告「点左侧角色头像，右侧骨架屏没有秒出」）。
+   * 侧栏点击时先把选中的角色写进 `pendingCharacter`，导航落地后由侧栏自己清掉
+   * （见 character-sidebar 的 effect）。**不写 `isLoading`** —— 那是网格独有的写入口，
+   * 别处写会被 `handleStatusChange` 当场覆盖（实测过），这一点 mods-page-client 有注释说明。
    */
-  if (isLoading) {
+  if (isLoading || pendingCharacter !== null) {
     return isMasonry ? (
       <section className="flex gap-4">
         {Array.from({ length: colCount }).map((_, colIdx) => (

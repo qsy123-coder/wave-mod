@@ -67,6 +67,31 @@ export function NavigationLoadingProvider({ children }: { children: ReactNode })
   const startLoading = useCallback(() => setIsLoading(true), []);
   const stopLoading = useCallback(() => setIsLoading(false), []);
 
+  /**
+   * 乐观角色：侧栏点下角色的**那一刻**写入，导航落地后由侧栏自己清掉。
+   *
+   * 为什么不能用 `isLoading` 承担这件事：那是网格独有的写入口（`handleStatusChange`），
+   * 别处写会被它下一次回报**当场覆盖** —— 实测过，写了等于没写。
+   * 所以乐观值走独立的状态，由消费方（网格）**加算**进加载态，两边互不打架。
+   *
+   * 看门狗：万一导航没落地（点了却因为某种原因没跳成），不能让右侧骨架一直挂着。
+   */
+  const pendingCharWatchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setPendingCharacterSafe = useCallback((character: string | null) => {
+    if (pendingCharWatchdog.current) {
+      clearTimeout(pendingCharWatchdog.current);
+      pendingCharWatchdog.current = null;
+    }
+    setPendingCharacter(character);
+    if (character !== null) {
+      pendingCharWatchdog.current = setTimeout(() => {
+        pendingCharWatchdog.current = null;
+        setPendingCharacter(null);
+      }, PAGE_LOADING_WATCHDOG_MS);
+    }
+  }, []);
+
   const stopPageLoading = useCallback(() => {
     if (pageWatchdog.current) {
       clearTimeout(pageWatchdog.current);
@@ -92,13 +117,14 @@ export function NavigationLoadingProvider({ children }: { children: ReactNode })
   useEffect(
     () => () => {
       if (pageWatchdog.current) clearTimeout(pageWatchdog.current);
+      if (pendingCharWatchdog.current) clearTimeout(pendingCharWatchdog.current);
     },
     [],
   );
 
   return (
     <NavigationLoadingContext.Provider
-      value={{ isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter, isPageLoading, pendingPagePath, startPageLoading, stopPageLoading }}
+      value={{ isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter: setPendingCharacterSafe, isPageLoading, pendingPagePath, startPageLoading, stopPageLoading }}
     >
       {children}
     </NavigationLoadingContext.Provider>
