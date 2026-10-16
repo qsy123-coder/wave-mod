@@ -120,12 +120,33 @@ function ModsNavSkeleton() {
  */
 function HomePageSkeleton() {
   return (
-    // `min-h-full` = 填满遮罩自己的内容区（已扣掉导航栏）。首页 SnapContainer 用的是
-    // `100vh - var(--home-hero-h)`、且它在文档流里位于 header **之后**，所以这里等价。
-    <div data-slot="page-skeleton-home" className="flex min-h-full items-center">
-      <div className={`${SITE_WIDTH} pb-[15vh] pt-[11vh]`}>
-        <HomeHeroIntro right={<FeaturedCarouselSkeleton />} />
-      </div>
+    // ⚠️ 这个 section 是**照抄** `(home)/page.tsx` 里那一个的 —— 高度公式、上下 padding、
+    // `items-center` 全都一致，一个都不能改，否则垂直位置对不上。
+    //
+    // 为什么不能自己写「撑满 + 居中」：首页那张 hero 卡（约 717px）**比可视内容区还高**，
+    // 真页面靠 `items-center` 让它**上下对称溢出**从而落在离导航栏很近的位置。
+    // 而遮罩是个**滚动容器**，滚动容器不允许内容向上溢出（滚不到负偏移），
+    // 于是同样的居中会被夹住、整块被往下压约 60px（实测：卡顶 229 vs 真页面 169）。
+    // 照抄结构就没有这个夹取，落点与真页面只差「横条高度」那一点（见下）。
+    //
+    // 残留差异：首页 header 含一条 30px 的「近期上新」横条（--site-header-h 160），
+    // 而跳转途中显示的还是上一页的 header（130）。横条要等路由真的切过去才出现，
+    // 骨架无从预知 —— 这点差值是这个过渡本身固有的，不是骨架写错。
+    <div data-slot="page-skeleton-home">
+      {/*
+       * 补上首页那条「近期上新」横条的高度：首页 header = 导航栏 + 横条，
+       * 而跳转途中显示的仍是上一页的 header（没有横条），遮罩因此从更高的位置铺下来。
+       * 横条要等路由真的切过去才渲染，骨架无从预知，只能在这里手动补。
+       *
+       * 30px / `md` 以下隐藏，都照抄 `components/common/daily-ticker.tsx:70` 的
+       * `min-h-[30px] ... md:flex`。**改那边的高度时这里要跟着改。**
+       */}
+      <div aria-hidden className="hidden h-[30px] md:block" />
+      <section className="relative flex w-full items-center h-[calc(100vh-var(--home-hero-h))] pt-[11vh] pb-[15vh] max-md:h-auto max-md:pt-4 max-md:pb-4">
+        <div className={SITE_WIDTH}>
+          <HomeHeroIntro right={<FeaturedCarouselSkeleton />} />
+        </div>
+      </section>
     </div>
   );
 }
