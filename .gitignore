@@ -15,6 +15,9 @@
 
 # next.js
 /.next/
+# 部署时的旁路构建目录（NEXT_DIST_DIR，见 scripts/deploy-update.sh 与 next.config.ts）。
+# 正常只存在于服务器、且每次部署开头就 rm 掉；写进来是防构建中断后残留被误提交。
+/.next-staging/
 /.open-next/
 /out/
 

@@ -40,6 +40,20 @@ const cosRemotePatterns = [
 ].filter((pattern): pattern is { protocol: "https"; hostname: string } => Boolean(pattern));
 
 const nextConfig: NextConfig = {
+  // 构建产物目录可被环境变量顶掉，只为自托管部署服务（scripts/deploy-update.sh）。
+  //
+  // 为什么需要：自托管下 `.next` 是持久目录，线上进程直接从它读 chunk。于是
+  //   - 先 build 再停：`next build` 会**就地改写**正在服务的 `.next`，跑着的进程
+  //     会引用到已被替换掉的 chunk（表现为整页变回无样式纯 HTML / MODULE_NOT_FOUND）；
+  //   - 先停再 build：整个 build（约 100 秒）后端都没人听 3000，nginx 又没配
+  //     upstream 兜底 → 每次部署稳定 502 一百秒（2026-10-17 实测，见 memory）。
+  // 所以改成「先构建到 .next-staging（线上照常服务），构建完才 stop/rm/mv/start」，
+  // 把停机从整个 build 压到切换的那几秒。
+  //
+  // 默认值仍是 `.next`，本地 dev / build / CI 完全不受影响。
+  // 注意：`.next-staging` 里的 cache 是部署脚本从 `.next/cache` 拷进去的（不是软链，
+  // 软链会在 `mv .next-staging .next` 之后自指）。
+  distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
   // 兜底快照由运行时 fs 读取（src/lib/mods-domain/snapshot.ts），不是 import，
   // 因此必须显式告诉 output tracing 把它复制进 serverless 函数包，否则线上读不到。
   // 体积 500KB（gzip），对所有路由生效 —— 快照被 /api/mods、/mods、首页、详情页共用。
