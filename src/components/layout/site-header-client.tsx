@@ -9,6 +9,7 @@ import { getEnabledGames } from "@/config/games";
 import { signOutUser } from "@/actions/auth/auth-actions";
 import { useSession } from "@/components/features/auth/session-provider";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
+import { MobileCharacterNav } from "@/components/layout/mobile-character-nav";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { SiteSearchForm } from "@/components/layout/site-search-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -338,15 +339,26 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
           >
             <Menu className="size-4" />
           </SheetTrigger>
-          <SheetContent side="right" className="w-[86vw] border-l-4 border-black bg-[var(--neo-panel)] p-0 text-black" showCloseButton>
-            <SheetHeader className="theme-solid-panel border-b-4 border-black bg-[var(--neo-accent)] px-5 py-4">
+          {/*
+           * 高度撑满 + 内容区自己滚的三段式：`flex-col gap-0`（顶栏固定、内容区吃满余高），
+           * `SheetHeader` 加 shrink-0 不被压缩，内容区 `min-h-0 flex-1 overflow-y-auto`。
+           *
+           * 为什么非做不可：SheetContent 打开时会把 `document.body.style.overflow` 锁成
+           * hidden（见 sheet.tsx），内容区若没有自己的 overflow，超出的部分就**既看不见
+           * 也滚不到** —— 手机上加进「全部角色分类」六十多个格子后必然溢出。
+           *
+           * 只在这里传 className，**不动 sheet.tsx**：那个文件被 /mods 的角色抽屉与详情页
+           * 右抽屉共用，改它会波及那两处。同一套写法在 character-picker-drawer.tsx 已验证过。
+           */}
+          <SheetContent side="right" className="flex w-[86vw] flex-col gap-0 border-l-4 border-black bg-[var(--neo-panel)] p-0 text-black" showCloseButton>
+            <SheetHeader className="theme-solid-panel shrink-0 border-b-4 border-black bg-[var(--neo-accent)] px-5 py-4">
               <SheetTitle className="text-xl font-black uppercase tracking-[0.16em] text-black">站点导航</SheetTitle>
               <SheetDescription className="text-sm font-bold text-black/70">
                 角色分类、安装教程、收藏入口都放在这里。
               </SheetDescription>
             </SheetHeader>
 
-            <div className="space-y-4 p-5" onClick={handleHeaderNavClick}>
+            <div data-slot="mobile-nav-scroll" className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5" onClick={handleHeaderNavClick}>
               <Suspense fallback={<div className="neo-card px-4 py-3 text-sm font-bold text-black/60" style={{ background: "var(--neo-search)" }}>加载搜索…</div>}>
                 <SiteSearchForm />
               </Suspense>
@@ -385,6 +397,17 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     {item.label}
                   </Link>
                 ))}
+              </nav>
+
+              {/* 全部角色分类：手机端唯一的按角色浏览入口。
+                  /mods 的角色侧栏是 `hidden … lg:block`，那个 CharacterPickerDrawer
+                  也挂在侧栏内部跟着被隐藏，所以这里必须补一份。
+                  每一项是一个**具体角色**，点了进该角色的资源列表（/mods?character=…）。 */}
+              <nav className="grid gap-3">
+                <div className="border-4 border-black bg-[#ffd84f] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
+                  全部角色分类
+                </div>
+                <MobileCharacterNav open={mobileOpen} onNavigate={() => setMobileOpen(false)} />
               </nav>
 
               {/* 移动端风格切换入口：桌面端那个下拉是 hidden md:block，
