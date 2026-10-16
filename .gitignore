@@ -18,6 +18,9 @@
 # 部署时的旁路构建目录（NEXT_DIST_DIR，见 scripts/deploy-update.sh 与 next.config.ts）。
 # 正常只存在于服务器、且每次部署开头就 rm 掉；写进来是防构建中断后残留被误提交。
 /.next-staging/
+# 部署切换时留的上一版产物（回滚用），同样只存在于服务器。不写进来它会在服务器上
+# 显示成未跟踪目录，把 `git status` 弄脏 —— 而排查部署时正是靠那个输出判断状态。
+/.next-previous/
 /.open-next/
 /out/
 
