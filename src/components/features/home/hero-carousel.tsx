@@ -52,6 +52,35 @@ type HeroCarouselProps = {
 };
 
 /**
+ * 这一档现在要不要真的去取图。
+ *
+ * **为什么需要它**：六个 `CarouselItem` 是并排摆在 DOM 里的（Embla 靠 transform
+ * 换页），`loading="lazy"` 拦不住浏览器 —— Chrome 的懒加载阈值有好几屏宽，横排
+ * 出去的档照样落在阈值内；叠加自动播放每 4.5 秒推进一次、"进入视口"的档不断更替，
+ * 实测首屏会把六张全拉下来（约 280 KB）。而且**只要有一张没回来，`load` 事件就
+ * 永远不触发**，标签页一直转圈（2026-10-16 实测，模拟 150ms RTT / 4Mbps 链路）。
+ *
+ * 策略：当前档立刻取；它加载完（或失败）之后再放开**下一档**——留一档缓冲，
+ * 自动播放翻页时才不会是空白，同时首屏那张 LCP 图能独享带宽先落地。
+ */
+function shouldLoadSlideImage({
+  index,
+  current,
+  total,
+  canPreloadNeighbor,
+}: {
+  index: number;
+  current: number;
+  total: number;
+  canPreloadNeighbor: boolean;
+}) {
+  if (index === current) return true;
+  if (!canPreloadNeighbor || total <= 1) return false;
+
+  return index === (current + 1) % total;
+}
+
+/**
  * 详情抽屉只在点击轮播图后才需要。
  * 首页首屏包已经很大，按需加载可以避免把评论/评分/灯箱这些代码带进首屏。
  */
@@ -77,6 +106,8 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
   const [isPlaying, setIsPlaying] = React.useState(true);
   const [drawerModId, setDrawerModId] = React.useState<string | null>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
+  // 当前档的图落地（或报错）之后才放开下一档，见 shouldLoadSlideImage。
+  const [canPreloadNeighbor, setCanPreloadNeighbor] = React.useState(false);
 
   /**
    * 首页的滚动者是 snap 容器（内层 div），不是 body，
@@ -182,19 +213,31 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                   className="group block cursor-pointer transition-transform duration-150 active:scale-[0.99] focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-black"
                 >
                   <div className="theme-photo-frame relative h-[500px] w-full overflow-hidden border-4 border-black bg-black md:h-[560px]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     {/* srcset 让浏览器按屏幕自己挑档：手机 390@3x 要 1170 设备像素（挑 1280），
                         1440 普通屏只要 683（挑 960，比单档的 1280 再省一半），
-                        高分屏要 1367~1647（挑 1920，比单档更清晰）。 */}
-                    <img
-                      src={withCosImageTransform(mod.coverImage, COS_IMG_HERO)}
-                      srcSet={cosImageSrcSet(mod.coverImage)}
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      alt={mod.title}
-                      loading={index === 0 ? "eager" : "lazy"}
-                      referrerPolicy="no-referrer"
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
-                    />
+                        高分屏要 1367~1647（挑 1920，比单档更清晰）。
+
+                        没轮到取的档**整个不渲染 `<img>`**，而不是给个空 src ——
+                        空 src 的元素在某些浏览器上会按当前页地址再发一次请求。
+                        外框是 border-4 border-black bg-black，缺席时就是一块黑边卡，
+                        和图片还没到的观感一致（见 shouldLoadSlideImage 的说明）。 */}
+                    {shouldLoadSlideImage({ index, current, total: mods.length, canPreloadNeighbor }) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={withCosImageTransform(mod.coverImage, COS_IMG_HERO)}
+                        srcSet={cosImageSrcSet(mod.coverImage)}
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        alt={mod.title}
+                        loading={index === current ? "eager" : "lazy"}
+                        // 当前档就是 LCP 那张，把它抬到高优先级，别排在几十个
+                        // 无关键之后面（这正是首屏图被 JS 饿死的另一半原因）。
+                        fetchPriority={index === current ? "high" : "auto"}
+                        onLoad={() => setCanPreloadNeighbor(true)}
+                        onError={() => setCanPreloadNeighbor(true)}
+                        referrerPolicy="no-referrer"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
+                      />
+                    ) : null}
 
 
                     <div className="absolute left-3 top-3 z-20 flex flex-wrap gap-2">

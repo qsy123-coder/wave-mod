@@ -180,6 +180,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
         <MotionReveal delay={0.02} rotate={-2}>
           <Link
             href="/"
+            prefetch={false}
             className="theme-logo-card neo-card flex -rotate-1 items-center gap-2 px-3 py-2"
             style={{ background: "var(--neo-accent)" }}
           >
@@ -231,6 +232,12 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
           </DropdownMenu>
         </MotionReveal>
 
+        {/* 导航链接一律 `prefetch={false}`。
+            App Router 默认会在链接进入视口时预取目标路由的 RSC payload —— 头部
+            首屏可见的链接有七八个（导航 + 收藏 + 登录 + 直链下载），实测第一帧
+            就发出约 50 个预取请求、67 KB，和首屏图抢同一条链路，把 LCP 从
+            ~0.8s 推到 ~10s（2026-10-16，本地生产构建 + CDP 模拟 150ms RTT / 4Mbps）。
+            站内已有导航骨架屏兜底（PageLoadingOverlay），点击后的等待感不会更差。 */}
         <nav className="hidden items-center gap-1.5 lg:flex">
           {isAdminRoute ? (
             <>
@@ -260,6 +267,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
               <MotionReveal key={item.href} delay={0.06 + index * 0.04} rotate={index % 2 === 0 ? 2 : -2}>
                 <Link
                   href={item.href}
+                  prefetch={false}
                   onClick={() => handleGalleryEntry(item.href)}
                   className={`border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
                   style={{ background: index % 2 === 0 ? "transparent" : "rgba(255,255,255,0.35)" }}
@@ -290,7 +298,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
           {!isAdminRoute && (
             <>
               <MotionReveal delay={0.18} rotate={1}>
-                <Link href="/favorites" className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                <Link href="/favorites" prefetch={false} className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
                   <Heart className="size-3.5" />
                   收藏
                 </Link>
@@ -325,14 +333,14 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     </button>
                   </form>
                 ) : (
-                  <Link href={loginHref} onClick={() => handleLoginEntry(loginHref)} className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                  <Link href={loginHref} prefetch={false} onClick={() => handleLoginEntry(loginHref)} className="neo-button-outline inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
                     <LogIn className="size-3.5" />
                     登录
                   </Link>
                 )}
               </MotionReveal>
               <MotionReveal delay={0.22} rotate={-1}>
-                <Link href="/mods" className="neo-button-primary inline-flex -rotate-1 items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
+                <Link href="/mods" prefetch={false} className="neo-button-primary inline-flex -rotate-1 items-center gap-1.5 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
                   <Sparkles className="size-3.5" />
                   直链下载
                 </Link>

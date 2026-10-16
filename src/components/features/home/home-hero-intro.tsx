@@ -57,11 +57,15 @@ export function HomeHeroIntro({ right }: { right: ReactNode }) {
             </p>
           </MotionReveal>
 
-          {/* 主操作 */}
+          {/* 主操作。prefetch={false}：这是首屏可见的链接，App Router 默认会在
+              它们进入视口时就去预取目标路由的 RSC payload —— 首屏可见的链接一共有
+              十几个，实测第一帧就发出约 50 个预取请求、67 KB，和首屏图抢同一条链路。
+              站内已有导航骨架屏兜底，点击后的等待感不会更差。 */}
           <MotionReveal delay={0.24}>
             <div className="flex flex-wrap gap-3 pt-1">
               <Link
                 href="/mods?sort=hot"
+                prefetch={false}
                 className="neo-button-primary inline-flex items-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-[0.16em]"
               >
                 查看热度榜
@@ -69,6 +73,7 @@ export function HomeHeroIntro({ right }: { right: ReactNode }) {
               </Link>
               <Link
                 href="/guide"
+                prefetch={false}
                 className="neo-button-secondary inline-flex items-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-[0.16em]"
               >
                 先看安装教程

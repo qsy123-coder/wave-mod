@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import {
@@ -11,7 +11,6 @@ import {
   type SessionStatus,
   type SessionUser,
 } from "@/lib/auth/session-state";
-import { createClient } from "@/lib/supabase/client";
 
 /**
  * 把「当前是谁」从服务端搬到客户端。
@@ -66,22 +65,62 @@ export function useSession() {
  *
  * 返回取消订阅；拿不到客户端时是空操作（不会抛）。
  */
-function subscribeToAuthChanges(queryClient: QueryClient) {
+async function subscribeToAuthChanges(queryClient: QueryClient) {
   try {
+    const { createClient } = await import("@/lib/supabase/client");
     const { data } = createClient().auth.onAuthStateChange((_event, session) => {
       queryClient.setQueryData(SESSION_IDENTITY_KEY, toSessionUser(session?.user ?? null));
     });
 
     return () => data.subscription.unsubscribe();
   } catch {
-    // Supabase 环境变量缺失（某些构建 / 预览环境）：没有客户端可订阅。
+    // Supabase 环境变量缺失（某些构建 / 预览环境）或 chunk 取不到：没有客户端可订阅。
     // 不抛错 —— 会话态就停在查询的初值「未登录」，页面上其余部分照常可用。
     return () => {};
   }
 }
 
+/**
+ * 「现在要不要去问会话」—— 首屏先不问。
+ *
+ * Supabase 客户端压缩后约 59 KB，而它换来的是头部那几个入口显示成「登录」还是
+ * 「头像」。首屏最大的成本就是 JS（实测占 65%），这 59 KB 会和 hero 图抢同一条
+ * 链路：2026-10-16 实测（本地生产构建 + CDP 模拟 150ms RTT / 4Mbps），加进来之前
+ * LCP 0.8 秒、加进来之后 9.9 秒。
+ *
+ * 所以先按「未登录」渲染 —— 与下面 SessionContext 默认值的取舍一致：宁可少两个
+ * 链接，也不要整块 UI 消失。等浏览器空闲（或最迟 2 秒）再放开。
+ *
+ * 代价：已登录用户的头部会晚一步从「登录」变成「头像」，这是明知的取舍，
+ * 不是 bug。要改回去就把这个 hook 的返回值恒为 true。
+ */
+function useDeferredSessionLoad() {
+  const [canLoad, setCanLoad] = useState(false);
+
+  useEffect(() => {
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    // timeout 是必需的：一直不空闲（比如首屏图还在下）时不能让会话永远悬着，
+    // 2 秒是「等首屏关键资源让路」和「登录态别太久不出现」之间的折中。
+    if (typeof w.requestIdleCallback === "function") {
+      const handle = w.requestIdleCallback(() => setCanLoad(true), { timeout: 2000 });
+      return () => w.cancelIdleCallback?.(handle);
+    }
+
+    // Safari 16.4 以下没有 requestIdleCallback
+    const timer = setTimeout(() => setCanLoad(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return canLoad;
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const canLoadSession = useDeferredSessionLoad();
 
   // 会话来源是**本地 cookie，零网络**：`getSession()` 只解密本地存的 token，
   // 不发请求；`getUser()` 才发（而它正是打穿额度时的主要浪费来源）。
@@ -89,9 +128,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // 用查询而不是 useState + effect 有两个好处：不必在 effect 里同步 setState
   // （那会触发级联渲染，eslint 的 react-hooks/set-state-in-effect 也会报错），
   // 而且失败路径天然 fail closed —— 读不到会话时 data 是 undefined，等同于未登录。
+  //
+  // `enabled: canLoadSession` + 动态 import：首屏不去取 Supabase 那个 59 KB 的
+  // chunk，等浏览器空闲再说 —— 理由见 useDeferredSessionLoad。
   const sessionQuery = useQuery<SessionUser | null>({
     queryKey: SESSION_IDENTITY_KEY,
+    enabled: canLoadSession,
     queryFn: async () => {
+      const { createClient } = await import("@/lib/supabase/client");
       const { data } = await createClient().auth.getSession();
       return toSessionUser(data.session?.user ?? null);
     },
@@ -99,13 +143,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
-  useEffect(() => subscribeToAuthChanges(queryClient), [queryClient]);
+  // 订阅同样要等 canLoadSession：它内部也会拉起同一个 Supabase chunk。
+  // 动态 import 是异步的，所以清理函数要等 promise 落地后再挂 —— 落在
+  // 依赖变化之后（canLoadSession 不会变回去，但卸载仍要退订）。
+  useEffect(() => {
+    if (!canLoadSession) return;
 
-  const user = sessionQuery.data ?? null;
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
+    void subscribeToAuthChanges(queryClient).then((fn) => {
+      if (cancelled) fn();
+      else unsubscribe = fn;
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [canLoadSession, queryClient]);
+
+  const user = canLoadSession ? sessionQuery.data ?? null : null;
 
   // 失败（isPending 变 false、data 仍是 undefined）也算 ready：那时确实「知道」了
   // ——就是未登录。卡在 loading 会让调用方以为还没确定。
-  const status: SessionStatus = sessionQuery.isPending ? "loading" : "ready";
+  //
+  // 还没放开加载时同样报 ready：那一刻我们愿意对外说「当作未登录」，
+  // 报 loading 会让头部把登录入口整个藏起来（调用方普遍是 loading 就渲染占位），
+  // 比晚一秒拿到头像难排查得多。
+  const status: SessionStatus = canLoadSession && sessionQuery.isPending ? "loading" : "ready";
 
   const userId = user?.id ?? null;
 
