@@ -12,7 +12,7 @@ import { ProfileSideNav } from "./profile-side-nav";
 import { CoverReveal } from "./cover-reveal";
 
 /**
- * 基础个人中心：已登录但 profiles 表中尚无记录（或未发布过 MOD 的普通用户）。
+ * 基础个人中心：已登录但 profiles 表中尚无记录（或未发布过资源的普通用户）。
  * 展示基于 auth 用户的降级信息，避免空白页。
  */
 export function ProfileBasicCenter({
@@ -75,7 +75,7 @@ export function ProfileBasicCenter({
                   {fallbackName}
                 </h1>
                 <p className="mt-0.5 sm:mt-1 text-sm sm:text-base font-bold text-black">
-                  还没有发布 MOD
+                  还没有发布资源
                 </p>
                 <div className="mt-1 sm:mt-1.5 flex flex-wrap gap-1.5 sm:gap-2">
                   <span className="border-2 border-black bg-black/10 px-2 py-0.5 text-[10px] sm:text-[11px] font-black uppercase text-black">
@@ -114,7 +114,7 @@ export function ProfileBasicCenter({
                 成为创作者
               </h3>
               <p className="mt-1 text-sm font-bold leading-relaxed text-black">
-                上传你的第一个 MOD，即可解锁创作者主页。
+                上传你的第一个资源，即可解锁创作者主页。
                 <br />
                 你的作品将出现在排行榜中，获得社区曝光和下载。
               </p>
@@ -122,7 +122,7 @@ export function ProfileBasicCenter({
                 href="/admin/upload"
                 className="mt-1 inline-block border-2 border-black bg-white/30 px-5 py-2.5 text-xs font-black uppercase text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5"
               >
-                上传 MOD
+                上传资源
               </Link>
             </section>
           </div>

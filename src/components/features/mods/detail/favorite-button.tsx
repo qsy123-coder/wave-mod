@@ -38,7 +38,7 @@ export function FavoriteButton({
   className,
   compact = false,
   id,
-  favoriteLabel = "收藏 MOD",
+  favoriteLabel = "收藏资源",
   favoriteCount,
   unfavoriteLabel = "取消收藏",
   variant,

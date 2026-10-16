@@ -40,7 +40,7 @@ function isSafeHttpUrl(value: string): boolean {
 export function resolveDownloadResponse(httpStatus: number, payload: unknown): DownloadResolution {
   // 404 是唯一值得单独说的：这条 mod 真的没了，跟「服务暂时挂了」不是一回事
   if (httpStatus === 404) {
-    return { ok: false, message: "这个 MOD 不存在或已下架。" };
+    return { ok: false, message: "这个资源不存在或已下架。" };
   }
 
   const isSuccessStatus = httpStatus >= 200 && httpStatus < 300;

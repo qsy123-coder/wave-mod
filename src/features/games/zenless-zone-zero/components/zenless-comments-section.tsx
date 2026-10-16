@@ -274,7 +274,7 @@ function RatingSidebar({
         </div>
         <div className="mt-4 border-t border-white/10 pt-3">
           <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
-            Rate This Mod
+            Rate This Resource
           </p>
           <div className="mt-2 flex gap-1.5">
             {[1, 2, 3, 4, 5].map((score) => (
@@ -316,7 +316,7 @@ function RatingSidebar({
       >
         <div className="flex items-center justify-between">
           <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-300">
-            Related Mods
+            Related Resources
           </h3>
           <Link
             href={game.nav.mods}

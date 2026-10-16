@@ -24,7 +24,7 @@ function formatValue(mode: SortMode, creator: TopCreator): string {
       ? `${(creator.totalDownloads / 1000).toFixed(1)}K 下载`
       : `${creator.totalDownloads} 下载`;
   }
-  return `${creator.modCount} 个 MOD`;
+  return `${creator.modCount} 个资源`;
 }
 
 export function CreatorRankingClient({
@@ -70,7 +70,7 @@ export function CreatorRankingClient({
             }`}
           >
             <Package className="size-3.5" />
-            按 MOD 数
+            按资源数
           </button>
         </div>
       </div>
@@ -113,7 +113,7 @@ export function CreatorRankingClient({
                   {creator.displayName}
                 </p>
                 <p className="mt-0.5 text-xs font-bold text-black/60">
-                  {creator.modCount} 个 MOD
+                  {creator.modCount} 个资源
                 </p>
                 <p className="mt-0.5 text-sm font-black">
                   {formatValue(sortMode, creator)}
@@ -157,7 +157,7 @@ export function CreatorRankingClient({
                 </span>
               </span>
               <span className="text-xs font-bold text-black/60">
-                {creator.modCount} MOD
+                {creator.modCount} 资源
               </span>
               <span className="text-sm font-black">
                 {formatValue(sortMode, creator)}

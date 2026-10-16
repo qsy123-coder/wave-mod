@@ -69,7 +69,7 @@ const GAME_VERSION = "未标注";
 const DEFAULT_VERSION = "未标注";
 
 /** 站点地址：默认线上域名；本地调试可设 WAVE_MOD_SITE_URL=http://localhost:3000 */
-const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://www.wave-mod.top";
+const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://go.sunnyrose.xyz";
 
 const XXMI_GUIDE = [
   "1. 下载并解压对应 MOD 压缩包。",
@@ -153,10 +153,15 @@ const CHARACTER_PREFIX_MAP = [
  *     W-2026.10.1 的 v3.7 两条若不加，就会落默认分支，被 `key.split(/[-－]/)[0]` 切成
  *     站内**不存在**的假分类「加载界面」和「隐藏UID UI 雾」，前台凭空多两个角色分类。
  *     两条标题都保留完整 key，与上面 v3.6 的写法逐字对齐。
+ *   - 「抽卡界面」——2026-10-09 补。必须带 `.*?`：那天的文件名是
+ *     `全女角色抽卡界面-半果v3.7 by susu酒`，前缀是「全女角色抽卡界面」，
+ *     写裸前缀「抽卡界面」匹配不到 ⇒ 落默认分支切出假分类「全女角色抽卡界面」。
+ *     库内同系列两条先例（`UI | 全女角色抽卡界面-半果v3.6`、`v3.6fix`，2026-09-03）
+ *     存的正是 `UI`、title 保留完整 key，与这里一致。
  * 这里不写死角色清单——否则遇到清单外的角色（如「椿」）会落到默认分支，
  * 切出 `椿全ui` 这类站内不存在的假分类。
  */
-const UI_FULL_KEY_RE = /^(?:.*?全ui|编队界面|编队图片|加载界面|隐藏UID)/;
+const UI_FULL_KEY_RE = /^(?:.*?全ui|编队界面|编队图片|加载界面|隐藏UID|.*?抽卡界面)/;
 
 /**
  * 武器皮：`<武器名>-<皮肤名>`，整包归 `武器`，title 保留完整 key。
@@ -176,6 +181,13 @@ const CHARACTER_ALIASES = {
   "心": "心月狐",
   // 库内「背包 编队 商城 用户界面-nsfw v2.5.2~2.5.5」4 条先例均归 UI
   "背包 编队 商城 用户界面": "UI",
+  // 「心(含大招)-…」（W-2026.10.9 起）：前缀写成了「心(含大招)」而非裸「心」，
+  // 上面那条全等别名匹配不到 ⇒ 落默认分支、被 `key.split(/[-－]/)[0]` 切成假分类。
+  // 同批的 `心-大招状态-原版切换（p）by monsoon` 命中裸「心」正确落 心月狐，
+  // 两条是同一角色的同一套东西，这里必须并回去。
+  // 括号形状有全角/半角/混排多种写法（10-09 全角、10-10 半角与混排），追不及，
+  // 故别名只登记半角形式，查表前由 canonicalizeParens 折叠成同一形式。
+  "心(含大招)": "心月狐",
   // 与「千咲皮肤[蜜桃冰]」同一规则：饰品名带后缀 → 归基础角色，title 保留完整 key
   "爱弥斯饰品[雪绒豹豹]": "爱弥斯",
 };
@@ -202,6 +214,12 @@ const UI_PREFIXES = ["索拉指南"];
  * 2026-09-03 两批）全部存在这个 bucket 原文下。2026-10-05 的 v1.8.8 是切到本脚本后
  * 第一次撞上该前缀，不拦就会凭空造出新分类「鼠标指针」。
  *
+ * 「隐藏心的红方块」是 2026-10-09 补的：`隐藏心的红方块和清宵飞剑` 整条文件名**没有横杠**，
+ * 默认分支的 `key.split(/[-－]/)[0]` 切不开 ⇒ 把整串当角色名，前台多出同名新分类。
+ * 它是「去掉游戏内某些视觉元素」的通用特效包（隐藏心大招的红方块 + 清宵的飞剑），
+ * 同时涉及两个角色，塞进任一单个角色名下都不对，与 `去葫芦和葫芦光`（去葫芦光）同类，
+ * 故归本 bucket。用**前缀**而非全等，将来出 v1.1 之类也不会再漏。
+ *
  * 为什么写这串原文、而不是直接写 `UI`：去重键是 `character|title`，而库内 21 条同
  * bucket 的记录（2026-09-03 批次，`去角色轮廓v3.6` 本体就在其中）存的正是这串原文——
  * 前台 getAvailableCharacters / applyModQueryFilters 都会过 normalizeCharacterName
@@ -211,7 +229,7 @@ const UI_PREFIXES = ["索拉指南"];
  * normalizeCharacterName 认不出的新值，前台凭空多一个角色分类。
  */
 const EFFECT_BUCKET = "反虚化，ui界面，场景，葫芦，特效等";
-const EFFECT_BUCKET_PREFIXES = ["去角色轮廓", "去葫芦和葫芦光", "RabbitFX反虚化", "鼠标指针"];
+const EFFECT_BUCKET_PREFIXES = ["去角色轮廓", "去葫芦和葫芦光", "RabbitFX反虚化", "鼠标指针", "隐藏心的红方块"];
 
 /**
  * 「爱弥斯的机甲」「爱弥斯大招」整包 → 独立分类「爱弥斯的机甲」，**title 保留完整 key**。
@@ -440,8 +458,16 @@ function lookupXunlei(dayIndex, key) {
 
 // ==================== 分类解析 ====================
 
+/**
+ * 全角/半角括号折叠：「心(含大招)」「心（含大招）」「心(含大招）」是同一个前缀。
+ * 与 src/lib/mods-domain/sorting.ts 的同名函数保持一致。
+ */
+function canonicalizeParens(value) {
+  return value.replace(/（/g, "(").replace(/）/g, ")");
+}
+
 function normalizeCharacter(character) {
-  return CHARACTER_ALIASES[character] ?? character;
+  return CHARACTER_ALIASES[character] ?? CHARACTER_ALIASES[canonicalizeParens(character)] ?? character;
 }
 
 /**

@@ -139,7 +139,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
           <div className="border-4 border-black bg-white px-5 py-8 shadow-[8px_8px_0px_0px_#000]">
             <p className="neo-label text-black/60">FEATURED DROP</p>
             <h2 className="mt-2 text-3xl font-black leading-tight">首页轮播已接入真实数据</h2>
-            <p className="mt-3 text-sm font-bold leading-7 text-black/75">当前还没有可展示的公开 MOD。你可以先去后台发布内容，首页热门轮播会自动展示最新条目。</p>
+            <p className="mt-3 text-sm font-bold leading-7 text-black/75">当前还没有可展示的公开外观资源。你可以先去后台发布内容，首页热门轮播会自动展示最新条目。</p>
           </div>
         </div>
       </MotionReveal>
@@ -180,7 +180,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                   // 按下反馈：纯 CSS，水合前按下去就有反应
                   className="group block cursor-pointer transition-transform duration-150 active:scale-[0.99] focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-black"
                 >
-                  <div className="relative h-[500px] w-full overflow-hidden border-4 border-black bg-black md:h-[560px]">
+                  <div className="theme-photo-frame relative h-[500px] w-full overflow-hidden border-4 border-black bg-black md:h-[560px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={mod.coverImage}
@@ -193,7 +193,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
 
                     <div className="absolute left-3 top-3 z-20 flex flex-wrap gap-2">
                       <Badge className="neo-sticker -rotate-2 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-black hover:bg-[var(--neo-secondary)]" style={{ background: "var(--neo-secondary)" }}>
-                        推荐 MOD
+                        推荐资源
                       </Badge>
                       <Badge className={`neo-sticker px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-black hover:bg-inherit ${index % 2 === 0 ? "rotate-2" : ""}`} style={{ background: index % 2 === 0 ? "var(--neo-accent)" : "var(--neo-muted)" }}>
                         {mod.character}

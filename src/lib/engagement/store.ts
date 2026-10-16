@@ -234,7 +234,7 @@ export async function writeEngagement(
   });
 }
 
-/** 这台设备收藏过的 MOD id（最近收藏在前），供「我的收藏」页使用 */
+/** 这台设备收藏过的资源 id（最近收藏在前），供「我的收藏」页使用 */
 export function readFavoritedIds(deviceId: string): string[] {
   return listFavoritedIds(getState(), deviceId);
 }

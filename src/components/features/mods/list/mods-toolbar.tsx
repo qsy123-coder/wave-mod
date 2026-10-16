@@ -30,8 +30,8 @@ type ModsToolbarProps = {
   activeCharacter?: string;
   activeQuery?: string;
   /**
-   * 联想取数要按游戏过滤。**不给就是默认游戏（鸣潮）** —— 分站必须传，否则联想框会
-   * 列出鸣潮的 MOD（网格自己是一直传的，见 mods-infinite-grid 的 gameKey）。
+   * 联想取数要按游戏过滤。**不给就是默认分站（主站）** —— 分站必须传，否则联想框会
+   * 列出主站的资源（网格自己是一直传的，见 mods-infinite-grid 的 gameKey）。
    */
   gameKey?: string;
   /**
@@ -220,7 +220,7 @@ export function ModsToolbar({
    *
    * 四个参数必须与 handleSearch 完全一致，否则上面那条一致性就是假的：
    * 用 local* 而不是 active*（否则会把刚叉掉的条件搜回来）、sort 用当前排序
-   * （否则 ?sort=hot 下联想序与结果序不一致）、带上 gameKey（否则分站会列出鸣潮的）。
+   * （否则 ?sort=hot 下联想序与结果序不一致）、带上 gameKey（否则分站会列出主站的）。
    */
   const suggestQuery = useQuery({
     enabled: debouncedKeyword.trim().length > 0,
@@ -620,7 +620,7 @@ export function ModsToolbar({
             ) : null}
             {!suggestQuery.isFetching && suggestions.length === 0 ? (
               <p aria-hidden className="px-2 py-2 text-[11px] font-black text-black/50">
-                没有匹配的 MOD
+                没有匹配的资源
               </p>
             ) : null}
 
@@ -800,7 +800,7 @@ export function ModsToolbar({
           {/* 计数不是筛选条件，取消没有意义 —— 这张卡不挂叉。
               五个筛选全在服务端做，所以这里就是**全库符合条件**的真总数。 */}
           {modCount !== undefined ? (
-            <FilterChip className="bg-[#ffd84f]">共 {modCount} 个 MOD</FilterChip>
+            <FilterChip className="bg-[#ffd84f]">共 {modCount} 个资源</FilterChip>
           ) : null}
           {localCharacter ? (
             <FilterChip

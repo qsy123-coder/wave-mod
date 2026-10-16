@@ -34,7 +34,7 @@ async function ZenlessRankingContent({ game, character, period }: Props) {
 
   return (
     <div className="h-[calc(100vh-74px)] sm:h-[calc(100vh-80px)] lg:h-[calc(100vh-74px)] flex flex-col zzz-ranking-bg overflow-hidden">
-      <ZenlessRankingHero game={game} />
+      <ZenlessRankingHero />
 
       <div className="flex-1 min-h-0 mx-auto w-full max-w-[1680px] px-4 pb-4 sm:px-5 lg:px-6 flex flex-col">
         {/* Mobile: filter row */}

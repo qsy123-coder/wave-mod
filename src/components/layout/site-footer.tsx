@@ -7,7 +7,7 @@ export function SiteFooter() {
     <footer className="border-t-4 border-black" style={{ background: "var(--neo-footer)" }}>
       <div className="mx-auto flex w-full max-w-[1680px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-6">
         <div className="flex items-center gap-3">
-          <p className="text-xs font-black text-black/70">WaveMod — 鸣潮角色MOD个人站</p>
+          <p className="text-xs font-black text-black/70">XINGLAN — 星澜资源站</p>
           <span className="text-[10px] text-black/40">{siteConfig.disclaimer}</span>
         </div>
         <div className="flex flex-wrap gap-2">

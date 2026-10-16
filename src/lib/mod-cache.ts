@@ -69,7 +69,7 @@ export function revalidateModEngagementCaches() {
   revalidatePath("/favorites");
 }
 
-/** 刷新指定创作者的 Profile 页缓存（上传/编辑 MOD 后调用） */
+/** 刷新指定创作者的 Profile 页缓存（上传/编辑资源后调用） */
 export function revalidateCreatorProfileCache(userId: string) {
   revalidateTag(`creator:profile:${userId}`, "default");
 }

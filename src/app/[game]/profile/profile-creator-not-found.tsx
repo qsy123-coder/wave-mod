@@ -17,7 +17,7 @@ export function ProfileCreatorNotFound({
           <UserRound className="mx-auto size-12 text-black" />
           <h2 className="text-xl font-black text-black">创作者未找到</h2>
           <p className="text-sm font-bold leading-relaxed text-black">
-            该创作者不存在或尚未发布任何 MOD。
+            该创作者不存在或尚未发布任何外观资源。
           </p>
           <Link
             href={gameHomeHref}

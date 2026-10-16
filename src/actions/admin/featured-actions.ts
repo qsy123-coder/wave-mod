@@ -21,7 +21,7 @@ export type SetFeaturedResult = {
 };
 
 /**
- * 获取鸣潮全部「已推荐」的 mod（含已下线），供推荐管理框展示。
+ * 获取主站全部「已推荐」的资源（含已下线），供推荐管理框展示。
  * 按 featured_order 升序（null 排最后）+ created_at 倒序。
  */
 export async function getFeaturedModsAdmin(): Promise<AdminMod[]> {

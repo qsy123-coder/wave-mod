@@ -36,7 +36,7 @@ export default async function FavoritesPage() {
           style={{ background: "var(--neo-muted)" }}
         >
           <p className="neo-label text-black/60">我的收藏</p>
-          <h1 className="mt-2 text-4xl font-black text-black">你收藏的 MOD</h1>
+          <h1 className="mt-2 text-4xl font-black text-black">你收藏的外观资源</h1>
           <p className="mt-2 text-sm font-bold text-black/70">收藏保存在这台设备上，不需要登录。</p>
         </section>
       </MotionReveal>
@@ -62,7 +62,7 @@ export default async function FavoritesPage() {
           href="/mods?sort=hot"
           className="neo-button-primary inline-flex items-center gap-2 px-5 py-3 text-sm font-black uppercase tracking-[0.14em]"
         >
-          继续挑选 MOD
+          继续挑选外观资源
           <ArrowRight className="size-4" />
         </Link>
       </div>

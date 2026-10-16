@@ -170,7 +170,7 @@ export function TutorialChapterText({
                       >
                         必需下载
                       </p>
-                      JASM mod 管理器、XXMI 启动器和鸣潮 mod 修复工具为必须下载的工具，这三个工具点击右侧的
+                      JASM 管理器、XXMI 启动器和修复工具为必须下载的工具，这三个工具点击右侧的
                       <span
                         className="inline-block border-[2px] border-black px-1.5 py-0 text-xs font-black"
                         style={{ background: "var(--neo-accent)" }}

@@ -112,7 +112,7 @@ export function ModDetailDrawer({
   /**
    * 统计行里的浏览 / 点赞 / 收藏。
    *
-   * 抽屉是默认游戏（鸣潮）真正的详情视图 —— `/mods/<id>` 其实渲染的是列表页外壳，
+   * 抽屉是默认分站（主站）真正的详情视图 —— `/mods/<id>` 其实渲染的是列表页外壳，
    * 详情由它按 id 拉 `/api/mods/[id]` 填进来。而那个接口的计数源头是 Supabase 快照，
    * 互动写入早已不再进 Supabase ⇒ 直接渲染 `mod.*` 会永远停在基线。
    */
@@ -178,7 +178,7 @@ export function ModDetailDrawer({
         {/* Fixed top bar: title + close */}
         <div className="flex shrink-0 items-center justify-between border-b-4 border-black px-4 py-3">
           <h2 className="truncate text-2xl font-black uppercase tracking-[0.04em]">
-            {isLoading ? "加载中..." : mod?.title ?? "MOD 详情"}
+            {isLoading ? "加载中..." : mod?.title ?? "外观资源详情"}
           </h2>
           <button
             type="button"
@@ -219,8 +219,8 @@ export function ModDetailDrawer({
             <div className="flex flex-col items-center gap-4 p-8">
               <div className="w-full border-4 border-black bg-[#ffb5c3] px-5 py-4 text-center text-sm font-black shadow-[6px_6px_0px_0px_#000]">
                 {error.message === "not_found"
-                  ? "MOD 不存在或已被删除。"
-                  : "MOD 信息加载失败，请稍后重试。"}
+                  ? "该外观资源不存在或已被删除。"
+                  : "外观资源加载失败，请稍后重试。"}
               </div>
               <button
                 type="button"

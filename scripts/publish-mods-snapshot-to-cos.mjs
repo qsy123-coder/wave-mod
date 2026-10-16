@@ -69,7 +69,7 @@ const exportAttempts = readPositiveIntArg("--attempts", SNAPSHOT_EXPORT_ATTEMPTS
 config({ path: resolve(process.cwd(), ".env"), override: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
-const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://www.wave-mod.top";
+const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://go.sunnyrose.xyz";
 
 function requireEnv(names) {
   const missing = names.filter((name) => !process.env[name]?.trim());

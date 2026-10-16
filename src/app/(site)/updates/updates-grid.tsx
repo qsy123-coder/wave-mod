@@ -88,11 +88,11 @@ export function UpdatesGrid({ days }: UpdatesGridProps) {
         <div className="border-4 border-black bg-white p-8 text-black shadow-[10px_10px_0px_0px_#000]">
           <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]">
             <Download className="size-4" />
-            最近 14 天暂无新 mod 更新
+            最近 14 天暂无新资源更新
           </div>
           <p className="mt-2 text-sm font-bold leading-7 text-black/75">
             主理人每天会陆续上新，可以稍后再来看看，或到
-            <Link href="/mods" className="mx-1 inline-block border-2 border-black bg-[var(--neo-secondary)] px-1.5 py-0.5 font-black">MOD 列表</Link>
+            <Link href="/mods" className="mx-1 inline-block border-2 border-black bg-[var(--neo-secondary)] px-1.5 py-0.5 font-black">外观资源列表</Link>
             浏览全部内容。
           </p>
         </div>

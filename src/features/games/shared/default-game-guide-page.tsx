@@ -12,7 +12,7 @@ export function DefaultGameGuidePage({ game }: { game: GameConfig }) {
         <section className="inline-block border-4 border-black px-5 py-4 shadow-[8px_8px_0px_0px_#000]" style={{ background: game.theme.accent }}>
           <p className="neo-label text-black/60">{game.name} 安装教程</p>
           <h1 className="mt-2 text-4xl font-black text-black">XXMI Launcher 安装教程</h1>
-          <p className="mt-3 max-w-2xl text-sm font-bold leading-7 text-black/75">当前先复用鸣潮 XXMI 指引。后续如果 {game.name} 需要独立安装器、目录结构或教程页设计稿，可以单独替换。</p>
+          <p className="mt-3 max-w-2xl text-sm font-bold leading-7 text-black/75">当前先复用主站 XXMI 指引。后续如果 {game.name} 需要独立安装器、目录结构或教程页设计稿，可以单独替换。</p>
         </section>
       </MotionReveal>
 
@@ -51,7 +51,7 @@ export function DefaultGameGuidePage({ game }: { game: GameConfig }) {
                   <span className="text-sm font-black uppercase tracking-[0.14em]">常见问题</span>
                 </div>
                 <ul className="space-y-3 text-sm font-bold leading-7 text-black/80">
-                  <li>• 游戏版本更新后，旧 MOD 可能失效。</li>
+                  <li>• 游戏版本更新后，旧资源可能失效。</li>
                   <li>• 目录路径错误是最常见安装失败原因。</li>
                   <li>• 先看适配版本，再下载对应 ZIP 包。</li>
                 </ul>

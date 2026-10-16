@@ -130,7 +130,7 @@ export function ZenlessRightRail({
   const size = `${Math.max(128, Math.round(mod.downloads / 48))}.7 MB`;
   return (
     <aside className="space-y-2 xl:sticky xl:top-[82px] xl:-mt-8">
-      <ZenlessDarkPanel title="About This Mod">
+      <ZenlessDarkPanel title="About This Resource">
         <dl className="mt-2.5 space-y-1.5">
           <InfoRow label="Version" value={mod.version} />
           <InfoRow
@@ -141,7 +141,7 @@ export function ZenlessRightRail({
               year: "numeric",
             })}
           />
-          <InfoRow label="Category" value="Character Mods" />
+          <InfoRow label="Category" value="Character Resources" />
           <InfoRow label="Size" value={size} />
           <InfoRow
             label="Downloads"
@@ -149,7 +149,7 @@ export function ZenlessRightRail({
           />
           <InfoRow label="License" value="Free" />
           <InfoRow label="Game Version" value={mod.gameVersion} />
-          <InfoRow label="Mod Loaders" value="WWMI, Wuthering Waves" />
+          <InfoRow label="Loaders" value="WWMI" />
         </dl>
       </ZenlessDarkPanel>
       <ZenlessDarkPanel title="Author">
@@ -168,11 +168,11 @@ export function ZenlessRightRail({
             <p className="text-[13px] font-black leading-4 text-white">
               {mod.character} Creator
             </p>
-            <p className="text-[10px] font-bold text-slate-400">Mod Creator</p>
+            <p className="text-[10px] font-bold text-slate-400">Resource Creator</p>
           </div>
         </div>
         <div className="mt-2 flex gap-3 text-[10px] font-bold text-slate-400">
-          <span>{mod.ratingCount} Mods</span>
+          <span>{mod.ratingCount} Resources</span>
           <span>{compactZenlessNumber(mod.favorites)} Followers</span>
         </div>
         <div className="mt-2.5 flex h-7 items-center justify-center border-2 border-black bg-[#111827]/50 text-[9px] font-black uppercase tracking-[0.12em] text-slate-100 shadow-[2px_2px_0px_0px_#000] backdrop-blur-[2px]">
@@ -191,7 +191,7 @@ export function ZenlessRightRail({
           <div className="flex gap-2">
             <ShieldCheck className="size-3.5 shrink-0 text-slate-100" />
             <div>
-              <p className="font-black text-white">WWMI or mod loader</p>
+              <p className="font-black text-white">WWMI or other loader</p>
               <p>Latest version</p>
             </div>
           </div>
@@ -310,7 +310,7 @@ export function ZenlessRecommended({
   if (!mods.length)
     return (
       <div className="border-4 border-black bg-[#07111f]/72 p-5 text-sm font-bold text-slate-300 shadow-[5px_5px_0px_0px_#000] ring-1 ring-white/10 backdrop-blur-[2px]">
-        暂无推荐 MOD。
+        暂无推荐资源。
       </div>
     );
   return (

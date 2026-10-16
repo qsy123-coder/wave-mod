@@ -4,7 +4,7 @@ import { readFavoritedIds } from "@/lib/engagement/store";
 import { deviceIdSchema } from "@/lib/engagement/types";
 
 /**
- * 「我的收藏」的 id 清单：按设备号返回这台机器收藏过的 MOD id（最近收藏在前）。
+ * 「我的收藏」的 id 清单：按设备号返回这台机器收藏过的资源 id（最近收藏在前）。
  *
  * 不返回 mod 内容 —— 内容走 `/api/mods/by-ids`，那样它就能吃到公开缓存，
  * 这里只回一串 id，天然是 per-device 的，必须 `private, no-store`。

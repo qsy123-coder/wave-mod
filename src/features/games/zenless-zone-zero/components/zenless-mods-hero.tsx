@@ -9,7 +9,7 @@ export function ZenlessModsBackground() {
     <MotionReveal className="pointer-events-none absolute inset-x-0 top-0 h-[18vh] min-h-[260px] overflow-hidden" delay={0} y={0}>
       <Image
         src={cityBackground}
-        alt="New Eridu skyline"
+        alt="街区远景"
         fill
         priority
         sizes="100vw"
@@ -27,10 +27,10 @@ export function ZenlessModsHeroCopy() {
         探索 · 定制 · 高速下载
       </p>
       <h1 className="mt-1 text-4xl font-black uppercase leading-none sm:text-5xl lg:text-[3.25rem]">
-        热门 MOD
+        热门外观资源
       </h1>
       <p className="mt-3 max-w-lg text-xs font-bold leading-5 text-white/84">
-        发现绝区零分站热门 MOD。高能角色外观、服装替换与直链下载都在这里。
+        发现分站热门外观资源。高能角色外观、服装替换与直链下载都在这里。
       </p>
     </div>
   );

@@ -21,9 +21,9 @@ const idsSchema = z
   .trim()
   .min(1)
   .transform((value) => value.split(",").map((id) => id.trim()).filter(Boolean))
-  .refine((ids) => ids.length > 0, "至少需要一个 MOD ID")
-  .refine((ids) => ids.length <= MAX_IDS, `单次最多查询 ${MAX_IDS} 个 MOD ID`)
-  .refine((ids) => ids.every((id) => z.uuid().safeParse(id).success), "存在无效的 MOD ID");
+  .refine((ids) => ids.length > 0, "至少需要一个资源 ID")
+  .refine((ids) => ids.length <= MAX_IDS, `单次最多查询 ${MAX_IDS} 个资源 ID`)
+  .refine((ids) => ids.every((id) => z.uuid().safeParse(id).success), "存在无效的资源 ID");
 
 export async function GET(request: NextRequest) {
   const parsed = idsSchema.safeParse(request.nextUrl.searchParams.get("ids") ?? "");

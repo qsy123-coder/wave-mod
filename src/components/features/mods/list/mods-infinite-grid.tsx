@@ -79,7 +79,7 @@ async function fetchModsPage({
   const response = await fetch(`/api/mods?${params.toString()}`);
 
   if (!response.ok) {
-    throw new Error("加载 MOD 列表失败。");
+    throw new Error("加载资源列表失败。");
   }
 
   return response.json();
@@ -94,7 +94,7 @@ type ModsInfiniteGridProps = {
    * 页面直接显示「已经翻到底了」。
    */
   initialMods?: SiteMod[];
-  /** 与 initialMods 配套：那一页对应的全库总数（工具栏「共 N 个 MOD」） */
+  /** 与 initialMods 配套：那一页对应的全库总数（工具栏「共 N 个资源」） */
   initialTotalCount?: number;
   query?: string;
   sort: ModSort;
@@ -105,7 +105,7 @@ type ModsInfiniteGridProps = {
   onCardClick?: (modId: string) => void;
   /**
    * 取数状态变化时回调（每次状态变化都会报当前值，不是「开始/结束」两次通知）。
-   * 上层用它驱动进度条与「共 N 个 MOD」。详见函数体里那段注释。
+   * 上层用它驱动进度条与「共 N 个资源」。详见函数体里那段注释。
    */
   onStatusChange?: (status: ModsGridStatus) => void;
   isLoggedIn?: boolean;
@@ -184,7 +184,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   const relaxed = data?.pages[0]?.relaxed ?? false;
 
   /**
-   * 把取数状态**镜像**给上层：顶部进度条按它起停，工具栏那句「共 N 个 MOD」用它的真总数。
+   * 把取数状态**镜像**给上层：顶部进度条按它起停，工具栏那句「共 N 个资源」用它的真总数。
    *
    * 为什么是「镜像当前状态」而不是「开始/结束两次通知」：一对 start/stop 只要有一边漏掉
    * 就永久卡住（2026-09-21 那次「点了筛选一直骨架屏」正是如此）。镜像没有这个失败模式
@@ -370,7 +370,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         <section className="neo-card-lg bg-[#fff8ef] p-8 text-black">
           <div className="border-4 border-black bg-white px-5 py-6 shadow-[8px_8px_0px_0px_#000]">
             <p className="neo-label text-black/60">没有匹配内容</p>
-            <h2 className="mt-2 text-3xl font-black">当前筛选条件下还没有公开 MOD。</h2>
+            <h2 className="mt-2 text-3xl font-black">当前筛选条件下还没有公开的外观资源。</h2>
             <p className="mt-4 text-sm font-bold leading-7 text-black/75">你可以切换角色、搜索关键词或排序方式继续浏览。</p>
           </div>
         </section>
@@ -390,7 +390,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       {relaxed ? (
         <div data-slot="search-relaxed-notice" className="flex flex-wrap items-center gap-2 border-4 border-black bg-[#bcaeff] px-4 py-2.5 text-xs font-black shadow-[4px_4px_0px_0px_#000]">
           <Search className="size-4 shrink-0" />
-          没有精确匹配的结果，以下是包含部分关键词的 MOD
+          没有精确匹配的结果，以下是包含部分关键词的外观资源
         </div>
       ) : null}
 
@@ -481,7 +481,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
       {error ? (
         <div className="border-4 border-black bg-[#ffb5c3] px-5 py-4 text-sm font-black text-black shadow-[6px_6px_0px_0px_#000]">
-          MOD 列表加载失败，请稍后重试。
+          资源列表加载失败，请稍后重试。
         </div>
       ) : null}
     </div>

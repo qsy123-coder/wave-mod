@@ -40,15 +40,15 @@ export function WuwaHeroCarousel({ mods }: { mods: SiteMod[] }) {
         <div className="max-w-xl">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-300">Shape Your World</p>
           <h1 className="mb-3 text-4xl font-black uppercase leading-none tracking-tight text-white md:text-5xl lg:text-6xl">
-            Wuthering Waves<br />Mod Hub
+            XINGLAN<br />Appearance Hub
           </h1>
           <p className="mb-1 text-base font-semibold italic text-slate-200">Explore. Customize. Evolve.</p>
           <p className="mb-5 max-w-sm text-xs leading-relaxed text-slate-300">
-            The ultimate destination for high-quality mods.<br />Enhance your journey in Wuthering Waves.
+            The ultimate destination for high-quality appearance resources.<br />Explore, customize, and make it yours.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/mods" className="inline-flex items-center gap-2 rounded bg-blue-500 px-5 py-2.5 text-xs font-bold text-white shadow-lg transition hover:bg-blue-400">
-              Browse Mods<ChevronRight className="size-4" />
+              Browse Resources<ChevronRight className="size-4" />
             </Link>
             <Link href="/guide" className="inline-flex items-center gap-2 rounded border border-white/30 bg-white/10 px-5 py-2.5 text-xs font-bold text-white backdrop-blur transition hover:bg-white/20">
               Join Community<Users className="size-4" />
@@ -71,7 +71,7 @@ export function WuwaHeroCarousel({ mods }: { mods: SiteMod[] }) {
         <div className="w-52 rounded-lg border border-white/10 bg-black/60 p-4 backdrop-blur-md">
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">New Update &nbsp; v2.3.1</p>
           <h3 className="mb-2 text-xl font-black uppercase leading-tight text-amber-400">Resonant<br />Echoes</h3>
-          <p className="mb-3 text-xs leading-relaxed text-slate-300">New mods, characters, and content await your exploration.</p>
+          <p className="mb-3 text-xs leading-relaxed text-slate-300">New resources, characters, and content await your exploration.</p>
           <Link href="/mods?sort=latest" className="block rounded border border-amber-400/60 bg-transparent px-4 py-2.5 text-center text-xs font-bold uppercase tracking-widest text-amber-400 transition hover:bg-amber-400/10">
             Explore Now
           </Link>

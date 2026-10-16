@@ -31,7 +31,7 @@ function getBackgroundSize(scale: number) {
 }
 
 const stats = [
-  { icon: Download, value: "25K+", label: "MOD 可用" },
+  { icon: Download, value: "25K+", label: "可用资源" },
   { icon: Users, value: "18K+", label: "代理人访问" },
   { icon: Star, value: "4.9", label: "用户评分" },
   { icon: Grid3X3, value: "100+", label: "分类标签" },
@@ -48,7 +48,7 @@ const categories: LowerHomeCategory[] = [
 ];
 
 const creators = [
-  { name: "NewEriduLab", followers: "10.5K" },
+  { name: "NeoLab", followers: "10.5K" },
   { name: "HollowWorks", followers: "12.1K" },
   { name: "ProxyForge", followers: "8.7K" },
   { name: "BunnyHouse", followers: "7.3K" },
@@ -65,8 +65,8 @@ const displayMods = [
 
 const fallbackUpdates = [
   {
-    title: "绝区零分站首屏上线",
-    desc: "New Eridu layout ready",
+    title: "分站二首屏上线",
+    desc: "Layout ready",
     time: "Just now",
     badge: "NEW",
   },
@@ -211,7 +211,7 @@ function ZenlessFeaturedMods({
       <div className="flex items-center gap-3">
         <MotionReveal delay={0.08} rotate={-1}>
           <h2 className="shrink-0 border-4 border-black bg-[var(--neo-secondary)] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-black shadow-[5px_5px_0px_0px_#000]">
-            精选 MOD
+            精选资源
           </h2>
         </MotionReveal>
         <div className="h-px flex-1 bg-white/65 shadow-[0_1px_0px_#000]" />
@@ -248,7 +248,7 @@ function ZenlessFeaturedMods({
         </div>
       ) : (
         <div className="border-4 border-black bg-white p-4 text-sm font-black text-black shadow-[6px_6px_0px_0px_#000]">
-          暂无精选 MOD，发布后自动展示。
+          暂无精选资源，发布后自动展示。
         </div>
       )}
     </section>
@@ -271,7 +271,7 @@ function ZenlessLatestUpdates({
   const dms = dmsOverride ?? displayMods;
   const fb = fbOverride ?? fallbackUpdates;
 
-  // 传入 todayMods（鸣潮主场）→ "今日更新"；否则沿用原"最新更新"逻辑（绝区零等未接入 daily 的分站首页）
+  // 传入 todayMods（主站首页）→ "今日更新"；否则沿用原"最新更新"逻辑（未接入 daily 的分站首页）
   const useToday = todayMods !== undefined;
 
   if (useToday) {
@@ -280,7 +280,7 @@ function ZenlessLatestUpdates({
       <section className="border-4 border-black bg-white/20 p-3 text-black shadow-[7px_7px_0px_0px_#000] backdrop-blur-[2px]">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h3 className="text-xs font-black uppercase tracking-[0.16em]">
-            今日更新的 mod
+            今日更新的资源
           </h3>
           <Link
             href="/updates"
@@ -305,7 +305,7 @@ function ZenlessLatestUpdates({
                     {mod.title}
                   </p>
                   <p className="truncate text-[9px] font-bold text-black/55">
-                    {mod.character || "鸣潮 MOD"}
+                    {mod.character || "外观资源"}
                   </p>
                 </div>
                 <ArrowRight className="size-4 shrink-0 text-black/45" />
@@ -328,7 +328,7 @@ function ZenlessLatestUpdates({
 
           return {
             title: mod.title || display.title,
-            desc: mod.character || display.character || "代理人 MOD",
+            desc: mod.character || display.character || "代理人外观资源",
             time: index === 0 ? "Just now" : `${index + 2}h ago`,
             badge: index === 0 ? "NEW" : null,
           };
@@ -412,7 +412,7 @@ function ZenlessPopularCategories({ game, categories: catsOverride }: { game: Ga
                 {category.name}
               </span>
               <span className="block text-[8px] font-bold text-black/55">
-                {category.count} mods
+                {category.count} resources
               </span>
             </span>
           </Link>
@@ -439,7 +439,7 @@ function ZenlessCreatorCta() {
           创作 · 分享 · 启发
         </h3>
         <p className="mt-1 text-[10px] font-bold text-black/62">
-          成为创作者，分享你的鸣潮 MOD。
+          成为创作者，分享你的外观资源。
         </p>
       </div>
       <Link
@@ -447,7 +447,7 @@ function ZenlessCreatorCta() {
         className="neo-button-primary relative z-10 inline-flex shrink-0 items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition-all duration-300 ease-out group-hover/creator:translate-y-1 group-hover/creator:scale-90 group-hover/creator:px-3 group-hover/creator:py-1.5"
       >
         <Upload className="size-2.5" />
-        发布 MOD
+        发布资源
       </Link>
     </div>
   );

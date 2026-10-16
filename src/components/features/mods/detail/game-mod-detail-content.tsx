@@ -74,7 +74,7 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
         <div className="inline-flex flex-wrap items-center gap-2 border-4 border-black bg-white px-4 py-2 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[6px_6px_0px_0px_#000]">
           <Link href={game.nav.home}>{game.name} 首页</Link>
           <span>/</span>
-          <Link href={game.nav.mods}>{game.name} MOD</Link>
+          <Link href={game.nav.mods}>{game.name} 外观资源</Link>
           <span>/</span>
           <span>{mod.title}</span>
         </div>
@@ -134,7 +134,7 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
         <div className="min-w-0 space-y-8">
           <MotionReveal delay={0.16} y={24} rotate={-1}>
             <section className="neo-card-lg bg-[#fff8ef] p-6 text-black">
-              <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="neo-label text-black/60">{game.name} MOD Overview</p><h2 className="mt-2 text-3xl font-black">详情说明</h2></div></div>
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="neo-label text-black/60">{game.name} 外观资源概览</p><h2 className="mt-2 text-3xl font-black">详情说明</h2></div></div>
               <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="space-y-5">
                   <div className="border-4 border-black bg-white p-5 shadow-[6px_6px_0px_0px_#000]"><p className="text-sm font-black uppercase tracking-[0.14em]">内容简介</p><p className="mt-4 whitespace-pre-wrap text-sm font-bold leading-8 text-black/80">{mod.description}</p></div>

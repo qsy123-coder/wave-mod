@@ -7,7 +7,7 @@ import { revalidateModEngagementCaches } from "@/lib/mod-cache";
 import { createClient, ensureProfile, getCurrentUser } from "@/lib/supabase/server";
 
 const favoriteSchema = z.object({
-  id: z.uuid("无效的 MOD ID。"),
+  id: z.uuid("无效的资源 ID。"),
 });
 
 async function syncFavoriteCount(modId: string) {
@@ -40,7 +40,7 @@ export async function toggleFavoriteAction(formData: FormData) {
   const user = await getCurrentUser();
 
   if (!user) {
-    throw new Error("请先登录后再收藏 MOD。");
+    throw new Error("请先登录后再收藏资源。");
   }
 
   await ensureProfile();

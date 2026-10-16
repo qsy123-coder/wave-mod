@@ -1,7 +1,7 @@
 /**
  * 教程页「下载必要工具」的网盘分享链接。
  *
- * 这些是 JASM mod 管理器 / XXMI 启动器 / 鸣潮 mod 修复工具 的打包分享，
+ * 这些是 JASM 管理器 / XXMI 启动器 / 修复工具 的打包分享，
  * 由人工上传到网盘后填在这里 —— 换分享会失效，改这里即可，不用动组件。
  *
  * ⚠️ 链接必须带 `pwd=` 密码参数：复制给用户的是完整 URL，少一段对方就转存不了。
@@ -17,7 +17,7 @@ export type ToolDrive = {
 
 /** 页面上「下载必要工具」面板的正文说明 */
 export const REQUIRED_TOOLS_SUMMARY =
-  "JASM mod 管理器、XXMI 启动器和鸣潮 mod 修复工具已打包上传网盘。";
+  "JASM 管理器、XXMI 启动器和修复工具已打包上传网盘。";
 
 export const REQUIRED_TOOL_DRIVES: readonly ToolDrive[] = [
   {

@@ -74,6 +74,25 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // 全站去索引的**响应头**兜底，与根 layout 的 metadata.robots 是双保险。
+      //
+      // 为什么不只靠 nginx：仓库里的 nginx.conf.example / deploy-hk.sh / setup-alt-entry.sh
+      // 仍是反代版旧模板，一旦被照着重放，线上由 nginx 加的 `add_header ... always` 会丢，
+      // 站点会在没人察觉的情况下重新被收录。写在代码里，部署到哪都跟着走。
+      //
+      // 值里**不能**写 `always` —— 那是 nginx `add_header` 的关键字，不是 header 值。
+      // 「对非 2xx 也生效」这件事只能在 nginx 那层做。
+      //
+      // 会顺带命中 /_next/static/*、/api/* 等：多余但无害（它们本来也不该被收录）。
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow",
+          },
+        ],
+      },
     ];
   },
   reactCompiler: true,

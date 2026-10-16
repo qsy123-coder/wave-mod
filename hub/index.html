@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WaveMod 官方永久发布页</title>
-<meta name="description" content="WaveMod 官方永久发布页 —— 主站域名被封时，从这里获取最新可用地址。">
+<title>星澜资源站 · 永久发布页</title>
+<meta name="description" content="星澜资源站永久发布页 —— 主站域名打不开时，从这里获取最新可用地址。">
 <meta name="robots" content="noindex,nofollow">
 <style>
   :root {
@@ -16,7 +16,6 @@
     --accent: #7c5cff;
     --accent-soft: rgba(124, 92, 255, 0.14);
     --ok: #34d399;
-    --warn: #fbbf24;
     --border: #262c3a;
     --radius: 14px;
   }
@@ -74,28 +73,11 @@
   .site:hover { border-color: var(--accent); transform: translateY(-1px); }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--muted); }
   .dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(52, 211, 153, 0.6); }
-  .dot.warn { background: var(--warn); }
   .site .meta { flex: 1; min-width: 0; }
   .site .label { font-size: 14px; color: var(--text); }
   .site .label small { color: var(--muted); font-size: 12px; margin-left: 8px; }
   .site .url { font-size: 13px; color: var(--accent); word-break: break-all; }
   .site .go { color: var(--muted); font-size: 16px; flex-shrink: 0; }
-
-  .ch { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
-        border-radius: 10px; background: var(--card-2); border: 1px solid var(--border); margin-bottom: 8px; }
-  .ch:last-child { margin-bottom: 0; }
-  .ch .k { font-size: 13px; color: var(--muted); width: 74px; flex-shrink: 0; }
-  .ch .v { font-size: 14px; word-break: break-all; }
-  .ch .v a { color: var(--accent); text-decoration: none; }
-  .ch .v a:hover { text-decoration: underline; }
-
-  .qr { position: relative; display: inline-block; }
-  .qr img {
-    display: none; position: absolute; right: 0; bottom: calc(100% + 10px);
-    width: 176px; border-radius: 10px; border: 1px solid var(--border);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); background: #fff;
-  }
-  .qr:hover img, .qr:focus-within img { display: block; }
 
   ol.tips { padding-left: 20px; }
   ol.tips li { font-size: 14px; color: var(--text); margin-bottom: 8px; }
@@ -108,8 +90,8 @@
 <body>
   <div class="wrap">
     <header>
-      <div class="logo">W</div>
-      <h1>WaveMod 官方永久发布页</h1>
+      <div class="logo">X</div>
+      <h1>星澜资源站 · 永久发布页</h1>
       <p class="tagline">主站域名打不开？从这里获取最新可用地址</p>
       <span class="badge">永久发布 · 收藏此页</span>
     </header>
@@ -118,25 +100,15 @@
       <h2>当前可用地址</h2>
 
       <!--
-        主推 go.sunnyrose.xyz 的理由（2026-09-24）：它是全新主机名，没有任何解析器
-        缓存过它的地址，所以「DNS 缓存还没过期」的用户第一次查就是对的。
-        www.wave-mod.top 则相反 —— 搬站后部分用户机器上的缓存仍指向已停用的旧服务器，
-        会看到「网站已经暂停部署」。详见 docs/域名入口拓扑.md。
+        主推 go.sunnyrose.xyz 的理由：它是全新主机名，没有任何解析器缓存过它的地址，
+        所以「DNS 缓存还没过期」的用户第一次查就是对的。
+        （2026-10-16 起 wave-mod.top / www.wave-mod.top 已整站关闭，页面上不再列出。）
       -->
       <a class="site" href="https://go.sunnyrose.xyz" target="_blank" rel="noopener">
         <span class="dot ok"></span>
         <span class="meta">
           <span class="label">主站 <small>推荐，打不开先试这个</small></span>
           <span class="url">go.sunnyrose.xyz</span>
-        </span>
-        <span class="go">→</span>
-      </a>
-
-      <a class="site" href="https://www.wave-mod.top" target="_blank" rel="noopener">
-        <span class="dot warn"></span>
-        <span class="meta">
-          <span class="label">备用地址 <small>部分人可能打不开</small></span>
-          <span class="url">www.wave-mod.top</span>
         </span>
         <span class="go">→</span>
       </a>
@@ -163,53 +135,18 @@
     </section>
 
     <section class="card">
-      <h2>备用联系方式</h2>
-
-      <div class="ch">
-        <span class="k">QQ交流群</span>
-        <span class="v">342432956</span>
-      </div>
-      <div class="ch">
-        <span class="k">QQ频道</span>
-        <span class="v"><a href="https://pd.qq.com/s/6tajhe3vz?b=9" target="_blank" rel="noopener">pd08872317 · 一键加入</a></span>
-      </div>
-      <div class="ch">
-        <span class="k">扫码进入频道</span>
-        <span class="v">
-          <a class="qr" href="https://pd.qq.com/s/6tajhe3vz?b=9" target="_blank" rel="noopener">
-            qq内扫描二维码进入QQ频道
-            <img src="qr.jpg" alt="鸣潮QQ频道二维码" width="176" height="264" />
-          </a>
-        </span>
-      </div>
-      <div class="ch">
-        <span class="k">QQ 号</span>
-        <span class="v">3372543343</span>
-      </div>
-      <div class="ch">
-        <span class="k">Telegram</span>
-        <span class="v"><!-- 填链接，如：https://t.me/xxx -->待补充</span>
-      </div>
-      <div class="ch">
-        <span class="k">邮箱</span>
-        <span class="v"><a href="mailto:2175075194@qq.com">2175075194@qq.com</a></span>
-      </div>
-    </section>
-
-    <section class="card">
       <h2>打不开怎么办</h2>
       <ol class="tips">
         <li><strong>直接用第一个地址</strong>——它任何时候都能打开。</li>
         <li>它也打不开的话：<strong>把路由器拔电，等 30 秒再插上</strong>，然后重新打开。</li>
         <li>手机就把 <strong>WiFi 关掉、用流量试</strong>；本来用流量的就反过来连 WiFi。</li>
         <li>还不行就<strong>换个浏览器，或者开一个无痕窗口</strong>再试。</li>
-        <li>上面都试过仍然打不开，用下面的联系方式找我。</li>
       </ol>
     </section>
 
     <footer>
-      <p>WaveMod · 官方永久发布页</p>
-      <p>最后更新：<span class="updated">2026-09-24</span></p>
+      <p>星澜资源站 · 永久发布页</p>
+      <p>最后更新：<span class="updated">2026-10-16</span></p>
     </footer>
   </div>
 </body>

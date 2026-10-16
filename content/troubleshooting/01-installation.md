@@ -22,7 +22,7 @@
 
 ![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image3.webp)
 
-> 根据图片指示做即可，用到的解压工具：[wave-mod.top/guide](https://www.wave-mod.top/guide)。
+> 根据图片指示做即可，用到的解压工具：[go.sunnyrose.xyz/guide](https://go.sunnyrose.xyz/guide)。
 
 ---
 

@@ -38,7 +38,7 @@ config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
 const GAME_KEY = "wuthering-waves";
 const REPORT_DIR = "C:/Users/qsy123/.claude/projects/D--BaiduNetdiskDownload-WaveMod";
-const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://www.wave-mod.top";
+const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://go.sunnyrose.xyz";
 
 const cliArgs = process.argv.slice(2);
 const argValue = (name) => {

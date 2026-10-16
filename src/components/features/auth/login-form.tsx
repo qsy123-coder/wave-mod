@@ -135,13 +135,13 @@ export function LoginForm({ next, pageError, mode }: { next: string; pageError: 
               className="flex size-16 items-center justify-center border-[3px] border-black text-2xl font-black text-black shadow-[7px_7px_0px_0px_#ffd84f]"
               style={{ background: "var(--neo-accent)" }}
             >
-              W
+              X
             </div>
             <p
               className="text-xs font-black uppercase tracking-[0.34em] text-white/70"
               style={{ fontFamily: DISPLAY_LATIN }}
             >
-              WaveMod
+              XINGLAN
             </p>
             <h1
               className="text-5xl leading-none tracking-[0.06em]"

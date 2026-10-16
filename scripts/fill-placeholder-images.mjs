@@ -46,7 +46,7 @@ const SOURCE_DIR = String.raw`D:\BaiduNetdiskDownload\MC-MOD整合包\wMOD全集
 const PLACEHOLDER_IMAGE_URL =
   "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/placeholder/mod-placeholder.webp";
 
-const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://www.wave-mod.top";
+const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://go.sunnyrose.xyz";
 
 /**
  * 源图名 ≠ 库内 title 的特例。

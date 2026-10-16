@@ -18,8 +18,8 @@ type Tab = "mod-downloads" | "mod-likes" | "creator-followers" | "creator-reputa
 type Period = "all" | "month" | "week" | "today";
 
 const TABS: { key: Tab; label: string; mobileLabel: string }[] = [
-  { key: "mod-downloads", label: "MOD DOWNLOADS", mobileLabel: "Downloads" },
-  { key: "mod-likes", label: "MOD LIKES", mobileLabel: "Likes" },
+  { key: "mod-downloads", label: "RESOURCE DOWNLOADS", mobileLabel: "Downloads" },
+  { key: "mod-likes", label: "RESOURCE LIKES", mobileLabel: "Likes" },
   { key: "creator-followers", label: "CREATOR FOLLOWERS", mobileLabel: "Followers" },
   { key: "creator-reputation", label: "CREATOR REPUTATION", mobileLabel: "Reputation" },
 ];
@@ -30,7 +30,7 @@ function compact(n: number) {
   return String(n);
 }
 
-/** 根据时间周期过滤 MOD/creator（基于 createdAt） */
+/** 根据时间周期过滤 资源/creator（基于 createdAt） */
 function filterByPeriod<T extends { createdAt: string }>(items: T[], period: Period): T[] {
   if (period === "all") return items;
   const now = Date.now();
@@ -127,7 +127,7 @@ function CreatorRow({
           {creator.displayName}
           {rank <= 3 && <ShieldCheck className="ml-1 inline size-3 text-[var(--neo-accent)]" />}
         </p>
-        <p className="text-[8px] sm:text-[9px] font-bold text-black">{creator.modCount} mods</p>
+        <p className="text-[8px] sm:text-[9px] font-bold text-black">{creator.modCount} resources</p>
       </div>
       <div className="text-right">
         <p className="text-[10px] sm:text-[11px] font-black text-black tabular-nums">{compact(valueOf(creator))}</p>
@@ -191,7 +191,7 @@ export function ZenlessRankingLeaderboard({
         >
           <span className="w-5 text-center">#</span>
           <span />
-          <span>{isModTab ? "MOD" : "CREATOR"}</span>
+          <span>{isModTab ? "RESOURCE" : "CREATOR"}</span>
           <span className="text-right">
             {activeTab === "mod-downloads" ? "DL" : activeTab === "mod-likes" ? "Likes" : activeTab === "creator-followers" ? "Followers" : "Mods"}
           </span>
@@ -242,7 +242,7 @@ export function ZenlessRankingLeaderboard({
       {/* Footer */}
       <div className="shrink-0 flex items-center justify-between border-t-2 border-black px-2.5 py-1.5">
         <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.08em] text-black">
-          {isModTab ? `${filteredMods.length} mods` : `${topCreators.length} creators`}
+          {isModTab ? `${filteredMods.length} resources` : `${topCreators.length} creators`}
         </span>
         <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.08em] text-black">
           {period === "all" ? "ALL TIME" : period === "month" ? "THIS MONTH" : period === "week" ? "THIS WEEK" : "TODAY"}

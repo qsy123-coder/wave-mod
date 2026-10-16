@@ -17,9 +17,12 @@ export const revalidate = 21600;
 export const dynamicParams = true;
 
 /**
- * `noindex, follow`：这个 URL 的 HTML 里**没有该 mod 的内容** —— 它渲染的是默认
- * 列表页 + 一个客户端才填充的详情抽屉。5292 个近乎重复的薄页面会拖累整站质量分，
- * 所以不收录；但分享链接仍能正常打开，且允许爬虫跟随页内链接（follow）。
+ * 这个 URL 的 HTML 里**没有该资源的内容** —— 它渲染的是默认列表页 + 一个客户端才
+ * 填充的详情抽屉，五千多个近乎重复的薄页面会拖累整站质量分。
+ *
+ * 2026-10-15 起全站统一 noindex：根 layout 已经做了这件事，但 Next 的 metadata 是
+ * **逐字段浅合并** —— 这里若只写 `{ index: false }` 或留个 `follow: true`，
+ * 就会把根上的 `follow: false` 覆盖回 true。所以两个字段都显式写全。
  *
  * canonical 指向自己：即便某个爬虫不认 noindex，至少不会把带参变体当成不同页面。
  */
@@ -27,14 +30,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { id } = await params;
 
   return {
-    title: "MOD 详情 — 高清预览与直链下载",
+    title: "外观资源详情 — 高清预览与直链下载",
     alternates: { canonical: `/mods/${id}` },
-    robots: { index: false, follow: true },
+    robots: { index: false, follow: false },
   };
 }
 
 /**
- * `/mods/<id>` 复用的是列表页外壳：**HTML 里其实是默认的 MOD 列表**，
+ * `/mods/<id>` 复用的是列表页外壳：**HTML 里其实是默认的资源列表**，
  * 详情抽屉是客户端按 id 从 `/api/mods/[id]` 拉取后填进去的。
  *
  * 所以这里不能再 `await searchParams` —— 那会让本页变成动态渲染，而 URL 上的筛选

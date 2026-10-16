@@ -48,7 +48,7 @@ export function ZenlessModDetailPage({
   const loggedIn = Boolean(user);
   const installGuide =
     mod.xxmiInstallGuide.trim() ||
-    "解压 ZIP 后，将文件夹放入 WWMI 的 Mods 目录，在加载器中启用该 MOD 后启动游戏。";
+    "解压 ZIP 后，将文件夹放入 WWMI 的 Mods 目录，在加载器中启用该资源后启动游戏。";
   const userName =
     user?.user_metadata?.display_name ?? user?.email?.split("@")[0] ?? "我";
 
@@ -58,7 +58,7 @@ export function ZenlessModDetailPage({
       <div className="absolute inset-0">
         <Image
           src="/bg-zzz/zzz-detail-bg.png"
-          alt="Zenless Zone Zero city background"
+          alt="站点街区背景"
           fill
           priority
           fetchPriority="high"
@@ -77,7 +77,7 @@ export function ZenlessModDetailPage({
           <nav className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-400">
             <Link href={game.nav.home}>Home</Link>
             <span>›</span>
-            <Link href={game.nav.mods}>Character Mods</Link>
+            <Link href={game.nav.mods}>Character Resources</Link>
             <span>›</span>
             <span className="text-slate-300">{mod.title}</span>
           </nav>
@@ -86,7 +86,7 @@ export function ZenlessModDetailPage({
         <section className="grid min-h-[350px] content-end pt-7 lg:max-w-[720px]">
           <MotionReveal delay={0.06} y={24}>
             <Badge className="border-2 border-black bg-[#07111f]/78 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-100 shadow-[3px_3px_0px_0px_#000] backdrop-blur-[2px] hover:bg-[#07111f]/78">
-              Character Mod
+              Character Resource
             </Badge>
             <h1 className="mt-3 max-w-[620px] text-4xl font-black uppercase leading-[1.04] tracking-[0.02em] text-slate-100 [text-shadow:4px_4px_0_#000] sm:text-5xl lg:text-[3.35rem]">
               {mod.title}

@@ -12,7 +12,7 @@ import type { EngagementAction, EngagementCounts, EngagementMine } from "./types
  * 对外展示的计数 = 基线 + 增量。
  */
 
-/** 一个 MOD 的增量状态 */
+/** 一个资源的增量状态 */
 export type StoredMod = {
   /** 点过赞的设备号（去重依据，长度即新增点赞数） */
   likedBy: string[];
@@ -32,7 +32,7 @@ export type EngagementState = {
 };
 
 /**
- * 基线：MOD id → 历史计数。
+ * 基线：资源 id → 历史计数。
  * 用 Partial 是因为导入脚本可能只导了部分字段（例如 Supabase 里某列是 null）。
  */
 export type EngagementBaseline = Record<string, Partial<EngagementCounts>>;
@@ -113,7 +113,7 @@ export function parseBaseline(raw: unknown): EngagementBaseline {
   return baseline;
 }
 
-/** 取（必要时创建）某个 MOD 的增量槽位 */
+/** 取（必要时创建）某个资源的增量槽位 */
 export function slot(state: EngagementState, modId: string): StoredMod {
   const existing = state.mods[modId];
   if (existing) return existing;
@@ -155,7 +155,7 @@ function toggle(list: string[], deviceId: string): boolean {
 }
 
 /**
- * 应用一次互动。**就地修改** state（调用方持有单例），返回该 MOD 的最新状态。
+ * 应用一次互动。**就地修改** state（调用方持有单例），返回该资源的最新状态。
  *
  * 去重语义：
  *   - like / favorite：同一设备重复触发 = 抵消（toggle），与用户直觉一致
@@ -227,7 +227,7 @@ export function pruneViewDays(state: EngagementState, today: string, keep = 2): 
 }
 
 /**
- * 这台设备收藏过的 MOD id，**最近收藏的排在前面**。
+ * 这台设备收藏过的资源 id，**最近收藏的排在前面**。
  *
  * 这是一次 O(已记录的 mod 数) 的内存扫描：只服务「我的收藏」这一条低频路径，
  * 相比为它单独维护一份反向索引，扫描更好维护也更不容易写歪。
