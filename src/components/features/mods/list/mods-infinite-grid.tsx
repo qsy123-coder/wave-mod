@@ -149,8 +149,9 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       }
     : null;
 
-  // 侧栏刚点下、导航还没落地时的那一半加载态（见下面 `if (isLoading || pendingCharacter …)`）
-  const { pendingCharacter } = useNavigationLoading();
+  // 侧栏/工具栏刚点下、导航还没落地时的那一半加载态
+  // （见下面 `if (isLoading || pendingCharacter … || pendingListingLoad)`）
+  const { pendingCharacter, pendingListingLoad } = useNavigationLoading();
 
   const {
     data,
@@ -354,8 +355,11 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    * 侧栏点击时先把选中的角色写进 `pendingCharacter`，导航落地后由侧栏自己清掉
    * （见 character-sidebar 的 effect）。**不写 `isLoading`** —— 那是网格独有的写入口，
    * 别处写会被 `handleStatusChange` 当场覆盖（实测过），这一点 mods-page-client 有注释说明。
+   *
+   * `pendingListingLoad` 是同一件事的**工具栏那一半**：点排序/筛选/搜索的握手过程和
+   * 点侧栏角色一模一样，写入与清理都在 mods-toolbar（markFilterNavigation）。
    */
-  if (isLoading || pendingCharacter !== null) {
+  if (isLoading || pendingCharacter !== null || pendingListingLoad) {
     return isMasonry ? (
       <section className="flex gap-4">
         {Array.from({ length: colCount }).map((_, colIdx) => (

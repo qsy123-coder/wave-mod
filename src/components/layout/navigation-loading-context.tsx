@@ -13,6 +13,13 @@ type NavigationLoadingContextType = {
   pendingCharacter: string | null;
   /** 设置乐观角色，数据到达后应清空以对齐服务端 */
   setPendingCharacter: (character: string | null) => void;
+  /**
+   * 乐观列表加载：工具栏点了排序/筛选/搜索、导航还没落地（服务端 props 还没回来）的
+   * 那一小段。与 pendingCharacter 同一个理由，由网格**加算**进骨架条件。
+   */
+  pendingListingLoad: boolean;
+  /** 设置乐观列表加载态，服务端 props 落地后应清空 */
+  setPendingListingLoad: (pending: boolean) => void;
   /** 是否正在跨页导航（顶部导航点击等），用于站点级骨架屏 */
   isPageLoading: boolean;
   /**
@@ -37,6 +44,8 @@ const NavigationLoadingContext = createContext<NavigationLoadingContextType>({
   stopLoading: () => {},
   pendingCharacter: null,
   setPendingCharacter: () => {},
+  pendingListingLoad: false,
+  setPendingListingLoad: () => {},
   isPageLoading: false,
   pendingPagePath: null,
   startPageLoading: () => {},
@@ -60,6 +69,7 @@ const PAGE_LOADING_WATCHDOG_MS = 60_000;
 export function NavigationLoadingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [pendingCharacter, setPendingCharacter] = useState<string | null>(null);
+  const [pendingListingLoad, setPendingListingLoadState] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [pendingPagePath, setPendingPagePath] = useState<string | null>(null);
   const pageWatchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -92,6 +102,33 @@ export function NavigationLoadingProvider({ children }: { children: ReactNode })
     }
   }, []);
 
+  /**
+   * 乐观列表加载：工具栏点下排序/筛选/搜索的**那一刻**写入，本页服务端 props 落地后
+   * 由工具栏自己清掉（见 mods-toolbar 的 markFilterNavigation）。
+   *
+   * 与 pendingCharacter 同一个理由：网格的 isLoading 要等 queryKey 变（= 客户端导航把
+   * RSC 拿回来、URL 更新）才开始，在那之前点排序/筛选右侧完全没反应（用户报告：
+   * 「点筛选/排序不如点左侧角色跟手」）。**不写 isLoading** —— 那是网格独有的写入口，
+   * 别处写会被 handleStatusChange 当场覆盖（实测过）。
+   *
+   * 看门狗：万一导航没落地（点了却因为某种原因没跳成），不能让右侧骨架一直挂着。
+   */
+  const pendingListingWatchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setPendingListingLoad = useCallback((pending: boolean) => {
+    if (pendingListingWatchdog.current) {
+      clearTimeout(pendingListingWatchdog.current);
+      pendingListingWatchdog.current = null;
+    }
+    setPendingListingLoadState(pending);
+    if (pending) {
+      pendingListingWatchdog.current = setTimeout(() => {
+        pendingListingWatchdog.current = null;
+        setPendingListingLoadState(false);
+      }, PAGE_LOADING_WATCHDOG_MS);
+    }
+  }, []);
+
   const stopPageLoading = useCallback(() => {
     if (pageWatchdog.current) {
       clearTimeout(pageWatchdog.current);
@@ -118,13 +155,14 @@ export function NavigationLoadingProvider({ children }: { children: ReactNode })
     () => () => {
       if (pageWatchdog.current) clearTimeout(pageWatchdog.current);
       if (pendingCharWatchdog.current) clearTimeout(pendingCharWatchdog.current);
+      if (pendingListingWatchdog.current) clearTimeout(pendingListingWatchdog.current);
     },
     [],
   );
 
   return (
     <NavigationLoadingContext.Provider
-      value={{ isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter: setPendingCharacterSafe, isPageLoading, pendingPagePath, startPageLoading, stopPageLoading }}
+      value={{ isLoading, startLoading, stopLoading, pendingCharacter, setPendingCharacter: setPendingCharacterSafe, pendingListingLoad, setPendingListingLoad, isPageLoading, pendingPagePath, startPageLoading, stopPageLoading }}
     >
       {children}
     </NavigationLoadingContext.Provider>

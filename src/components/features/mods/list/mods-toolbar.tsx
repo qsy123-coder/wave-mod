@@ -7,7 +7,10 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 
 import { columnOptionsForWidth, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { useDebouncedValue } from "@/components/features/mods/list/use-debounced-value";
-import type { ModsPage } from "@/lib/mods";
+import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
+import type { ModSort, ModsPage } from "@/lib/mods";
+import { modsListingKey, type ModsFilters } from "@/lib/mods-domain/filter-params";
+import { parseModQuery } from "@/lib/mods-domain/sorting";
 import { buildModsFilterHref, isCurrentNavigationUrl } from "@/lib/navigation-url";
 import { cn } from "@/lib/utils";
 import {
@@ -149,6 +152,7 @@ export function ModsToolbar({
   onFilterChange,
 }: ModsToolbarProps) {
   const router = useRouter();
+  const { setPendingListingLoad } = useNavigationLoading();
   // `/` 快捷键要用；输入框本身不依赖它做任何事
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
@@ -289,6 +293,48 @@ export function ModsToolbar({
     [gameModsPath, sort],
   );
 
+  /**
+   * 当前**已生效**的筛选的身份键（与网格的 queryKey 同一套维度，口径见 filter-params）。
+   * 只用来判定「点下去的这次导航到底换不换列表」，不参与渲染。
+   */
+  const currentListingKey = modsListingKey({
+    sort: sort as ModSort,
+    character: activeCharacter,
+    query: parseModQuery(activeQuery),
+    direct: activeDirect,
+    preview: activePreview,
+  });
+
+  /**
+   * 标记「一次筛选/排序/搜索导航已经开始」：右侧网格据此**立刻**换成骨架，不用等客户端
+   * 导航把新 URL 与服务端 props 拿回来（理由与侧栏那次修复相同，见 navigation-loading-
+   * context 里 pendingListingLoad 的注释）。
+   *
+   * 目标筛选与当前生效的筛选**完全相同**时就不标记 —— 那种导航不会换 queryKey、也不会有
+   * 任何 props 变化把它清掉，只能等看门狗，表现为「点了没反应还一直骨架」。典型例子：
+   * URL 里手写了 ?sort=latest 时再点一次「全部」（语义上就是同一个页面）。
+   */
+  const markFilterNavigation = useCallback(
+    (target: ModsFilters) => {
+      if (modsListingKey(target) !== currentListingKey) setPendingListingLoad(true);
+      onFilterChange?.();
+    },
+    [currentListingKey, onFilterChange, setPendingListingLoad],
+  );
+
+  /**
+   * 服务端 props 一落地就把乐观加载态交还给网格。
+   *
+   * 任何一个筛选维度变了都算落地：换筛选必然换 queryKey，网格这时要么已经在 isPending
+   * （骨架接着显示），要么命中了 5 分钟内的缓存（直接出内容，本来就不该再转圈）。
+   *
+   * 卸载时也清：带着乐观值离开本页（点了筛选又马上点去别的页面）不该把值留给下一个页面。
+   */
+  useEffect(() => {
+    setPendingListingLoad(false);
+    return () => setPendingListingLoad(false);
+  }, [sort, activeDirect, activePreview, activeQuery, activeCharacter, setPendingListingLoad]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -311,7 +357,13 @@ export function ModsToolbar({
     if (isCurrentNavigationUrl(href)) return;
 
     // 立即骨架屏 + 筛选条显示搜索词
-    onFilterChange?.();
+    markFilterNavigation({
+      sort: sort as ModSort,
+      character: localCharacter,
+      query: parseModQuery(nextQuery),
+      direct: localDirect,
+      preview: localPreview,
+    });
     setSubmittedQuery(nextQuery);
     router.push(href);
   };
@@ -346,7 +398,13 @@ export function ModsToolbar({
     setLocalPreview(nextPreview);
     if (isCurrentNavigationUrl(href)) return;
 
-    onFilterChange?.();
+    markFilterNavigation({
+      sort: sort as ModSort,
+      character: localCharacter,
+      query: parseModQuery(submittedQuery),
+      direct: nextDirect,
+      preview: nextPreview,
+    });
     router.push(href);
   };
 
@@ -356,7 +414,13 @@ export function ModsToolbar({
     // 选中当前已在用的排序同样是原地踏步：同 URL 短路；链接里显式写了默认值
     // （如 ?sort=latest）时 URL 不同但服务端解析结果相同，用 value !== sort 兜住。
     if (href && value !== sort && !isCurrentNavigationUrl(href)) {
-      onFilterChange?.();
+      markFilterNavigation({
+        sort: value as ModSort,
+        character: localCharacter,
+        query: parseModQuery(submittedQuery),
+        direct: localDirect,
+        preview: localPreview,
+      });
       router.push(href);
     }
     setSortOpen(false);
@@ -372,30 +436,43 @@ export function ModsToolbar({
   const handleClearFilter = useCallback((key: "character" | "query" | "direct" | "preview" | "sort") => {
     // 叉掉的那一维度置空，其余原样带过去
     const base = { query: submittedQuery, character: localCharacter, direct: localDirect, preview: localPreview };
+    // 与 base 同一个口径的目标筛选（键的类型是解析后的值），用来判断这次导航换不换列表
+    const target: ModsFilters = {
+      sort: sort as ModSort,
+      character: localCharacter,
+      query: parseModQuery(submittedQuery),
+      direct: localDirect,
+      preview: localPreview,
+    };
     let href: string;
 
     if (key === "character") {
       setLocalCharacter(undefined);
+      target.character = undefined;
       href = buildHref({ ...base, character: undefined });
     } else if (key === "query") {
       setQuery("");
       setSubmittedQuery("");
+      target.query = undefined;
       href = buildHref({ ...base, query: undefined });
     } else if (key === "direct") {
       setLocalDirect(false);
+      target.direct = false;
       href = buildHref({ ...base, direct: false });
     } else if (key === "preview") {
       setLocalPreview(false);
+      target.preview = false;
       href = buildHref({ ...base, preview: false });
     } else {
       setLocalSort(defaultSortValue);
+      target.sort = defaultSortValue as ModSort;
       href = buildHref({ ...base, sort: defaultSortValue });
     }
 
     if (isCurrentNavigationUrl(href)) return;
-    onFilterChange?.();
+    markFilterNavigation(target);
     router.push(href);
-  }, [buildHref, defaultSortValue, localCharacter, localDirect, localPreview, onFilterChange, router, submittedQuery]);
+  }, [buildHref, defaultSortValue, localCharacter, localDirect, localPreview, markFilterNavigation, router, sort, submittedQuery]);
 
   /** 点/选中一条候选：收起面板，然后交给调用方（没有就整页跳转，分站是这条路径） */
   const selectSuggestion = (modId: string) => {
