@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Eye, Heart, Star, ThumbsUp, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Heart, Share2, Star, ThumbsUp, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,9 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
 import { reportView } from "@/lib/engagement/client";
 import { useEngagement } from "@/lib/engagement/use-engagement";
+import { buildModShareUrl } from "@/lib/mod-share";
 import type { SiteMod } from "@/lib/mods";
+import { getSiteUrl } from "@/lib/site-url";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +21,7 @@ import { DownloadButton } from "./download-button";
 import { FavoriteButton } from "./favorite-button";
 import { LikeButton } from "./like-button";
 import { RatingPanel } from "./rating-panel";
+import { ShareModDialog, SHARE_BUTTON_CLASS } from "./share-mod-dialog";
 
 type ModDetailDrawerProps = {
   admin?: boolean;
@@ -81,6 +84,7 @@ export function ModDetailDrawer({
   const [activeTab, setActiveTab] = useState<DrawerTab>("overview");
   const [descExpanded, setDescExpanded] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [lightboxVisible, setLightboxVisible] = useState(false);
 
@@ -111,6 +115,12 @@ export function ModDetailDrawer({
   const safeRatingAverage = mod && Number.isFinite(mod.ratingAverage) ? mod.ratingAverage : 0;
 
   /**
+   * 分享链接用规范域名，不用 `window.location.origin`：旧域名 wave-mod.top 现在是 410，
+   * 从那边打开页面复制出去的链接对方会打不开（memory: wavemod-site-shutdown-410）。
+   */
+  const shareUrl = mod ? buildModShareUrl(getSiteUrl(), mod.id) : "";
+
+  /**
    * 统计行里的浏览 / 点赞 / 收藏。
    *
    * 抽屉是默认分站（主站）真正的详情视图 —— `/mods/<id>` 其实渲染的是列表页外壳，
@@ -123,9 +133,14 @@ export function ModDetailDrawer({
     views: mod?.views ?? 0,
   });
 
+  // 引用必须稳定：分享面板的焦点管理 effect 依赖它，换引用会让面板每渲染都抢一次焦点
+  const closeShare = useCallback(() => setShareOpen(false), []);
+
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
+      // 面板是 portal 到 body 的，抽屉开始退场时若还开着就会盖在列表上
+      setShareOpen(false);
       setTimeout(() => onClose?.(), 200);
     }
   };
@@ -181,14 +196,27 @@ export function ModDetailDrawer({
           <h2 className="truncate text-2xl font-black uppercase tracking-[0.04em]">
             {isLoading ? "加载中..." : mod?.title ?? "外观资源详情"}
           </h2>
-          <button
-            type="button"
-            onClick={() => handleOpenChange(false)}
-            className="inline-flex size-8 shrink-0 items-center justify-center border-[3px] border-black bg-white text-lg font-black leading-none shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-            aria-label="关闭抽屉"
-          >
-            ✕
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              // 还没有 id 就拼不出分享链接；此时二维码只能是空码
+              disabled={!mod || isLoading}
+              className={cn(SHARE_BUTTON_CLASS, "disabled:cursor-not-allowed disabled:opacity-40")}
+              aria-label="分享这个资源"
+              title="分享"
+            >
+              <Share2 className="size-4" strokeWidth={3} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenChange(false)}
+              className="inline-flex size-8 shrink-0 items-center justify-center border-[3px] border-black bg-white text-lg font-black leading-none shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              aria-label="关闭抽屉"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Fixed tab bar */}
@@ -403,6 +431,15 @@ export function ModDetailDrawer({
           )}
         </div>
       </SheetContent>
+
+      {/* 分享面板：内部 portal 到 body —— 抽屉的 transform 会成为 fixed 子元素的定位块 */}
+      <ShareModDialog
+        open={shareOpen}
+        onClose={closeShare}
+        url={shareUrl}
+        title={mod?.title}
+        imageUrl={mod?.images[0] ?? mod?.coverImage}
+      />
 
       {/* Lightbox: fullscreen image preview with dark blur overlay */}
       {lightboxIndex !== null && mod && (
