@@ -47,6 +47,32 @@ const SECRET_KEY = () => process.env.COS_SECRET_KEY?.trim() ?? "";
 const SHARD_CACHE_TTL_MS = 60_000;
 const SHARD_COUNT = ENGAGEMENT_SHARD_COUNT;
 
+/**
+ * 分片读取的并发上限。
+ *
+ * 16 个分片同时开 16 条 TLS 连接，在 Vercel 冷启动的容器里会集体 ETIMEDOUT
+ * （2026-10-19 实测：`sort=hot` 一次列表要读全部分片，冷启动时 16 条全超时，
+ * 接口被拖到 40 秒以上并降级成全 0）。限到 4 路后同一环境下为 0.6–0.8s。
+ */
+const SHARD_FETCH_CONCURRENCY = 4;
+
+/** 简单并发池：按上限分批跑，保持输入顺序 */
+async function mapLimit<T, R>(items: readonly T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  async function run() {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await worker(items[index]);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
+  return results;
+}
+
 export type EngagementReadResult = {
   counts: Record<string, EngagementCounts>;
   mine: Record<string, EngagementMine>;
@@ -202,8 +228,10 @@ export async function cosReadEngagement(ids: string[], deviceId: string): Promis
     else idsByShard.set(index, [id]);
   }
 
-  const loaded = await Promise.all(
-    [...idsByShard.entries()].map(async ([index, shardIds]) => {
+  const loaded = await mapLimit(
+    [...idsByShard.entries()],
+    SHARD_FETCH_CONCURRENCY,
+    async ([index, shardIds]) => {
       try {
         return { shardIds, state: await loadShard(index) };
       } catch (error) {
@@ -214,7 +242,7 @@ export async function cosReadEngagement(ids: string[], deviceId: string): Promis
         });
         return { shardIds, state: emptyState() };
       }
-    }),
+    },
   );
 
   const base = getEngagementBaseline();
@@ -270,8 +298,10 @@ export async function cosWriteEngagement(
 export async function cosReadFavoritedIds(deviceId: string): Promise<string[]> {
   if (!deviceId) return [];
 
-  const states = await Promise.all(
-    Array.from({ length: SHARD_COUNT }, (_, index) =>
+  const states = await mapLimit(
+    Array.from({ length: SHARD_COUNT }, (_, index) => index),
+    SHARD_FETCH_CONCURRENCY,
+    (index) =>
       loadShard(index).catch((error) => {
         logger.warn("[engagement] COS 分片读取失败（我的收藏），跳过该片", {
           shard: index,
@@ -279,7 +309,6 @@ export async function cosReadFavoritedIds(deviceId: string): Promise<string[]> {
         });
         return emptyState();
       }),
-    ),
   );
 
   const merged = emptyState();
