@@ -1,2 +1,24 @@
 wrangler.jsonc
 .open-next/
+
+# 体积大、构建不需要的目录。
+# 2026-10-19 第一次部署时上传包达 1.4GB（其中 .claude 就占 1.47GB），
+# 在本地链路上传不完，线上还会撞 15000 文件上限。
+.claude/
+backups/
+教程截图/
+offline-blur-src/
+.next/
+node_modules/
+data/runtime/
+.tmp-audit/
+.git.broken/
+bg-zzz/
+ui_images/
+*.docx
+preview-audit.html
+tsconfig.tsbuildinfo
+
+# 图库图片已迁 COS（见 scripts/upload-gallery-to-cos.mjs），
+# public/gallery 只留作本地开发兜底，不再随部署包上传。
+public/gallery/
