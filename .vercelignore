@@ -11,9 +11,10 @@ offline-blur-src/
 .next/
 node_modules/
 data/runtime/
+# ⚠️ 不要排除 bg-zzz/：zenless 的首页/详情页会 `import "../../../../../bg-zzz/xxx.png"`，
+# 排除后构建直接报 Module not found（2026-10-19 首次 Vercel 构建就踩了）。
 .tmp-audit/
 .git.broken/
-bg-zzz/
 ui_images/
 *.docx
 preview-audit.html
