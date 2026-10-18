@@ -34,6 +34,27 @@ export async function GET() {
     }
   }
 
+  // 直接试一次 SDK：fetch 通而 SDK 超时的话，就能确认问题在 SDK 而不是网络
+  const sdkStarted = Date.now();
+  let sdkResult: unknown = null;
+  if (host) {
+    try {
+      const { default: COS } = await import("cos-nodejs-sdk-v5");
+      const cos = new COS({
+        SecretId: process.env.COS_SECRET_ID?.trim(),
+        SecretKey: process.env.COS_SECRET_KEY?.trim(),
+        Timeout: 6000,
+      });
+      sdkResult = await new Promise((resolve) => {
+        cos.headObject({ Bucket: bucket, Region: region, Key: "gallery/11.jpg" }, (error, data) => {
+          resolve(error ? { error: error.message, code: error.code, ms: Date.now() - sdkStarted } : { status: data?.statusCode, ms: Date.now() - sdkStarted });
+        });
+      });
+    } catch (error) {
+      sdkResult = { error: error instanceof Error ? error.message : String(error), ms: Date.now() - sdkStarted };
+    }
+  }
+
   return NextResponse.json(
     {
       env: {
@@ -45,6 +66,7 @@ export async function GET() {
       host,
       dns,
       fetchResult,
+      sdkResult,
     },
     { headers: { "Cache-Control": "no-store" } },
   );
