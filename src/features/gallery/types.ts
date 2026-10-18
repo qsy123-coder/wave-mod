@@ -17,8 +17,19 @@ export interface GalleryImage {
 
 /** 经过解析的图片条目，包含运行时计算的衍生字段 */
 export interface GalleryImageResolved extends GalleryImage {
-  /** 完整 URL 路径，如 "/gallery/art-001.jpg" */
+  /**
+   * 原图 URL。聚焦视图与下载用；配了 COS 就是 COS 直链，
+   * 没配（本地开发）则回落到 `/gallery/<文件名>`。
+   */
   src: string;
+  /**
+   * 网格缩略图 URL —— 铺满整页的背景图用这一张。
+   *
+   * 图库在网格态会**同时**给 192 张图设 src/背景图，直接用原图意味着一次访问
+   * 要下 77MB（2026-10-18 实测：图库占首尔机 75% 出向带宽）。缩略图档位见
+   * `src/features/gallery/config.ts` 的 GALLERY_THUMB_WIDTH。
+   */
+  thumbSrc: string;
   /** 宽高比 = width / height */
   aspectRatio: number;
 }

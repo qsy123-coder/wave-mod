@@ -103,13 +103,15 @@ export function GalleryRenderer(p: Props) {
         position: "absolute", top: "0", left: "0", overflow: "hidden",
         backgroundColor: "rgb(34, 36, 53)", borderRadius: "16px",
         boxShadow: "0 0px 2px 0 rgba(255, 255, 255, 0.2), 0 4px 28px 0 rgba(0, 0, 0, 0.4)",
-        backgroundImage: `url(${img.src})`, backgroundSize: "100%", backgroundRepeat: "no-repeat",
+        backgroundImage: `url(${img.thumbSrc})`, backgroundSize: "100%", backgroundRepeat: "no-repeat",
         display: "none",
       });
 
       const imgEl = document.createElement("img");
       imgEl.alt = img.alt;
-      imgEl.src = img.src;
+      // 先用缩略图起手：192 张图会同时进加载队列，直接塞原图等于一次访问下 77MB
+      // （见 config.ts 的 GALLERY_THUMB_WIDTH）。聚焦到某张时下面的同步循环再换原图。
+      imgEl.src = img.thumbSrc;
       imgEl.style.cssText = "display:none;width:100%";
 
       const promptEl = document.createElement("figcaption");
