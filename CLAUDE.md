@@ -226,6 +226,6 @@ npm run db:push      # Prisma 同步
 
 - 每次 commit 前必须执行 `npm run lint` + `npx tsc --noEmit`，有 error 必须修复
 - 如果 lint error 来自**未修改**的文件，视为已有问题，必须一并修复
-- **commit / merge / push 前必须先征得用户同意**，不得自行决定提交、合并或推送
-- 用户同意后，push 需等待 CI 完成，确认 success 后才能告知用户"完成"
+- **已授权自行 commit / merge / push / 部署**（2026-10-18 用户原话：「以后提交部署别问我了，除非我告诉你不要提交部署」）。质量门禁通过后直接提交并推 main，不必先问；只有用户明说「先别提交 / 先别部署」，或涉及删数据、改库、动 `.env.production` 这类不可逆操作时，才停下来确认
+- push 需等待 CI 完成，确认 success 后才能部署并告知用户"完成"
 - CI 失败时必须查看日志、修复、重新 push，直到通过
