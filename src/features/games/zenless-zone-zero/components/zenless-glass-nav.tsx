@@ -23,7 +23,7 @@ const zenlessNavItems = [
   { label: "角色分类", href: "/zenless-zone-zero/mods" },
   { label: "排行榜", href: "/zenless-zone-zero/ranking" },
   { label: "个人中心", href: "/zenless-zone-zero/profile" },
-  { label: "先看我", href: "/zenless-zone-zero/guide" },
+  { label: "教程", href: "/zenless-zone-zero/guide" },
   { label: "转载声明", href: "/zenless-zone-zero/support" },
 ] as const;
 

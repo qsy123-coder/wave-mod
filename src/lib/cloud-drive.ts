@@ -26,8 +26,8 @@ export type DriveCopyTipOptions = {
    * - `"launch"`        —— 真的发起了唤起（见 drive-client-launch.ts）
    * - `"already-open"`  —— 调用方会唤起，但这次跳过了：这个网盘本会话已经唤起过一次，
    *                        客户端应该已经在（用户 2026-09-28 明确要求别把它重复切到前台）
-   * - 不传              —— 调用方不唤起。教程页工具下载（tool-download-card.tsx）
-   *                        复用同一份文案但不唤起，传了就会对着用户撒谎
+   * - 不传              —— 调用方不唤起。只有真正调了 launchDriveClient 的地方
+   *                        才能传，否则文案会对着用户撒谎
    */
   client?: "launch" | "already-open";
 };

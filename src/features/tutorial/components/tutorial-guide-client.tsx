@@ -28,7 +28,7 @@ type TutorialGuideClientProps = {
 const MEMORY_KEY = "wavemod-tutorial-version";
 
 /**
- * 前台「先看我」编排组件。
+ * 前台「教程」页编排组件。
  * - 版本切换用 URL ?v=<key> 驱动，SSR 友好、可分享。
  * - 首次访问（URL 无 ?v）读取 localStorage 记忆；无记忆则用 server 解析的默认版本。
  * - 切换版本时由父级按新 key 重新加载章节（本组件仅做展示 + 记忆写入）。
@@ -127,7 +127,7 @@ export function TutorialGuideClient({
         </MotionReveal>
       ) : null}
 
-      {/* 必要工具下载（复制网盘链接，不跳转）— 与当前章节无关，常驻顶部。
+      {/* 必要工具下载（复制网盘链接 + 唤起对应客户端）— 与当前章节无关，常驻顶部。
           z-40 不能省：卡片里的下拉（z-50）被关在卡片自己的层叠上下文里，
           能拿出去跟外面对比的只有这一层；下面的章节 Tab 条（tutorial-nav）必须
           低于它，否则整条不透明吸顶条会盖住下拉 —— 见那边的注释。 */}

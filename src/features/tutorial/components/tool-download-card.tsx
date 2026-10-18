@@ -6,19 +6,22 @@ import { Check, ChevronDown, Copy, HardDriveDownload } from "lucide-react";
 
 import { copyToClipboard } from "@/lib/clipboard";
 import { driveCopyTip } from "@/lib/cloud-drive";
-import { REQUIRED_TOOL_DRIVES, REQUIRED_TOOLS_SUMMARY } from "../tool-download";
+import { launchDriveClient } from "@/lib/drive-client-launch";
+import { REQUIRED_TOOL_DRIVES, REQUIRED_TOOLS_SUMMARY, type ToolDrive } from "../tool-download";
 
 /**
  * 教程页顶部的「下载必要工具」。
  *
- * 一个按钮收住两个网盘：点开下拉选网盘 → **只复制链接、不跳转**。
+ * 一个按钮收住两个网盘：点开下拉选网盘 → 复制链接 → **唤起对应网盘客户端**（同 mod 详情页）。
  * 夸克/迅雷分享页在浏览器里打开会限速、反复要求登录，正确路径是复制后粘进客户端转存，
  * 所以复制完要明确告诉用户下一步干什么（文案与操作图见 lib/cloud-drive.ts，
  * 与 mod 详情页的复制网盘按钮同一套说法）。
  */
 export function ToolDownloadCard() {
   const [open, setOpen] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  // launched 记「这一次复制有没有真的去唤起客户端」：该网盘本会话已唤起过时会跳过，
+  // 文案得跟着变（否则会对着用户说「正在尝试打开」而其实没开）—— 同 download-button.tsx
+  const [copied, setCopied] = useState<{ platform: string; url: string; launched: boolean } | null>(null);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const [showTip, setShowTip] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -35,21 +38,25 @@ export function ToolDownloadCard() {
     return () => document.removeEventListener("mousedown", onClose);
   }, [open]);
 
-  const copied = REQUIRED_TOOL_DRIVES.find((d) => d.url === copiedUrl) ?? null;
-  const tip = copied ? driveCopyTip(copied.platform) : null;
+  const tip = copied
+    ? driveCopyTip(copied.platform, { client: copied.launched ? "launch" : "already-open" })
+    : null;
 
-  const handleCopy = async (url: string) => {
+  const handleCopy = async (drive: ToolDrive) => {
     setShowTip(false);
-    const ok = await copyToClipboard(url);
+    const ok = await copyToClipboard(drive.url);
     setOpen(false);
-    if (ok) {
-      setFailedUrl(null);
-      setCopiedUrl(url);
+    if (!ok) {
+      // 复制失败不能静默：把原链接摆出来让用户手动复制
+      setCopied(null);
+      setFailedUrl(drive.url);
       return;
     }
-    // 复制失败不能静默：把原链接摆出来让用户手动复制
-    setCopiedUrl(null);
-    setFailedUrl(url);
+    // 复制失败就不唤起：客户端被拉起来了却读不到剪贴板，比不唤起更让人困惑。
+    // 同一网盘本会话已唤起过会跳过（见 lib/drive-client-launch.ts）。
+    const launched = launchDriveClient(drive.platform, drive.url);
+    setFailedUrl(null);
+    setCopied({ platform: drive.platform, url: drive.url, launched });
   };
 
   return (
@@ -68,7 +75,7 @@ export function ToolDownloadCard() {
         <span className="text-sm font-bold leading-6 text-black/80">{REQUIRED_TOOLS_SUMMARY}</span>
       </p>
       <p className="mt-1 text-xs font-bold leading-5 text-black/55">
-        点按钮只<span className="text-black">复制链接</span>、不跳转，再打开对应网盘客户端粘贴转存下载。
+        点按钮会<span className="text-black">复制链接并打开对应网盘客户端</span>，没弹出的话手动打开客户端粘贴转存下载。
       </p>
 
       {/* 单个入口 + 下拉选网盘 */}
@@ -93,13 +100,13 @@ export function ToolDownloadCard() {
             className="absolute left-0 top-[calc(100%+6px)] z-50 flex min-w-[210px] flex-col border-4 border-black bg-white shadow-[6px_6px_0px_0px_#000]"
           >
             {REQUIRED_TOOL_DRIVES.map((drive) => {
-              const isCopied = copiedUrl === drive.url;
+              const isCopied = copied?.url === drive.url;
               return (
                 <button
                   key={drive.url}
                   type="button"
                   role="menuitem"
-                  onClick={() => void handleCopy(drive.url)}
+                  onClick={() => void handleCopy(drive)}
                   aria-label={`复制${drive.platform}链接（含提取码）`}
                   className={`flex items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-black text-black transition hover:bg-[var(--neo-accent)] ${
                     isCopied ? "bg-[#86efac]" : "bg-white"

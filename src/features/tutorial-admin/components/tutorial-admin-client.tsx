@@ -148,7 +148,7 @@ export function TutorialAdminClient({
         // 用版本名兜底标题 + 默认副标题，让新建版本立即可填、可存。
         const fallbackTitle = seedTitle ?? versions.find((v) => v.id === versionId)?.name ?? "";
         setTitle(src ? src.config.title : fallbackTitle);
-        setSubtitle(src ? src.config.subtitle : "先看我");
+        setSubtitle(src ? src.config.subtitle : "教程");
         setImageBasePath(src?.config.image_base_path ?? "/tutorial/");
         setChapters(src ? dbChaptersToUI(src).chapters : []);
         // 必须跟着版本一起重置：漏了这行，从「有配套视频的版本」切到「没有的版本」时，
