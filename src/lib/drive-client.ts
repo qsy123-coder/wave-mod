@@ -45,6 +45,21 @@ function base64(input: string): string {
 }
 
 /**
+ * 手机端「打开网盘」按钮跳哪儿：直接把 https 分享页交给浏览器。
+ *
+ * 和桌面的「复制 + 唤起客户端」是两条路：手机上没有 qklink/thunder 的稳定保证，
+ * 而 pan.quark.cn / pan.xunlei.com 的分享页装了 App 时会被 Universal Link / App Link
+ * 接管，没装也能在网页里输提取码 —— 比编一个私有协议稳。
+ *
+ * 只认 http(s)：drive_links 的值是后台手填的，`pan.quark.cn/s/x` 这种缺 scheme 的
+ * 脏数据如果直接进 `<a href>`，浏览器会当成站内相对路径。返回 null 时调用方退回复制按钮。
+ */
+export function driveOpenHref(shareUrl: string): string | null {
+  const url = shareUrl.trim();
+  return /^https?:\/\//i.test(url) ? url : null;
+}
+
+/**
  * 返回 null = 「该平台没有客户端」或「链接不像链接」，两种情况调用方都应跳过唤起。
  * 分享链接不是 http(s) 开头时直接拒绝，免得脏数据拼出个无意义的协议串。
  */

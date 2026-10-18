@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Copy, Download, LoaderCircle, X } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, LoaderCircle, X } from "lucide-react";
 import Image from "next/image";
 
 import { copyToClipboard } from "@/lib/clipboard";
 import { driveCopyTip } from "@/lib/cloud-drive";
+import { driveOpenHref } from "@/lib/drive-client";
 import { launchDriveClient } from "@/lib/drive-client-launch";
 import { DIRECT_DOWNLOAD_UNAVAILABLE, resolveDownloadResponse } from "@/lib/mods-domain/download-result";
 import type { DriveLink } from "@/lib/mods-domain/types";
@@ -83,8 +84,13 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
 
   if (!hasDownload && driveLinks.length === 0) return null;
 
+  // display 交给调用方（手机/桌面各一个按钮，靠 sm 断点显隐），这里只管尺寸与描边
+  const driveButtonBase = `w-full items-center justify-center gap-2 border-4 border-black font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${compact ? "h-11 px-3 text-[11px] tracking-[0.12em]" : "h-14 px-5 text-sm tracking-[0.16em]"}`;
   const driveButtonClass = (copied: boolean) =>
-    `inline-flex w-full items-center justify-center gap-2 border-4 border-black font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${copied ? "bg-[#86efac]" : "bg-[#C4B5FD]"} ${compact ? "h-11 px-3 text-[11px] tracking-[0.12em]" : "h-14 px-5 text-sm tracking-[0.16em]"}`;
+    `${driveButtonBase} ${copied ? "bg-[#86efac]" : "bg-[#C4B5FD]"}`;
+  // 手机端直接跳分享页：装了网盘 App 的系统会接管 https 链接，没装也能在网页里输提取码。
+  // 用 CSS 断点而不是 JS 判断 UA —— 服务端与客户端首屏渲染一致，不会水合错位。
+  const driveOpenClass = `inline-flex sm:hidden ${driveButtonBase} bg-[#FFD93D]`;
 
   return (
     <div>
@@ -113,16 +119,41 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
         <div className={`space-y-1.5 ${hasDownload ? "mt-2" : ""}`}>
           {driveLinks.map((drive) => {
             const copied = copiedDrive?.platform === drive.platform;
+            // 手机端优先直接跳分享页；链接缺 scheme 等脏数据没法跳，就退回复制
+            const openHref = driveOpenHref(drive.url);
             return (
-              <button
-                key={`${drive.platform}-${drive.url}`}
-                type="button"
-                onClick={() => handleCopy(drive)}
-                className={driveButtonClass(copied)}
-              >
-                {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                {copied ? `已复制 · ${drive.platform}` : `复制链接 · ${drive.platform}`}
-              </button>
+              <div key={`${drive.platform}-${drive.url}`}>
+                {openHref ? (
+                  <a
+                    href={openHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`打开${drive.platform}分享页`}
+                    className={driveOpenClass}
+                  >
+                    <ExternalLink className="size-4" />
+                    打开{drive.platform}
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(drive)}
+                    className={`inline-flex sm:hidden ${driveButtonClass(copied)}`}
+                  >
+                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copied ? `已复制 · ${drive.platform}` : `复制链接 · ${drive.platform}`}
+                  </button>
+                )}
+                {/* 桌面端保持原样：复制到剪贴板并唤起客户端 */}
+                <button
+                  type="button"
+                  onClick={() => handleCopy(drive)}
+                  className={`hidden sm:inline-flex ${driveButtonClass(copied)}`}
+                >
+                  {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  {copied ? `已复制 · ${drive.platform}` : `复制链接 · ${drive.platform}`}
+                </button>
+              </div>
             );
           })}
         </div>

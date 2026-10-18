@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDriveClientUrl, driveClientKind } from "./drive-client";
+import { buildDriveClientUrl, driveClientKind, driveOpenHref } from "./drive-client";
 
 describe("driveClientKind", () => {
   it("夸克与迅雷都认，中英文都认（库里的 platform 是自由文本，有「夸克」也有「夸克网盘」）", () => {
@@ -67,5 +67,25 @@ describe("buildDriveClientUrl", () => {
 
   it("链接含非 Latin1 字符时不能抛（btoa 遇到中文会直接抛 InvalidCharacterError）", () => {
     expect(() => buildDriveClientUrl("迅雷", "https://pan.xunlei.com/s/中文")).not.toThrow();
+  });
+});
+
+describe("driveOpenHref：手机端直接跳分享页", () => {
+  it("http(s) 链接原样返回，两侧空白去掉", () => {
+    expect(driveOpenHref("https://pan.quark.cn/s/abc123?pwd=BBBB")).toBe(
+      "https://pan.quark.cn/s/abc123?pwd=BBBB",
+    );
+    expect(driveOpenHref("  http://pan.xunlei.com/s/xyz  ")).toBe("http://pan.xunlei.com/s/xyz");
+  });
+
+  it("缺 scheme 的脏数据返回 null —— 否则 <a href> 会把它当成站内相对路径", () => {
+    expect(driveOpenHref("pan.quark.cn/s/abc")).toBeNull();
+    expect(driveOpenHref("")).toBeNull();
+    expect(driveOpenHref("   ")).toBeNull();
+  });
+
+  it("伪协议一律拒绝", () => {
+    expect(driveOpenHref("javascript:alert(1)")).toBeNull();
+    expect(driveOpenHref("ftp://example.com/x")).toBeNull();
   });
 });
