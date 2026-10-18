@@ -7,6 +7,14 @@ import { dirname, join } from "node:path";
 import { logger } from "@/lib/logger";
 
 import {
+  cosReadEngagement,
+  cosReadFavoritedIds,
+  cosWriteEngagement,
+  describeCosStore,
+  isCosEngagementEnabled,
+  type EngagementReadResult,
+} from "./cos-store";
+import {
   applyAction,
   computeCounts,
   computeMine,
@@ -19,6 +27,8 @@ import {
   type EngagementState,
 } from "./store-core";
 import type { EngagementAction, EngagementCounts, EngagementMine } from "./types";
+
+export type { EngagementReadResult };
 
 /**
  * 计数器的落盘层：把 store-core 的纯逻辑接到文件系统上。
@@ -176,13 +186,43 @@ function runExclusive<T>(task: () => Promise<T>): Promise<T> {
   return result;
 }
 
-export type EngagementReadResult = {
-  counts: Record<string, EngagementCounts>;
-  mine: Record<string, EngagementMine>;
-};
+/**
+ * ==================== 对外入口：按环境分派 ====================
+ *
+ * 配了 COS（生产 / Vercel）就走 `cos-store` 的分片存储；没配（本地开发、CI）
+ * 就走下面这套「本地文件」实现。
+ *
+ * 本地文件那套**保留不动**：它不需要任何云端凭据，`npm run dev` 开箱即用，
+ * 也是 COS 出故障时最后的参照实现。两套共用 store-core 的纯逻辑。
+ *
+ * 三条对外函数都是 async：COS 读是网络 IO。调用方必须 await。
+ */
+export async function readEngagement(ids: string[], deviceId: string): Promise<EngagementReadResult> {
+  if (isCosEngagementEnabled()) return cosReadEngagement(ids, deviceId);
+  return fsReadEngagement(ids, deviceId);
+}
 
-/** 批量读：只回当前页要的那几个 id，不做全站扫描 */
-export function readEngagement(ids: string[], deviceId: string): EngagementReadResult {
+export async function writeEngagement(
+  modId: string,
+  action: EngagementAction,
+  deviceId: string,
+): Promise<EngagementReadResult> {
+  if (isCosEngagementEnabled()) return cosWriteEngagement(modId, action, deviceId);
+  return fsWriteEngagement(modId, action, deviceId);
+}
+
+export async function readFavoritedIds(deviceId: string): Promise<string[]> {
+  if (isCosEngagementEnabled()) return cosReadFavoritedIds(deviceId);
+  return fsReadFavoritedIds(deviceId);
+}
+
+export function describeEngagementStore() {
+  if (isCosEngagementEnabled()) return describeCosStore();
+  return fsDescribeStore();
+}
+
+/** 批量读（本地文件版）：只回当前页要的那几个 id，不做全站扫描 */
+function fsReadEngagement(ids: string[], deviceId: string): EngagementReadResult {
   const current = getState();
   const base = getBaseline();
 
@@ -203,11 +243,11 @@ export function readEngagement(ids: string[], deviceId: string): EngagementReadR
  * 落盘失败**不阻塞响应**（内存已更新，用户看到的状态是对的），但必须记日志 ——
  * 这正是上一版最致命的毛病：失败了却没有任何地方说。
  */
-export async function writeEngagement(
+async function fsWriteEngagement(
   modId: string,
   action: EngagementAction,
   deviceId: string
-): Promise<EngagementReadResult & { counts: Record<string, EngagementCounts> }> {
+): Promise<EngagementReadResult> {
   return runExclusive(async () => {
     const current = getState();
     const base = getBaseline();
@@ -234,13 +274,13 @@ export async function writeEngagement(
   });
 }
 
-/** 这台设备收藏过的资源 id（最近收藏在前），供「我的收藏」页使用 */
-export function readFavoritedIds(deviceId: string): string[] {
+/** 这台设备收藏过的资源 id（最近收藏在前），供「我的收藏」页使用（本地文件版） */
+function fsReadFavoritedIds(deviceId: string): string[] {
   return listFavoritedIds(getState(), deviceId);
 }
 
-/** 供运维/排查用：当前落盘路径与内存里的条目数 */
-export function describeStore() {
+/** 供运维/排查用：当前落盘路径与内存里的条目数（本地文件版） */
+function fsDescribeStore() {
   const current = getState();
   return {
     statePath: STATE_PATH,

@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   }
 
   const deviceId = readDeviceId(request) ?? "";
-  const { counts, mine } = readEngagement(parsedIds.data, deviceId);
+  const { counts, mine } = await readEngagement(parsedIds.data, deviceId);
 
   return NextResponse.json({ counts, mine }, { headers: NO_STORE });
 }

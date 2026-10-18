@@ -21,5 +21,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ids: [] }, { headers: NO_STORE });
   }
 
-  return NextResponse.json({ ids: readFavoritedIds(parsed.data) }, { headers: NO_STORE });
+  return NextResponse.json({ ids: await readFavoritedIds(parsed.data) }, { headers: NO_STORE });
 }

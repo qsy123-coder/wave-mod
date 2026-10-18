@@ -263,11 +263,11 @@ export type PublicModsOptions = { relaxQuery?: boolean };
  * 必须返回**新对象**：入参是 `unstable_cache` 里缓存的那一份，就地改会污染缓存
  * （见 loadPublicMods 里那段「均不修改入参」的注释）。
  */
-function withLiveEngagement(mods: SiteMod[]): SiteMod[] {
+async function withLiveEngagement(mods: SiteMod[]): Promise<SiteMod[]> {
   if (mods.length === 0) return mods;
 
   // deviceId 传空：排序只需要计数，不需要「我有没有赞过」
-  const { counts } = readEngagement(
+  const { counts } = await readEngagement(
     mods.map((mod) => mod.id),
     "",
   );
@@ -311,7 +311,7 @@ async function loadPublicMods(
   // 排序前必须换成实时值，否则「热度榜」和「收藏榜」都建立在冻结的数字上。
   // 其余排序（default / latest / rating）不读这三列，跳过以免白付一次全表覆盖。
   const sortInput =
-    sort === "hot" || sort === "favorites" ? withLiveEngagement(filtered.mods) : filtered.mods;
+    sort === "hot" || sort === "favorites" ? await withLiveEngagement(filtered.mods) : filtered.mods;
   const sortedMods = sort === "hot" ? sortModsByHot(sortInput) : applyModSort(sort)(sortInput);
 
   /**
