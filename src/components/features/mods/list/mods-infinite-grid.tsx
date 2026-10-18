@@ -6,6 +6,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
 import { CardDownloadAction } from "@/components/features/mods/detail/card-download-action";
+import {
+  MASONRY_DEFAULT_RATIO,
+  masonryColumnLeft,
+  masonrySpanWidth,
+  packMasonry,
+} from "@/components/features/mods/list/masonry-packing";
 import { DESKTOP_DEFAULT_COLUMNS, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -254,33 +260,118 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
     return () => window.removeEventListener("resize", update);
   }, [isMasonry]);
 
-  // 列归属记忆：mod.id → 列索引，列数不变时保证已有卡片零抖动。
-  // 额外记录该记忆对应的列数；列数切换时重建，否则旧列分配会残留，导致新增列空置。
-  const colMapRef = useRef<{ colCount: number; map: Map<string, number> }>({
+  /**
+   * ---- 量容器宽度 ----
+   *
+   * 跨列卡片必须按像素算位置（列宽、卡片高度都依赖它），而 SSR 拿不到容器宽度。
+   * 所以：量到之前先按老的分列方式渲染（SSR / 水合首帧就是这一份），量到之后
+   * 切到绝对定位的瀑布流。用 callback ref 而不是 useEffect：<div> 只在有数据时
+   * 才挂载，effect 只会跑一次，之后节点换了也没人重新观察。
+   */
+  const [masonryWidth, setMasonryWidth] = useState(0);
+  const masonryObserverRef = useRef<ResizeObserver | null>(null);
+
+  const attachMasonryContainer = useCallback((node: HTMLDivElement | null) => {
+    masonryObserverRef.current?.disconnect();
+    masonryObserverRef.current = null;
+    if (!node) return;
+
+    setMasonryWidth(node.clientWidth);
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      // 亚像素抖动不算变化，否则侧栏动画之类会让整份瀑布流反复重排
+      setMasonryWidth((prev) => (Math.abs(prev - width) < 0.5 ? prev : width));
+    });
+    observer.observe(node);
+    masonryObserverRef.current = observer;
+  }, []);
+
+  useEffect(() => () => masonryObserverRef.current?.disconnect(), []);
+
+  /**
+   * ---- 预览图真实宽高比 ----
+   *
+   * 服务端没有图片尺寸，只能等图片加载后由 ModCard 报上来。每来一张就重排整份
+   * 列表会抖成幻灯片，所以攒 120ms 批量提交一次。
+   *
+   * 去重看 ratiosRef（已生效的值）而不是 state：ModCard 的 ref 回调会随父组件
+   * 重渲染重新挂载，同一个比例会被反复上报 —— 不去重就是
+   * setState → 重渲染 → 再上报 的死循环。
+   */
+  const [ratios, setRatios] = useState<Record<string, number>>({});
+  const ratiosRef = useRef<Record<string, number>>({});
+  const pendingRatiosRef = useRef<Record<string, number>>({});
+  const ratioFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleImageRatioChange = useCallback((modId: string, ratio: number) => {
+    if (!Number.isFinite(ratio) || ratio <= 0) return;
+    if (ratiosRef.current[modId] === ratio) return;
+    pendingRatiosRef.current[modId] = ratio;
+    if (ratioFlushTimerRef.current !== null) return;
+    ratioFlushTimerRef.current = setTimeout(() => {
+      ratioFlushTimerRef.current = null;
+      const pending = pendingRatiosRef.current;
+      pendingRatiosRef.current = {};
+      if (Object.keys(pending).length === 0) return;
+      Object.assign(ratiosRef.current, pending);
+      setRatios((prev) => ({ ...prev, ...pending }));
+    }, 120);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (ratioFlushTimerRef.current !== null) clearTimeout(ratioFlushTimerRef.current);
+    },
+    [],
+  );
+
+  /**
+   * 瀑布流摆放：横屏（宽高比 > 1.1）横跨两列，其余卡片进当前最矮的列。
+   * 高度公式见 masonry-packing.ts —— 卡片高度只由「列宽 + 图片比例」决定。
+   */
+  const masonryPack = useMemo(() => {
+    if (!isMasonry || masonryWidth <= 0) return null;
+    return packMasonry(
+      mods.map((mod) => ({ id: mod.id, ratio: ratios[mod.id] ?? MASONRY_DEFAULT_RATIO })),
+      colCount,
+      masonryWidth,
+    );
+  }, [isMasonry, masonryWidth, mods, ratios, colCount]);
+
+  const modById = useMemo(() => {
+    const map = new Map<string, SiteMod>();
+    mods.forEach((mod) => map.set(mod.id, mod));
+    return map;
+  }, [mods]);
+
+  /**
+   * 还没量到容器宽度时的兜底分列（按数量分到最短列，与改动前的版式一致）。
+   * 只服务于 SSR 和水合首帧，量到宽度后立刻换成 masonryPack。
+   *
+   * 保留列归属记忆：兜底版式在水合期间也会随状态更新重渲染，没有记忆的话
+   * 卡片会在列之间来回跳。
+   */
+  const fallbackColMapRef = useRef<{ colCount: number; map: Map<string, number> }>({
     colCount: -1,
     map: new Map(),
   });
 
-  // 分配卡片到各列（colMapRef 是为零抖动设计的渲染期缓存，需 suppress refs 规则）
   /* eslint-disable react-hooks/refs */
-  const columns = useMemo(() => {
+  const fallbackColumns = useMemo(() => {
     if (!isMasonry) return [];
-    // 列数变化 → 重置列归属记忆，全部卡片重新按最短列分配
-    if (colMapRef.current.colCount !== colCount) {
-      colMapRef.current = { colCount, map: new Map() };
+    if (fallbackColMapRef.current.colCount !== colCount) {
+      fallbackColMapRef.current = { colCount, map: new Map() };
     }
-    const colMap = colMapRef.current.map;
+    const colMap = fallbackColMapRef.current.map;
     const cols: SiteMod[][] = Array.from({ length: colCount }, () => []);
-    const seen = new Set<string>();
 
     for (const mod of mods) {
-      seen.add(mod.id);
       const prev = colMap.get(mod.id);
       if (prev !== undefined && prev < colCount) {
         cols[prev].push(mod);
         continue;
       }
-      // 新卡片 → 最短列
       let shortest = 0;
       for (let i = 1; i < cols.length; i++) {
         if (cols[i].length < cols[shortest].length) shortest = i;
@@ -295,7 +386,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
   // 清理已移出列表的卡片（ref 操作必须在 effect 中）
   useEffect(() => {
-    const colMap = colMapRef.current.map;
+    const colMap = fallbackColMapRef.current.map;
     const modIds = new Set(mods.map((m) => m.id));
     if (colMap.size > modIds.size * 2) {
       for (const id of colMap.keys()) {
@@ -325,6 +416,8 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         imagePriority={idx < 4}
         imageFetchPriority={idx < 4 ? "high" : "auto"}
         imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+        // 瀑布流要靠真实宽高比算卡片高度、判定横屏跨列；网格版式固定比例，用不上
+        onImageRatioChange={isMasonry ? (ratio) => handleImageRatioChange(mod.id, ratio) : undefined}
         mediaTopRight={
           mod.driveLinks.length > 0 ? (
             <CardDownloadAction driveLinks={mod.driveLinks} />
@@ -337,7 +430,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         mediaTopRightClassName="absolute right-2 top-2"
       />
     ),
-    [gameKey, onCardClick, isLoggedIn, isMasonry],
+    [gameKey, onCardClick, isLoggedIn, isMasonry, handleImageRatioChange],
   );
 
   /**
@@ -410,44 +503,85 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       ) : null}
 
       {isMasonry ? (
-        /* 瀑布流：JS 列分配 + flex 列容器，零抖动 */
-        <section className="flex gap-4">
-          {columns.map((col, colIdx) => (
-            <div key={colIdx} className="relative flex flex-1 flex-col gap-4">
-              {col.map((mod) => {
-                const idx = modIndex.get(mod.id) ?? 0;
-                return (
-                  <MotionReveal
-                    key={mod.id}
-                    delay={0.03 + (idx % 8) * 0.02}
-                    y={14}
-                    rotate={idx % 2 === 0 ? -1 : 1}
-                  >
-                    {renderCard(mod, idx)}
-                  </MotionReveal>
-                );
-              })}
-              {/* 哨兵：必须脱流（absolute），否则会在这一列里占掉一张卡的位置并额外
-                  撑出两个 gap。挂在第 0 列底部即可 —— 各列是按最短列分配的，列高本就
-                  接近，rootMargin 的 800px 足够覆盖这点差异（理由详见网格分支的注释）。 */}
-              {colIdx === 0 && hasNextPage ? (
-                <div
-                  ref={setSentinel}
-                  aria-hidden
-                  className="pointer-events-none absolute bottom-0 left-0 size-px"
-                />
+        /* 瀑布流：绝对定位摆放 —— 横屏卡要横跨两列，flex 分列做不到。
+           没量到容器宽度时退回 flex 分列，见 attachMasonryContainer 的注释。 */
+        <div ref={attachMasonryContainer}>
+          {masonryPack ? (
+            <>
+              <div className="relative" style={{ height: masonryPack.height }}>
+                {masonryPack.placements.map((placement) => {
+                  const mod = modById.get(placement.id);
+                  if (!mod) return null;
+                  const idx = modIndex.get(mod.id) ?? 0;
+                  return (
+                    <div
+                      key={mod.id}
+                      className="absolute"
+                      style={{
+                        left: masonryColumnLeft(placement.column, masonryPack.columnWidth),
+                        top: placement.top,
+                        width: masonrySpanWidth(placement.span, masonryPack.columnWidth),
+                      }}
+                    >
+                      <MotionReveal
+                        delay={0.03 + (idx % 8) * 0.02}
+                        y={14}
+                        rotate={idx % 2 === 0 ? -1 : 1}
+                      >
+                        {renderCard(mod, idx)}
+                      </MotionReveal>
+                    </div>
+                  );
+                })}
+                {/* 哨兵：必须脱流（absolute），否则会占掉一格。挂在整块底部（= 最高列的
+                    底）即可 —— rootMargin 的 800px 足够覆盖各列高度差（理由详见网格分支）。 */}
+                {hasNextPage ? (
+                  <div
+                    ref={setSentinel}
+                    aria-hidden
+                    className="pointer-events-none absolute bottom-0 left-0 size-px"
+                  />
+                ) : null}
+              </div>
+              {/* 加载中骨架：下一批卡片的文件还没到，算不出绝对坐标，
+                  统一在瀑布流下方铺一组占位卡片 */}
+              {isFetchingNextPage ? (
+                <div className="mt-4 flex gap-4">
+                  {Array.from({ length: colCount }).map((_, colIdx) => (
+                    <div key={colIdx} className="flex flex-1 flex-col gap-4">
+                      {Array.from({ length: Math.ceil(16 / colCount) }).map((_, si) => (
+                        <MotionReveal key={`skel-${si}`} delay={0.05 + si * 0.03} y={10}>
+                          <MasonryCardSkeleton index={colIdx * 3 + si} />
+                        </MotionReveal>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               ) : null}
-              {/* 加载中骨架：每列底部多个占位卡片，填满可视区域 */}
-              {isFetchingNextPage
-                ? Array.from({ length: Math.ceil(16 / colCount) }).map((_, si) => (
-                    <MotionReveal key={`skel-${colIdx}-${si}`} delay={0.05 + si * 0.03} y={10}>
-                      <MasonryCardSkeleton index={colIdx * 3 + si} />
-                    </MotionReveal>
-                  ))
-                : null}
+            </>
+          ) : (
+            /* 未量到容器宽度（SSR / 水合首帧）的兜底版式 */
+            <div className="flex gap-4">
+              {fallbackColumns.map((col, colIdx) => (
+                <div key={colIdx} className="relative flex flex-1 flex-col gap-4">
+                  {col.map((mod) => {
+                    const idx = modIndex.get(mod.id) ?? 0;
+                    return (
+                      <MotionReveal
+                        key={mod.id}
+                        delay={0.03 + (idx % 8) * 0.02}
+                        y={14}
+                        rotate={idx % 2 === 0 ? -1 : 1}
+                      >
+                        {renderCard(mod, idx)}
+                      </MotionReveal>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
-          ))}
-        </section>
+          )}
+        </div>
       ) : (
         /* 网格：CSS grid 不变 */
         <section className="relative grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">

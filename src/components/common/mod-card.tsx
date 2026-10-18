@@ -5,7 +5,6 @@ import { useCallback, useRef, useState, type MouseEvent, type ReactNode } from "
 import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
-import { RatingSticker } from "@/components/layout/mod-interaction-bar";
 import { Badge } from "@/components/ui/badge";
 import { COS_IMG_CARD, cosImageSrcSet, withCosImageTransform } from "@/lib/cos/shared";
 import { useEngagement } from "@/lib/engagement/use-engagement";
@@ -43,8 +42,11 @@ type ModCardProps = {
   mediaTopRight?: ReactNode;
   mediaTopRightClassName?: string;
   mediaBottomLeft?: ReactNode;
-  showRatingSticker?: boolean;
-  ratingStickerClassName?: string;
+  /**
+   * 图片加载后把真实宽高比报给外面。瀑布流要靠它决定卡片高度、
+   * 以及横屏图要不要横跨两列（比例在服务端拿不到，只能等图片加载）。
+   */
+  onImageRatioChange?: (ratio: number) => void;
   showCheckbox?: boolean;
   checkboxChecked?: boolean;
   onCheckboxChange?: (checked: boolean) => void;
@@ -181,8 +183,7 @@ export function ModCard({
   mediaTopRight,
   mediaTopRightClassName,
   mediaBottomLeft,
-  showRatingSticker = true,
-  ratingStickerClassName,
+  onImageRatioChange,
   showCheckbox = false,
   checkboxChecked = false,
   onCheckboxChange,
@@ -265,10 +266,12 @@ export function ModCard({
 
   const readImageRatio = useCallback((img: HTMLImageElement | null) => {
     if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
-      setImageRatio(img.naturalWidth / img.naturalHeight);
+      const ratio = img.naturalWidth / img.naturalHeight;
+      setImageRatio(ratio);
       setImageLoaded(true);
+      onImageRatioChange?.(ratio);
     }
-  }, []);
+  }, [onImageRatioChange]);
 
   const handleImageLoad = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -425,7 +428,6 @@ export function ModCard({
       {topLeftContent ? <div className={cn(styles.topLeft, showCheckbox && "left-7", mediaTopLeftClassName)}>{topLeftContent}</div> : null}
       {topRightContent ? <div className={cn("z-20 max-sm:hidden", mediaTopRightClassName)}>{topRightContent}</div> : null}
       {mediaBottomLeft}
-      {showRatingSticker ? <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} className={cn("z-20 max-sm:hidden shadow-[4px_4px_0px_0px_#000]", ratingStickerClassName)} /> : null}
 
       <CardFavoriteButton isFavorited={mine.favorited} onToggle={favorite} />
 

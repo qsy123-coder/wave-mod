@@ -327,7 +327,6 @@ export function ZenlessRecommended({
           imageAspectClassName="aspect-[16/10] min-h-0"
           showInteractionBar={false}
           showMetaBadges={false}
-          showRatingSticker={false}
           contentClassName="absolute inset-x-0 bottom-0 px-3 pb-3 pt-16 text-white"
         />
       ))}

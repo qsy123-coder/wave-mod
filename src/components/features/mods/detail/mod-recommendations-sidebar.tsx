@@ -109,7 +109,6 @@ export function ModRecommendationsSidebar({
                     titleClassName="line-clamp-1 text-sm font-black leading-5"
                     showInteractionBar={false}
                     showMetaBadges={false}
-                    showRatingSticker={false}
                     mediaTopLeftClassName="left-2 top-2"
                     mediaTopRightClassName="right-2 top-2"
                     mediaTopLeft={
