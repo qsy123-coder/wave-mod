@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ModCard } from "@/components/common/mod-card";
 import { CardDownloadAction } from "@/components/features/mods/detail/card-download-action";
 import {
+  MASONRY_CARD_CHROME,
   MASONRY_DEFAULT_RATIO,
   masonryColumnLeft,
   masonrySpanWidth,
@@ -91,6 +92,16 @@ async function fetchModsPage({
 
   return response.json();
 }
+
+/**
+ * 卡片图的 `sizes` 默认值（网格版式 / 瀑布流单列卡）。
+ *
+ * ⚠️ 瀑布流里横屏卡会**横跨两列**（见 masonry-packing.ts），实际显示宽度接近两列，
+ * 必须由调用方传真实的像素宽度覆盖。只写单列的 18vw 会让浏览器按单列挑图：
+ * 1440×2x 下算出 518 设备像素 → 挑 560 档，而大卡实际需要 ~800 设备像素，
+ * 整张图被放大 1.4 倍（2026-10-19 用户反馈「角色分类页的图片糊」）。
+ */
+const DEFAULT_CARD_IMAGE_SIZES = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 18vw";
 
 type ModsInfiniteGridProps = {
   character?: string;
@@ -412,7 +423,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
   // 卡片渲染函数（grid/masonry 共用）
   const renderCard = useCallback(
-    (mod: SiteMod, idx: number) => (
+    (mod: SiteMod, idx: number, imageSizes: string = DEFAULT_CARD_IMAGE_SIZES) => (
       <ModCard
         mod={mod}
         href={gameKey ? `/${gameKey}/mods/${mod.id}` : `/mods/${mod.id}`}
@@ -426,7 +437,8 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         imagePriority={idx < MODS_PAGE_SIZE}
         imageFetchPriority={idx < 4 ? "high" : idx < MODS_PAGE_SIZE ? "auto" : "low"}
         // 移动端是 2 列，单卡约 50vw；写 100vw 会让浏览器选 560 档，白花约一半字节。
-        imageSizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 18vw"
+        // 跨两列的横屏卡由调用方传入真实像素宽，见 DEFAULT_CARD_IMAGE_SIZES 的注释。
+        imageSizes={imageSizes}
         // 瀑布流要靠真实宽高比算卡片高度、判定横屏跨列；网格版式固定比例，用不上
         onImageRatioChange={isMasonry ? (ratio) => handleImageRatioChange(mod.id, ratio) : undefined}
         mediaTopRight={
@@ -527,7 +539,15 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
                         y={14}
                         rotate={idx % 2 === 0 ? -1 : 1}
                       >
-                        {renderCard(mod, idx)}
+                        {/* `sizes` 用布局算出来的真实图片宽度（卡宽减掉边框与内边距），
+                            而不是按 viewport 猜的 vw —— 横屏卡跨两列时后者会少算一半。 */}
+                        {renderCard(
+                          mod,
+                          idx,
+                          `${Math.round(
+                            masonrySpanWidth(placement.span, masonryPack.columnWidth) - MASONRY_CARD_CHROME,
+                          )}px`,
+                        )}
                       </MotionReveal>
                     </div>
                   );
