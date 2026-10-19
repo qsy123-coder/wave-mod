@@ -10,20 +10,28 @@ import { useSession } from "@/components/features/auth/session-provider";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { getCharacterImagePath } from "@/lib/constants/character-images";
-import type { ModSort } from "@/lib/mods";
+import type { ModSort, SiteMod } from "@/lib/mods";
 import { cn } from "@/lib/utils";
 
 import { MobileCharacterDrawer } from "./mobile-character-drawer";
 
 type CharactersResponse = { characters: string[] };
 
+type MobileHomeFeedProps = {
+  /** 服务端预渲染的角色清单（6 小时缓存），首屏头像直接进 HTML */
+  initialCharacters: string[];
+  /** 服务端预渲染的第一页资源，首屏卡片图不再等客户端 API */
+  initialMods: SiteMod[];
+  initialTotalCount: number;
+};
+
 const SORT_OPTIONS: { label: string; value: ModSort }[] = [
   { label: "最新", value: "latest" },
   { label: "热度", value: "hot" },
 ];
 
-/** 与 Tailwind 的 `md` 断点对齐（本组件只在手机端挂载，桌面端不拉任何数据） */
-const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
+/** 横向角色条首屏只渲染这么多头像，其余在「全部角色」抽屉里看 */
+const RAIL_AVATAR_LIMIT = 12;
 
 /**
  * 打开详情抽屉只改 `openModId`，不该让 16+ 张卡片的瀑布流跟着重渲染。
@@ -39,35 +47,22 @@ const MemoizedModsInfiniteGrid = memo(ModsInfiniteGrid);
  * 铺在深棕色页面背景上 —— 这是 <docs/样式参考.md> 的卡片规范（border-4 + 硬阴影 +
  * 高对比文字），也让「角色分类」标题在深色背景上不再糊成一片。
  *
- * 为什么整个组件在桌面端不挂载：它虽然被 `md:hidden` 的容器包着，但客户端组件
- * 在桌面端照样会 hydration、照样会发请求。这里先用 matchMedia 判断，桌面端只渲染
- * 骨架（被隐藏），不触发 `/api/characters` 与 `/api/mods`。
+ * 首屏数据由页面服务端下发（`getAvailableCharacters` + `getPublicModsPage`，都走
+ * 6 小时分片缓存），因此角色头像和第一页卡片图会直接出现在 HTML 里，浏览器解析到就
+ * 开始下载 —— 不再等 JS 水合后再请求 `/api/characters` 与 `/api/mods`。
  *
- * 数据全部走已有的公开接口：
- * - `/api/characters`：库内 distinct character（权威口径，见 api/characters/route.ts）
- * - `/api/mods`：与 `/mods` 完全一致的分页/筛选参数
- *
- * 首页因此仍然可静态化：服务端不新增任何全表查询，卡片流由客户端按需拉取。
+ * 桌面端仍然靠 `md:hidden` 隐藏这份内容；网格用 `initialMods` 播种，不会重复请求第一页，
+ * 隐藏的哨兵也不会触发无限滚动。
  */
-export function MobileHomeFeed() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const media = window.matchMedia(MOBILE_MEDIA_QUERY);
-    const update = () => setIsMobile(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-
-  if (!isMobile) {
-    return <MobileHomeFeedSkeleton />;
-  }
-
-  return <MobileHomeFeedContent />;
+export function MobileHomeFeed(props: MobileHomeFeedProps) {
+  return <MobileHomeFeedContent {...props} />;
 }
 
-function MobileHomeFeedContent() {
+function MobileHomeFeedContent({
+  initialCharacters,
+  initialMods,
+  initialTotalCount,
+}: MobileHomeFeedProps) {
   const { isLoggedIn, isAdmin, user } = useSession();
   const [character, setCharacter] = useState<string | null>(null);
   const [sort, setSort] = useState<ModSort>("latest");
@@ -82,11 +77,19 @@ function MobileHomeFeedContent() {
       if (!response.ok) throw new Error("加载角色分类失败。");
       return (await response.json()) as CharactersResponse;
     },
+    // 服务端已经给了清单就先用着；只有清单为空（快照也拿不到）时才在客户端补拉
+    initialData: initialCharacters.length > 0 ? { characters: initialCharacters } : undefined,
     // 与 /api/characters 的 s-maxage=300 对齐
     staleTime: 5 * 60 * 1000,
   });
 
-  const characters = data?.characters ?? [];
+  const characters = data?.characters ?? initialCharacters;
+
+  // 首屏只渲染前 12 个头像；若当前选中的角色在 12 之后，把它追加进来保证高亮可见
+  const railCharacters = characters.slice(0, RAIL_AVATAR_LIMIT);
+  if (character && !railCharacters.includes(character)) {
+    railCharacters.push(character);
+  }
 
   /**
    * 选中角色后把横向角色条滚到该项。
@@ -154,7 +157,7 @@ function MobileHomeFeedContent() {
               active={character === null}
               onClick={() => setCharacter(null)}
             />
-            {characters.map((name) => (
+            {railCharacters.map((name) => (
               <CharacterCell
                 key={name}
                 label={name}
@@ -213,6 +216,8 @@ function MobileHomeFeedContent() {
         <MemoizedModsInfiniteGrid
           character={character ?? undefined}
           sort={sort}
+          initialMods={initialMods}
+          initialTotalCount={initialTotalCount}
           layoutMode="masonry"
           // 手机端固定 2 列：不传的话网格在水合首帧会按桌面 5 列铺骨架，随后才跳成 2 列。
           masonryColumns={2}
@@ -274,6 +279,9 @@ function CharacterCell({
           width={44}
           height={44}
           unoptimized
+          loading="lazy"
+          // 头像不是首屏主内容：让位给第一页卡片图（前 4 张是 eager/high）
+          fetchPriority="low"
           className="size-11 shrink-0 rounded-full border-2 border-black object-cover"
         />
       ) : (
@@ -295,7 +303,7 @@ function CharacterCell({
  * 水合前的占位：与真实内容同构（浅色控制卡 + 两列卡片），
  * 只出现在手机端容器里；桌面端它被 `md:hidden` 隐藏，且不会发起请求。
  */
-function MobileHomeFeedSkeleton() {
+export function MobileHomeFeedSkeleton() {
   return (
     <section className="px-4 pb-10" aria-hidden>
       <div className="border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[8px_8px_0px_0px_#000]">

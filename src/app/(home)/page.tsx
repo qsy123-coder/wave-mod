@@ -4,10 +4,11 @@ import { DailyUpdateDialog } from "@/components/common/daily-update-dialog";
 import { HeroCarousel } from "@/components/features/home/hero-carousel";
 import { HomeHeroIntro } from "@/components/features/home/home-hero-intro";
 import { LazyHomeLower } from "@/components/features/home/lazy-lower-home";
-import { MobileHomeFeed } from "@/components/features/home/mobile-home-feed";
+import { MobileHomeFeed, MobileHomeFeedSkeleton } from "@/components/features/home/mobile-home-feed";
 import { MobileHomeIntro } from "@/components/features/home/mobile-home-intro";
 import { FeaturedCarouselSkeleton } from "@/components/layout/data-skeletons";
-import { getFeaturedMods } from "@/lib/mods";
+import { getAvailableCharacters, getFeaturedMods, getPublicModsPage } from "@/lib/mods";
+import { MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
 
 /**
  * 首页现在可以预渲染了。
@@ -49,6 +50,28 @@ async function HomeFeaturedCarousel() {
   return <HeroCarousel mods={mods} />;
 }
 
+/**
+ * 手机端第二屏的**首屏种子**：角色清单 + 第一页资源。
+ *
+ * 两者都走已有缓存（getAvailableCharacters / getPublicModsPage 的 6 小时分片缓存），
+ * 不会因为首页每 5 分钟重渲染就扫一遍全表。种子直接放进 HTML 的目的是让首屏头像
+ * 与第一页卡片图从 HTML 解析阶段就开始下载，而不是等 JS 水合后再打两个 API。
+ */
+async function MobileHomeFeedSeed() {
+  const [characters, page] = await Promise.all([
+    getAvailableCharacters(),
+    getPublicModsPage(1, MODS_PAGE_SIZE, { sort: "latest" }),
+  ]);
+
+  return (
+    <MobileHomeFeed
+      initialCharacters={characters}
+      initialMods={page.items}
+      initialTotalCount={page.totalCount}
+    />
+  );
+}
+
 // ─── 首页 ────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -66,7 +89,9 @@ export default function HomePage() {
        */}
       <div className="md:hidden">
         <MobileHomeIntro />
-        <MobileHomeFeed />
+        <Suspense fallback={<MobileHomeFeedSkeleton />}>
+          <MobileHomeFeedSeed />
+        </Suspense>
       </div>
 
       {/* 桌面端（≥ 768px）：与改动前完全一致 —— 大卡 + 轮播 + 第二屏 + 整屏吸附 */}
