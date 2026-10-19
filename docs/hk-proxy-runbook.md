@@ -189,6 +189,29 @@ COS 实现保留为回退，带 5s 截止 + 60s 熔断。
 直接吃满超时并返回维护页 —— 这是有意的：宁可给一个可读的维护页，也不要让访客
 连接挂 120 秒。
 
+### 7.4 Server Action 的 Origin 校验（2026-10-19 已修）
+
+**现象**：切换后页面全部 200，但某些动作静默失败；抓包能看到形如
+`POST /`（Next Server Action）返回 **500**，响应体是一个 digest 错误。
+首尔直连时同样的请求是 200。
+
+**原因**：反代把回源 Host 改成了 `wave-mod.vercel.app`，而浏览器发来的
+`Origin` 是 `https://go.sunnyrose.xyz`。Next 的 Server Action CSRF 校验
+比对 Origin 与 host/x-forwarded-host，不一致就拒绝整条 action。
+
+**修法**：`next.config.ts` 里显式放行对外域名（只写 host，不要带 scheme）：
+
+```ts
+experimental: {
+  serverActions: { allowedOrigins: ["go.sunnyrose.xyz"] },
+}
+```
+
+**验证**：headless Chrome 打开首页，抓 `POST` 的 `Next-Action` 请求，
+状态必须是 200；日志里 `POST /` 不应再出现 5xx。
+
+> 以后换对外域名，记得同步改 `allowedOrigins`，否则同样会全站 500。
+
 ## 8. 回滚
 
 | 场景 | 操作 | 生效时间 |

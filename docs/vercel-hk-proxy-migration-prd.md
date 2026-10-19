@@ -274,8 +274,15 @@ COS 实现保留为回退，并加 5s 截止 + 60s 熔断。
 - ⬜ 用 hosts 绑定域名的测试机验证回源正确
 
 ### Phase 3: 切换（1 小时窗口 + 观察 24h）
-- DNS TTL 提前降为 60s → 切换 A 记录 → 验证清单
-- 首尔机保持运行，作为热备
+- ✅ 香港机已上线：JuHost 香港 Level-S2（2C2G/30G，XNNET BGP），
+  2026-10-19 装机完成，Let's Encrypt 证书（DNS-01）有效期至 2027-01-17
+- ✅ DNS TTL 已降为 60s；2026-10-19 15:24 切换 A 记录到 `45.135.119.204`
+- ✅ 切换后验收（首尔侧）：12/12 通过；缓存 HIT、静态 immutable、
+  engagement BYPASS+no-store 均正常
+- ✅ 修复 Server Action Origin 校验（`allowedOrigins` 放行对外域名），
+  否则所有 POST action 在反代后 500 —— 详见 runbook 7.4
+- ⬜ 观察 24h：5xx 率、缓存命中率、Vercel 函数调用量
+- 首尔机保持运行，作为热备（回滚：A 记录切回 `43.133.78.46`，TTL 60s）
 
 ### Phase 4: 复盘与退租（第 30 天）
 - 对照 KPIs 复盘；达标后退租首尔机，未达标保持双活

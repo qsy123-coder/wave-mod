@@ -74,7 +74,11 @@ CACHE="$(header x-cache-status)"
 
 OUT="$(req "$BASE/api/mods?sort=new&pageSize=12")"
 CACHE="$(header x-cache-status)"
-[[ "$CACHE" == "HIT" ]] && ok "/api/mods 第二次 HIT" || bad "/api/mods 第二次应为 HIT，实际 ${CACHE:-无该响应头}"
+# HIT 是常态；STALE/UPDATING 表示「回旧值 + 后台刷新」，同样是缓存生效，不算失败
+case "$CACHE" in
+  HIT|STALE|UPDATING) ok "/api/mods 第二次命中缓存（$CACHE）" ;;
+  *) bad "/api/mods 第二次应命中缓存，实际 ${CACHE:-无该响应头}" ;;
+esac
 
 OUT="$(req "$BASE/api/mods?sort=new&query=probe$RANDOM")"
 CACHE="$(header x-cache-status)"
@@ -96,8 +100,10 @@ if [[ -n "$ASSET" ]]; then
   req "$BASE$ASSET" >/dev/null
   CACHE="$(header x-cache-status)"
   CC="$(header cache-control)"
-  [[ "$CACHE" == "MISS" || "$CACHE" == "HIT" ]] && ok "静态 chunk 可缓存（首次 $CACHE）" \
-    || bad "静态 chunk 未进缓存：${CACHE:-无该响应头}"
+  case "$CACHE" in
+    MISS|HIT|STALE|UPDATING) ok "静态 chunk 可缓存（首次 $CACHE）" ;;
+    *) bad "静态 chunk 未进缓存：${CACHE:-无该响应头}" ;;
+  esac
   [[ "$CC" == *immutable* ]] && ok "静态 chunk 带 immutable" || bad "静态 chunk 缺 immutable：${CC:-空}"
 else
   bad "首页里找不到 /_next/static 资源，页面可能没渲染出来"
