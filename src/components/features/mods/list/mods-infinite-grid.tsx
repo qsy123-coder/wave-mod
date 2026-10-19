@@ -423,9 +423,9 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         imageAspectClassName={isMasonry ? "auto" : "aspect-[5/6] sm:aspect-[4/5]"}
         // 卡片图一律 eager 预载：数据页已经由 2000px 哨兵提前取回，若图还等进入视口
         // 才下载，用户滑到的瞬间就是整屏卡片图骨架（aetouban 的做法是首屏/下一页全预载）。
-        // 前 4 张 high 抢首屏，其余 low，避免挡住当前屏可见内容。
+        // 第一页 high/auto 优先；第二页起 low，作为提前量后台预取。
         imagePriority
-        imageFetchPriority={idx < 4 ? "high" : "low"}
+        imageFetchPriority={idx < 4 ? "high" : idx < MODS_PAGE_SIZE ? "auto" : "low"}
         imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
         // 瀑布流要靠真实宽高比算卡片高度、判定横屏跨列；网格版式固定比例，用不上
         onImageRatioChange={isMasonry ? (ratio) => handleImageRatioChange(mod.id, ratio) : undefined}

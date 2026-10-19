@@ -6,7 +6,7 @@ import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { Badge } from "@/components/ui/badge";
-import { COS_IMG_CARD, cosImageSrcSet, withCosImageTransform } from "@/lib/cos/shared";
+import { COS_IMG_CARD, COS_IMG_THUMB, cosImageSrcSet, withCosImageTransform } from "@/lib/cos/shared";
 import { useEngagement } from "@/lib/engagement/use-engagement";
 import { normalizeCharacterName } from "@/lib/mods-domain/sorting";
 import { isPlainLeftClick } from "@/lib/navigation-url";
@@ -307,6 +307,8 @@ export function ModCard({
   // 原始图是 2560px 直出（452KB），卡片位只显示一两百 CSS px，先按卡片档缩一档再渲染。
   // 变换必须在拼 `_retry` 之前做：实测 `?imageMogr2/...&_retry=` 两种顺序结果一致。
   const coverImage = withCosImageTransform(mod.coverImage, COS_IMG_CARD);
+  // 模糊背景只需低分辨率；用 800 档会在网格模式（非瀑布流）多下一份大图
+  const blurImage = withCosImageTransform(mod.coverImage, COS_IMG_THUMB) ?? coverImage;
 
   /**
    * 卡片图的 `srcset` 档位。
@@ -319,7 +321,9 @@ export function ModCard({
    * 480 是照「槽位实际需要多少设备像素」定的：/mods 网格 xl 下 5 列、单卡约 260 CSS px，
    * 2x 屏需要 ~520，480 覆盖 93%（肉眼无差）而体积明显更小 —— 卡在 560 那条线上等于白做。
    */
-  const CARD_IMAGE_WIDTHS = [320, 480] as const;
+  // 只用 320 单档：2x 屏卡片位约 340 设备像素，320 略软但肉眼可接受；
+  // 480 档体积明显更大，而滚动时用户更在意「秒出」而不是极限清晰度。
+  const CARD_IMAGE_WIDTHS = [320] as const;
 
   // 重试要绕过缓存，src 与 srcSet **都得带** `_retry` —— 只给 src 的话浏览器会从 srcSet
   // 里挑回那张已经失败的。srcSet 必须由**未变换**的原 URL 现算：已经把 imageMogr2 拼进去的
@@ -367,7 +371,7 @@ export function ModCard({
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={imageSrc}
+              src={blurImage}
               alt=""
               loading="lazy"
               fetchPriority="low"
