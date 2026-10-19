@@ -1,5 +1,9 @@
 # COS 图片挂腾讯云 CDN（让滚动图片不再排队）
 
+> **当前状态（2026-10-19）**：已启用 `https://cdn.sunnyrose.xyz`
+> （CNAME `cdn.sunnyrose.xyz.cdn.dnsv1.com`），Vercel 生产环境已配置
+> `NEXT_PUBLIC_COS_IMAGE_BASE`。图片首次回源后由 CDN 边缘缓存 7 天。
+
 **背景**：WaveMod 的 COS 默认域名是 **HTTP/1.1**，浏览器对同一域名最多 6 条并发连接。
 一个角色分类页一次要下 16–32 张卡片图，只能 6 张一批地排队，所以筛选/滚动时会看到整屏图片骨架。
 aetouban 的图片走 `cdn.aetouban.cn`（腾讯云 CDN，境外节点 + HTTP/2 + 边缘缓存），24 张图可以并行、且多数直接命中缓存。
