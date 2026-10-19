@@ -333,7 +333,9 @@ export function ModCard({
   const imageSrcSet = withRetry(cosImageSrcSet(mod.coverImage, CARD_IMAGE_WIDTHS));
 
   const media = (
-    <div className={cn("relative overflow-hidden border-4 border-black bg-black shadow-[6px_6px_0px_0px_#000]", mediaClassName)}>
+    // 内层预览图不再叠第二层硬阴影：卡片本身已有 neo-card 的边框 + 阴影，
+    // 再套一层就是两块黑板叠在一起，这正是「厚阴影难看」的主要来源。
+    <div className={cn("relative overflow-hidden border-4 border-black bg-black", mediaClassName)}>
       <div
         className={cn(
           "relative w-full transition-[aspect-ratio] duration-300",

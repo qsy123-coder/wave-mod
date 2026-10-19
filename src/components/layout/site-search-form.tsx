@@ -82,7 +82,7 @@ export function SiteSearchForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="neo-card flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5"
+      className="neo-card neo-card-sm flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5"
       style={{ background: "var(--neo-search)" }}
     >
       <Search className="size-3.5 shrink-0 text-black" />

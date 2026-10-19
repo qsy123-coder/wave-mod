@@ -135,7 +135,7 @@ function MobileHomeFeedContent({
     <section ref={rootRef} className="px-4 pb-10">
       <div
         data-slot="mobile-character-panel"
-        className="border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[8px_8px_0px_0px_#000]"
+        className="border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[4px_4px_0px_0px_#000] md:shadow-[8px_8px_0px_0px_#000]"
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="inline-flex -rotate-1 items-center border-[3px] border-black bg-[var(--neo-secondary)] px-3 py-1 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[3px_3px_0px_0px_#000]">
@@ -332,7 +332,7 @@ function CharacterCell({
 export function MobileHomeFeedSkeleton() {
   return (
     <section className="px-4 pb-10" aria-hidden>
-      <div className="border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[8px_8px_0px_0px_#000]">
+      <div className="border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[4px_4px_0px_0px_#000] md:shadow-[8px_8px_0px_0px_#000]">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="h-8 w-24 animate-pulse border-[3px] border-black bg-[var(--neo-secondary)]" />
           <div className="h-6 w-20 animate-pulse border-2 border-black bg-white" />

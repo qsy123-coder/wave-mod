@@ -229,14 +229,19 @@
     background: var(--neo-panel);
     border: 4px solid #000;
     border-radius: 0;
-    box-shadow: 8px 8px 0 0 #000;
+    box-shadow: 4px 4px 0 0 #000;
   }
 
   .neo-card-lg {
     background: var(--neo-panel);
     border: 4px solid #000;
     border-radius: 0;
-    box-shadow: 12px 12px 0 0 #000;
+    box-shadow: 6px 6px 0 0 #000;
+  }
+
+  /* 小卡片（导航栏 logo / 搜索框 / 主题切换）：阴影再收一档，避免小元素压着大黑影 */
+  .neo-card-sm {
+    box-shadow: 3px 3px 0 0 #000;
   }
 
   .neo-button-primary {
@@ -244,7 +249,8 @@
     color: #000;
     border: 4px solid #000;
     border-radius: 0;
-    box-shadow: 6px 6px 0 0 #000;
+    box-shadow: 4px 4px 0 0 #000;
+    transition: transform 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out;
   }
 
   .neo-button-secondary {
@@ -252,7 +258,8 @@
     color: #000;
     border: 4px solid #000;
     border-radius: 0;
-    box-shadow: 6px 6px 0 0 #000;
+    box-shadow: 4px 4px 0 0 #000;
+    transition: transform 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out;
   }
 
   .neo-button-outline {
@@ -260,7 +267,8 @@
     color: #000;
     border: 4px solid #000;
     border-radius: 0;
-    box-shadow: 6px 6px 0 0 #000;
+    box-shadow: 4px 4px 0 0 #000;
+    transition: transform 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out;
   }
 
   .neo-button-ghost {
@@ -270,6 +278,45 @@
     border-radius: 0;
   }
 
+  .neo-sticker {
+    border: 4px solid #000;
+    box-shadow: 2px 2px 0 0 #000;
+    border-radius: 999px;
+  }
+
+  /*
+   * 硬阴影刻度：参考文档的 mobile ≈ desktop 的 50%。
+   * 以前所有尺寸共用 8px/6px，手机上等于把一整块黑板压在卡片上，厚得发闷。
+   * 现在按断点给两档：卡片 4/8、大卡片 6/12、按钮 4/6、贴纸 2/4。
+   */
+  @media (min-width: 768px) {
+    .neo-card { box-shadow: 8px 8px 0 0 #000; }
+    .neo-card-sm { box-shadow: 5px 5px 0 0 #000; }
+    .neo-card-lg { box-shadow: 12px 12px 0 0 #000; }
+    .neo-button-primary,
+    .neo-button-secondary,
+    .neo-button-outline { box-shadow: 6px 6px 0 0 #000; }
+    .neo-sticker { box-shadow: 4px 4px 0 0 #000; }
+  }
+
+  /*
+   * 交互只改阴影：hover 时阴影加大，active 仍是原来的 2px 压平。
+   * 不新增任何 hover 位移，卡片/按钮的位置与改动前逐像素一致。
+   */
+  @media (hover: hover) {
+    .neo-button-primary:hover,
+    .neo-button-secondary:hover,
+    .neo-button-outline:hover {
+      box-shadow: 5px 5px 0 0 #000;
+    }
+  }
+  @media (hover: hover) and (min-width: 768px) {
+    .neo-button-primary:hover,
+    .neo-button-secondary:hover,
+    .neo-button-outline:hover {
+      box-shadow: 8px 8px 0 0 #000;
+    }
+  }
   .neo-button-primary:active,
   .neo-button-secondary:active,
   .neo-button-outline:active {
@@ -278,18 +325,33 @@
   }
 
   .neo-card-lift {
-    @apply transition duration-200 ease-linear;
+    /* 位移沿用原来的 200ms linear；只有阴影换成 150ms ease-out */
+    transition: transform 200ms linear, box-shadow 150ms ease-out;
   }
 
-  .neo-card-lift:hover {
-    transform: translateY(-6px);
-    box-shadow: 14px 14px 0 0 #000;
+  /* 卡片 hover 不位移、不变形，只换阴影颜色与厚度 */
+  @media (hover: hover) {
+    .neo-card-lift:hover {
+      box-shadow: 14px 14px 0 0 var(--neo-accent);
+    }
   }
 
-  .neo-sticker {
-    border: 4px solid #000;
-    box-shadow: 6px 6px 0 0 #000;
-    border-radius: 999px;
+  @media (prefers-reduced-motion: reduce) {
+    .neo-card-lift,
+    .neo-button-primary,
+    .neo-button-secondary,
+    .neo-button-outline {
+      transition: none;
+    }
+    .neo-card-lift:hover,
+    .neo-button-primary:hover,
+    .neo-button-secondary:hover,
+    .neo-button-outline:hover,
+    .neo-button-primary:active,
+    .neo-button-secondary:active,
+    .neo-button-outline:active {
+      transform: none;
+    }
   }
 
   .neo-label {

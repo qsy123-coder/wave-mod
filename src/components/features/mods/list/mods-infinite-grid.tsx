@@ -498,7 +498,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
     return (
       <MotionReveal delay={0.16} y={24} rotate={1}>
         <section className="neo-card-lg bg-[var(--neo-panel)] p-8 text-black">
-          <div className="border-4 border-black bg-white px-5 py-6 shadow-[8px_8px_0px_0px_#000]">
+          <div className="border-4 border-black bg-white px-5 py-6">
             <p className="neo-label text-black/60">没有匹配内容</p>
             <h2 className="mt-2 text-3xl font-black">当前筛选条件下还没有公开的外观资源。</h2>
             <p className="mt-4 text-sm font-bold leading-7 text-black/75">你可以切换角色、搜索关键词或排序方式继续浏览。</p>

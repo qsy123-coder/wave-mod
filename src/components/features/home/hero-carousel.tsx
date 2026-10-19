@@ -168,7 +168,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
     return (
       <MotionReveal delay={0.14} y={32} rotate={2}>
         <div className="neo-card-lg relative rotate-2 p-6 text-black" style={{ background: "var(--neo-panel)" }}>
-          <div className="border-4 border-black bg-white px-5 py-8 shadow-[8px_8px_0px_0px_#000]">
+          <div className="border-4 border-black bg-white px-5 py-8">
             <p className="neo-label text-black/60">FEATURED DROP</p>
             <h2 className="mt-2 text-3xl font-black leading-tight">首页轮播已接入真实数据</h2>
             <p className="mt-3 text-sm font-bold leading-7 text-black/75">当前还没有可展示的公开外观资源。你可以先去后台发布内容，首页热门轮播会自动展示最新条目。</p>

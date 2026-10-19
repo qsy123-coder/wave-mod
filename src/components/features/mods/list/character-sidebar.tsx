@@ -146,7 +146,7 @@ export function CharacterSidebar({
 
   return (
     <>
-      <aside className={cn("flex shrink-0 flex-col gap-1.5 border-4 border-black bg-[var(--neo-panel)] p-2.5 shadow-[6px_6px_0px_0px_#000]", className)}>
+      <aside className={cn("flex shrink-0 flex-col gap-1.5 border-4 border-black bg-[var(--neo-panel)] p-2.5 shadow-[4px_4px_0px_0px_#000] md:shadow-[6px_6px_0px_0px_#000]", className)}>
         {/*
          * 触发按钮：它控制的是「这份列表怎么看」，属于控制而非内容，所以放在所有分类之前。
          *

@@ -99,7 +99,7 @@ function ThemeDropdown() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="neo-card inline-flex items-center gap-1.5 whitespace-nowrap bg-[var(--neo-search)] px-2.5 py-1.5 text-black"
+        className="neo-card neo-card-sm inline-flex items-center gap-1.5 whitespace-nowrap bg-[var(--neo-search)] px-2.5 py-1.5 text-black"
         aria-expanded={open}
         aria-label="展开风格切换"
       >

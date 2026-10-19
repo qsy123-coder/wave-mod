@@ -68,6 +68,21 @@ const DROPDOWN_ITEM_CLASS =
 const DESKTOP_NAV_LINK_CLASS =
   "inline-flex items-center gap-1 border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap";
 
+/**
+ * PC 端一级导航的常驻项：角色分类 + 教程。
+ *
+ * 按 href 挑而不是 `slice(0, n)`：primaryNav 的顺序同时被手机抽屉复用，
+ * 手写下标会让「改 PC 导航」顺手把手机端的入口也换掉。
+ * 图库移进「更多」——它是浏览型页面，点进去就是独立 layout，不属于高频入口。
+ */
+const DESKTOP_PRIMARY_NAV_HREFS = new Set(["/mods", "/guide"]);
+const DESKTOP_PRIMARY_NAV = siteConfig.primaryNav.filter((item) =>
+  DESKTOP_PRIMARY_NAV_HREFS.has(item.href),
+);
+const DESKTOP_MORE_NAV = siteConfig.primaryNav.filter(
+  (item) => !DESKTOP_PRIMARY_NAV_HREFS.has(item.href),
+);
+
 /** 手机抽屉里的折叠分组标题（原生 details/summary，不依赖 JS） */
 const MOBILE_DETAILS_SUMMARY_CLASS =
   "flex cursor-pointer list-none items-center justify-between border-4 border-black bg-[var(--neo-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000] [&::-webkit-details-marker]:hidden";
@@ -197,7 +212,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
           <Link
             href="/"
             prefetch={false}
-            className="neo-card flex shrink-0 -rotate-1 items-center gap-1.5 px-3 py-1.5"
+            className="neo-card neo-card-sm flex shrink-0 -rotate-1 items-center gap-1.5 px-3 py-1.5"
             style={{ background: "var(--neo-accent)" }}
           >
             <span className="flex size-7 items-center justify-center border-[3px] border-black bg-white text-xs font-black text-black">
@@ -255,9 +270,9 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
             ~0.8s 推到 ~10s（2026-10-16，本地生产构建 + CDP 模拟 150ms RTT / 4Mbps）。
             站内已有导航骨架屏兜底（PageLoadingOverlay），点击后的等待感不会更差。 */}
         {/*
-         * 只留两个一级入口（角色分类 / 图库），其余页面收进「更多」下拉。
+         * 一级入口只留角色分类 / 教程；图库、问题解答、转载声明收进「更多」。
          * 此前五个链接 + 游戏切换 + 搜索 + 四个右侧按钮挤在一行，1440 下已经
-         * 没有呼吸空间；教程、问题解答、转载声明都是低频页面，没必要常驻。
+         * 没有呼吸空间，低频页面没必要常驻。
          */}
         <nav className="hidden items-center gap-2 min-[1360px]:flex">
           {isAdminRoute ? (
@@ -295,7 +310,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
             </>
           ) : (
             <>
-              {siteConfig.primaryNav.slice(0, 2).map((item, index) => (
+              {DESKTOP_PRIMARY_NAV.map((item, index) => (
                 <MotionReveal key={item.href} delay={0.06 + index * 0.04} rotate={index % 2 === 0 ? 2 : -2}>
                   <Link
                     href={item.href}
@@ -318,7 +333,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     className="w-44 border-4 border-black bg-[var(--neo-panel)] p-2 text-black shadow-[8px_8px_0px_0px_#000]"
                     onClick={handleHeaderNavClick}
                   >
-                    {siteConfig.primaryNav.slice(2).map((item) => (
+                    {DESKTOP_MORE_NAV.map((item) => (
                       <DropdownMenuItem key={item.href} className="cursor-pointer p-0 focus:bg-transparent">
                         <Link
                           href={item.href}

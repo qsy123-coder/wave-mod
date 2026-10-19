@@ -603,7 +603,7 @@ export function ModsToolbar({
   const isSortActive = localSort !== "latest" && localSort !== "default";
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2 border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[6px_6px_0px_0px_#000]", className)}>
+    <div className={cn("flex flex-wrap items-center gap-2 border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[4px_4px_0px_0px_#000] md:shadow-[6px_6px_0px_0px_#000]", className)}>
       {/* 分类标签 */}
       <span className="inline-flex items-center gap-1 border-4 border-black bg-[var(--neo-secondary)] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000]">
         分类
