@@ -100,6 +100,7 @@ export function UpdatesGrid({ days }: UpdatesGridProps) {
 
       {drawerModId && (
         <ModDetailDrawer
+          key={drawerModId}
           isLoggedIn={isLoggedIn}
           modId={drawerModId}
           onClose={closeDrawer}

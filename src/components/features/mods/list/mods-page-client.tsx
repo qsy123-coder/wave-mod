@@ -183,6 +183,7 @@ export function ModsPageClient({
 
       {drawerModId && (
         <ModDetailDrawer
+          key={drawerModId}
           admin={isAdmin}
           currentUserId={currentUserId}
           currentUserName={currentUserName}

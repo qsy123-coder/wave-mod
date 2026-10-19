@@ -1,23 +1,21 @@
 "use client";
 
-import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Eye, Heart, Share2, Star, ThumbsUp, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
 import { reportView } from "@/lib/engagement/client";
 import { useEngagement } from "@/lib/engagement/use-engagement";
 import { buildModShareUrl } from "@/lib/mod-share";
 import type { SiteMod } from "@/lib/mods";
 import { getSiteUrl } from "@/lib/site-url";
-import { isExternalStorageUrl } from "@/lib/storage/shared";
 import { cn } from "@/lib/utils";
 
 import { CommentsPanel } from "./comments-panel";
 import { DownloadButton } from "./download-button";
+import { DrawerPreviewGallery } from "./drawer-preview-gallery";
 import { FavoriteButton } from "./favorite-button";
 import { LikeButton } from "./like-button";
 import { RatingPanel } from "./rating-panel";
@@ -85,7 +83,12 @@ export function ModDetailDrawer({
   const [descExpanded, setDescExpanded] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  /**
+   * 当前展示第几张预览图。**抽屉与灯箱共用这一份状态**：
+   * 灯箱里左右翻页后再关闭，抽屉顶部画廊停在同一张，而不是跳回第一张。
+   */
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxVisible, setLightboxVisible] = useState(false);
 
   // 打开抽屉时记录一次浏览（设备 + 日期的去重在服务端，重复打开不会重复计数）
@@ -147,7 +150,8 @@ export function ModDetailDrawer({
 
   // Lightbox open/close with animation
   const openLightbox = useCallback((index: number) => {
-    setLightboxIndex(index);
+    setPreviewIndex(index);
+    setLightboxOpen(true);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setLightboxVisible(true));
     });
@@ -155,24 +159,24 @@ export function ModDetailDrawer({
 
   const closeLightbox = useCallback(() => {
     setLightboxVisible(false);
-    setTimeout(() => setLightboxIndex(null), 200);
+    setTimeout(() => setLightboxOpen(false), 200);
   }, []);
 
   const lightboxPrev = useCallback(() => {
-    if (mod) {
-      setLightboxIndex((prev) => (prev! - 1 + mod.images.length) % mod.images.length);
+    if (mod && mod.images.length > 0) {
+      setPreviewIndex((prev) => (prev - 1 + mod.images.length) % mod.images.length);
     }
   }, [mod]);
 
   const lightboxNext = useCallback(() => {
-    if (mod) {
-      setLightboxIndex((prev) => (prev! + 1) % mod.images.length);
+    if (mod && mod.images.length > 0) {
+      setPreviewIndex((prev) => (prev + 1) % mod.images.length);
     }
   }, [mod]);
 
   // Keyboard nav for lightbox
   useEffect(() => {
-    if (lightboxIndex === null) return;
+    if (!lightboxOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeLightbox();
       if (e.key === "ArrowLeft") lightboxPrev();
@@ -180,7 +184,7 @@ export function ModDetailDrawer({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxIndex, closeLightbox, lightboxPrev, lightboxNext]);
+  }, [lightboxOpen, closeLightbox, lightboxPrev, lightboxNext]);
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
@@ -264,6 +268,17 @@ export function ModDetailDrawer({
           {/* Overview tab */}
           {mod && activeTab === "overview" && (
             <div className="space-y-3 p-3">
+              {/* ── 预览画廊 ──
+                  内容区第一块就是角色图：预览是用户决定「下不下」的核心信息，
+                  优先级高于徽标、统计和按钮。单图展示 + 左右箭头，下方缩略图可点选。 */}
+              <DrawerPreviewGallery
+                images={mod.images ?? []}
+                title={mod.title}
+                index={previewIndex}
+                onIndexChange={setPreviewIndex}
+                onOpenImage={openLightbox}
+              />
+
               {/* ── 基本信息 ── */}
               <SectionHeading>基本信息</SectionHeading>
 
@@ -351,33 +366,6 @@ export function ModDetailDrawer({
                 driveLinks={mod.driveLinks}
               />
 
-              {/* ── 预览 ── */}
-              {mod.images.length > 0 && (
-                <>
-                  <SectionHeading>预览 ({mod.images.length})</SectionHeading>
-                  <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1" style={{ scrollbarWidth: "thin" }}>
-                    {mod.images.map((src, index) => (
-                      <button
-                        key={src}
-                        type="button"
-                        onClick={() => openLightbox(index)}
-                        className="shrink-0 cursor-zoom-in overflow-hidden border-[3px] border-black bg-white shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5"
-                      >
-                        <Image
-                          src={withCosImageTransform(src, COS_IMG_CARD)}
-                          alt={`${mod.title} 预览 ${index + 1}`}
-                          width={320}
-                          height={0}
-                          unoptimized={isExternalStorageUrl(src ?? "")}
-                          sizes="320px"
-                          className="h-auto max-h-72 w-auto max-w-[280px] object-contain"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-
               {/* ── 描述 ── */}
               {mod.description && (
                 <>
@@ -442,7 +430,7 @@ export function ModDetailDrawer({
       />
 
       {/* Lightbox: fullscreen image preview with dark blur overlay */}
-      {lightboxIndex !== null && mod && (
+      {lightboxOpen && mod && (
         <div
           className={cn(
             "fixed inset-0 z-[130] flex items-center justify-center bg-black/80 backdrop-blur-sm transition-opacity duration-200",
@@ -462,7 +450,7 @@ export function ModDetailDrawer({
 
           {/* Counter */}
           <div className="absolute left-5 top-5 z-[135] border-4 border-black bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
-            {lightboxIndex + 1} / {mod.images.length}
+            {previewIndex + 1} / {mod.images.length}
           </div>
 
           {/* Prev / Next arrows */}
@@ -497,8 +485,8 @@ export function ModDetailDrawer({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={mod.images[lightboxIndex]}
-              alt={`${mod.title} 预览 ${lightboxIndex + 1}`}
+              src={mod.images[previewIndex] ?? mod.images[0]}
+              alt={`${mod.title} 预览 ${previewIndex + 1}`}
               className="max-h-[85vh] max-w-[90vw] border-4 border-black object-contain shadow-[10px_10px_0px_0px_#000]"
             />
           </div>

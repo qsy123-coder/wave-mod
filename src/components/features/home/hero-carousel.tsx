@@ -319,6 +319,7 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
         {drawerModId && typeof document !== "undefined"
           ? createPortal(
               <ModDetailDrawer
+                key={drawerModId}
                 admin={admin}
                 currentUserId={currentUserId}
                 currentUserName={currentUserName}
