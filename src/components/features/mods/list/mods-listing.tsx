@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { ModsListingView } from "@/components/features/mods/list/mods-listing-view";
 import { ModsUrlDriven } from "@/components/features/mods/list/mods-url-driven";
 import { BodyScrollLock } from "@/components/layout/body-scroll-lock";
+import { COS_IMG_HERO, withCosImageTransform } from "@/lib/cos/shared";
 import { getCharacterSuggestions, getPublicMods, normalizeCharacterName, paginateMods } from "@/lib/mods";
 import { DEFAULT_MODS_FILTERS, MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
 
@@ -49,6 +50,23 @@ export async function ModsListing({ openModId }: ModsListingProps) {
 
   const seed = paginateMods(allMods, 1, MODS_PAGE_SIZE);
 
+  /**
+   * `/mods/<id>` 进站时预载详情抽屉的头图。
+   *
+   * 抽屉是客户端组件，图片要等「JS 水合 → `/api/mods/[id]` 返回」才发起请求 ——
+   * 2026-10-19 实测冷启动下首图 4.3s 才开始下载、5.3s 才到。这条 preload 走浏览器的
+   * 预加载扫描器，HTML 一解析就开始下，把这段等待整个省掉。
+   *
+   * URL 必须与 `drawer-preview-gallery.tsx` 完全一致（images[0] + COS_IMG_HERO），
+   * 否则浏览器会当成两个资源、各下一遍。`allMods` 就是抽屉接口用的同一份 mapMod
+   * 结果（见下方注释），这里直接复用，不额外查库。
+   */
+  const openMod = openModId ? allMods.find((mod) => mod.id === openModId) : undefined;
+  const openModPreview =
+    openMod && openMod.images.length > 0
+      ? withCosImageTransform(openMod.images[0], COS_IMG_HERO)
+      : undefined;
+
   const defaultView = (
     <ModsListingView
       filters={DEFAULT_MODS_FILTERS}
@@ -61,6 +79,10 @@ export async function ModsListing({ openModId }: ModsListingProps) {
 
   return (
     <>
+      {/* React 19 会把这条 <link> 提到 <head>，HTML 解析阶段就开始下载详情头图 */}
+      {openModPreview ? (
+        <link rel="preload" as="image" href={openModPreview} fetchPriority="high" />
+      ) : null}
       {/* 骨架屏阶段也锁定 body 滚动，避免加载时仍可滑动 */}
       <BodyScrollLock />
       <Suspense fallback={defaultView}>
