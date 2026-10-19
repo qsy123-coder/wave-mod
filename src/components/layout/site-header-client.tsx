@@ -452,9 +452,16 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
         </div>
         </div>
 
+        {/*
+         * 手机导航栏的风格切换入口（`md:hidden`，桌面上由右侧组里的 `ThemeToggle` 负责）。
+         * 放在汉堡左侧，用 `ml-auto` 把「风格 + 汉堡」一起推到最右边 —— 手机上中间的
+         * 搜索框是 `hidden md:block`，没有别的 flex-1 元素能承担这个推力。
+         */}
+        <ThemeToggle variant="bar" />
+
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger
-            className="neo-button-outline ml-auto inline-flex items-center justify-center p-2 min-[1360px]:hidden"
+            className="neo-button-outline inline-flex items-center justify-center p-2 min-[1360px]:hidden"
             aria-label="打开移动端导航"
           >
             <Menu className="size-4" />

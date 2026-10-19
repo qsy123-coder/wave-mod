@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { memo, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Grid3X3 } from "lucide-react";
+import { ArrowRight, Grid3X3, Search } from "lucide-react";
 
 import { useSession } from "@/components/features/auth/session-provider";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
@@ -150,6 +150,36 @@ function MobileHomeFeedContent({
             <ArrowRight className="size-3" />
           </Link>
         </div>
+
+        {/*
+         * 搜索框从首屏品牌卡挪到这里（用户要求：放在角色分类处）。
+         *
+         * 仍是原生 GET 表单（action=/mods，参数名 query），不依赖客户端 JS ——
+         * 水合前也能提交，弱网下不会出现「点了没反应」的死窗口。
+         */}
+        <form
+          action="/mods"
+          method="get"
+          role="search"
+          data-slot="mobile-home-search"
+          className="mb-3 flex items-stretch gap-1 border-[3px] border-black bg-white p-1 shadow-[3px_3px_0px_0px_#000]"
+        >
+          <input
+            type="search"
+            name="query"
+            placeholder="搜索资源 / 角色 / 关键词"
+            aria-label="搜索外观资源"
+            autoComplete="off"
+            className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-sm font-bold text-black outline-none placeholder:text-black/35"
+          />
+          <button
+            type="submit"
+            className="inline-flex shrink-0 items-center gap-1 border-[3px] border-black bg-[var(--neo-accent)] px-3 text-[11px] font-black uppercase tracking-[0.14em] text-black active:translate-x-[1px] active:translate-y-[1px]"
+          >
+            <Search className="size-3.5" />
+            搜索
+          </button>
+        </form>
 
         <div className="flex items-stretch gap-2">
           {/* 单行横滑：第一格「全部」，其后是库内角色。
@@ -337,6 +367,8 @@ export function MobileHomeFeedSkeleton() {
           <div className="h-8 w-24 animate-pulse border-[3px] border-black bg-[var(--neo-secondary)]" />
           <div className="h-6 w-20 animate-pulse border-2 border-black bg-white" />
         </div>
+        {/* 搜索框占位：与真实表单同高（边框 3 + 内边距 + 输入行 ≈ 46px），避免加载完成时跳动 */}
+        <div className="mb-3 h-[46px] w-full animate-pulse border-[3px] border-black bg-white" />
         <div className="flex items-stretch gap-2">
           <div className="flex min-w-0 flex-1 gap-2 overflow-hidden pb-1">
             {Array.from({ length: 5 }).map((_, i) => (

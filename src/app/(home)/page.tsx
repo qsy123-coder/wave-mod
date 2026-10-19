@@ -4,6 +4,7 @@ import { DailyUpdateDialog } from "@/components/common/daily-update-dialog";
 import { HeroCarousel } from "@/components/features/home/hero-carousel";
 import { HomeHeroIntro } from "@/components/features/home/home-hero-intro";
 import { LazyHomeLower } from "@/components/features/home/lazy-lower-home";
+import { MobileBackToTop } from "@/components/features/home/mobile-back-to-top";
 import { MobileHomeFeed, MobileHomeFeedSkeleton } from "@/components/features/home/mobile-home-feed";
 import { MobileHomeIntro } from "@/components/features/home/mobile-home-intro";
 import { FeaturedCarouselSkeleton } from "@/components/layout/data-skeletons";
@@ -92,6 +93,8 @@ export default function HomePage() {
         <Suspense fallback={<MobileHomeFeedSkeleton />}>
           <MobileHomeFeedSeed />
         </Suspense>
+        {/* 长列表滚到深处时，顶部居中的「回到顶部」；桌面端由它自己 md:hidden 隐藏 */}
+        <MobileBackToTop />
       </div>
 
       {/* 桌面端（≥ 768px）：与改动前完全一致 —— 大卡 + 轮播 + 第二屏 + 整屏吸附 */}

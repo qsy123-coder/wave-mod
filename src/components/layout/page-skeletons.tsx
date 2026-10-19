@@ -96,16 +96,75 @@ export function pickPageSkeleton(target: string | null): PageSkeleton {
 
 /* ==================== 各页骨架 ==================== */
 
-/** `/mods` —— 复用为它写好的 `ModsPageSkeleton`（此前全站无人使用）。 */
+/**
+ * 手机端两列瀑布流占位。
+ *
+ * 首页与角色分类页的手机骨架都用它：真实页面在这两处都是「两列 + 高低错落」的
+ * 卡片流（`masonryColumns=2`，见 mobile-home-feed / use-layout-preference），
+ * 画成一排整齐的方块会在换成真内容时明显跳一下。
+ */
+function PhoneMasonrySkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="flex gap-4">
+      {Array.from({ length: 2 }).map((_, col) => (
+        <div key={col} className="flex flex-1 flex-col gap-4">
+          {Array.from({ length: rows }).map((_, row) => (
+            <div key={row} className="border-2 border-black bg-white p-2">
+              <div
+                className={`animate-pulse bg-black/10 ${row % 2 === 0 ? "aspect-[3/4]" : "aspect-[4/5]"}`}
+              />
+              <div className="mt-2 h-3 w-3/4 animate-pulse bg-black/10" />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * `/mods`（角色分类页）。
+ *
+ * **手机端单独一套骨架**，不再复用桌面的 `ModsPageSkeleton`：窄屏下真实页面根本
+ * 没有左侧角色栏（`hidden lg:flex`），工具栏会折成「分类+搜索 / 筛选+排序+更新」
+ * 两行，卡片流是两列瀑布流。沿用桌面骨架时，点击后先看到侧栏 + 单列卡片，
+ * 路由落地再整个换掉，形状跳变非常明显。
+ *
+ * 桌面/平板继续用 `ModsPageSkeleton`（侧栏在 lg 以下本来就不渲染）。
+ */
 function ModsNavSkeleton() {
   return (
     // 用 `h-full` 而不是再算一遍 `100dvh - var(--site-header-h)`：遮罩层自己已经整体
     // 下移了一个导航栏的高度（见 page-loading-overlay），它的内容区高度**就等于**
     // `(site)/mods/layout.tsx` 那个 `h-[calc(100dvh-var(--site-header-h))]`。
     // 再扣一次会双重扣减、骨架比真页面矮一截。
-    // `[&>*]:h-full` 让 ModsPageSkeleton 的根（`flex gap-6`）撑满，侧栏才会像真页面那样通高。
-    <div data-slot="page-skeleton-mods" className={`${SITE_WIDTH} h-full py-3 [&>*]:h-full`}>
-      <ModsPageSkeleton />
+    <div data-slot="page-skeleton-mods" className={`${SITE_WIDTH} h-full py-3`}>
+      {/* 手机端：无侧栏，多行工具栏 + 两列瀑布流 */}
+      <div className="md:hidden">
+        <div className="space-y-2 border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[4px_4px_0px_0px_#000]">
+          {/* 第一行：分类标签 + 搜索框（与 ModsToolbar 手机端同构） */}
+          <div className="flex items-center gap-2">
+            <SkeletonBar className="h-9 w-14 shrink-0 bg-[var(--neo-secondary)]" />
+            <SkeletonBar className="h-9 min-w-0 flex-1 bg-white" />
+          </div>
+          {/* 第二行：筛选 / 排序 / 每日更新 + 右侧布局切换 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <SkeletonBar className="h-8 w-16 bg-white" />
+            <SkeletonBar className="h-8 w-14 bg-white" />
+            <SkeletonBar className="h-8 w-24 bg-[var(--neo-accent)]" />
+            <SkeletonBar className="ml-auto h-8 w-20 bg-white" />
+          </div>
+        </div>
+        <div className="mt-4">
+          <PhoneMasonrySkeleton rows={4} />
+        </div>
+      </div>
+
+      {/* 桌面/平板：保持原样。
+          `[&>*]:h-full` 让 ModsPageSkeleton 的根（`flex gap-6`）撑满，侧栏才会像真页面那样通高。 */}
+      <div className="hidden h-full [&>*]:h-full md:block">
+        <ModsPageSkeleton />
+      </div>
     </div>
   );
 }
@@ -120,33 +179,98 @@ function ModsNavSkeleton() {
  */
 function HomePageSkeleton() {
   return (
-    // ⚠️ 这个 section 是**照抄** `(home)/page.tsx` 里那一个的 —— 高度公式、上下 padding、
-    // `items-center` 全都一致，一个都不能改，否则垂直位置对不上。
-    //
-    // 为什么不能自己写「撑满 + 居中」：首页那张 hero 卡（约 717px）**比可视内容区还高**，
-    // 真页面靠 `items-center` 让它**上下对称溢出**从而落在离导航栏很近的位置。
-    // 而遮罩是个**滚动容器**，滚动容器不允许内容向上溢出（滚不到负偏移），
-    // 于是同样的居中会被夹住、整块被往下压约 60px（实测：卡顶 229 vs 真页面 169）。
-    // 照抄结构就没有这个夹取，落点与真页面只差「横条高度」那一点（见下）。
-    //
-    // 残留差异：首页 header 含一条 30px 的「近期上新」横条（--site-header-h 160），
-    // 而跳转途中显示的还是上一页的 header（130）。横条要等路由真的切过去才出现，
-    // 骨架无从预知 —— 这点差值是这个过渡本身固有的，不是骨架写错。
     <div data-slot="page-skeleton-home">
       {/*
-       * 补上首页那条「近期上新」横条的高度：首页 header = 导航栏 + 横条，
-       * 而跳转途中显示的仍是上一页的 header（没有横条），遮罩因此从更高的位置铺下来。
-       * 横条要等路由真的切过去才渲染，骨架无从预知，只能在这里手动补。
+       * 手机端：**独立骨架**，不复用桌面那份 `HomeHeroIntro` + 轮播占位。
        *
-       * 30px / `md` 以下隐藏，都照抄 `components/common/daily-ticker.tsx:70` 的
-       * `min-h-[30px] ... md:flex`。**改那边的高度时这里要跟着改。**
+       * 手机首页是另一套版式（`(home)/page.tsx` 的 `md:hidden` 分支）：
+       * 品牌卡 → 角色分类面板（含搜索框）→ 两列瀑布流。沿用桌面骨架的话，
+       * 点首页后先出现一张大 hero 卡和轮播占位，路由落地再整个换成手机版式，
+       * 切换瞬间的跳变比没有骨架还刺眼。
+       *
+       * 几何照抄 `MobileHomeIntro` / `MobileHomeFeedSkeleton`；改那边要同步这里。
        */}
-      <div aria-hidden className="hidden h-[30px] md:block" />
-      <section className="relative flex w-full items-center h-[calc(100vh-var(--home-hero-h))] pt-[11vh] pb-[15vh] max-md:h-auto max-md:pt-4 max-md:pb-4">
-        <div className={SITE_WIDTH}>
-          <HomeHeroIntro right={<FeaturedCarouselSkeleton />} />
+      <div className="space-y-3 px-4 pb-10 pt-4 md:hidden">
+        {/* 品牌首屏卡：眉标 + 标题 + 两个入口 */}
+        <div className="border-4 border-black bg-[var(--neo-panel)] px-4 py-5 shadow-[8px_8px_0px_0px_#000]">
+          <div className="flex flex-wrap gap-2">
+            <SkeletonBar className="h-6 w-32 bg-[var(--neo-accent)]" />
+            <SkeletonBar className="h-5 w-24 bg-white/70" />
+          </div>
+          <SkeletonBar className="mt-4 h-9 w-44" />
+          <SkeletonBar className="mt-2 h-3 w-56 bg-white/70" />
+          <div className="mt-4 flex gap-2">
+            <SkeletonBar className="h-9 w-20 bg-[var(--neo-accent)]" />
+            <SkeletonBar className="h-9 w-20 bg-[var(--neo-secondary)]" />
+          </div>
         </div>
-      </section>
+
+        {/* 角色分类面板：标题行 → 搜索框 → 头像条 → 排序 chips */}
+        <div className="border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[4px_4px_0px_0px_#000]">
+          <div className="flex items-center justify-between gap-3">
+            <SkeletonBar className="h-8 w-24 bg-[var(--neo-secondary)]" />
+            <SkeletonBar className="h-6 w-20 bg-white" />
+          </div>
+          <SkeletonBar className="mb-3 mt-3 h-[46px] w-full bg-white" />
+          <div className="flex items-stretch gap-2">
+            <div className="flex min-w-0 flex-1 gap-2 overflow-hidden">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex w-[64px] shrink-0 flex-col items-center gap-1 border-[3px] border-black bg-white p-1.5"
+                >
+                  <div className="size-11 animate-pulse rounded-full bg-black/10" />
+                  <div className="h-2 w-8 animate-pulse bg-black/10" />
+                </div>
+              ))}
+            </div>
+            <div className="flex w-[64px] shrink-0 flex-col items-center justify-center gap-1 border-[3px] border-black bg-[var(--neo-secondary)] p-1.5">
+              <div className="size-6 animate-pulse bg-black/15" />
+              <div className="h-2 w-10 animate-pulse bg-black/15" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <SkeletonBar className="h-9 w-14 bg-[var(--neo-accent)]" />
+            <SkeletonBar className="h-9 w-14 bg-white" />
+            <SkeletonBar className="ml-auto h-4 w-16 bg-white/60" />
+          </div>
+        </div>
+
+        <PhoneMasonrySkeleton />
+      </div>
+
+      {/*
+       * 桌面端：保持原样。
+       *
+       * ⚠️ 下面这个 section 是**照抄** `(home)/page.tsx` 里那一个的 —— 高度公式、上下
+       * padding、`items-center` 全都一致，一个都不能改，否则垂直位置对不上。
+       *
+       * 为什么不能自己写「撑满 + 居中」：首页那张 hero 卡（约 717px）**比可视内容区还高**，
+       * 真页面靠 `items-center` 让它**上下对称溢出**从而落在离导航栏很近的位置。
+       * 而遮罩是个**滚动容器**，滚动容器不允许内容向上溢出（滚不到负偏移），
+       * 于是同样的居中会被夹住、整块被往下压约 60px（实测：卡顶 229 vs 真页面 169）。
+       * 照抄结构就没有这个夹取，落点与真页面只差「横条高度」那一点（见下）。
+       *
+       * 残留差异：首页 header 含一条 30px 的「近期上新」横条（--site-header-h 160），
+       * 而跳转途中显示的还是上一页的 header（130）。横条要等路由真的切过去才出现，
+       * 骨架无从预知 —— 这点差值是这个过渡本身固有的，不是骨架写错。
+       */}
+      <div className="hidden md:block">
+        {/*
+         * 补上首页那条「近期上新」横条的高度：首页 header = 导航栏 + 横条，
+         * 而跳转途中显示的仍是上一页的 header（没有横条），遮罩因此从更高的位置铺下来。
+         * 横条要等路由真的切过去才渲染，骨架无从预知，只能在这里手动补。
+         *
+         * 30px / `md` 以下隐藏，都照抄 `components/common/daily-ticker.tsx:70` 的
+         * `min-h-[30px] ... md:flex`。**改那边的高度时这里要跟着改。**
+         */}
+        <div aria-hidden className="hidden h-[30px] md:block" />
+        <section className="relative flex w-full items-center h-[calc(100vh-var(--home-hero-h))] pt-[11vh] pb-[15vh] max-md:h-auto max-md:pt-4 max-md:pb-4">
+          <div className={SITE_WIDTH}>
+            <HomeHeroIntro right={<FeaturedCarouselSkeleton />} />
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
