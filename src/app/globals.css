@@ -325,14 +325,19 @@
   }
 
   .neo-card-lift {
-    /* 位移沿用原来的 200ms linear；只有阴影换成 150ms ease-out */
-    transition: transform 200ms linear, box-shadow 150ms ease-out;
+    /* 卡片不再位移，只让阴影以 150ms ease-out 过渡 */
+    transition: box-shadow 150ms ease-out;
   }
 
-  /* 卡片 hover 不位移、不变形，只换阴影颜色与厚度 */
+  /* 卡片 hover 不位移、不变形，只换阴影颜色；偏移只比静止时多 2px，别甩出一大块 */
   @media (hover: hover) {
     .neo-card-lift:hover {
-      box-shadow: 14px 14px 0 0 var(--neo-accent);
+      box-shadow: 6px 6px 0 0 var(--neo-accent);
+    }
+  }
+  @media (hover: hover) and (min-width: 768px) {
+    .neo-card-lift:hover {
+      box-shadow: 10px 10px 0 0 var(--neo-accent);
     }
   }
 
