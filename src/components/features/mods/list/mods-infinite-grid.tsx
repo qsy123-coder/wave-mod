@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -177,16 +177,12 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
     hasNextPage,
     isFetchingNextPage,
     isPending,
-    isPlaceholderData,
   } = useInfiniteQuery({
     queryKey: ["mods", { character, direct, gameKey, preview, query, sort }],
     queryFn: ({ pageParam }) =>
       fetchModsPage({ character, direct, gameKey, page: pageParam, preview, query, sort }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
-    // 换角色/排序时保留上一份列表，不要整块网格被 16 张骨架替换。
-    // 顶部进度条负责反馈加载，新数据到了再整份换掉。
-    placeholderData: keepPreviousData,
     // 没有种子（= 筛选条件非默认）时**不能**给 initialData，否则网格会以为第一页
     // 已经拿到了。见 Props 里 initialMods 的注释。
     initialData: staticSeed ? { pageParams: [1], pages: [staticSeed] } : undefined,
@@ -225,20 +221,18 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    */
   useEffect(() => {
     onStatusChange?.({
-      // 乐观加载态（侧栏/工具栏刚点下）和保留旧列表的占位期，都让顶部进度条亮着
-      loading: isPending || isPlaceholderData || pendingCharacter !== null || pendingListingLoad,
+      // 乐观加载态（侧栏/工具栏刚点下）也要让顶部进度条立刻亮着
+      loading: isPending || pendingCharacter !== null || pendingListingLoad,
       totalCount: isPending ? null : (data?.pages[0]?.totalCount ?? null),
     });
-  }, [data, isPending, isPlaceholderData, pendingCharacter, pendingListingLoad, onStatusChange]);
+  }, [data, isPending, pendingCharacter, pendingListingLoad, onStatusChange]);
 
   // 依赖里必须带上 sentinel 节点本身：节点换了就重建 observer。
   // isFetchingNextPage 也在依赖里 —— 每次取数状态变化都会重建，而新 observer 的首次
   // 回调会按当时的真实位置重算一次，于是「加载完一页后哨兵仍在视野内」能自动续上一页，
   // 不会停在半截等着用户再滑一下。
   useEffect(() => {
-    // 占位数据（上一份筛选）还在时不要触发翻页：否则会拿新的 queryKey 去请求第二页，
-    // 第一页还没回来就先把第二页塞进去，容易闪一下。
-    if (!sentinel || !hasNextPage || isPlaceholderData) return;
+    if (!sentinel || !hasNextPage) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -253,7 +247,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [sentinel, fetchNextPage, hasNextPage, isFetchingNextPage, isPlaceholderData]);
+  }, [sentinel, fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   // ==================== 瀑布流 JS 布局 ====================
 
@@ -457,18 +451,17 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   );
 
   /**
-   * 当前筛选**完全没有数据**（硬打开一个带筛选的 URL）时才铺骨架。
+   * 第一页还没到（换筛选、硬打开带筛选的 URL）→ 立即铺满整块骨架。
    *
-   * 换角色/排序不再走这里：`placeholderData` 会保留上一份列表，配合顶部进度条，
-   * 用户不会看到整块网格被 16 张骨架替换。骨架本身也缩到 4 张，避免一屏全灰。
+   * `pendingCharacter` / `pendingListingLoad` 是**乐观的那一半**：点侧栏角色/工具栏
+   * 筛选后、导航落地前就先把骨架亮起来，别让用户觉得点击没反应。
    */
-  if (isPending && mods.length === 0) {
-    const skeletonCount = 4;
+  if (isPending || pendingCharacter !== null || pendingListingLoad) {
     return isMasonry ? (
       <section className="flex gap-4">
         {Array.from({ length: colCount }).map((_, colIdx) => (
           <div key={colIdx} className="flex flex-1 flex-col gap-4">
-            {Array.from({ length: Math.max(1, Math.ceil(skeletonCount / colCount)) }).map((_, si) => (
+            {Array.from({ length: Math.ceil(MODS_PAGE_SIZE / colCount) }).map((_, si) => (
               <MasonryCardSkeleton key={si} index={colIdx * 3 + si} />
             ))}
           </div>
@@ -476,7 +469,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       </section>
     ) : (
       <section className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
-        {Array.from({ length: skeletonCount }).map((_, i) => (
+        {Array.from({ length: MODS_PAGE_SIZE }).map((_, i) => (
           <ModCardSkeleton key={i} />
         ))}
       </section>
@@ -568,7 +561,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
                 <div className="mt-4 flex gap-4">
                   {Array.from({ length: colCount }).map((_, colIdx) => (
                     <div key={colIdx} className="flex flex-1 flex-col gap-4">
-                      {Array.from({ length: Math.max(1, Math.ceil(2 / colCount)) }).map((_, si) => (
+                      {Array.from({ length: Math.ceil(16 / colCount) }).map((_, si) => (
                         <MotionReveal key={`skel-${si}`} delay={0.05 + si * 0.03} y={10}>
                           <MasonryCardSkeleton index={colIdx * 3 + si} />
                         </MotionReveal>
@@ -629,7 +622,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
           ) : null}
           {/* 加载中骨架：多行占位卡片，填满下方空白 */}
           {isFetchingNextPage
-            ? Array.from({ length: 2 }).map((_, i) => (
+            ? Array.from({ length: 15 }).map((_, i) => (
                 <MotionReveal key={`skel-${i}`} delay={0.05 + i * 0.02} y={10}>
                   <ModCardSkeleton />
                 </MotionReveal>
@@ -638,7 +631,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         </section>
       )}
 
-      {!hasNextPage && !isFetchingNextPage && !isPlaceholderData ? (
+      {!hasNextPage && !isFetchingNextPage ? (
         <div className="flex items-center justify-center py-4">
           <div className="inline-flex items-center gap-3 border-4 border-black bg-[var(--neo-secondary)] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
             <Search className="size-4" />

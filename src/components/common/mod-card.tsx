@@ -261,11 +261,14 @@ export function ModCard({
   // 刷新命中缓存时，load 事件可能在 React 水合前就已触发，onLoad 不会再被调用，
   // 因此额外用 ref 回调兜底：挂载时若 img.complete 已为 true，直接读取 naturalWidth/Height。
   const [imageRatio, setImageRatio] = useState<number | null>(null);
+  // 图片是否已就位：用于把加载期间的纯黑占位换成骨架动画
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const readImageRatio = useCallback((img: HTMLImageElement | null) => {
     if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
       const ratio = img.naturalWidth / img.naturalHeight;
       setImageRatio(ratio);
+      setImageLoaded(true);
       onImageRatioChange?.(ratio);
     }
   }, [onImageRatioChange]);
@@ -395,6 +398,18 @@ export function ModCard({
             />
           </>
         )}
+        {/* 加载期间占位：图片到位前 bg-black 容器是一块纯黑，看起来像黑屏或坏图。
+            内层独占 animate-pulse —— pulse 动画直接改写 opacity，若与淡出写在同一元素上，
+            opacity-0 会被动画覆盖，占位永远不会消失。 */}
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-0 transition-opacity duration-300",
+            imageLoaded || imageError ? "opacity-0" : "opacity-100",
+          )}
+        >
+          <div className="h-full w-full animate-pulse bg-[var(--neo-muted)]" />
+        </div>
       </div>
       {/* 批量操作复选框 */}
       {showCheckbox ? (
