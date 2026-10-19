@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Download, Eye, Heart, Share2, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ArrowUp, ChevronLeft, ChevronRight, Download, Eye, Heart, Share2, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -88,6 +88,23 @@ export function ModDetailDrawer({
   const [previewIndex, setPreviewIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxVisible, setLightboxVisible] = useState(false);
+
+  /**
+   * 回到顶部：
+   * - 滚动的是抽屉自己的内容区，不是 window —— 详情抽屉挂在列表页上，
+   *   滚 window 会连带把背后的列表一起拽走。
+   * - 按滚动距离显示/隐藏，避免刚打开、还在最上面时就挡住标签与统计卡。
+   */
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  const handleContentScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    setShowBackToTop(event.currentTarget.scrollTop > 240);
+  }, []);
+
+  const scrollContentToTop = useCallback(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   // 打开抽屉时记录一次浏览（设备 + 日期的去重在服务端，重复打开不会重复计数）
   useEffect(() => {
@@ -240,7 +257,40 @@ export function ModDetailDrawer({
         </div>
 
         {/* Tab content: fills remaining height, scroll if needed */}
-        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+        <div
+          ref={contentScrollRef}
+          onScroll={handleContentScroll}
+          className="flex-1 overflow-y-auto"
+          style={{ scrollbarWidth: "thin" }}
+        >
+          {/*
+           * 回到顶部：吸顶在内容区顶部、水平居中。
+           *
+           * 外层高度 0（h-0）是为了**不占布局**——按钮用 pt-3 溢出到内容上方，
+           * 显示/隐藏都不会把标签、画廊往下推。
+           * 只在滚过 240px 后出现；隐藏时同时关掉 pointer-events，避免透明按钮
+           * 还挡住下面的标签。
+           */}
+          <div className="pointer-events-none sticky top-0 z-20 h-0">
+            <div className="flex justify-center pt-3">
+              <button
+                type="button"
+                onClick={scrollContentToTop}
+                aria-label="回到顶部"
+                tabIndex={showBackToTop ? 0 : -1}
+                className={cn(
+                  "inline-flex items-center gap-1 border-[3px] border-black bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition duration-200",
+                  showBackToTop
+                    ? "pointer-events-auto translate-y-0 opacity-100"
+                    : "pointer-events-none -translate-y-2 opacity-0",
+                )}
+              >
+                <ArrowUp className="size-3.5" strokeWidth={3} />
+                回到顶部
+              </button>
+            </div>
+          </div>
+
           {/* Loading */}
           {isLoading && <ModDetailDrawerSkeleton />}
 
