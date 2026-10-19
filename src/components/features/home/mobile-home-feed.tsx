@@ -10,6 +10,7 @@ import { useSession } from "@/components/features/auth/session-provider";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { getCharacterImagePath } from "@/lib/constants/character-images";
+import { buildModsFilterHref, isPlainLeftClick } from "@/lib/navigation-url";
 import type { ModSort, SiteMod } from "@/lib/mods";
 import { cn } from "@/lib/utils";
 
@@ -69,6 +70,7 @@ function MobileHomeFeedContent({
   const [openModId, setOpenModId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const railRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLElement | null>(null);
 
   const { data, isError } = useQuery({
     queryKey: ["home-mobile-characters"],
@@ -84,6 +86,12 @@ function MobileHomeFeedContent({
   });
 
   const characters = data?.characters ?? initialCharacters;
+
+  // 水合标记：服务端直出的角色格在水合前只是真链接（点击会去 /mods），
+  // 测试与排查都靠它区分「HTML 已到」和「交互已可用」。
+  useEffect(() => {
+    rootRef.current?.setAttribute("data-hydrated", "true");
+  }, []);
 
   // 首屏只渲染前 12 个头像；若当前选中的角色在 12 之后，把它追加进来保证高亮可见
   const railCharacters = characters.slice(0, RAIL_AVATAR_LIMIT);
@@ -124,7 +132,7 @@ function MobileHomeFeedContent({
   };
 
   return (
-    <section className="px-4 pb-10">
+    <section ref={rootRef} className="px-4 pb-10">
       <div
         data-slot="mobile-character-panel"
         className="border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[8px_8px_0px_0px_#000]"
@@ -154,6 +162,7 @@ function MobileHomeFeedContent({
           >
             <CharacterCell
               label="全部"
+              href="/mods"
               active={character === null}
               onClick={() => setCharacter(null)}
             />
@@ -161,6 +170,7 @@ function MobileHomeFeedContent({
               <CharacterCell
                 key={name}
                 label={name}
+                href={buildModsFilterHref("/mods", { character: name })}
                 active={character === name}
                 onClick={() => setCharacter(name)}
               />
@@ -251,19 +261,28 @@ function MobileHomeFeedContent({
 
 function CharacterCell({
   label,
+  href,
   active,
   onClick,
 }: {
   label: string;
+  /** 水合前是真链接；水合后 preventDefault，只在首页原地筛选 */
+  href: string;
   active: boolean;
   onClick: () => void;
 }) {
   const avatarPath = label === "全部" ? null : getCharacterImagePath(label);
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <Link
+      href={href}
+      prefetch={false}
+      onClick={(event) => {
+        // 修饰键/中键放行给浏览器（新标签页），其余拦截成原地筛选
+        if (!isPlainLeftClick(event)) return;
+        event.preventDefault();
+        onClick();
+      }}
       aria-pressed={active}
       title={label}
       data-slot="mobile-character-item"
@@ -295,7 +314,7 @@ function CharacterCell({
       <span className="w-full truncate text-[10px] font-black leading-none tracking-[0.02em]">
         {label}
       </span>
-    </button>
+    </Link>
   );
 }
 
