@@ -195,8 +195,13 @@ export function ModsPageClient({
          * 外层 h-0 是为了**不占布局**：按钮用 pt-3 溢出到内容上方，
          * 出现/隐藏不会把第一行卡片往下推。隐藏时关闭 pointer-events，
          * 避免透明按钮拦截筛选卡片或工具栏的点击。
+         *
+         * ⚠️ z-40 不能降：卡片上的收藏按钮是 z-20、批量复选框是 z-30，
+         * 而且它们 DOM 在后、同层级会盖住这里（2026-10-19 用户反馈
+         * 「被收藏按钮覆盖」）。z-40 在卡片之上、又在站点头部/详情抽屉
+         * （z-50）之下，不会反过来盖住弹层。
          */}
-        <div className="pointer-events-none sticky top-0 z-20 h-0">
+        <div className="pointer-events-none sticky top-0 z-40 h-0">
           <div className="flex justify-center pt-3">
             <button
               type="button"
