@@ -37,17 +37,17 @@ export type MasonryPackItem = {
 
 export type MasonryPackOptions = {
   /**
-   * 空洞优先（dense）模式。
+   * 只在两列底沿齐平时才让横屏卡跨列（角色筛选视图用）。
    *
-   * 普通模式只记「每列底部纵坐标」，横屏卡落在两列较低者的底沿 —— 较矮那一列上方
-   * 留下的洞永远回不去（2026-10-19 用户在角色分类页看到的空洞就是它）。
-   * dense 模式改为维护**已占用区间**：单列卡放进「最早能容纳它的空位」，
-   * 横屏卡在相邻列对里找最早能整块放下的位置，于是后续卡片能回填洞。
+   * 背景：横屏卡横跨两列时，落位取两列中较低者的底沿，较矮那一列上方必然空出
+   * 「两列底沿之差」那么高的一段。后续卡片的高度不可控，**填不上就是填不上**
+   * （2026-10-19 实测：174px 的洞配 300px+ 的卡片，回填算法也无能为力）。
    *
-   * 代价是视觉顺序不再严格等于数据顺序（后出现的卡可能排在洞的位置）。
-   * 因此只给角色筛选视图开启，默认视图保持原行为。
+   * 所以这里换一个思路：只有两列底沿之差 ≤ MASONRY_GAP 时才跨列（此时留下的洞
+   * 不超过一个正常间距），否则这张横屏图按**单列**摆放。这样从源头不制造大洞，
+   * 且卡片顺序始终与数据顺序一致、追加分页时已有卡片不会移动。
    */
-  dense?: boolean;
+  alignedSpanOnly?: boolean;
 };
 
 export type MasonryPlacement = {
@@ -86,138 +86,52 @@ export function masonrySpanWidth(span: 1 | 2, columnWidth: number): number {
   return span === 2 ? columnWidth * 2 + MASONRY_GAP : columnWidth;
 }
 
-/** 一张已摆放卡片在某一列里占用的垂直区间 */
-type OccupiedSpan = { top: number; bottom: number };
+/**
+ * 两列「齐平」的判定容差（像素）。
+ *
+ * 列宽是小数，两张同比例卡片算出来的高度只在浮点上有一点误差，0.5px 足够吸收。
+ * 不能放宽：两列的下一张卡起点每差 1px，横屏卡就会在较矮那列多留 1px 的洞。
+ */
+const MASONRY_ALIGN_TOLERANCE = 0.5;
 
 /**
- * 在已占用区间里找最早能放下 height 高的卡片的起点。
+ * 找出能让横屏卡落位的相邻列对；没有就返回 null。
  *
- * 卡片之间至少留 MASONRY_GAP：起点先跳到最后一张卡底部 + 间距，再要求新卡底部
- * 距离下一张卡顶部也至少有间距。区间按 top 升序（由 insertOccupied 保证）。
+ * `alignedOnly` 开启时只接受两列底沿完全对齐的列对 —— 这样横屏卡跨越时，
+ * 较矮那一列上方只留下正常的列间距，不会出现填不上的大洞。
  */
-function earliestStart(occupied: readonly OccupiedSpan[], height: number): number {
-  let candidate = 0;
-  for (const card of occupied) {
-    if (candidate + height <= card.top - MASONRY_GAP) return candidate;
-    candidate = Math.max(candidate, card.bottom + MASONRY_GAP);
-  }
-  return candidate;
-}
-
-/** 按 top 有序插入占用区间 */
-function insertOccupied(occupied: OccupiedSpan[], top: number, bottom: number) {
-  let index = occupied.length;
-  for (let i = 0; i < occupied.length; i += 1) {
-    if (occupied[i].top > top) {
-      index = i;
-      break;
-    }
-  }
-  occupied.splice(index, 0, { top, bottom });
-}
-
-/** 合并两列各自的占用区间（都已是 top 升序），横屏卡必须同时避开两列 */
-function mergeOccupied(left: readonly OccupiedSpan[], right: readonly OccupiedSpan[]): OccupiedSpan[] {
-  const merged: OccupiedSpan[] = [];
-  let i = 0;
-  let j = 0;
-  while (i < left.length || j < right.length) {
-    if (j >= right.length || (i < left.length && left[i].top <= right[j].top)) {
-      merged.push(left[i]);
-      i += 1;
-    } else {
-      merged.push(right[j]);
-      j += 1;
-    }
-  }
-  return merged;
-}
-
-/** 一列最底下那张卡的底沿（列是空的则为 0）；用于衡量列对两边的落差 */
-function lastBottom(occupied: readonly OccupiedSpan[]): number {
-  return occupied.length === 0 ? 0 : occupied[occupied.length - 1].bottom;
-}
-
-/**
- * dense 模式：按输入顺序摆放，但每一张都优先填「最早的可用空位」。
- *
- * - 单列卡：在所有列里找最早能容纳它的空位（不是"最短列"），于是横屏卡留下的洞
- *   会被后续卡片回头填上。
- * - 横屏卡：在每一对相邻列里找最早能整块放下的位置，取最靠上的那对。
- *
- * 代价是视觉顺序可能偏离数据顺序；追加下一页时已有卡片仍不会移动（新卡只填空位），
- * 但可能出现在更早卡片的洞上方 —— 这是 dense 模式有意为之。
- */
-function packMasonryDense(
-  items: MasonryPackItem[],
+function findWideSlot(
+  bottoms: readonly number[],
   columns: number,
-  columnWidth: number,
-): MasonryPackResult {
-  const occupied: OccupiedSpan[][] = Array.from({ length: columns }, () => []);
-  const placements: MasonryPlacement[] = [];
-  let maxBottom = 0;
+  alignedOnly: boolean,
+): { column: number; top: number } | null {
+  let bestColumn = -1;
+  let bestTop = Number.POSITIVE_INFINITY;
 
-  for (const item of items) {
-    const wide = columns >= 2 && item.ratio > MASONRY_WIDE_RATIO;
-
-    if (wide) {
-      const height = masonryCardHeight(masonrySpanWidth(2, columnWidth), item.ratio);
-      let bestColumn = 0;
-      let bestTop = Number.POSITIVE_INFINITY;
-      let bestHole = Number.POSITIVE_INFINITY;
-
-      for (let column = 0; column <= columns - 2; column += 1) {
-        const top = earliestStart(mergeOccupied(occupied[column], occupied[column + 1]), height);
-        // 同一高度时优先「两边落差更小」的列对 —— 横屏卡越过两列时必然在较矮那列
-        // 上方留下洞，两列底沿越接近，洞越小。
-        const hole =
-          Math.max(0, top - lastBottom(occupied[column])) +
-          Math.max(0, top - lastBottom(occupied[column + 1]));
-        if (top < bestTop || (top === bestTop && hole < bestHole)) {
-          bestTop = top;
-          bestColumn = column;
-          bestHole = hole;
-        }
-      }
-
-      placements.push({ id: item.id, column: bestColumn, span: 2, top: bestTop });
-      insertOccupied(occupied[bestColumn], bestTop, bestTop + height);
-      insertOccupied(occupied[bestColumn + 1], bestTop, bestTop + height);
-      maxBottom = Math.max(maxBottom, bestTop + height);
+  for (let column = 0; column <= columns - 2; column += 1) {
+    if (alignedOnly && Math.abs(bottoms[column] - bottoms[column + 1]) > MASONRY_ALIGN_TOLERANCE) {
       continue;
     }
-
-    const height = masonryCardHeight(columnWidth, item.ratio);
-    let bestColumn = 0;
-    let bestTop = Number.POSITIVE_INFINITY;
-    for (let column = 0; column < columns; column += 1) {
-      const top = earliestStart(occupied[column], height);
-      if (top < bestTop) {
-        bestTop = top;
-        bestColumn = column;
-      }
+    const top = Math.max(bottoms[column], bottoms[column + 1]);
+    if (top < bestTop) {
+      bestTop = top;
+      bestColumn = column;
     }
-
-    placements.push({ id: item.id, column: bestColumn, span: 1, top: bestTop });
-    insertOccupied(occupied[bestColumn], bestTop, bestTop + height);
-    maxBottom = Math.max(maxBottom, bestTop + height);
   }
 
-  return {
-    placements,
-    height: placements.length === 0 ? 0 : maxBottom,
-    columnWidth,
-  };
+  return bestColumn === -1 ? null : { column: bestColumn, top: bestTop };
 }
 
 /**
  * 按输入顺序把卡片分配到各列。
  *
- * 默认（`options.dense` 不开）：单列卡进当前最短的列，横屏卡横跨相邻两列、
- * 顶部对齐两列较低者的底沿。顺序与输入一致，但横屏卡会在较矮那列上方留下洞。
+ * 默认：单列卡进当前最短的列；横屏卡横跨相邻两列、顶部对齐两列较低者的底沿。
+ * 横跨会在较矮那列上方留下「两列底沿之差」那么高的洞 —— 后续卡片高度不可控，
+ * 能填上是运气，填不上就会一直空着。
  *
- * `options.dense` 开启时改走 packMasonryDense（角色筛选视图用），允许后续卡片
- * 回填空洞。两种模式的追加行为都保证：已摆放的卡片不会因为新数据而移动。
+ * `options.alignedSpanOnly`（角色筛选视图用）：只有两列底沿完全对齐时才允许
+ * 跨列，否则这张横屏图按**单列**摆放。这样从源头保证任何一列都不会出现超过
+ * 一个间距的垂直空洞，卡片顺序也始终与输入一致、追加分页时已有卡片不会移动。
  */
 export function packMasonry(
   items: MasonryPackItem[],
@@ -231,35 +145,25 @@ export function packMasonry(
 
   const columnWidth = (containerWidth - (columns - 1) * MASONRY_GAP) / columns;
 
-  if (options.dense) {
-    return packMasonryDense(items, columns, columnWidth);
-  }
-
   // 每列当前的底部纵坐标（最后一张卡下沿 + 间距）
   const bottoms = new Array<number>(columns).fill(0);
   const placements: MasonryPlacement[] = [];
 
   for (const item of items) {
-    const wide = columns >= 2 && item.ratio > MASONRY_WIDE_RATIO;
+    const wantsWide = columns >= 2 && item.ratio > MASONRY_WIDE_RATIO;
+    // 角色筛选视图：没有齐平的相邻列时，这张横屏卡按单列摆（宁可图小，不留洞）
+    const wideSlot = wantsWide
+      ? findWideSlot(bottoms, columns, Boolean(options.alignedSpanOnly))
+      : null;
 
-    if (wide) {
+    if (wideSlot) {
       // 跨列会同时推进两列：顶部取两列较低者（较高那列会留下一个洞），
       // 所以优先挑「两列底部都尽量浅」的相邻列对。
-      let bestColumn = 0;
-      let bestTop = Number.POSITIVE_INFINITY;
-      for (let column = 0; column <= columns - 2; column += 1) {
-        const top = Math.max(bottoms[column], bottoms[column + 1]);
-        if (top < bestTop) {
-          bestTop = top;
-          bestColumn = column;
-        }
-      }
-
       const width = masonrySpanWidth(2, columnWidth);
       const height = masonryCardHeight(width, item.ratio);
-      placements.push({ id: item.id, column: bestColumn, span: 2, top: bestTop });
-      bottoms[bestColumn] = bestTop + height + MASONRY_GAP;
-      bottoms[bestColumn + 1] = bestTop + height + MASONRY_GAP;
+      placements.push({ id: item.id, column: wideSlot.column, span: 2, top: wideSlot.top });
+      bottoms[wideSlot.column] = wideSlot.top + height + MASONRY_GAP;
+      bottoms[wideSlot.column + 1] = wideSlot.top + height + MASONRY_GAP;
       continue;
     }
 

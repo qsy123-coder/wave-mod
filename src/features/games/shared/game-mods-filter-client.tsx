@@ -71,8 +71,8 @@ export function GameModsFilterClient({
         preview={activePreview}
         layoutMode={layoutMode}
         masonryColumns={masonryColumns}
-        // 与主站一致：角色筛选视图才开空洞回填
-        denseMasonry={Boolean(initialCharacter)}
+        // 与主站一致：角色筛选视图只在两列齐平时跨列，避免大洞
+        alignedSpanOnly={Boolean(initialCharacter)}
       />
     </>
   );

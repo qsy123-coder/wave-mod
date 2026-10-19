@@ -139,33 +139,42 @@ describe("packMasonry", () => {
   });
 });
 
-describe("packMasonry (dense)", () => {
-  it("横屏卡留下的洞被后续单列卡回填", () => {
-    const ratios = [PORTRAIT, LANDSCAPE, PORTRAIT];
-    const result = packMasonry(items(ratios), 2, 420, { dense: true });
-    const [first, wide, third] = result.placements;
+describe("packMasonry (alignedSpanOnly)", () => {
+  const TALL = 0.4;
+
+  it("两列齐平时横屏卡才跨两列", () => {
+    const result = packMasonry(items([PORTRAIT, PORTRAIT, LANDSCAPE]), 2, 420, {
+      alignedSpanOnly: true,
+    });
+    const [first, , wide] = result.placements;
     const portraitHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
 
-    // 横屏卡仍接在第一张竖屏卡下方（两列中较低者）
     expect(wide.span).toBe(2);
+    expect(wide.column).toBe(0);
     expect(wide.top).toBeCloseTo(first.top + portraitHeight + MASONRY_GAP);
-    // 第三张钻进第二列的洞（顶部），而不是排到两列最底下
-    expect(third.column).toBe(1);
-    expect(third.top).toBe(0);
   });
 
-  it("同列卡片不重叠，间距不小于一个 gap", () => {
-    const ratios = [PORTRAIT, LANDSCAPE, PORTRAIT, LANDSCAPE, PORTRAIT, PORTRAIT, 1.5, PORTRAIT];
-    const result = packMasonry(items(ratios), 3, 900, { dense: true });
+  it("两列不齐时横屏卡按单列摆，且进较矮的列", () => {
+    const result = packMasonry(items([PORTRAIT, TALL, LANDSCAPE]), 2, 420, {
+      alignedSpanOnly: true,
+    });
+    const wide = result.placements[2];
+    const portraitHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
+
+    expect(wide.span).toBe(1);
+    expect(wide.column).toBe(0);
+    expect(wide.top).toBeCloseTo(portraitHeight + MASONRY_GAP);
+  });
+
+  it("任意一列的卡片之间都不会出现超过一个 gap 的空洞", () => {
+    const ratios = [PORTRAIT, LANDSCAPE, TALL, PORTRAIT, LANDSCAPE, 0.75, PORTRAIT, LANDSCAPE, PORTRAIT, TALL];
+    const result = packMasonry(items(ratios), 3, 900, { alignedSpanOnly: true });
     const byColumn = new Map<number, { top: number; bottom: number }[]>();
 
     for (const placement of result.placements) {
-      const width =
-        placement.span === 2
-          ? masonrySpanWidth(2, result.columnWidth)
-          : result.columnWidth;
+      const width = placement.span === 2 ? masonrySpanWidth(2, result.columnWidth) : result.columnWidth;
       const height = masonryCardHeight(width, ratios[Number(placement.id.slice(1))]);
-      // 横屏卡同时占两列，两边都要登记，否则漏查它和右侧卡片的碰撞
+      // 横屏卡同时占两列，两边都要登记
       const occupiedColumns =
         placement.span === 2 ? [placement.column, placement.column + 1] : [placement.column];
       for (const column of occupiedColumns) {
@@ -178,28 +187,32 @@ describe("packMasonry (dense)", () => {
     for (const list of byColumn.values()) {
       list.sort((a, b) => a.top - b.top);
       for (let i = 1; i < list.length; i += 1) {
+        // 既不能重叠，也不能出现比正常间距更大的洞
         expect(list[i].top).toBeGreaterThanOrEqual(list[i - 1].bottom + MASONRY_GAP - 1e-6);
+        expect(list[i].top).toBeLessThanOrEqual(list[i - 1].bottom + MASONRY_GAP + 0.5);
       }
     }
   });
 
-  it("容器高度 = 最高卡片的底沿（末尾不多算间距）", () => {
-    const result = packMasonry(items(Array(7).fill(PORTRAIT)), 3, 700, { dense: true });
+  it("容器高度 = 最高列的底部减去末尾间距", () => {
+    const result = packMasonry(items(Array(7).fill(PORTRAIT)), 3, 700, { alignedSpanOnly: true });
     const singleHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
     expect(result.height).toBeCloseTo(singleHeight * 3 + MASONRY_GAP * 2);
   });
 
   it("空列表 / 非法宽度仍返回空布局", () => {
-    expect(packMasonry([], 3, 700, { dense: true }).placements).toHaveLength(0);
-    expect(packMasonry(items([PORTRAIT]), 3, 0, { dense: true }).placements).toHaveLength(0);
+    expect(packMasonry([], 3, 700, { alignedSpanOnly: true }).placements).toHaveLength(0);
+    expect(packMasonry(items([PORTRAIT]), 3, 0, { alignedSpanOnly: true }).placements).toHaveLength(0);
   });
 
   it("只有一列时横屏卡不跨列", () => {
-    expect(packMasonry(items([LANDSCAPE]), 1, 300, { dense: true }).placements[0].span).toBe(1);
+    expect(packMasonry(items([LANDSCAPE]), 1, 300, { alignedSpanOnly: true }).placements[0].span).toBe(1);
   });
 
   it("输出的 id 与输入一一对应且顺序不变", () => {
-    const result = packMasonry(items([PORTRAIT, LANDSCAPE, PORTRAIT]), 4, 900, { dense: true });
+    const result = packMasonry(items([PORTRAIT, LANDSCAPE, PORTRAIT]), 4, 900, {
+      alignedSpanOnly: true,
+    });
     expect(result.placements.map((p) => p.id)).toEqual(ids(3));
   });
 });
