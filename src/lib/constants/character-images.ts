@@ -1,6 +1,12 @@
 /**
- * 角色名 → 头像图片路径映射
- * 图片位于 public/character-imgs/ 目录
+ * 角色名 → 头像图片路径映射。
+ *
+ * 源文件仍在 public/character-imgs/（备份与本地兜底），但前台实际读取的是 COS
+ * 上的同名对象 —— 头像曾经走「香港 nginx → Vercel hkg1」的同源请求，单张缓存命中
+ * 也要 0.45–0.85s；搬到 COS 后与卡片图同源（~0.2s），也不再占 Vercel 函数。
+ *
+ * 上传脚本：scripts/upload-character-avatars-to-cos.mjs
+ * 以后若挂 CDN，把 NEXT_PUBLIC_CHARACTER_AVATAR_BASE 指到 CDN 域名即可。
  */
 export const characterImageMap: Record<string, string> = {
   // 特殊分类
@@ -81,7 +87,23 @@ export const characterImageMap: Record<string, string> = {
   "心月狐": "/character-imgs/心月狐.webp",
 } as const;
 
-/** 根据角色名获取头像路径，无头像时返回 null */
+/**
+ * 头像存储根地址。必须是 NEXT_PUBLIC_*，因为这个函数会被客户端组件调用；
+ * 默认值就是当前公开预览桶（与卡片图同一个桶，浏览器可复用同一条 HTTP/2 连接）。
+ */
+const CHARACTER_AVATAR_BASE =
+  process.env.NEXT_PUBLIC_CHARACTER_AVATAR_BASE?.trim().replace(/\/+$/, "") ||
+  "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com";
+
+/** 根据角色名获取头像 URL，无头像时返回 null */
 export function getCharacterImagePath(label: string): string | null {
-  return characterImageMap[label] ?? null;
+  const localPath = characterImageMap[label];
+  if (!localPath) return null;
+
+  // 映射表里是 /character-imgs/<原文件名>；COS 键保留中文原名，只做 URL 编码
+  const prefix = "/character-imgs/";
+  if (!localPath.startsWith(prefix)) return localPath;
+
+  const filename = localPath.slice(prefix.length);
+  return `${CHARACTER_AVATAR_BASE}/character-imgs/${encodeURIComponent(filename)}`;
 }
