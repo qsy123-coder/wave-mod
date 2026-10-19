@@ -176,7 +176,6 @@ export function ModsPageClient({
           isLoggedIn={isLoggedIn}
           layoutMode={layoutMode}
           masonryColumns={masonryColumns}
-          // 防洞开关默认开启（见 ModsInfiniteGrid 的 alignedSpanOnly）：所有视图都不留大洞
           onCardClick={openDrawer}
           onStatusChange={handleStatusChange}
         />
