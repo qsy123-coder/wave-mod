@@ -174,14 +174,14 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
   return (
     <header ref={headerRef} className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }} onClick={handleHeaderNavClick}>
       {topBar}
-      <div ref={navRowRef} className="mx-auto flex w-full max-w-[1680px] items-center gap-3 px-4 py-2 sm:px-6 lg:px-8">
+      <div ref={navRowRef} className="mx-auto flex w-full max-w-[1680px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
         {/* 左侧组：Logo + 游戏切换 + 导航 */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
         <MotionReveal delay={0.02} rotate={-2}>
           <Link
             href="/"
             prefetch={false}
-            className="neo-card flex shrink-0 -rotate-1 items-center gap-1.5 px-2.5 py-1"
+            className="neo-card flex shrink-0 -rotate-1 items-center gap-1.5 px-3 py-1.5"
             style={{ background: "var(--neo-accent)" }}
           >
             <span className="flex size-7 items-center justify-center border-[3px] border-black bg-white text-xs font-black text-black">
@@ -198,7 +198,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
 
         <MotionReveal delay={0.04} rotate={1}>
           <DropdownMenu>
-            <DropdownMenuTrigger className="hidden border-[3px] border-black bg-white px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#000] md:inline-flex md:items-center md:gap-1.5 md:whitespace-nowrap">
+            <DropdownMenuTrigger className="hidden border-[3px] border-black bg-white px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#000] md:inline-flex md:items-center md:gap-1.5 md:whitespace-nowrap">
               <Gamepad2 className="size-3" />游戏切换
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56 border-4 border-black bg-[var(--neo-panel)] p-2 text-black shadow-[8px_8px_0px_0px_#000]" onClick={handleHeaderNavClick}>
@@ -238,26 +238,26 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
             就发出约 50 个预取请求、67 KB，和首屏图抢同一条链路，把 LCP 从
             ~0.8s 推到 ~10s（2026-10-16，本地生产构建 + CDP 模拟 150ms RTT / 4Mbps）。
             站内已有导航骨架屏兜底（PageLoadingOverlay），点击后的等待感不会更差。 */}
-        <nav className="hidden items-center gap-1 xl:flex">
+        <nav className="hidden items-center gap-2 min-[1360px]:flex">
           {isAdminRoute ? (
             <>
               <MotionReveal delay={0.06} rotate={2}>
-                <Link href="/admin/mods" className="border-2 border-transparent px-2 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap rotate-1" style={{ background: "transparent" }}>
+                <Link href="/admin/mods" className="border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap rotate-1" style={{ background: "transparent" }}>
                   管理列表
                 </Link>
               </MotionReveal>
               <MotionReveal delay={0.1} rotate={-2}>
-                <Link href="/admin/upload" className="border-2 border-transparent px-2 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap -rotate-1" style={{ background: "var(--neo-nav-pill)" }}>
+                <Link href="/admin/upload" className="border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap -rotate-1" style={{ background: "var(--neo-nav-pill)" }}>
                   上传页面
                 </Link>
               </MotionReveal>
               <MotionReveal delay={0.12} rotate={3}>
-                <Link href="/admin/tutorial" className="border-2 border-transparent px-2 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap rotate-2" style={{ background: "var(--neo-nav-pill)" }}>
+                <Link href="/admin/tutorial" className="border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap rotate-2" style={{ background: "var(--neo-nav-pill)" }}>
                   教程管理
                 </Link>
               </MotionReveal>
               <MotionReveal delay={0.14} rotate={2}>
-                <Link href="/" className="border-2 border-transparent px-2 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap rotate-1" style={{ background: "transparent" }}>
+                <Link href="/" className="border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap rotate-1" style={{ background: "transparent" }}>
                   返回前台
                 </Link>
               </MotionReveal>
@@ -269,7 +269,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                   href={item.href}
                   prefetch={false}
                   onClick={() => handleGalleryEntry(item.href)}
-                  className={`border-2 border-transparent px-2 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
+                  className={`border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
                   style={{ background: index % 2 === 0 ? "transparent" : "var(--neo-nav-pill)" }}
                 >
                   {item.label}
@@ -288,17 +288,17 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
         </MotionReveal>
 
         {/* 右侧组：主题切换 + 按钮 */}
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2.5">
         <ThemeToggle />
 
         {isZzzRoute && <LayoutStyleToggle variant="neo" />}
 
-        <div className="hidden shrink-0 items-center gap-2 lg:flex">
+        <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
           {/* 前台用户链接：后台路由隐藏 */}
           {!isAdminRoute && (
             <>
               <MotionReveal delay={0.18} rotate={1}>
-                <Link href="/favorites" prefetch={false} className="neo-button-outline inline-flex items-center gap-1 px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
+                <Link href="/favorites" prefetch={false} className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
                   <Heart className="size-3" />
                   收藏
                 </Link>
@@ -306,7 +306,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
               {/* 管理员专属入口：与后台守卫同源判定，非管理员不渲染 */}
               {isAdmin && (
                 <MotionReveal delay={0.19} rotate={1}>
-                  <Link href="/admin/mods" className="neo-button-secondary inline-flex items-center gap-1 px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
+                  <Link href="/admin/mods" className="neo-button-secondary inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
                     <LayoutDashboard className="size-3" />
                     管理列表
                   </Link>
@@ -314,7 +314,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
               )}
               {isAdmin && (
                 <MotionReveal delay={0.2} rotate={-1}>
-                  <Link href="/admin/upload" className="neo-button-outline inline-flex items-center gap-1 px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
+                  <Link href="/admin/upload" className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
                     <UploadCloud className="size-3" />
                     上传
               </Link>
@@ -327,20 +327,20 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
               <MotionReveal delay={0.2} rotate={-1}>
                 {isLoggedIn ? (
                   <form action={signOutAction}>
-                    <button type="submit" className="neo-button-outline inline-flex items-center gap-1 px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
+                    <button type="submit" className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
                       <LogOut className="size-3" />
                       退出
                     </button>
                   </form>
                 ) : (
-                  <Link href={loginHref} prefetch={false} onClick={() => handleLoginEntry(loginHref)} className="neo-button-outline inline-flex items-center gap-1 px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
+                  <Link href={loginHref} prefetch={false} onClick={() => handleLoginEntry(loginHref)} className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
                     <LogIn className="size-3" />
                     登录
                   </Link>
                 )}
               </MotionReveal>
               <MotionReveal delay={0.22} rotate={-1}>
-                <Link href="/mods" prefetch={false} className="neo-button-primary inline-flex -rotate-1 items-center gap-1 px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
+                <Link href="/mods" prefetch={false} className="neo-button-primary inline-flex -rotate-1 items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
                   <Sparkles className="size-3" />
                   直链下载
                 </Link>
@@ -351,7 +351,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
           {isAdminRoute && (
             <MotionReveal delay={0.2} rotate={-1}>
               <form action={signOutAction}>
-                <button type="submit" className="neo-button-outline inline-flex items-center gap-1 px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
+                <button type="submit" className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
                   <LogOut className="size-3" />
                   退出登录
                 </button>
@@ -363,7 +363,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger
-            className="neo-button-outline ml-auto inline-flex items-center justify-center p-1.5 xl:hidden"
+            className="neo-button-outline ml-auto inline-flex items-center justify-center p-2 min-[1360px]:hidden"
             aria-label="打开移动端导航"
           >
             <Menu className="size-4" />

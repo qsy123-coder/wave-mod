@@ -13,7 +13,7 @@ import {
   masonrySpanWidth,
   packMasonry,
 } from "@/components/features/mods/list/masonry-packing";
-import { DESKTOP_DEFAULT_COLUMNS, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
+import { DESKTOP_DEFAULT_COLUMNS, columnOptionsForWidth, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
@@ -259,19 +259,37 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   // 读不到用户选择时必须返回 null 而不是兜一个数字，否则这里右边永远取不到值，
   // 自适应就是死代码（这正是修复前手机上一屏 5 列、预览图只有 23px 的原因）。
   //
+  // ⚠️ 显式选过的列数还必须按**当前档位**重新校验：localStorage 里的 6 列偏好
+  // 只在挂载时按当时的宽度过滤一次，之后窗口缩到手机宽度（旋转屏幕、拉伸窗口、
+  // 切到移动端模拟器）不会再校验 —— 光写 `masonryColumns ?? autoColCount` 会把
+  // 6 列原样铺到 390px 屏上（2026-10-19 用户反馈「手机端还是会出现一行 6 个」）。
+  // 所以每次 resize 都按当前宽度算允许集合，越档的偏好退回自适应值。
+  //
   // 用**视口宽度**判定，而不是绑在网格容器上的 ResizeObserver：加载中渲染的是骨架
   // 分支，真正的网格容器还没挂上，观察器建不起来 —— 骨架会先按 5 列铺开，数据到达
   // 后才跳成 2 列。视口与容器在手机上只差两侧 padding，对 640px 这个断点没有影响。
-  const [autoColCount, setAutoColCount] = useState<MasonryColumns>(DESKTOP_DEFAULT_COLUMNS);
-  const colCount = masonryColumns ?? autoColCount;
+  const [autoColState, setAutoColState] = useState<{ width: number; count: MasonryColumns }>({
+    width: Number.POSITIVE_INFINITY,
+    count: DESKTOP_DEFAULT_COLUMNS,
+  });
 
   useEffect(() => {
     if (!isMasonry) return;
-    const update = () => setAutoColCount(defaultColumnsForWidth(window.innerWidth));
+    const update = () => {
+      const width = window.innerWidth;
+      setAutoColState((prev) =>
+        prev.width === width ? prev : { width, count: defaultColumnsForWidth(width) },
+      );
+    };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, [isMasonry]);
+
+  const colCount =
+    masonryColumns && columnOptionsForWidth(autoColState.width).includes(masonryColumns)
+      ? masonryColumns
+      : autoColState.count;
 
   /**
    * ---- 量容器宽度 ----

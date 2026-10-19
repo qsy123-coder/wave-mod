@@ -174,7 +174,12 @@ export function ModsToolbar({
     return () => window.removeEventListener("resize", update);
   }, []);
   const columnOptions = columnOptionsForWidth(viewportWidth);
-  const activeColumns = masonryColumns ?? defaultColumnsForWidth(viewportWidth);
+  // 高亮同样要按当前档位校验：桌面存的 6 列切到手机宽度后不再生效（网格会退回 2 列），
+  // 这时如果还拿 masonryColumns 去比，六个档位里一个都不会亮，看不出当前几列。
+  const activeColumns =
+    masonryColumns && columnOptions.includes(masonryColumns)
+      ? masonryColumns
+      : defaultColumnsForWidth(viewportWidth);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   // 本地已提交搜索词：提交瞬间用于渲染「搜索: xxx」筛选条，随后与服务端 activeQuery 对齐

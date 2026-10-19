@@ -51,11 +51,11 @@
      ResizeObserver 按实测高度覆盖（横条开/关、窄屏导航换行都会改变它）。
      ⚠️ 减错了不会报错，只会让文档比视口高出一截 —— 刷新时浏览器还原那个滚动
      偏移，整块内容就永久上移、藏在 sticky header 底下（2026-09-22 用户报告）。 */
-  --site-header-h: 64px;
+  --site-header-h: 76px;
   /* 首页 Hero 卡的垂直居中基准高度：仅计算"导航栏行"，不含顶部横条。
      横条开/关只改变 --site-header-h，不改变导航栏高度；Hero 卡用此基准居中，
      使大卡片与导航栏的间距在横条开关两种状态下保持恒定。 */
-  --home-hero-h: 64px;
+  --home-hero-h: 76px;
   --background: #3a2418;
   --foreground: #fffdf5;
   --card: #fffdf5;
