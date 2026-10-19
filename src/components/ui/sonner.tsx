@@ -6,10 +6,12 @@ import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme } = useTheme()
+  // 深色画布的两套主题：toast 的图标/关闭按钮用深色样式，底色仍由下面的变量覆盖
+  const darkCanvas = theme === "theme-night-neon" || theme === "theme-sunset-flyer"
 
   return (
     <Sonner
-      theme={theme === "theme-neon-night" ? "dark" : "light"}
+      theme={darkCanvas ? "dark" : "light"}
       className="toaster group"
       icons={{
         success: (

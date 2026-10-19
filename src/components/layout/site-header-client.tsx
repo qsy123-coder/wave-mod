@@ -184,7 +184,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
             className="neo-card flex -rotate-1 items-center gap-2 px-3 py-2"
             style={{ background: "var(--neo-accent)" }}
           >
-            <span className="flex size-9 items-center justify-center border-[3px] border-black bg-white text-sm font-black">
+            <span className="flex size-9 items-center justify-center border-[3px] border-black bg-white text-sm font-black text-black">
               X
             </span>
             <div className="min-w-0">
@@ -201,7 +201,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
             <DropdownMenuTrigger className="hidden border-[3px] border-black bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] md:inline-flex md:items-center md:gap-1.5">
               <Gamepad2 className="size-3.5" />游戏切换
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]" onClick={handleHeaderNavClick}>
+            <DropdownMenuContent align="start" className="w-56 border-4 border-black bg-[var(--neo-panel)] p-2 text-black shadow-[8px_8px_0px_0px_#000]" onClick={handleHeaderNavClick}>
               <DropdownMenuLabel className="text-xs font-black uppercase tracking-[0.16em] text-black/60">选择分站</DropdownMenuLabel>
               <DropdownMenuSeparator className="my-2 h-1 bg-black" />
               {games.map((game, index) => {
@@ -216,7 +216,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     className={`flex w-full items-center justify-between border-4 border-black px-3 py-2 text-sm font-black text-black shadow-[4px_4px_0px_0px_#000] ${
                       isActive
                         ? "bg-black text-white border-white"
-                        : index % 3 === 0 ? "bg-[#ffd84f]" : index % 3 === 1 ? "bg-[#ff7a7a]" : "bg-[#bcaeff]"
+                        : index % 3 === 0 ? "bg-[var(--neo-secondary)]" : index % 3 === 1 ? "bg-[var(--neo-accent)]" : "bg-[var(--neo-muted)]"
                     }`}
                   >
                     <span>{game.name} {isActive ? "✓" : ""}</span>
@@ -242,22 +242,22 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
           {isAdminRoute ? (
             <>
               <MotionReveal delay={0.06} rotate={2}>
-                <Link href="/admin/mods" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] rotate-1" style={{ background: "transparent" }}>
+                <Link href="/admin/mods" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] rotate-1" style={{ background: "transparent" }}>
                   管理列表
                 </Link>
               </MotionReveal>
               <MotionReveal delay={0.1} rotate={-2}>
-                <Link href="/admin/upload" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] -rotate-1" style={{ background: "rgba(255,255,255,0.35)" }}>
+                <Link href="/admin/upload" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] -rotate-1" style={{ background: "var(--neo-nav-pill)" }}>
                   上传页面
                 </Link>
               </MotionReveal>
               <MotionReveal delay={0.12} rotate={3}>
-                <Link href="/admin/tutorial" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] rotate-2" style={{ background: "rgba(255,255,255,0.2)" }}>
+                <Link href="/admin/tutorial" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] rotate-2" style={{ background: "var(--neo-nav-pill)" }}>
                   教程管理
                 </Link>
               </MotionReveal>
               <MotionReveal delay={0.14} rotate={2}>
-                <Link href="/" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] rotate-1" style={{ background: "transparent" }}>
+                <Link href="/" className="border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] rotate-1" style={{ background: "transparent" }}>
                   返回前台
                 </Link>
               </MotionReveal>
@@ -269,8 +269,8 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                   href={item.href}
                   prefetch={false}
                   onClick={() => handleGalleryEntry(item.href)}
-                  className={`border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-black hover:border-black hover:shadow-[4px_4px_0px_0px_#000] ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
-                  style={{ background: index % 2 === 0 ? "transparent" : "rgba(255,255,255,0.35)" }}
+                  className={`border-2 border-transparent px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
+                  style={{ background: index % 2 === 0 ? "transparent" : "var(--neo-nav-pill)" }}
                 >
                   {item.label}
                 </Link>
@@ -393,7 +393,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
               </Suspense>
 
               <nav className="grid gap-3">
-                <div className="border-4 border-black bg-[#ffd84f] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
+                <div className="border-4 border-black bg-[var(--neo-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
                   游戏切换
                 </div>
                 {games.map((game, index) => {
@@ -408,7 +408,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     className={`border-4 border-black px-4 py-3 text-sm font-black uppercase tracking-[0.14em] shadow-[6px_6px_0px_0px_#000] ${
                       isActive
                         ? "bg-black text-white border-white"
-                        : index % 3 === 0 ? "bg-[#ffd84f] text-black" : index % 3 === 1 ? "bg-[#ff7a7a] text-black" : "bg-[#bcaeff] text-black"
+                        : index % 3 === 0 ? "bg-[var(--neo-secondary)] text-black" : index % 3 === 1 ? "bg-[var(--neo-accent)] text-black" : "bg-[var(--neo-muted)] text-black"
                     }`}
                   >
                     {game.name} {isActive ? "✓" : ""}
@@ -435,7 +435,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                   也挂在侧栏内部跟着被隐藏，所以这里必须补一份。
                   每一项是一个**具体角色**，点了进该角色的资源列表（/mods?character=…）。 */}
               <nav className="grid gap-3">
-                <div className="border-4 border-black bg-[#ffd84f] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
+                <div className="border-4 border-black bg-[var(--neo-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
                   全部角色分类
                 </div>
                 <MobileCharacterNav open={mobileOpen} onNavigate={() => setMobileOpen(false)} />

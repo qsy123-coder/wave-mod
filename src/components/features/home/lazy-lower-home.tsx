@@ -120,7 +120,7 @@ export function LazyHomeLower() {
       <div ref={ref} className="flex min-h-full items-center justify-center">
         <div className="space-y-4 text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-black border-t-[var(--neo-accent)]" />
-          <p className="text-sm font-black text-white/60">加载精选内容...</p>
+          <p className="text-sm font-black text-[var(--neo-on-canvas)] opacity-60">加载精选内容...</p>
         </div>
       </div>
     );

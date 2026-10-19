@@ -14,7 +14,7 @@ export default function SiteLayout({
       滚动，刷新时浏览器还原那个偏移 —— 又绕回「内容上移、藏到导航栏底下」。
       内容页都比视口高，min-height 根本不起作用，所以这个改动只影响短页面。
     */
-    <div className="min-h-dvh bg-[#3a2418] bg-[radial-gradient(circle,rgba(0,0,0,0.42)_1.5px,transparent_1.6px),linear-gradient(to_right,rgba(0,0,0,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.14)_1px,transparent_1px)] bg-[size:24px_24px,44px_44px,44px_44px]">
+    <div className="min-h-dvh bg-[var(--neo-dark)] bg-[radial-gradient(circle,var(--neo-canvas-dot)_1.5px,transparent_1.6px),linear-gradient(to_right,var(--neo-canvas-line)_1px,transparent_1px),linear-gradient(to_bottom,var(--neo-canvas-line)_1px,transparent_1px)] bg-[size:24px_24px,44px_44px,44px_44px]">
       {/*
         这里以前是 <Suspense fallback={<SiteHeaderSkeleton />}><SiteHeader /></Suspense>。
         不再需要：那个边界的唯一作用是接住 `getCurrentUser()` 的挂起，而登录态已经

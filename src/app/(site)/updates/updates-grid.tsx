@@ -62,7 +62,7 @@ export function UpdatesGrid({ days }: UpdatesGridProps) {
                       onCardClick={openDrawer}
                       isLoggedIn={isLoggedIn}
                       variant="list"
-                      className="bg-[#fff8ef] p-2.5"
+                      className="bg-[var(--neo-panel)] p-2.5"
                       imageAspectClassName="aspect-[5/6] sm:aspect-[4/5]"
                       imagePriority={dayIdx === 0 && idx < 4}
                       imageFetchPriority={dayIdx === 0 && idx < 4 ? "high" : "auto"}
@@ -70,7 +70,7 @@ export function UpdatesGrid({ days }: UpdatesGridProps) {
                       mediaTopRight={
                         mod.downloadUrl ? (
                           <div className="flex items-center gap-1">
-                            <span className="inline-flex items-center border-2 border-black bg-[#4ade80] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
+                            <span className="inline-flex items-center border-2 border-black bg-[var(--neo-success)] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
                               直链下载
                             </span>
                           </div>

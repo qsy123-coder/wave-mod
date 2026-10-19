@@ -8,8 +8,16 @@ import type { ThemeName } from "@/lib/theme/constants";
 
 type ThemeOption = {
   id: ThemeName;
+  /** 英文代号（按钮与选项标题） */
   label: string;
+  /** 中文名（副标题） */
+  zh: string;
+  /** 页面大底色（色板预览第一格） */
+  background: string;
+  /** 主色（色板预览第二格） */
   color: string;
+  /** 强调/辅色（色板预览第三格） */
+  secondary: string;
   panel: string;
   text: string;
   desc: string;
@@ -26,24 +34,53 @@ type ThemeOption = {
 const THEME_OPTION_BY_ID: Record<ThemeName, Omit<ThemeOption, "id">> = {
   "theme-arcade": {
     label: "Arcade",
+    zh: "街机奶油",
+    background: "#F3E8D3",
     color: "#FF6B6B",
+    secondary: "#FFD93D",
     panel: "#FFFDF5",
-    text: "#000000",
-    desc: "奶油底 + 红黄街机风",
-  },
-  "theme-neon-night": {
-    label: "Neon",
-    color: "#00F0FF",
-    panel: "#111827",
-    text: "#FFFFFF",
-    desc: "高对比冷色夜景霓虹",
+    text: "#15111F",
+    desc: "奶油纸底 + 红黄街机风",
   },
   "theme-sunset-flyer": {
     label: "Sunset",
-    color: "#FF9B54",
-    panel: "#2B1B17",
-    text: "#FFF7ED",
-    desc: "落日海报感暖色拼贴",
+    zh: "落日",
+    background: "#2B1512",
+    color: "#FF6B57",
+    secondary: "#FFC15E",
+    panel: "#FFF4EA",
+    text: "#000000",
+    desc: "深酒红底 + 落日橙金",
+  },
+  "theme-night-neon": {
+    label: "Night Neon",
+    zh: "暗夜霓虹",
+    background: "#05070C",
+    color: "#39FF88",
+    secondary: "#22D3EE",
+    panel: "#E9FFF4",
+    text: "#06110C",
+    desc: "近黑底 + 荧光绿电青",
+  },
+  "theme-macaron": {
+    label: "Macaron",
+    zh: "糖果马卡龙",
+    background: "#FFF1F6",
+    color: "#FF8FB1",
+    secondary: "#A7E8D2",
+    panel: "#FFFFFF",
+    text: "#3A2430",
+    desc: "奶粉底 + 玫瑰薄荷",
+  },
+  "theme-haze-blue": {
+    label: "Haze",
+    zh: "雾霾蓝灰",
+    background: "#DCE3EA",
+    color: "#8FA3B5",
+    secondary: "#B9C6D2",
+    panel: "#F4F7FA",
+    text: "#1F2933",
+    desc: "低饱和蓝灰 + 雾面",
   },
 };
 
@@ -101,8 +138,8 @@ function ThemeDropdown() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+12px)] z-50 w-[320px] border-4 border-black bg-[#FFFDF5] p-3 shadow-[10px_10px_0px_0px_#000]">
-          <div className="mb-3 border-4 border-black bg-[#FFD93D] px-3 py-2 shadow-[4px_4px_0px_0px_#000]">
+        <div className="absolute right-0 top-[calc(100%+12px)] z-50 w-[340px] border-4 border-black bg-[var(--neo-panel)] p-3 text-black shadow-[10px_10px_0px_0px_#000]">
+          <div className="mb-3 border-4 border-black bg-[var(--neo-secondary)] px-3 py-2 text-black shadow-[4px_4px_0px_0px_#000]">
             <p className="text-[10px] font-black uppercase tracking-[0.18em]">Theme Switcher</p>
             <p className="mt-1 text-sm font-black uppercase">选择页面风格</p>
           </div>
@@ -124,11 +161,18 @@ function ThemeDropdown() {
                   aria-pressed={isActive}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-black uppercase tracking-[0.14em]">{item.label}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black uppercase tracking-[0.14em]">
+                        {item.label}
+                        <span className="ml-1.5 text-[10px] font-bold normal-case tracking-normal opacity-65">{item.zh}</span>
+                      </p>
                       <p className="mt-1 text-[11px] font-bold leading-5 opacity-80">{item.desc}</p>
                     </div>
-                    <div className="size-8 shrink-0 border-4 border-black shadow-[3px_3px_0px_0px_#000]" style={{ background: item.color }} />
+                    <div className="flex shrink-0 gap-1" aria-hidden>
+                      <span className="size-6 border-[3px] border-black shadow-[2px_2px_0px_0px_#000]" style={{ background: item.background }} />
+                      <span className="size-6 border-[3px] border-black shadow-[2px_2px_0px_0px_#000]" style={{ background: item.color }} />
+                      <span className="size-6 border-[3px] border-black shadow-[2px_2px_0px_0px_#000]" style={{ background: item.secondary }} />
+                    </div>
                   </div>
                 </button>
               );
@@ -152,7 +196,7 @@ function ThemeInlinePicker() {
 
   return (
     <div className="grid gap-3">
-      <div className="border-4 border-black bg-[#FFD93D] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
+      <div className="border-4 border-black bg-[var(--neo-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
         页面风格
       </div>
       {THEME_OPTIONS.map((item, index) => {
@@ -167,12 +211,19 @@ function ThemeInlinePicker() {
             style={{ background: item.panel, color: item.text }}
           >
             <span className="min-w-0">
-              <span className="block truncate">{item.label}</span>
+              <span className="block truncate">
+                {item.label}
+                <span className="ml-1.5 text-[10px] opacity-65">{item.zh}</span>
+              </span>
               <span className="mt-0.5 block text-[11px] font-bold normal-case tracking-normal opacity-80">
                 {item.desc}
               </span>
             </span>
-            <span className="size-8 shrink-0 border-4 border-black shadow-[3px_3px_0px_0px_#000]" style={{ background: item.color }} />
+            <span className="flex shrink-0 gap-1" aria-hidden>
+              <span className="size-6 border-[3px] border-black shadow-[2px_2px_0px_0px_#000]" style={{ background: item.background }} />
+              <span className="size-6 border-[3px] border-black shadow-[2px_2px_0px_0px_#000]" style={{ background: item.color }} />
+              <span className="size-6 border-[3px] border-black shadow-[2px_2px_0px_0px_#000]" style={{ background: item.secondary }} />
+            </span>
           </button>
         );
       })}

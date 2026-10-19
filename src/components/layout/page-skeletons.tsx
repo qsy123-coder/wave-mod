@@ -188,12 +188,12 @@ function GuideSkeleton() {
       <SkeletonBar className="h-40 w-full shrink-0 bg-[var(--neo-muted)]" />
       <SkeletonBar className="h-24 w-full shrink-0" />
       <div className="flex min-h-0 flex-1 gap-4">
-        <div className="hidden w-64 shrink-0 flex-col gap-2 border-4 border-black bg-[#fff8ef] p-3 shadow-[6px_6px_0px_0px_#000] lg:flex">
+        <div className="hidden w-64 shrink-0 flex-col gap-2 border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[6px_6px_0px_0px_#000] lg:flex">
           {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonBar key={i} className={`h-10 w-full ${i === 0 ? "bg-[#ff7a7a]" : "bg-white"}`} />
+            <SkeletonBar key={i} className={`h-10 w-full ${i === 0 ? "bg-[var(--neo-accent)]" : "bg-white"}`} />
           ))}
         </div>
-        <div className="min-w-0 flex-1 space-y-3 border-4 border-black bg-[#fff8ef] p-5 shadow-[6px_6px_0px_0px_#000]">
+        <div className="min-w-0 flex-1 space-y-3 border-4 border-black bg-[var(--neo-panel)] p-5 shadow-[6px_6px_0px_0px_#000]">
           {Array.from({ length: 5 }).map((_, i) => (
             <SkeletonBar key={i} className={`h-12 w-full ${i % 2 === 0 ? "bg-white" : "bg-white/65"}`} />
           ))}
@@ -219,7 +219,7 @@ function UpdatesSkeleton() {
         {/* 日期侧栏，与 DailyDateSidebar 同为 w-[180px] 且 lg 以下隐藏 */}
         <div className="hidden w-[180px] shrink-0 flex-col gap-2 lg:flex">
           {Array.from({ length: 8 }).map((_, i) => (
-            <SkeletonBar key={i} className={`h-12 w-full ${i === 0 ? "bg-[#ff7a7a]" : "bg-white"}`} />
+            <SkeletonBar key={i} className={`h-12 w-full ${i === 0 ? "bg-[var(--neo-accent)]" : "bg-white"}`} />
           ))}
         </div>
 
@@ -234,7 +234,7 @@ function UpdatesSkeleton() {
               </div>
               <div className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="neo-card bg-[#fff8ef] p-2.5">
+                  <div key={i} className="neo-card bg-[var(--neo-panel)] p-2.5">
                     <div className="overflow-hidden border-4 border-black bg-black">
                       <div className="aspect-[5/6] w-full animate-pulse bg-[var(--neo-muted)] sm:aspect-[4/5]" />
                     </div>
@@ -281,7 +281,7 @@ function SupportSkeleton() {
           </div>
         ))}
       </div>
-      <div className="space-y-2 border-4 border-black bg-[#fff8ef] p-5 shadow-[8px_8px_0px_0px_#000]">
+      <div className="space-y-2 border-4 border-black bg-[var(--neo-panel)] p-5 shadow-[8px_8px_0px_0px_#000]">
         <SkeletonBar className="h-5 w-24" />
         <SkeletonBar className="h-4 w-full" />
         <SkeletonBar className="h-4 w-3/4" />
@@ -298,11 +298,11 @@ function TroubleshootingSkeleton() {
         <SkeletonBar className="h-9 w-64 bg-white" />
         <SkeletonBar className="mt-3 h-4 w-80 max-w-full bg-white/80" />
       </div>
-      <div className="flex border-4 border-black bg-[#fff8ef] shadow-[8px_8px_0px_0px_#000]">
+      <div className="flex border-4 border-black bg-[var(--neo-panel)] shadow-[8px_8px_0px_0px_#000]">
         {/* 左 TOC 侧栏，宽度照 TroubleshootingContent 的默认 sidebarWidth=340 */}
         <div className="hidden w-[340px] shrink-0 flex-col gap-2 p-4 lg:flex">
           {Array.from({ length: 7 }).map((_, i) => (
-            <SkeletonBar key={i} className={`h-10 w-full ${i === 0 ? "bg-[#ff7a7a]" : "bg-white"}`} />
+            <SkeletonBar key={i} className={`h-10 w-full ${i === 0 ? "bg-[var(--neo-accent)]" : "bg-white"}`} />
           ))}
         </div>
         <div className="hidden w-2 shrink-0 bg-black/80 lg:block" />
@@ -334,7 +334,7 @@ function RankingSkeleton() {
       </div>
       <div className="grid gap-5 xl:grid-cols-3">
         {Array.from({ length: 3 }).map((_, col) => (
-          <div key={col} className="space-y-3 border-4 border-black bg-[#fff8ef] p-4 shadow-[6px_6px_0px_0px_#000]">
+          <div key={col} className="space-y-3 border-4 border-black bg-[var(--neo-panel)] p-4 shadow-[6px_6px_0px_0px_#000]">
             <SkeletonBar className="h-8 w-32 bg-[var(--neo-secondary)]" />
             {Array.from({ length: 5 }).map((_, i) => (
               <SkeletonBar key={i} className="h-11 w-full" />

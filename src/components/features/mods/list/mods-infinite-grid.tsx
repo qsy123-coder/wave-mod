@@ -411,7 +411,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         onCardClick={onCardClick}
         isLoggedIn={isLoggedIn}
         variant="list"
-        className="bg-[#fff8ef] p-2.5"
+        className="bg-[var(--neo-panel)] p-2.5"
         imageAspectClassName={isMasonry ? "auto" : "aspect-[5/6] sm:aspect-[4/5]"}
         imagePriority={idx < 4}
         imageFetchPriority={idx < 4 ? "high" : "auto"}
@@ -422,7 +422,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
           mod.driveLinks.length > 0 ? (
             <CardDownloadAction driveLinks={mod.driveLinks} />
           ) : mod.downloadUrl ? (
-            <span className="inline-flex items-center border-2 border-black bg-[#4ade80] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
+            <span className="inline-flex items-center border-2 border-black bg-[var(--neo-success)] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
               直链下载
             </span>
           ) : undefined
@@ -475,7 +475,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   if (mods.length === 0) {
     return (
       <MotionReveal delay={0.16} y={24} rotate={1}>
-        <section className="neo-card-lg bg-[#fff8ef] p-8 text-black">
+        <section className="neo-card-lg bg-[var(--neo-panel)] p-8 text-black">
           <div className="border-4 border-black bg-white px-5 py-6 shadow-[8px_8px_0px_0px_#000]">
             <p className="neo-label text-black/60">没有匹配内容</p>
             <h2 className="mt-2 text-3xl font-black">当前筛选条件下还没有公开的外观资源。</h2>
@@ -496,7 +496,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
        * 用户会以为搜索把「女仆」当耳旁风。样式沿用列表底部那条「已经翻到底了」。
        */}
       {relaxed ? (
-        <div data-slot="search-relaxed-notice" className="flex flex-wrap items-center gap-2 border-4 border-black bg-[#bcaeff] px-4 py-2.5 text-xs font-black shadow-[4px_4px_0px_0px_#000]">
+        <div data-slot="search-relaxed-notice" className="flex flex-wrap items-center gap-2 border-4 border-black bg-[var(--neo-muted)] px-4 py-2.5 text-xs font-black shadow-[4px_4px_0px_0px_#000]">
           <Search className="size-4 shrink-0" />
           没有精确匹配的结果，以下是包含部分关键词的外观资源
         </div>
@@ -621,7 +621,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
       {!hasNextPage && !isFetchingNextPage ? (
         <div className="flex items-center justify-center py-4">
-          <div className="inline-flex items-center gap-3 border-4 border-black bg-[#ffd84f] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
+          <div className="inline-flex items-center gap-3 border-4 border-black bg-[var(--neo-secondary)] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000]">
             <Search className="size-4" />
             已经翻到底了，试试切换角色或搜索关键词
           </div>

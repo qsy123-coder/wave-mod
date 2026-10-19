@@ -124,10 +124,10 @@ function MobileHomeFeedContent() {
     <section className="px-4 pb-10">
       <div
         data-slot="mobile-character-panel"
-        className="border-4 border-black bg-[#fff8ef] p-3 shadow-[8px_8px_0px_0px_#000]"
+        className="border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[8px_8px_0px_0px_#000]"
       >
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="inline-flex -rotate-1 items-center border-[3px] border-black bg-[#ffd84f] px-3 py-1 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[3px_3px_0px_0px_#000]">
+          <h2 className="inline-flex -rotate-1 items-center border-[3px] border-black bg-[var(--neo-secondary)] px-3 py-1 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[3px_3px_0px_0px_#000]">
             角色分类
           </h2>
           <Link
@@ -170,7 +170,7 @@ function MobileHomeFeedContent() {
             onClick={() => setPickerOpen(true)}
             aria-haspopup="dialog"
             aria-expanded={pickerOpen}
-            className="flex w-[64px] shrink-0 flex-col items-center justify-center gap-1 border-[3px] border-black bg-[#ffd84f] p-1.5 text-center shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+            className="flex w-[64px] shrink-0 flex-col items-center justify-center gap-1 border-[3px] border-black bg-[var(--neo-secondary)] p-1.5 text-center shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
             <Grid3X3 className="size-6" strokeWidth={2.5} />
             <span className="text-[10px] font-black leading-none">全部角色</span>
@@ -196,7 +196,7 @@ function MobileHomeFeedContent() {
               className={cn(
                 "border-[3px] border-black px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
                 sort === option.value
-                  ? "bg-[#ff7a7a] text-black"
+                  ? "bg-[var(--neo-accent)] text-black"
                   : "bg-white text-black/60",
               )}
             >
@@ -264,7 +264,7 @@ function CharacterCell({
       data-slot="mobile-character-item"
       className={cn(
         "flex w-[64px] shrink-0 flex-col items-center gap-1 border-[3px] border-black p-1.5 text-center shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-        active ? "bg-[#ff7a7a] text-black" : "bg-white text-black/70",
+        active ? "bg-[var(--neo-accent)] text-black" : "bg-white text-black/70",
       )}
     >
       {avatarPath ? (
@@ -279,7 +279,7 @@ function CharacterCell({
       ) : (
         <span
           aria-hidden
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-black bg-[#fff8ef] text-sm font-black text-black/55"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-black bg-[var(--neo-panel)] text-sm font-black text-black/55"
         >
           {label.slice(0, 1)}
         </span>
@@ -298,9 +298,9 @@ function CharacterCell({
 function MobileHomeFeedSkeleton() {
   return (
     <section className="px-4 pb-10" aria-hidden>
-      <div className="border-4 border-black bg-[#fff8ef] p-3 shadow-[8px_8px_0px_0px_#000]">
+      <div className="border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[8px_8px_0px_0px_#000]">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="h-8 w-24 animate-pulse border-[3px] border-black bg-[#ffd84f]" />
+          <div className="h-8 w-24 animate-pulse border-[3px] border-black bg-[var(--neo-secondary)]" />
           <div className="h-6 w-20 animate-pulse border-2 border-black bg-white" />
         </div>
         <div className="flex items-stretch gap-2">
@@ -315,7 +315,7 @@ function MobileHomeFeedSkeleton() {
               </div>
             ))}
           </div>
-          <div className="flex w-[64px] shrink-0 flex-col items-center justify-center gap-1 border-[3px] border-black bg-[#ffd84f] p-1.5">
+          <div className="flex w-[64px] shrink-0 flex-col items-center justify-center gap-1 border-[3px] border-black bg-[var(--neo-secondary)] p-1.5">
             <div className="size-6 animate-pulse bg-black/15" />
             <div className="h-2 w-10 animate-pulse bg-black/15" />
           </div>

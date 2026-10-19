@@ -67,7 +67,7 @@ export function DailyTicker({ characters }: DailyTickerProps) {
   );
 
   return (
-    <div className="hidden min-h-[30px] items-center gap-2 bg-black/95 px-4 text-[11px] font-bold text-white md:flex sm:px-6 lg:px-8">
+    <div className="hidden min-h-[30px] items-center gap-2 bg-[var(--neo-ink)] px-4 text-[11px] font-bold text-[var(--neo-panel)] md:flex sm:px-6 lg:px-8">
       {/* 左侧标签 */}
       <div className="flex shrink-0 items-center gap-1.5 border-r-2 border-white/20 pr-3">
         <Sparkles className="size-3 text-[var(--neo-accent)]" />

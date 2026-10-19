@@ -33,6 +33,8 @@
   --color-neo-dark: var(--neo-dark);
   --color-neo-ink: var(--neo-ink);
   --color-neo-search: var(--neo-search);
+  --color-neo-on-canvas: var(--neo-on-canvas);
+  --color-neo-on-nav: var(--neo-on-nav);
   --font-sans: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", "Consolas", monospace;
   --font-heading: "Arial Black", "Segoe UI", "Microsoft YaHei UI", sans-serif;
@@ -54,97 +56,189 @@
      横条开/关只改变 --site-header-h，不改变导航栏高度；Hero 卡用此基准居中，
      使大卡片与导航栏的间距在横条开关两种状态下保持恒定。 */
   --home-hero-h: 74px;
-  --background: #15111f;
-  --foreground: #000000;
-  --card: #fff8ef;
+  --background: #f3e8d3;
+  --foreground: #15111f;
+  --card: #fffdf5;
   --card-foreground: #000000;
-  --popover: #fff8ef;
+  --popover: #fffdf5;
   --popover-foreground: #000000;
-  --primary: #ff7a7a;
+  --primary: #ff6b6b;
   --primary-foreground: #000000;
-  --secondary: #ffd84f;
+  --secondary: #ffd93d;
   --secondary-foreground: #000000;
-  --muted: #cbbcff;
+  --muted: #c4b5fd;
   --muted-foreground: #000000;
-  --accent: #ff7a7a;
+  --accent: #ff6b6b;
   --accent-foreground: #000000;
   --destructive: #ff5470;
   --border: #000000;
   --input: #ffffff;
   --ring: #000000;
-  --neo-accent: #ff7a7a;
-  --neo-secondary: #ffd84f;
-  --neo-muted: #bcaeff;
-  --neo-panel: #fff8ef;
+  --neo-accent: #ff6b6b;
+  --neo-secondary: #ffd93d;
+  --neo-muted: #c4b5fd;
+  --neo-panel: #fffdf5;
   --neo-surface: #ffffff;
-  --neo-nav: #ffd84f;
-  --neo-footer: #bcaeff;
-  --neo-dark: #15111f;
+  --neo-nav: #ffd93d;
+  --neo-footer: #c4b5fd;
+  --neo-dark: #f3e8d3;
   --neo-search: #ffffff;
   --neo-ink: #000000;
+  --neo-on-canvas: #15111f;
+  --neo-on-nav: #000000;
+  --neo-nav-pill: rgba(255, 255, 255, 0.35);
+  --neo-success: #4ade80;
+  --neo-canvas-dot: rgba(21, 17, 31, 0.16);
+  --neo-canvas-line: rgba(21, 17, 31, 0.07);
   --radius: 0rem;
 }
 
-.theme-neon-night {
-  --background: #0b1420;
-  --foreground: #000000;
-  --card: #ecfff5;
-  --card-foreground: #000000;
-  --popover: #ecfff5;
-  --popover-foreground: #000000;
-  --primary: #52ff8d;
+.theme-night-neon {
+  --background: #05070c;
+  --foreground: #e8fff6;
+  --card: #e9fff4;
+  --card-foreground: #06110c;
+  --popover: #e9fff4;
+  --popover-foreground: #06110c;
+  --primary: #39ff88;
   --primary-foreground: #000000;
-  --secondary: #5de8ff;
+  --secondary: #22d3ee;
   --secondary-foreground: #000000;
-  --muted: #d9ff4d;
+  --muted: #9d8cff;
   --muted-foreground: #000000;
-  --accent: #52ff8d;
+  --accent: #39ff88;
   --accent-foreground: #000000;
   --destructive: #ff5470;
   --border: #000000;
   --input: #ffffff;
   --ring: #000000;
-  --neo-accent: #52ff8d;
-  --neo-secondary: #5de8ff;
-  --neo-muted: #d9ff4d;
-  --neo-panel: #ecfff5;
+  --neo-accent: #39ff88;
+  --neo-secondary: #22d3ee;
+  --neo-muted: #9d8cff;
+  --neo-panel: #e9fff4;
   --neo-surface: #ffffff;
-  --neo-nav: #5de8ff;
-  --neo-footer: #52ff8d;
-  --neo-dark: #0b1420;
+  --neo-nav: #0e1a22;
+  --neo-footer: #39ff88;
+  --neo-dark: #05070c;
+  --neo-search: #e9fff4;
+  --neo-ink: #06110c;
+  --neo-on-canvas: #e8fff6;
+  --neo-on-nav: #e8fff6;
+  --neo-nav-pill: rgba(57, 255, 136, 0.16);
+  --neo-success: #39ff88;
+  --neo-canvas-dot: rgba(57, 255, 136, 0.14);
+  --neo-canvas-line: rgba(34, 211, 238, 0.07);
+}
+
+.theme-macaron {
+  --background: #fff1f6;
+  --foreground: #3a2430;
+  --card: #ffffff;
+  --card-foreground: #3a2430;
+  --popover: #ffffff;
+  --popover-foreground: #3a2430;
+  --primary: #ff8fb1;
+  --primary-foreground: #000000;
+  --secondary: #a7e8d2;
+  --secondary-foreground: #000000;
+  --muted: #ffe3a8;
+  --muted-foreground: #000000;
+  --accent: #ff8fb1;
+  --accent-foreground: #000000;
+  --destructive: #ff5470;
+  --border: #000000;
+  --input: #ffffff;
+  --ring: #000000;
+  --neo-accent: #ff8fb1;
+  --neo-secondary: #a7e8d2;
+  --neo-muted: #ffe3a8;
+  --neo-panel: #ffffff;
+  --neo-surface: #ffffff;
+  --neo-nav: #ffc8dd;
+  --neo-footer: #a7e8d2;
+  --neo-dark: #fff1f6;
   --neo-search: #ffffff;
-  --neo-ink: #000000;
+  --neo-ink: #3a2430;
+  --neo-on-canvas: #3a2430;
+  --neo-on-nav: #3a2430;
+  --neo-nav-pill: rgba(255, 255, 255, 0.45);
+  --neo-success: #7fd9b8;
+  --neo-canvas-dot: rgba(58, 36, 48, 0.12);
+  --neo-canvas-line: rgba(58, 36, 48, 0.06);
+}
+
+.theme-haze-blue {
+  --background: #dce3ea;
+  --foreground: #1f2933;
+  --card: #f4f7fa;
+  --card-foreground: #1f2933;
+  --popover: #f4f7fa;
+  --popover-foreground: #1f2933;
+  --primary: #8fa3b5;
+  --primary-foreground: #000000;
+  --secondary: #b9c6d2;
+  --secondary-foreground: #000000;
+  --muted: #d6dee6;
+  --muted-foreground: #000000;
+  --accent: #8fa3b5;
+  --accent-foreground: #000000;
+  --destructive: #ff5470;
+  --border: #000000;
+  --input: #ffffff;
+  --ring: #000000;
+  --neo-accent: #8fa3b5;
+  --neo-secondary: #b9c6d2;
+  --neo-muted: #d6dee6;
+  --neo-panel: #f4f7fa;
+  --neo-surface: #ffffff;
+  --neo-nav: #c5d3de;
+  --neo-footer: #8fa3b5;
+  --neo-dark: #dce3ea;
+  --neo-search: #ffffff;
+  --neo-ink: #1f2933;
+  --neo-on-canvas: #1f2933;
+  --neo-on-nav: #1f2933;
+  --neo-nav-pill: rgba(255, 255, 255, 0.4);
+  --neo-success: #9fb8a6;
+  --neo-canvas-dot: rgba(31, 41, 51, 0.12);
+  --neo-canvas-line: rgba(31, 41, 51, 0.06);
 }
 
 .theme-sunset-flyer {
-  --background: #24120e;
-  --foreground: #000000;
-  --card: #fff7ea;
+  --background: #2b1512;
+  --foreground: #fff1e6;
+  --card: #fff4ea;
   --card-foreground: #000000;
-  --popover: #fff7ea;
+  --popover: #fff4ea;
   --popover-foreground: #000000;
-  --primary: #ff8b5e;
+  --primary: #ff6b57;
   --primary-foreground: #000000;
-  --secondary: #ffe166;
+  --secondary: #ffc15e;
   --secondary-foreground: #000000;
-  --muted: #ff9ed1;
+  --muted: #e8a0b4;
   --muted-foreground: #000000;
-  --accent: #ff8b5e;
+  --accent: #ff6b57;
   --accent-foreground: #000000;
   --destructive: #ff5470;
   --border: #000000;
   --input: #ffffff;
   --ring: #000000;
-  --neo-accent: #ff8b5e;
-  --neo-secondary: #ffe166;
-  --neo-muted: #ff9ed1;
-  --neo-panel: #fff7ea;
+  --neo-accent: #ff6b57;
+  --neo-secondary: #ffc15e;
+  --neo-muted: #e8a0b4;
+  --neo-panel: #fff4ea;
   --neo-surface: #ffffff;
-  --neo-nav: #ff9ed1;
-  --neo-footer: #ff8b5e;
-  --neo-dark: #24120e;
-  --neo-search: #fff4cb;
+  --neo-nav: #ff8b5e;
+  --neo-footer: #ffc15e;
+  --neo-dark: #2b1512;
+  --neo-search: #fff4ec;
   --neo-ink: #000000;
+  --neo-on-canvas: #fff1e6;
+  --neo-on-nav: #000000;
+  --neo-nav-pill: rgba(255, 255, 255, 0.35);
+  --neo-success: #7fd1a8;
+  --neo-canvas-dot: rgba(255, 241, 230, 0.1);
+  --neo-canvas-line: rgba(255, 241, 230, 0.05);
 }
 
 @layer base {
@@ -163,12 +257,12 @@
 
   body {
     @apply min-h-screen;
-    color: var(--neo-ink);
+    color: var(--neo-on-canvas);
     background-color: var(--neo-dark);
     background-image:
-      radial-gradient(circle, rgba(0, 0, 0, 0.55) 1.5px, transparent 1.6px),
-      linear-gradient(to right, rgba(0, 0, 0, 0.18) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0, 0, 0, 0.18) 1px, transparent 1px);
+      radial-gradient(circle, var(--neo-canvas-dot) 1.5px, transparent 1.6px),
+      linear-gradient(to right, var(--neo-canvas-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--neo-canvas-line) 1px, transparent 1px);
     background-size: 24px 24px, 44px 44px, 44px 44px;
   }
 

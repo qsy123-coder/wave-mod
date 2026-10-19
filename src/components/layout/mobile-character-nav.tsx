@@ -103,7 +103,7 @@ function CharacterCell({ name, onNavigate }: { name: string; onNavigate: () => v
         // 破坏整行的对齐（侧栏是单列布局，塌陷看不出来，网格里很明显）。
         <span
           aria-hidden
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-black bg-[#fff8ef] text-sm font-black text-black/50"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-black bg-[var(--neo-panel)] text-sm font-black text-black/50"
         >
           {name.slice(0, 1)}
         </span>

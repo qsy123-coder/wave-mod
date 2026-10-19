@@ -70,9 +70,9 @@ type ModCardProps = {
 
 const metaBadgeStyles: Record<MetaBadgeTone, { character: string; version: string; nsfw: string }> = {
   default: {
-    character: "bg-[#ffd84f] text-black hover:bg-[#ffd84f]",
-    version: "bg-[#ff7a7a] text-black hover:bg-[#ff7a7a]",
-    nsfw: "bg-[#bcaeff] text-black hover:bg-[#bcaeff]",
+    character: "bg-[var(--neo-secondary)] text-black hover:bg-[var(--neo-secondary)]",
+    version: "bg-[var(--neo-accent)] text-black hover:bg-[var(--neo-accent)]",
+    nsfw: "bg-[var(--neo-muted)] text-black hover:bg-[var(--neo-muted)]",
   },
   site: {
     character: "bg-[var(--neo-secondary)] text-black hover:bg-[var(--neo-secondary)]",
@@ -234,7 +234,7 @@ export function ModCard({
   );
 
   const compactStats = showInteractionBar ? (
-    <div className="flex flex-wrap items-center gap-1.5 max-sm:hidden px-1.5 py-0.5 text-xs font-bold text-black/80 bg-[#fff8ef]/20">
+    <div className="flex flex-wrap items-center gap-1.5 max-sm:hidden px-1.5 py-0.5 text-xs font-bold text-black/80 bg-[var(--neo-panel)]/20">
       <span className="inline-flex items-center gap-1">
         <Eye className="size-3.5" />{counts.views}
       </span>

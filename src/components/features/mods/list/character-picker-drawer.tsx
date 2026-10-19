@@ -70,7 +70,7 @@ export function CharacterPickerDrawer({
         // 用自绘的 neo 关闭按钮，与 mod-detail-drawer 的做法一致
         showCloseButton={false}
         overlayClassName="bg-black/40"
-        className="flex w-full flex-col gap-0 bg-[#fff8ef] p-0 text-black lg:w-[960px]"
+        className="flex w-full flex-col gap-0 bg-[var(--neo-panel)] p-0 text-black lg:w-[960px]"
       >
         {/* 顶栏：标题 + 右上 ✕。四条关闭路径（遮罩 / Esc / ✕ / 点选角色）都汇入 onOpenChange */}
         <div className="flex shrink-0 items-center justify-between border-b-4 border-black px-4 py-3">
@@ -156,7 +156,7 @@ function PickerCell({
         "flex flex-col items-center gap-1 border-2 border-black p-1.5 text-center shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_#000]",
         // 按下反馈（按下态在 hover 之后出，Tailwind 的变体顺序保证它赢过 hover 的位移）
         "active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-        isActive ? "bg-[#ff7a7a] text-black" : "bg-white text-black/75"
+        isActive ? "bg-[var(--neo-accent)] text-black" : "bg-white text-black/75"
       )}
     >
       {avatarPath ? (
@@ -171,7 +171,7 @@ function PickerCell({
       ) : (
         <span
           aria-hidden
-          className="flex size-14 shrink-0 items-center justify-center rounded-full border-2 border-black bg-[#fff8ef] text-sm font-black text-black/50"
+          className="flex size-14 shrink-0 items-center justify-center rounded-full border-2 border-black bg-[var(--neo-panel)] text-sm font-black text-black/50"
         >
           {label.slice(0, 1)}
         </span>

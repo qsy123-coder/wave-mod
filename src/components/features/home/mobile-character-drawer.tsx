@@ -73,7 +73,7 @@ export function MobileCharacterDrawer({
         side="left"
         customWidth
         showCloseButton={false}
-        className="flex w-full flex-col gap-0 bg-[#fff8ef] p-0 text-black"
+        className="flex w-full flex-col gap-0 bg-[var(--neo-panel)] p-0 text-black"
       >
         <div className="flex shrink-0 items-center justify-between border-b-4 border-black px-4 py-3">
           <div className="min-w-0">
@@ -148,7 +148,7 @@ function PickerCell({
       data-slot="mobile-character-picker-item"
       className={cn(
         "flex flex-col items-center gap-1 border-2 border-black p-1.5 text-center shadow-[2px_2px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-        active ? "bg-[#ff7a7a] text-black" : "bg-white text-black/70",
+        active ? "bg-[var(--neo-accent)] text-black" : "bg-white text-black/70",
       )}
     >
       {avatarPath ? (
@@ -163,7 +163,7 @@ function PickerCell({
       ) : (
         <span
           aria-hidden
-          className="flex size-14 shrink-0 items-center justify-center rounded-full border-2 border-black bg-[#fff8ef] text-sm font-black text-black/55"
+          className="flex size-14 shrink-0 items-center justify-center rounded-full border-2 border-black bg-[var(--neo-panel)] text-sm font-black text-black/55"
         >
           {label.slice(0, 1)}
         </span>

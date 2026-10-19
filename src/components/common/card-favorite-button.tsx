@@ -18,8 +18,8 @@ type Props = {
 
 export function CardFavoriteButton({ isFavorited, onToggle, inline }: Props) {
   const sharedClass = inline
-    ? "inline-flex items-center gap-0.5 border-[2px] border-black bg-[#fff8ef] px-1 py-0.5 shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5"
-    : "absolute bottom-12 right-2 z-20 inline-flex items-center gap-0.5 border-[2px] border-black bg-[#fff8ef] px-1 py-0.5 shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5";
+    ? "inline-flex items-center gap-0.5 border-[2px] border-black bg-[var(--neo-panel)] px-1 py-0.5 shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5"
+    : "absolute bottom-12 right-2 z-20 inline-flex items-center gap-0.5 border-[2px] border-black bg-[var(--neo-panel)] px-1 py-0.5 shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5";
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -46,8 +46,8 @@ export function CardFavoriteButton({ isFavorited, onToggle, inline }: Props) {
         }
       }}
     >
-      <Heart className={`size-2.5 ${isFavorited ? "fill-[#ff7a7a] text-[#ff7a7a]" : "text-black/50"}`} />
-      <span className={`text-[8px] font-black uppercase ${isFavorited ? "text-[#ff7a7a]" : "text-black/50"}`}>收藏</span>
+      <Heart className={`size-2.5 ${isFavorited ? "fill-[var(--neo-accent)] text-[var(--neo-accent)]" : "text-black/50"}`} />
+      <span className={`text-[8px] font-black uppercase ${isFavorited ? "text-[var(--neo-accent)]" : "text-black/50"}`}>收藏</span>
     </span>
   );
 }

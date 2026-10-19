@@ -61,8 +61,8 @@ type ModsToolbarProps = {
  */
 const filterOptions = [
   { key: "all" as const, label: "全部", color: "bg-white" },
-  { key: "direct" as const, label: "含直链", color: "bg-[#4ade80]" },
-  { key: "preview" as const, label: "含预览图", color: "bg-[#bcaeff]" },
+  { key: "direct" as const, label: "含直链", color: "bg-[var(--neo-success)]" },
+  { key: "preview" as const, label: "含预览图", color: "bg-[var(--neo-muted)]" },
 ];
 
 function isFilterOptionActive(
@@ -107,7 +107,7 @@ function FilterChip({
           onClick={onClear}
           aria-label={clearLabel}
           title={clearLabel}
-          className="absolute right-1 top-1 inline-flex size-4 items-center justify-center border-2 border-black bg-white text-black shadow-[2px_2px_0px_0px_#000] transition hover:bg-[#ff7a7a]"
+          className="absolute right-1 top-1 inline-flex size-4 items-center justify-center border-2 border-black bg-white text-black shadow-[2px_2px_0px_0px_#000] transition hover:bg-[var(--neo-accent)]"
         >
           <X className="size-2.5" strokeWidth={4} />
         </button>
@@ -598,9 +598,9 @@ export function ModsToolbar({
   const isSortActive = localSort !== "latest" && localSort !== "default";
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2 border-4 border-black bg-[#fff8ef] p-3 shadow-[6px_6px_0px_0px_#000]", className)}>
+    <div className={cn("flex flex-wrap items-center gap-2 border-4 border-black bg-[var(--neo-panel)] p-3 shadow-[6px_6px_0px_0px_#000]", className)}>
       {/* 分类标签 */}
-      <span className="inline-flex items-center gap-1 border-4 border-black bg-[#ffd84f] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000]">
+      <span className="inline-flex items-center gap-1 border-4 border-black bg-[var(--neo-secondary)] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000]">
         分类
       </span>
 
@@ -656,14 +656,14 @@ export function ModsToolbar({
               onClick={() => handleClearFilter("query")}
               aria-label="清空搜索"
               title="清空搜索"
-              className="inline-flex size-5 shrink-0 items-center justify-center border-2 border-black bg-white text-black shadow-[2px_2px_0px_0px_#000] transition hover:bg-[#ff7a7a] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+              className="inline-flex size-5 shrink-0 items-center justify-center border-2 border-black bg-white text-black shadow-[2px_2px_0px_0px_#000] transition hover:bg-[var(--neo-accent)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
             >
               <X className="size-3" strokeWidth={4} />
             </button>
           ) : null}
           <button
             type="submit"
-            className="inline-flex shrink-0 items-center gap-1 border-[3px] border-black bg-[#ffd84f] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#000]"
+            className="inline-flex shrink-0 items-center gap-1 border-[3px] border-black bg-[var(--neo-secondary)] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#000]"
           >
             搜索
           </button>
@@ -680,7 +680,7 @@ export function ModsToolbar({
           <div
             id={suggestListboxId}
             role="listbox"
-            className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-[352px] overflow-y-auto border-4 border-black bg-[#fff8ef] p-1.5 shadow-[6px_6px_0px_0px_#000]"
+            className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-[352px] overflow-y-auto border-4 border-black bg-[var(--neo-panel)] p-1.5 shadow-[6px_6px_0px_0px_#000]"
           >
             {/* 与网格里那条提示条同口径：放宽来的结果必须说出来 */}
             {suggestQuery.data?.relaxed ? (
@@ -714,7 +714,7 @@ export function ModsToolbar({
                 onClick={() => selectSuggestion(mod.id)}
                 className={cn(
                   "flex w-full items-center gap-2 border-2 border-black px-2 py-1.5 text-left transition",
-                  index === highlightIndex ? "bg-[#ffd84f]" : "bg-white hover:bg-[#fff3c4]"
+                  index === highlightIndex ? "bg-[var(--neo-secondary)]" : "bg-white hover:bg-[var(--neo-search)]"
                 )}
               >
                 {/* 原生 img + referrerPolicy：COS 上的封面会因为缺少这个属性被判失败，
@@ -743,13 +743,13 @@ export function ModsToolbar({
         <DropdownMenuTrigger
           className={cn(
             "inline-flex items-center gap-1 border-4 border-black px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
-            isFilterActive ? "bg-[#4ade80] text-black" : "bg-white text-black"
+            isFilterActive ? "bg-[var(--neo-success)] text-black" : "bg-white text-black"
           )}
         >
           {filterLabel}
           <ChevronDown className="size-3 shrink-0" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-40 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
+        <DropdownMenuContent align="start" className="w-40 border-4 border-black bg-[var(--neo-panel)] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
           {filterOptions.map((opt) => {
             const isActive = isFilterOptionActive(opt.key, { direct: localDirect, preview: localPreview });
             return (
@@ -779,16 +779,16 @@ export function ModsToolbar({
         <DropdownMenuTrigger
           className={cn(
             "inline-flex items-center gap-1 border-4 border-black px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
-            isSortActive ? "bg-[#ffd84f] text-black" : "bg-white text-black"
+            isSortActive ? "bg-[var(--neo-secondary)] text-black" : "bg-white text-black"
           )}
         >
           {sortLabel}
           <ChevronDown className="size-3 shrink-0" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-36 border-4 border-black bg-[#fff8ef] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
+        <DropdownMenuContent align="start" className="w-36 border-4 border-black bg-[var(--neo-panel)] p-2 text-black shadow-[8px_8px_0px_0px_#000]">
           {sortOptions.map((opt, index) => {
             const isActive = opt.value === localSort;
-            const colors = ["bg-white", "bg-[#ffd84f]", "bg-[#ff7a7a]", "bg-[#bcaeff]", "bg-[#4ade80]"];
+            const colors = ["bg-white", "bg-[var(--neo-secondary)]", "bg-[var(--neo-accent)]", "bg-[var(--neo-muted)]", "bg-[var(--neo-success)]"];
             return (
               <DropdownMenuItem
                 key={opt.value}
@@ -877,11 +877,11 @@ export function ModsToolbar({
           {/* 计数不是筛选条件，取消没有意义 —— 这张卡不挂叉。
               五个筛选全在服务端做，所以这里就是**全库符合条件**的真总数。 */}
           {modCount !== undefined ? (
-            <FilterChip className="bg-[#ffd84f]">共 {modCount} 个资源</FilterChip>
+            <FilterChip className="bg-[var(--neo-secondary)]">共 {modCount} 个资源</FilterChip>
           ) : null}
           {localCharacter ? (
             <FilterChip
-              className="bg-[#ffd84f]"
+              className="bg-[var(--neo-secondary)]"
               onClear={() => handleClearFilter("character")}
               clearLabel={`取消角色筛选：${localCharacter}`}
             >
@@ -899,7 +899,7 @@ export function ModsToolbar({
           ) : null}
           {localDirect ? (
             <FilterChip
-              className="bg-[#4ade80]"
+              className="bg-[var(--neo-success)]"
               onClear={() => handleClearFilter("direct")}
               clearLabel="取消含直链筛选"
             >
@@ -908,7 +908,7 @@ export function ModsToolbar({
           ) : null}
           {localPreview ? (
             <FilterChip
-              className="bg-[#bcaeff]"
+              className="bg-[var(--neo-muted)]"
               onClear={() => handleClearFilter("preview")}
               clearLabel="取消含预览图筛选"
             >
@@ -917,7 +917,7 @@ export function ModsToolbar({
           ) : null}
           {isSortActive ? (
             <FilterChip
-              className="bg-[#ffd84f]"
+              className="bg-[var(--neo-secondary)]"
               onClear={() => handleClearFilter("sort")}
               clearLabel={`取消排序：${sortLabel}`}
             >

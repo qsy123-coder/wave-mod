@@ -26,9 +26,9 @@ type CharacterSidebarProps = {
 };
 
 const tagColors = [
-  "bg-[#ff7a7a]",
-  "bg-[#ffd84f]",
-  "bg-[#bcaeff]",
+  "bg-[var(--neo-accent)]",
+  "bg-[var(--neo-secondary)]",
+  "bg-[var(--neo-muted)]",
 ];
 
 /**
@@ -146,7 +146,7 @@ export function CharacterSidebar({
 
   return (
     <>
-      <aside className={cn("flex shrink-0 flex-col gap-1.5 border-4 border-black bg-[#fff8ef] p-2.5 shadow-[6px_6px_0px_0px_#000]", className)}>
+      <aside className={cn("flex shrink-0 flex-col gap-1.5 border-4 border-black bg-[var(--neo-panel)] p-2.5 shadow-[6px_6px_0px_0px_#000]", className)}>
         {/*
          * 触发按钮：它控制的是「这份列表怎么看」，属于控制而非内容，所以放在所有分类之前。
          *
@@ -177,7 +177,7 @@ export function CharacterSidebar({
             // 按下反馈（按下态在 hover 之后出，Tailwind 的变体顺序保证它赢过 hover 的位移）
             "active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
             isAllActive
-              ? "bg-[#ff7a7a] text-black"
+              ? "bg-[var(--neo-accent)] text-black"
               : "bg-white text-black/75"
           )}
         >
@@ -200,7 +200,7 @@ export function CharacterSidebar({
                 // 按下反馈（按下态在 hover 之后出，Tailwind 的变体顺序保证它赢过 hover 的位移）
                 "active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
                 item.isActive
-                  ? "bg-[#ff7a7a] text-black"
+                  ? "bg-[var(--neo-accent)] text-black"
                   : cn("bg-white text-black/75", tagColors[i % tagColors.length])
               )}
             >
@@ -239,7 +239,7 @@ export function CharacterSidebar({
                   // 按下反馈（按下态在 hover 之后出，Tailwind 的变体顺序保证它赢过 hover 的位移）
                   "active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
                   item.isActive
-                    ? "bg-[#ff7a7a] text-black"
+                    ? "bg-[var(--neo-accent)] text-black"
                     : cn("bg-white text-black/75", tagColors[i % tagColors.length])
                 )}
               >

@@ -77,7 +77,7 @@ export async function DefaultGameHomePage({ game }: { game: GameConfig }) {
                 <p className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]"><Sparkles className="size-4" />功能复用</p>
                 <p className="mt-2 text-sm font-bold text-black/70">列表、详情、收藏、评论、下载能力可沿用。</p>
               </div>
-              <div className="border-4 border-black bg-[#fff8ef] p-4 shadow-[7px_7px_0px_0px_#000]">
+              <div className="border-4 border-black bg-[var(--neo-panel)] p-4 shadow-[7px_7px_0px_0px_#000]">
                 <p className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]"><Trophy className="size-4" />设计预留</p>
                 <p className="mt-2 text-sm font-bold text-black/70">拿到新设计稿后可按游戏替换页面。</p>
               </div>

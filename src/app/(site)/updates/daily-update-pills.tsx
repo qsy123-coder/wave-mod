@@ -68,7 +68,7 @@ export function DailyDateSidebar({ days }: { days: DailyUpdateDay[] }) {
   return (
     <div className="hidden w-[180px] shrink-0 lg:block">
       <div className="sticky top-[100px] max-h-[calc(100vh-120px)] overflow-y-auto pb-8">
-        <aside className="flex shrink-0 flex-col gap-1.5 border-4 border-black bg-[#fff8ef] p-2.5 shadow-[6px_6px_0px_0px_#000]">
+        <aside className="flex shrink-0 flex-col gap-1.5 border-4 border-black bg-[var(--neo-panel)] p-2.5 shadow-[6px_6px_0px_0px_#000]">
           {daysWithMods.map((day) => {
             const isActive = day.date === activeDate;
             return (
@@ -79,7 +79,7 @@ export function DailyDateSidebar({ days }: { days: DailyUpdateDay[] }) {
                 title={day.fullLabel}
                 className={cn(
                   "flex items-center justify-between gap-2 border-[3px] border-black px-2.5 py-2 text-left text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
-                  isActive ? "bg-[#ff7a7a] text-black" : "bg-white text-black/75",
+                  isActive ? "bg-[var(--neo-accent)] text-black" : "bg-white text-black/75",
                 )}
               >
                 <span className="flex items-center gap-1.5">
@@ -116,7 +116,7 @@ export function DailyMobilePills({ days }: { days: DailyUpdateDay[] }) {
               day.isToday
                 ? "bg-[var(--neo-accent)] text-black"
                 : day.date === activeDate
-                  ? "bg-[#ff7a7a] text-black"
+                  ? "bg-[var(--neo-accent)] text-black"
                   : "bg-white text-black hover:-translate-y-0.5",
             )}
           >
