@@ -15,6 +15,13 @@ import {
   type EngagementReadResult,
 } from "./cos-store";
 import {
+  describeSupabaseStore,
+  isSupabaseEngagementEnabled,
+  supabaseReadEngagement,
+  supabaseReadFavoritedIds,
+  supabaseWriteEngagement,
+} from "./supabase-store";
+import {
   applyAction,
   computeCounts,
   computeMine,
@@ -198,6 +205,7 @@ function runExclusive<T>(task: () => Promise<T>): Promise<T> {
  * 三条对外函数都是 async：COS 读是网络 IO。调用方必须 await。
  */
 export async function readEngagement(ids: string[], deviceId: string): Promise<EngagementReadResult> {
+  if (isSupabaseEngagementEnabled()) return supabaseReadEngagement(ids, deviceId);
   if (isCosEngagementEnabled()) return cosReadEngagement(ids, deviceId);
   return fsReadEngagement(ids, deviceId);
 }
@@ -207,16 +215,19 @@ export async function writeEngagement(
   action: EngagementAction,
   deviceId: string,
 ): Promise<EngagementReadResult> {
+  if (isSupabaseEngagementEnabled()) return supabaseWriteEngagement(modId, action, deviceId);
   if (isCosEngagementEnabled()) return cosWriteEngagement(modId, action, deviceId);
   return fsWriteEngagement(modId, action, deviceId);
 }
 
 export async function readFavoritedIds(deviceId: string): Promise<string[]> {
+  if (isSupabaseEngagementEnabled()) return supabaseReadFavoritedIds(deviceId);
   if (isCosEngagementEnabled()) return cosReadFavoritedIds(deviceId);
   return fsReadFavoritedIds(deviceId);
 }
 
 export function describeEngagementStore() {
+  if (isSupabaseEngagementEnabled()) return describeSupabaseStore();
   if (isCosEngagementEnabled()) return describeCosStore();
   return fsDescribeStore();
 }

@@ -15,7 +15,9 @@ import {
   shanghaiDayKey,
   type EngagementState,
 } from "./store-core";
-import type { EngagementAction, EngagementCounts, EngagementMine } from "./types";
+import type { EngagementAction, EngagementCounts, EngagementMine, EngagementReadResult } from "./types";
+
+export type { EngagementReadResult };
 
 /**
  * 互动计数的 **COS 分片存储**。
@@ -56,6 +58,60 @@ const SHARD_COUNT = ENGAGEMENT_SHARD_COUNT;
  */
 const SHARD_FETCH_CONCURRENCY = 4;
 
+/**
+ * 单次 COS 请求的墙钟上限。
+ *
+ * SDK 的 `Timeout: 10_000` **管不住 TCP 建连**：2026-10-19 在 Vercel 上实测，
+ * 每次 getObject 要 40 秒才 ETIMEDOUT，`/api/engagement` 因此 41 秒才返回。
+ * 这里自己套一层截止时间，慢的请求直接判失败，交给下面的熔断兜住。
+ */
+const COS_CALL_TIMEOUT_MS = 5_000;
+
+/**
+ * 熔断冷却：一次网络失败后，这个实例在 60 秒内不再尝试 COS。
+ *
+ * 没有它，一次列表页要读 16 个分片，每个都等满 5 秒，用户照样要等半分钟。
+ * 冷却期内的读取直接返回「空增量」（展示基线值），写入返回乐观结果但不落库 ——
+ * 都是已知取舍，换来的是接口 200 毫秒级返回，而不是把整站拖死。
+ */
+const COS_FAILURE_COOLDOWN_MS = 60_000;
+let cosDownUntil = 0;
+
+/** 网络层失败才算「不可达」；JSON 坏了是数据问题，不该触发熔断 */
+function isNetworkFailure(message: string): boolean {
+  return /ETIMEDOUT|ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|EPIPE|socket hang up|COS 请求超时/i.test(
+    message,
+  );
+}
+
+function isCircuitOpen(): boolean {
+  return Date.now() < cosDownUntil;
+}
+
+function noteCosFailure(error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  if (isNetworkFailure(message)) cosDownUntil = Date.now() + COS_FAILURE_COOLDOWN_MS;
+}
+
+function noteCosSuccess(): void {
+  cosDownUntil = 0;
+}
+
+/** 给 Promise 套一个硬截止时间（SDK 的超时不可靠，见 COS_CALL_TIMEOUT_MS） */
+function withDeadline<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<T>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label}：COS 请求超时（${COS_CALL_TIMEOUT_MS}ms）`)),
+      COS_CALL_TIMEOUT_MS,
+    );
+  });
+
+  return Promise.race([promise, deadline]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 /** 简单并发池：按上限分批跑，保持输入顺序 */
 async function mapLimit<T, R>(items: readonly T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
@@ -72,11 +128,6 @@ async function mapLimit<T, R>(items: readonly T[], limit: number, worker: (item:
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
   return results;
 }
-
-export type EngagementReadResult = {
-  counts: Record<string, EngagementCounts>;
-  mine: Record<string, EngagementMine>;
-};
 
 export function isCosEngagementEnabled(): boolean {
   return Boolean(SECRET_ID() && SECRET_KEY() && BUCKET() && REGION());
@@ -125,25 +176,35 @@ async function readShardObject(index: number): Promise<EngagementState> {
   const cos = await getCosClient();
   const key = engagementShardKey(index);
 
-  const body = await new Promise<string | null>((resolve, reject) => {
-    cos.getObject({ Bucket: BUCKET(), Region: REGION(), Key: key }, (error, data) => {
-      if (error) {
-        if (error.statusCode === 404) {
+  const body = await withDeadline(
+    new Promise<string | null>((resolve, reject) => {
+      cos.getObject({ Bucket: BUCKET(), Region: REGION(), Key: key }, (error, data) => {
+        if (error) {
+          if (error.statusCode === 404) {
+            resolve(null);
+            return;
+          }
+          reject(new Error(`COS getObject 失败：${error.message}`));
+          return;
+        }
+
+        if (data?.Body === undefined || data.Body === null) {
           resolve(null);
           return;
         }
-        reject(new Error(`COS getObject 失败：${error.message}`));
-        return;
-      }
 
-      if (data?.Body === undefined || data.Body === null) {
-        resolve(null);
-        return;
-      }
-
-      resolve(typeof data.Body === "string" ? data.Body : Buffer.from(data.Body as ArrayBuffer).toString("utf8"));
-    });
+        resolve(typeof data.Body === "string" ? data.Body : Buffer.from(data.Body as ArrayBuffer).toString("utf8"));
+      });
+    }),
+    `读取分片 ${index}`,
+  ).catch((error) => {
+    noteCosFailure(error);
+    throw error;
   });
+
+  // 能读到就说明链路是通的，立刻解除熔断（不必等冷却到期）
+  noteCosSuccess();
+
 
   if (!body) return emptyState();
 
@@ -159,6 +220,12 @@ async function loadShard(index: number, options: { fresh?: boolean } = {}): Prom
   const cached = shardCache.get(index);
   if (!fresh && cached && Date.now() - cached.at < SHARD_CACHE_TTL_MS) {
     return cached.state;
+  }
+
+  // 熔断期内不再发网络请求：没有缓存可用就立刻失败，让调用方走基线/空增量。
+  // 写入（fresh=true）同样不尝试 —— 反正也要等满超时。
+  if (isCircuitOpen()) {
+    throw new Error("COS 暂时不可达（熔断中）");
   }
 
   // 同一实例内的并发读合并成一次网络请求（与 write 的 fresh 读分开）
@@ -183,21 +250,28 @@ async function loadShard(index: number, options: { fresh?: boolean } = {}): Prom
 async function saveShard(index: number, state: EngagementState): Promise<void> {
   const cos = await getCosClient();
 
-  await new Promise<void>((resolve, reject) => {
-    cos.putObject(
-      {
-        Bucket: BUCKET(),
-        Region: REGION(),
-        Key: engagementShardKey(index),
-        Body: Buffer.from(JSON.stringify(state), "utf8"),
-        ContentType: "application/json",
-        // 计数对象不能被任何共享缓存存住：每次都要拿最新的
-        CacheControl: "no-store",
-      },
-      (error) => (error ? reject(new Error(`COS putObject 失败：${error.message}`)) : resolve()),
-    );
+  await withDeadline(
+    new Promise<void>((resolve, reject) => {
+      cos.putObject(
+        {
+          Bucket: BUCKET(),
+          Region: REGION(),
+          Key: engagementShardKey(index),
+          Body: Buffer.from(JSON.stringify(state), "utf8"),
+          ContentType: "application/json",
+          // 计数对象不能被任何共享缓存存住：每次都要拿最新的
+          CacheControl: "no-store",
+        },
+        (error) => (error ? reject(new Error(`COS putObject 失败：${error.message}`)) : resolve()),
+      );
+    }),
+    `写入分片 ${index}`,
+  ).catch((error) => {
+    noteCosFailure(error);
+    throw error;
   });
 
+  noteCosSuccess();
   shardCache.set(index, { state, at: Date.now() });
 }
 
@@ -268,8 +342,31 @@ export async function cosWriteEngagement(
   const index = engagementShardIndex(modId);
 
   return runExclusive(index, async () => {
-    const state = await loadShard(index, { fresh: true });
     const day = shanghaiDayKey();
+    const base = getEngagementBaseline();
+
+    // 读不到分片（熔断 / 超时 / 网络错误）时不能让请求 500：
+    // 用空增量叠加这次动作，至少让用户看到「点了」的即时反馈。代价是刷新后丢失，
+    // 必须在日志里留痕 —— 静默丢写入正是上一版最致命的问题。
+    let state: EngagementState;
+    try {
+      state = await loadShard(index, { fresh: true });
+    } catch (error) {
+      logger.warn("[engagement] COS 不可达，本次互动只在内存生效（不会落库）", {
+        modId,
+        action,
+        shard: index,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      state = emptyState();
+      applyAction(state, action, modId, deviceId, day);
+
+      return {
+        counts: { [modId]: computeCounts(state, base, modId) },
+        mine: { [modId]: computeMine(state, modId, deviceId) },
+      };
+    }
 
     applyAction(state, action, modId, deviceId, day);
     pruneViewDays(state, day, 2);
@@ -284,8 +381,6 @@ export async function cosWriteEngagement(
         error: error instanceof Error ? error.message : String(error),
       });
     }
-
-    const base = getEngagementBaseline();
 
     return {
       counts: { [modId]: computeCounts(state, base, modId) },

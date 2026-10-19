@@ -123,15 +123,31 @@ export function slot(state: EngagementState, modId: string): StoredMod {
   return created;
 }
 
+/**
+ * 基线 + 增量 = 对外展示值。
+ *
+ * 抽出来是因为增量有两种形态：本地文件/COS 分片里是数组与计数，Postgres 里是
+ * 三列 bigint。展示口径必须只有一处，否则换存储时计数会悄悄偏掉。
+ */
+export function computeCountsFromIncrements(
+  base: Partial<EngagementCounts> | undefined,
+  increments: Partial<EngagementCounts>,
+): EngagementCounts {
+  return {
+    likes: (base?.likes ?? 0) + (increments.likes ?? 0),
+    favorites: (base?.favorites ?? 0) + (increments.favorites ?? 0),
+    views: (base?.views ?? 0) + (increments.views ?? 0),
+  };
+}
+
 export function computeCounts(state: EngagementState, baseline: EngagementBaseline, modId: string): EngagementCounts {
-  const base = baseline[modId];
   const entry = state.mods[modId];
 
-  return {
-    likes: (base?.likes ?? 0) + (entry?.likedBy.length ?? 0),
-    favorites: (base?.favorites ?? 0) + (entry?.favoritedBy.length ?? 0),
-    views: (base?.views ?? 0) + (entry?.views ?? 0),
-  };
+  return computeCountsFromIncrements(baseline[modId], {
+    likes: entry?.likedBy.length ?? 0,
+    favorites: entry?.favoritedBy.length ?? 0,
+    views: entry?.views ?? 0,
+  });
 }
 
 export function computeMine(state: EngagementState, modId: string, deviceId: string): EngagementMine {

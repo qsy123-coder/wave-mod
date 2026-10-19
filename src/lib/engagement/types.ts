@@ -23,6 +23,12 @@ export type EngagementMine = {
   favorited: boolean;
 };
 
+/** 批量读/写接口的统一返回形状（只有服务端用得到） */
+export type EngagementReadResult = {
+  counts: Record<string, EngagementCounts>;
+  mine: Record<string, EngagementMine>;
+};
+
 export const engagementActions = ["like", "unlike", "favorite", "unfavorite", "view"] as const;
 export type EngagementAction = (typeof engagementActions)[number];
 

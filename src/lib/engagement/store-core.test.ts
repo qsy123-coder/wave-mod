@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyAction,
   computeCounts,
+  computeCountsFromIncrements,
   computeMine,
   emptyState,
   listFavoritedIds,
@@ -29,6 +30,35 @@ describe("computeCounts", () => {
       likes: 8,
       favorites: 3,
       views: 100,
+    });
+  });
+});
+
+/**
+ * 三种后端（本地文件 / COS 分片 / Postgres）的增量形态不同：
+ * 前两者是数组长度与计数，Postgres 是三个 bigint 列。展示口径必须一致，
+ * 否则换存储时会出现「数字悄悄变小」——没有报错，只能靠用例钉住。
+ */
+describe("computeCountsFromIncrements", () => {
+  it("基线缺失时按 0 处理", () => {
+    expect(computeCountsFromIncrements(undefined, { likes: 2, favorites: 1, views: 9 })).toEqual({
+      likes: 2,
+      favorites: 1,
+      views: 9,
+    });
+  });
+
+  it("基线 + 增量逐字段相加", () => {
+    expect(
+      computeCountsFromIncrements({ likes: 47, favorites: 285, views: 45_720 }, { likes: 1, favorites: 0, views: 3 }),
+    ).toEqual({ likes: 48, favorites: 285, views: 45_723 });
+  });
+
+  it("基线只导了部分列时其余列按 0", () => {
+    expect(computeCountsFromIncrements({ likes: 5 }, { likes: 1, favorites: 2, views: 3 })).toEqual({
+      likes: 6,
+      favorites: 2,
+      views: 3,
     });
   });
 });

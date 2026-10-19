@@ -542,9 +542,79 @@ export type Database = {
         };
         Relationships: [];
       };
+      engagement_devices: {
+        Row: {
+          device_id: string;
+          favorited: boolean;
+          favorited_at: string | null;
+          last_view_day: string | null;
+          liked: boolean;
+          mod_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          device_id: string;
+          favorited?: boolean;
+          favorited_at?: string | null;
+          last_view_day?: string | null;
+          liked?: boolean;
+          mod_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          device_id?: string;
+          favorited?: boolean;
+          favorited_at?: string | null;
+          last_view_day?: string | null;
+          liked?: boolean;
+          mod_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      engagement_totals: {
+        Row: {
+          favorites: number;
+          likes: number;
+          mod_id: string;
+          updated_at: string;
+          views: number;
+        };
+        Insert: {
+          favorites?: number;
+          likes?: number;
+          mod_id: string;
+          updated_at?: string;
+          views?: number;
+        };
+        Update: {
+          favorites?: number;
+          likes?: number;
+          mod_id?: string;
+          updated_at?: string;
+          views?: number;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
+      engagement_apply: {
+        Args: {
+          p_action: string;
+          p_day: string;
+          p_device_id: string;
+          p_mod_id: string;
+        };
+        Returns: Json;
+      };
+      engagement_read: {
+        Args: {
+          p_ids: string[];
+          p_device_id?: string | null;
+        };
+        Returns: Json;
+      };
       handle_new_user: {
         Args: Record<PropertyKey, never>;
         Returns: unknown;
