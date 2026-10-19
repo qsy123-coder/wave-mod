@@ -122,8 +122,9 @@ type ModsInfiniteGridProps = {
   /**
    * 横屏卡是否只在两列底沿齐平时才跨列（见 masonry-packing.ts 的 MasonryPackOptions）。
    *
-   * 只在角色筛选视图开启：那里横屏卡频繁出现，跨列必然在较矮那列上方留洞，
-   * 而后续卡片高度不可控、填不上。开启后放不下的横屏卡按单列摆，保证无大洞。
+   * **默认开启**：横屏卡跨列必然在较矮那列上方留洞，而后续卡片高度不可控、填不上
+   * （2026-10-19 用户在「全部」视图 6 列下实测仍有大块空白）。开启后放不下的横屏卡
+   * 按单列摆，任何列表都不会出现大洞。
    */
   alignedSpanOnly?: boolean;
 };
@@ -136,7 +137,7 @@ export type ModsGridStatus = {
   totalCount: number | null;
 };
 
-export function ModsInfiniteGrid({ character, alignedSpanOnly = false, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, alignedSpanOnly = true, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
   // 哨兵节点用 callback ref 存进 state，而不是 useRef。
   //
   // 哨兵是**条件渲染**的（hasNextPage 为假时不渲染），节点会在挂载/卸载之间切换，

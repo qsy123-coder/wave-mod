@@ -176,9 +176,7 @@ export function ModsPageClient({
           isLoggedIn={isLoggedIn}
           layoutMode={layoutMode}
           masonryColumns={masonryColumns}
-          // 角色分类视图：横屏卡只在两列齐平时才跨列（否则按单列），保证列内无大洞。
-          // 默认全量视图不开 —— 保持原有观感。
-          alignedSpanOnly={Boolean(character)}
+          // 防洞开关默认开启（见 ModsInfiniteGrid 的 alignedSpanOnly）：所有视图都不留大洞
           onCardClick={openDrawer}
           onStatusChange={handleStatusChange}
         />
