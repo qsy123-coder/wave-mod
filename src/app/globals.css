@@ -56,79 +56,82 @@
      横条开/关只改变 --site-header-h，不改变导航栏高度；Hero 卡用此基准居中，
      使大卡片与导航栏的间距在横条开关两种状态下保持恒定。 */
   --home-hero-h: 74px;
-  --background: #f4e3b2;
-  --foreground: #1a1408;
-  --card: #fffbea;
+  --background: #fffdf5;
+  --foreground: #000000;
+  --card: #ffffff;
   --card-foreground: #000000;
-  --popover: #fffbea;
+  --popover: #ffffff;
   --popover-foreground: #000000;
-  --primary: #e5443c;
+  --primary: #ff6b6b;
   --primary-foreground: #000000;
-  --secondary: #5b8def;
+  --secondary: #ffd93d;
   --secondary-foreground: #000000;
-  --muted: #e8d9a8;
+  --muted: #c4b5fd;
   --muted-foreground: #000000;
-  --accent: #e5443c;
+  --accent: #ff6b6b;
   --accent-foreground: #000000;
   --destructive: #ff5470;
   --border: #000000;
   --input: #ffffff;
   --ring: #000000;
-  --neo-accent: #e5443c;
-  --neo-secondary: #5b8def;
-  --neo-muted: #e8d9a8;
-  --neo-panel: #fffbea;
+  --neo-accent: #ff6b6b;
+  --neo-secondary: #ffd93d;
+  --neo-muted: #c4b5fd;
+  --neo-panel: #ffffff;
   --neo-surface: #ffffff;
-  --neo-nav: #3e63c8;
-  --neo-footer: #e8d9a8;
-  --neo-dark: #f4e3b2;
+  --neo-nav: #ffd93d;
+  --neo-footer: #c4b5fd;
+  --neo-dark: #fffdf5;
   --neo-search: #ffffff;
-  --neo-ink: #1a1408;
-  --neo-on-canvas: #1a1408;
-  --neo-on-nav: #fff9e6;
-  --neo-nav-pill: rgba(255, 255, 255, 0.10);
-  --neo-success: #2fa36b;
-  --neo-canvas-dot: rgba(26, 20, 8, 0.14);
-  --neo-canvas-line: rgba(26, 20, 8, 0.06);
+  --neo-ink: #000000;
+  --neo-on-canvas: #000000;
+  --neo-on-nav: #000000;
+  --neo-nav-pill: rgba(255, 255, 255, 0.35);
+  --neo-success: #4ade80;
+  --neo-canvas-dot: rgba(0, 0, 0, 0.10);
+  --neo-canvas-line: rgba(0, 0, 0, 0.04);
   --radius: 0rem;
 }
+
+
 
-.theme-night-neon {
-  --background: #07060f;
-  --foreground: #eaf6ff;
-  --card: #eaf2fb;
-  --card-foreground: #0b1020;
-  --popover: #eaf2fb;
-  --popover-foreground: #0b1020;
-  --primary: #ff3d9a;
+.theme-soft {
+  --background: #f5f5f5;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+  --primary: #f472b6;
   --primary-foreground: #000000;
-  --secondary: #33e0ff;
+  --secondary: #a3e635;
   --secondary-foreground: #000000;
-  --muted: #b9a8e8;
+  --muted: #38bdf8;
   --muted-foreground: #000000;
-  --accent: #ff3d9a;
+  --accent: #f472b6;
   --accent-foreground: #000000;
-  --destructive: #ff5470;
+  --destructive: #f472b6;
   --border: #000000;
   --input: #ffffff;
   --ring: #000000;
-  --neo-accent: #ff3d9a;
-  --neo-secondary: #33e0ff;
-  --neo-muted: #b9a8e8;
-  --neo-panel: #eaf2fb;
+  --neo-accent: #f472b6;
+  --neo-secondary: #a3e635;
+  --neo-muted: #38bdf8;
+  --neo-panel: #ffffff;
   --neo-surface: #ffffff;
-  --neo-nav: #0d0b1a;
-  --neo-footer: #ff3d9a;
-  --neo-dark: #07060f;
-  --neo-search: #eaf2fb;
-  --neo-ink: #0b1020;
-  --neo-on-canvas: #eaf6ff;
-  --neo-on-nav: #eaf6ff;
-  --neo-nav-pill: rgba(255, 61, 154, 0.16);
-  --neo-success: #35d97b;
-  --neo-canvas-dot: rgba(255, 61, 154, 0.12);
-  --neo-canvas-line: rgba(51, 224, 255, 0.06);
+  --neo-nav: #e0f2fe;
+  --neo-footer: #fbcfe8;
+  --neo-dark: #f5f5f5;
+  --neo-search: #ffffff;
+  --neo-ink: #1a1a1a;
+  --neo-on-canvas: #1a1a1a;
+  --neo-on-nav: #1a1a1a;
+  --neo-nav-pill: rgba(255, 255, 255, 0.45);
+  --neo-success: #a3e635;
+  --neo-canvas-dot: rgba(26, 26, 26, 0.10);
+  --neo-canvas-line: rgba(26, 26, 26, 0.05);
 }
+
 
 .theme-macaron {
   --background: #f6f0fa;
@@ -165,80 +168,6 @@
   --neo-success: #6fbf9a;
   --neo-canvas-dot: rgba(43, 34, 51, 0.10);
   --neo-canvas-line: rgba(43, 34, 51, 0.05);
-}
-
-.theme-haze-blue {
-  --background: #d6e0e8;
-  --foreground: #16212b;
-  --card: #f5f8fb;
-  --card-foreground: #16212b;
-  --popover: #f5f8fb;
-  --popover-foreground: #16212b;
-  --primary: #7191ab;
-  --primary-foreground: #000000;
-  --secondary: #a9c0d1;
-  --secondary-foreground: #000000;
-  --muted: #d3dfe8;
-  --muted-foreground: #000000;
-  --accent: #7191ab;
-  --accent-foreground: #000000;
-  --destructive: #ff5470;
-  --border: #000000;
-  --input: #ffffff;
-  --ring: #000000;
-  --neo-accent: #7191ab;
-  --neo-secondary: #a9c0d1;
-  --neo-muted: #d3dfe8;
-  --neo-panel: #f5f8fb;
-  --neo-surface: #ffffff;
-  --neo-nav: #4e6b83;
-  --neo-footer: #7191ab;
-  --neo-dark: #d6e0e8;
-  --neo-search: #ffffff;
-  --neo-ink: #16212b;
-  --neo-on-canvas: #16212b;
-  --neo-on-nav: #f3f8fc;
-  --neo-nav-pill: rgba(255, 255, 255, 0.12);
-  --neo-success: #6e9b7c;
-  --neo-canvas-dot: rgba(22, 33, 43, 0.12);
-  --neo-canvas-line: rgba(22, 33, 43, 0.06);
-}
-
-.theme-sunset-flyer {
-  --background: #2a1830;
-  --foreground: #ffe9d6;
-  --card: #ffe9d6;
-  --card-foreground: #000000;
-  --popover: #ffe9d6;
-  --popover-foreground: #000000;
-  --primary: #ff7048;
-  --primary-foreground: #000000;
-  --secondary: #f2b84b;
-  --secondary-foreground: #000000;
-  --muted: #c98f8f;
-  --muted-foreground: #000000;
-  --accent: #ff7048;
-  --accent-foreground: #000000;
-  --destructive: #ff5470;
-  --border: #000000;
-  --input: #ffffff;
-  --ring: #000000;
-  --neo-accent: #ff7048;
-  --neo-secondary: #f2b84b;
-  --neo-muted: #c98f8f;
-  --neo-panel: #ffe9d6;
-  --neo-surface: #ffffff;
-  --neo-nav: #3b2145;
-  --neo-footer: #f2b84b;
-  --neo-dark: #2a1830;
-  --neo-search: #fff6ee;
-  --neo-ink: #2a1510;
-  --neo-on-canvas: #ffe9d6;
-  --neo-on-nav: #ffe9d6;
-  --neo-nav-pill: rgba(255, 255, 255, 0.10);
-  --neo-success: #7fb08a;
-  --neo-canvas-dot: rgba(255, 233, 214, 0.1);
-  --neo-canvas-line: rgba(255, 233, 214, 0.05);
 }
 
 @layer base {

@@ -1,17 +1,13 @@
 "use client"
 
-import { useTheme } from "@/components/layout/theme-provider"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme } = useTheme()
-  // 深色画布的两套主题：toast 的图标/关闭按钮用深色样式，底色仍由下面的变量覆盖
-  const darkCanvas = theme === "theme-night-neon" || theme === "theme-sunset-flyer"
-
+  // 三套主题（默认 / Soft / 薰衣草）都是浅色面板，toast 固定用浅色样式
   return (
     <Sonner
-      theme={darkCanvas ? "dark" : "light"}
+      theme="light"
       className="toaster group"
       icons={{
         success: (

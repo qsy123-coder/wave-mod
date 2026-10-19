@@ -5,23 +5,21 @@
  * - 本文件（theme-*）：站点通用的配色皮肤，由头部「风格」下拉切换。
  * - layout-style（zzz-*）：绝区零路由专属的沉浸/深色皮肤。
  *
- * 五款皮肤（2026-10-19 统一重做，整页背景与面板一起换色）：
- * - "theme-arcade"        默认 · 奶油纸底街机红黄
- * - "theme-sunset-flyer"  深酒红底 + 落日橙金
- * - "theme-night-neon"    近黑底 + 荧光绿电青
- * - "theme-macaron"       奶粉底 + 玫瑰薄荷
- * - "theme-haze-blue"     雾霾蓝灰 · 低饱和耐看
+ * 三款皮肤（2026-10-19 收敛）：
+ * - "theme-arcade"   默认 · ui_design_docs 新拟物配色（#e0e5ec + 紫/青/黄）
+ * - "theme-soft"     StyleKit 官方 Soft（浅灰 + 粉/青柠/天蓝）
+ * - "theme-macaron"  线上薰衣草（#f6f0fa + 珊瑚/薄荷，保留）
  *
- * 已下线： "theme-neumorphism"（2026-10-16）、"theme-neon-night"（2026-10-19）。
+ * 已下线： "theme-neumorphism"（2026-10-16）、"theme-neon-night"（2026-10-19）、
+ * "theme-sunset-flyer" / "theme-night-neon" / "theme-playful" / "theme-haze-blue"
+ * （2026-10-19 收敛为上面三款）。
  * 老访客的 cookie / localStorage 里可能还留着这些值 —— 不在清单里就会被
  * isThemeName 判为非法，自动落回 DEFAULT_THEME，不需要额外迁移。
  */
 export const THEMES = [
   "theme-arcade",
-  "theme-sunset-flyer",
-  "theme-night-neon",
+  "theme-soft",
   "theme-macaron",
-  "theme-haze-blue",
 ] as const;
 
 export type ThemeName = (typeof THEMES)[number];

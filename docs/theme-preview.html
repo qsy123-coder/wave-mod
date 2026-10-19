@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WaveMod 主题配色预览 · StyleKit Neo-Brutalist</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", Arial, sans-serif;
+    background: var(--canvas);
+    color: var(--on-canvas);
+    transition: background .18s ease, color .18s ease;
+    min-height: 100vh;
+  }
+
+  /* ===== 主题变量（与 globals.css 一一对应）===== */
+  .theme-default {
+    --canvas: #fffdf5; --panel: #ffffff; --ink: #000000; --on-canvas: #000000;
+    --accent: #ff6b6b; --secondary: #ffd93d; --muted: #c4b5fd;
+    --nav: #ffd93d; --on-nav: #000000; --search: #ffffff; --success: #4ade80;
+  }
+  .theme-soft {
+    --canvas: #f5f5f5; --panel: #ffffff; --ink: #1a1a1a; --on-canvas: #1a1a1a;
+    --accent: #f472b6; --secondary: #a3e635; --muted: #38bdf8;
+    --nav: #e0f2fe; --on-nav: #1a1a1a; --search: #ffffff; --success: #a3e635;
+  }
+  .theme-lavender {
+    --canvas: #f6f0fa; --panel: #fffaf5; --ink: #2b2233; --on-canvas: #2b2233;
+    --accent: #ff9e7a; --secondary: #8fd9be; --muted: #d9ccf2;
+    --nav: #e6d8f7; --on-nav: #2b2233; --search: #ffffff; --success: #6fbf9a;
+  }
+
+  /* ===== 换肤条 ===== */
+  .switcher {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 12px 18px; background: var(--nav); color: var(--on-nav);
+    border-bottom: 4px solid #000;
+  }
+  .switcher strong { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
+  .switcher .hint { font-size: 11px; opacity: .65; }
+  .switcher button {
+    cursor: pointer; font: inherit; font-size: 12px; font-weight: 900;
+    padding: 8px 12px; border: 3px solid #000; background: var(--panel); color: var(--ink);
+    box-shadow: 3px 3px 0 #000; text-transform: uppercase; letter-spacing: .08em;
+  }
+  .switcher button[aria-pressed="true"] { background: var(--accent); color: #000; }
+  .switcher button:active { transform: translate(3px,3px); box-shadow: none; }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 26px 18px 80px; }
+
+  /* ===== 头部 ===== */
+  .site-header {
+    border: 4px solid #000; background: var(--nav); color: var(--on-nav);
+    box-shadow: 8px 8px 0 #000; padding: 12px 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    border: 4px solid #000; background: var(--accent); color: #000;
+    box-shadow: 4px 4px 0 #000; transform: rotate(-1deg);
+  }
+  .logo .x { display: grid; place-items: center; width: 34px; height: 34px; border: 3px solid #000; background: #fff; color: #000; font-weight: 900; }
+  .logo b { display: block; font-size: 10px; letter-spacing: .22em; }
+  .logo span { display: block; font-size: 13px; font-weight: 900; }
+  .nav-links { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+  .nav-links a {
+    color: var(--on-nav); text-decoration: none; font-size: 12px; font-weight: 900;
+    letter-spacing: .12em; padding: 7px 9px; border: 2px solid transparent;
+  }
+  .nav-links a:nth-child(even) { background: rgba(255,255,255,.14); }
+  .nav-links a:hover { border-color: #000; box-shadow: 4px 4px 0 #000; }
+  .search {
+    display: flex; align-items: center; gap: 6px; border: 4px solid #000;
+    background: var(--search); color: var(--ink); padding: 6px 8px; box-shadow: 4px 4px 0 #000;
+    font-size: 12px; font-weight: 700; min-width: 220px;
+  }
+  .search .btn { border: 3px solid #000; background: var(--secondary); color: #000; font-weight: 900; padding: 4px 8px; }
+  .user-btns { display: flex; gap: 8px; }
+  .pill { border: 3px solid #000; background: var(--panel); color: var(--ink); font-size: 11px; font-weight: 900; padding: 7px 9px; box-shadow: 3px 3px 0 #000; }
+  .pill.accent { background: var(--accent); color: #000; }
+
+  /* ===== Hero ===== */
+  .hero {
+    margin-top: 22px; border: 4px solid #000; background: var(--panel); color: var(--ink);
+    box-shadow: 12px 12px 0 #000; padding: 22px; display: grid; gap: 22px;
+    grid-template-columns: 0.95fr 1.05fr; align-items: center;
+  }
+  .kicker { display: inline-block; border: 3px solid #000; background: var(--secondary); color: #000; font-size: 10px; font-weight: 900; letter-spacing: .16em; padding: 4px 9px; transform: rotate(-2deg); }
+  h1 { margin: 14px 0 6px; font-size: clamp(34px, 4vw, 54px); line-height: .94; letter-spacing: -.03em; font-weight: 900; }
+  .stroke { font-size: clamp(22px, 2.6vw, 34px); font-weight: 900; letter-spacing: -.02em; color: transparent; -webkit-text-stroke: 2px var(--ink); }
+  .desc { margin: 14px 0; border: 4px solid #000; background: #fff; color: #000; padding: 10px 12px; font-size: 13px; line-height: 1.7; font-weight: 700; }
+  .btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: 4px solid #000; padding: 9px 14px; font-size: 12px; font-weight: 900; letter-spacing: .1em; color: #000; box-shadow: 5px 5px 0 #000; cursor: pointer; }
+  .btn.primary { background: var(--accent); }
+  .btn.secondary { background: var(--secondary); }
+  .btn:active { transform: translate(5px,5px); box-shadow: none; }
+  .carousel { position: relative; height: 340px; border: 4px solid #000; background: linear-gradient(140deg, #181321 0%, #2a1930 45%, #0b0b12 100%); box-shadow: 8px 8px 0 #000; overflow: hidden; }
+  .carousel .badges { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; z-index: 2; }
+  .badge { border: 3px solid #000; color: #000; font-size: 10px; font-weight: 900; letter-spacing: .08em; padding: 4px 8px; transform: rotate(-2deg); }
+  .badge.a { background: var(--accent); }
+  .badge.s { background: var(--secondary); }
+  .badge.m { background: var(--muted); }
+  .carousel .caption { position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 16px 14px; background: linear-gradient(transparent, rgba(0,0,0,.78)); color: #fff; }
+  .carousel .caption h3 { margin: 0 0 4px; font-size: 14px; font-weight: 900; letter-spacing: .08em; }
+  .carousel .caption p { margin: 0; font-size: 11px; opacity: .8; }
+
+  /* ===== 列表区 ===== */
+  .section-title { display: inline-block; margin: 26px 0 12px; border: 4px solid #000; background: var(--secondary); color: #000; padding: 7px 12px; font-size: 13px; font-weight: 900; letter-spacing: .12em; box-shadow: 4px 4px 0 #000; }
+  .toolbar { border: 4px solid #000; background: var(--panel); color: var(--ink); box-shadow: 6px 6px 0 #000; padding: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .toolbar .chip { border: 3px solid #000; background: var(--secondary); color: #000; font-size: 11px; font-weight: 900; padding: 7px 10px; box-shadow: 3px 3px 0 #000; }
+  .toolbar .input { flex: 1; min-width: 200px; border: 4px solid #000; background: var(--search); color: var(--ink); padding: 8px 10px; font-size: 12px; font-weight: 700; }
+  .toolbar .select { border: 3px solid #000; background: #fff; color: #000; font-size: 11px; font-weight: 900; padding: 7px 10px; box-shadow: 3px 3px 0 #000; }
+
+  .layout { display: grid; grid-template-columns: 210px 1fr; gap: 16px; margin-top: 16px; align-items: start; }
+  .sidebar { border: 4px solid #000; background: var(--panel); box-shadow: 6px 6px 0 #000; padding: 10px; display: grid; gap: 7px; }
+  .tag { border: 3px solid #000; color: #000; font-size: 11px; font-weight: 900; padding: 7px 9px; box-shadow: 3px 3px 0 #000; }
+  .tag.a { background: var(--accent); }
+  .tag.s { background: var(--secondary); }
+  .tag.m { background: var(--muted); }
+  .tag.on { background: var(--accent); }
+  .cards { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+  .card { border: 4px solid #000; background: var(--panel); color: var(--ink); box-shadow: 7px 7px 0 #000; padding: 7px; }
+  .thumb { height: 150px; border: 4px solid #000; background: linear-gradient(135deg, var(--muted), var(--secondary)); position: relative; }
+  .thumb .price { position: absolute; top: 8px; right: 8px; border: 3px solid #000; background: var(--accent); color: #000; font-size: 10px; font-weight: 900; padding: 3px 7px; }
+  .card h4 { margin: 9px 2px 3px; font-size: 12px; font-weight: 900; letter-spacing: .06em; }
+  .card p { margin: 0 2px 8px; font-size: 10px; font-weight: 700; opacity: .65; }
+  .card .tags { display: flex; gap: 6px; padding: 0 2px 3px; flex-wrap: wrap; }
+  .card .tags span { border: 2px solid #000; font-size: 9px; font-weight: 900; padding: 2px 5px; color: #000; }
+
+  /* ===== 色板 ===== */
+  .palette { margin-top: 30px; display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; }
+  .palette .swatch { border: 4px solid #000; background: var(--panel); color: var(--ink); box-shadow: 5px 5px 0 #000; padding: 8px; }
+  .palette .swatch .bar { height: 34px; border: 3px solid #000; display: flex; }
+  .palette .swatch .bar span { flex: 1; }
+  .palette .swatch b { display: block; margin-top: 7px; font-size: 11px; font-weight: 900; letter-spacing: .1em; }
+  .palette .swatch small { display: block; font-size: 9px; opacity: .65; margin-top: 2px; }
+
+  .compare { margin-top: 30px; }
+  .compare h2 { font-size: 16px; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 12px; }
+  .mini-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; }
+  .mini { border: 4px solid #000; background: var(--canvas); color: var(--on-canvas); box-shadow: 6px 6px 0 #000; padding: 6px; }
+  .mini .m-head { display: flex; align-items: center; gap: 5px; background: var(--nav); color: var(--on-nav); border: 3px solid #000; padding: 5px; }
+  .mini .m-logo { width: 18px; height: 18px; border: 2px solid #000; background: var(--accent); color: #000; display: grid; place-items: center; font-size: 9px; font-weight: 900; }
+  .mini .m-links { display: flex; gap: 3px; flex: 1; }
+  .mini .m-links i { width: 14px; height: 5px; background: currentColor; opacity: .35; }
+  .mini .m-hero { margin-top: 6px; border: 3px solid #000; background: var(--panel); padding: 6px; }
+  .mini .m-hero .m-title { height: 8px; width: 70%; background: var(--ink); opacity: .85; }
+  .mini .m-hero .m-line { height: 4px; width: 90%; background: var(--ink); opacity: .25; margin-top: 5px; }
+  .mini .m-hero .m-btns { display: flex; gap: 4px; margin-top: 7px; }
+  .mini .m-hero .m-btns i { width: 24px; height: 10px; border: 2px solid #000; }
+  .mini .m-hero .m-btns i:first-child { background: var(--accent); }
+  .mini .m-hero .m-btns i:last-child { background: var(--secondary); }
+  .mini .m-cards { display: flex; gap: 5px; margin-top: 6px; }
+  .mini .m-card { flex: 1; border: 3px solid #000; background: var(--panel); padding: 3px; }
+  .mini .m-card .m-img { height: 30px; border: 2px solid #000; background: linear-gradient(135deg, var(--muted), var(--secondary)); }
+  .mini .m-card .m-tag { height: 4px; width: 60%; background: var(--ink); opacity: .3; margin-top: 4px; }
+  .mini .m-name { margin-top: 6px; font-size: 10px; font-weight: 900; letter-spacing: .1em; }
+  .mini .m-colors { display: flex; gap: 3px; margin-top: 4px; }
+  .mini .m-colors i { width: 14px; height: 14px; border: 2px solid #000; }
+
+  .note { margin-top: 26px; font-size: 12px; line-height: 1.8; opacity: .7; max-width: 760px; }
+
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; }
+    .layout { grid-template-columns: 1fr; }
+    .palette, .mini-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+</style>
+</head>
+<body class="theme-default" id="app">
+
+  <div class="switcher">
+    <strong>风格预览</strong>
+    <button type="button" data-theme="default" aria-pressed="true">默认 · 新野兽派</button>
+    <button type="button" data-theme="soft" aria-pressed="false">Soft</button>
+    <button type="button" data-theme="lavender" aria-pressed="false">薰衣草</button>
+    <span class="hint">点击切换 · 默认取自 docs/样式参考.md，Soft 取自 StyleKit</span>
+  </div>
+
+  <div class="wrap">
+    <header class="site-header">
+      <div class="logo">
+        <div class="x">X</div>
+        <div><b>XINGLAN</b><span>星澜资源站</span></div>
+      </div>
+      <nav class="nav-links">
+        <a href="#">角色分类</a><a href="#">图库</a><a href="#">教程</a><a href="#">问题解答</a><a href="#">转载声明</a>
+      </nav>
+      <div class="search">🔍 搜索角色 / 标题 / 描述 <span class="btn">搜索</span></div>
+      <div class="user-btns">
+        <span class="pill">风格 ▾</span>
+        <span class="pill">收藏</span>
+        <span class="pill accent">登录</span>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <span class="kicker">单主理人精选发布</span>
+        <h1>角色外观资源</h1>
+        <div class="stroke">PREVIEW FIRST. DOWNLOAD FAST.</div>
+        <div class="desc">以角色为中心整理外观资源，突出高清预览与直链下载体验，减少网盘跳转和限速干扰。</div>
+        <div class="btns">
+          <span class="btn primary">查看热度榜 →</span>
+          <span class="btn secondary">先看安装教程 →</span>
+        </div>
+      </div>
+      <div class="carousel">
+        <div class="badges">
+          <span class="badge a">推荐资源</span>
+          <span class="badge s">爱弥斯</span>
+          <span class="badge m">直链下载</span>
+        </div>
+        <div class="caption">
+          <h3>爱弥斯 · 夕晖</h3>
+          <p>高清预览 · 高速直链 · 每日更新</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-title">角色分类</div>
+    <div class="toolbar">
+      <span class="chip">分类</span>
+      <span class="input">搜索模组…</span>
+      <span class="select">全部 ▾</span>
+      <span class="select">最新 ▾</span>
+      <span class="pill">共 167 个资源</span>
+      <span class="pill">角色: 爱弥斯 ×</span>
+    </div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <span class="tag on">全部角色</span>
+        <span class="tag a">爱弥斯</span>
+        <span class="tag s">千咲</span>
+        <span class="tag m">心月狐</span>
+        <span class="tag a">椿</span>
+        <span class="tag s">弗洛洛</span>
+        <span class="tag m">卡提希娅</span>
+        <span class="tag a">珂莱塔</span>
+      </aside>
+      <div class="cards">
+        <article class="card">
+          <div class="thumb"><span class="price">直链</span></div>
+          <h4>爱弥斯 · 蜜桃冰</h4>
+          <p>高清预览 · 3.2K 浏览</p>
+          <div class="tags"><span class="tag a">爱弥斯</span><span class="tag s">皮肤</span></div>
+        </article>
+        <article class="card">
+          <div class="thumb"><span class="price">夸克</span></div>
+          <h4>千咲 · 女仆</h4>
+          <p>高清预览 · 1.8K 浏览</p>
+          <div class="tags"><span class="tag m">千咲</span><span class="tag s">套装</span></div>
+        </article>
+      </div>
+    </div>
+
+    <div class="palette">
+      <div class="swatch"><div class="bar"><span style="background:#fffdf5"></span><span style="background:#ff6b6b"></span><span style="background:#ffd93d"></span><span style="background:#c4b5fd"></span></div><b>DEFAULT · 新野兽派</b><small>#FFFDF5 / #FF6B6B / #FFD93D / #C4B5FD</small></div>
+      <div class="swatch"><div class="bar"><span style="background:#f5f5f5"></span><span style="background:#f472b6"></span><span style="background:#a3e635"></span><span style="background:#38bdf8"></span></div><b>SOFT</b><small>#F5F5F5 / #F472B6 / #A3E635 / #38BDF8</small></div>
+      <div class="swatch"><div class="bar"><span style="background:#f6f0fa"></span><span style="background:#ff9e7a"></span><span style="background:#8fd9be"></span><span style="background:#d9ccf2"></span></div><b>LAVENDER · 薰衣草</b><small>#F6F0FA / #FF9E7A / #8FD9BE / #D9CCF2</small></div>
+    </div>
+
+    <section class="compare">
+      <h2>三套配色并排对比</h2>
+      <div class="mini-grid">
+        <div class="mini theme-default">
+          <div class="m-head"><span class="m-logo">X</span><span class="m-links"><i></i><i></i><i></i></span></div>
+          <div class="m-hero"><div class="m-title"></div><div class="m-line"></div><div class="m-btns"><i></i><i></i></div></div>
+          <div class="m-cards"><div class="m-card"><div class="m-img"></div><div class="m-tag"></div></div><div class="m-card"><div class="m-img"></div><div class="m-tag"></div></div></div>
+          <div class="m-name">DEFAULT · 新野兽派</div>
+          <div class="m-colors"><i style="background:#ff6b6b"></i><i style="background:#ffd93d"></i><i style="background:#c4b5fd"></i><i style="background:#fffdf5"></i></div>
+        </div>
+        <div class="mini theme-soft">
+          <div class="m-head"><span class="m-logo">X</span><span class="m-links"><i></i><i></i><i></i></span></div>
+          <div class="m-hero"><div class="m-title"></div><div class="m-line"></div><div class="m-btns"><i></i><i></i></div></div>
+          <div class="m-cards"><div class="m-card"><div class="m-img"></div><div class="m-tag"></div></div><div class="m-card"><div class="m-img"></div><div class="m-tag"></div></div></div>
+          <div class="m-name">SOFT</div>
+          <div class="m-colors"><i style="background:#f472b6"></i><i style="background:#a3e635"></i><i style="background:#38bdf8"></i><i style="background:#e0f2fe"></i></div>
+        </div>
+        <div class="mini theme-lavender">
+          <div class="m-head"><span class="m-logo">X</span><span class="m-links"><i></i><i></i><i></i></span></div>
+          <div class="m-hero"><div class="m-title"></div><div class="m-line"></div><div class="m-btns"><i></i><i></i></div></div>
+          <div class="m-cards"><div class="m-card"><div class="m-img"></div><div class="m-tag"></div></div><div class="m-card"><div class="m-img"></div><div class="m-tag"></div></div></div>
+          <div class="m-name">LAVENDER · 薰衣草</div>
+          <div class="m-colors"><i style="background:#ff9e7a"></i><i style="background:#8fd9be"></i><i style="background:#d9ccf2"></i><i style="background:#e6d8f7"></i></div>
+        </div>
+      </div>
+    </section>
+
+    <p class="note">
+      默认配色来自仓库内 <code>docs/样式参考.md</code> 的 Neo-brutalism 色板；
+      Soft 来自 StyleKit 官方 Soft；薰衣草为线上 theme-macaron 原样保留。
+      黑色 4px 描边与硬阴影保持不变；所有正文与导航文字对比度均 ≥ 4.5:1。
+      这个页面只是配色预览，不参与构建。
+    </p>
+  </div>
+
+  <script>
+    (function () {
+      var themes = ["default", "soft", "lavender"];
+      var app = document.getElementById("app");
+      var buttons = Array.prototype.slice.call(document.querySelectorAll(".switcher button"));
+      function apply(name) {
+        themes.forEach(function (t) { app.classList.remove("theme-" + t); });
+        app.classList.add("theme-" + name);
+        buttons.forEach(function (b) {
+          b.setAttribute("aria-pressed", b.getAttribute("data-theme") === name ? "true" : "false");
+        });
+      }
+      buttons.forEach(function (b) {
+        b.addEventListener("click", function () { apply(b.getAttribute("data-theme")); });
+      });
+    })();
+  </script>
+</body>
+</html>

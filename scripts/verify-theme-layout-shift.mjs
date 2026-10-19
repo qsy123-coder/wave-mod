@@ -36,10 +36,8 @@ const CHROME_CANDIDATES = [
 
 const ALL_THEMES = [
   "theme-arcade",
-  "theme-sunset-flyer",
-  "theme-night-neon",
+  "theme-soft",
   "theme-macaron",
-  "theme-haze-blue",
 ];
 
 function parseArgs(argv) {
@@ -580,12 +578,12 @@ async function main() {
         // 脚本在 cookie 无效时会回退到 localStorage（老用户迁移路径），所以不把
         // 它清干净的话，前一个交互用例写进去的值会污染后面的期望 —— 实测踩过。
         const CASES = [
-          { cookie: "wavemod-theme=theme-haze-blue", legacy: null, expect: "theme-haze-blue", why: "有效 cookie" },
-          { cookie: "wavemod-theme=theme-night-neon", legacy: null, expect: "theme-night-neon", why: "有效 cookie" },
+          { cookie: "wavemod-theme=theme-soft", legacy: null, expect: "theme-soft", why: "有效 cookie" },
+          { cookie: "wavemod-theme=theme-macaron", legacy: null, expect: "theme-macaron", why: "有效 cookie" },
           { cookie: "wavemod-theme=完全不是皮肤", legacy: null, expect: fromTheme, why: "非法值 + 无 legacy → 回落默认" },
           { cookie: "随便=别的", legacy: null, expect: fromTheme, why: "无 cookie + 无 legacy → 默认" },
           { cookie: "随便=别的", legacy: "theme-macaron", expect: "theme-macaron", why: "无 cookie + 有 legacy → 迁移老值" },
-          { cookie: "wavemod-theme=theme-haze-blue", legacy: "theme-macaron", expect: "theme-haze-blue", why: "cookie 优先于 legacy" },
+          { cookie: "wavemod-theme=theme-soft", legacy: "theme-macaron", expect: "theme-soft", why: "cookie 优先于 legacy" },
         ];
 
         for (const c of CASES) {
