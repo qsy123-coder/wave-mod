@@ -6,9 +6,26 @@ import {
   resolveDefaultVersion,
 } from "@/actions/tutorial/tutorial-actions";
 import { toCompanionVideo } from "@/features/tutorial/companion-video";
+import { getCosPublicBaseUrl, withCosPublicHost } from "@/lib/cos/shared";
 import { getCosPublicHost } from "@/lib/cos/server-config";
 import type { Chapter, TutorialVersionMeta, VideoConfig } from "@/features/tutorial/types";
 import type { TutorialFullData, TutorialChapterFull } from "@/features/tutorial-admin/types";
+
+/**
+ * 视频/封面统一改写到 CDN 域名。
+ *
+ * COS 源站的这些对象带 `Content-Disposition: attachment`（force-download），
+ * Safari / iOS / 微信内置浏览器会把 <video> 当成下载任务，页面表现为「播放不了」。
+ * 只改渲染结果、不回写数据库：库里存的仍是 COS 源站地址，图片那边的精确字符串比较
+ * （isPlaceholderImage、后台回填等）不受影响。未配置 CDN 时原样返回。
+ */
+function toPublicVideo(video: VideoConfig | undefined): VideoConfig | undefined {
+  if (!video) return undefined;
+  return {
+    src: withCosPublicHost(video.src),
+    poster: withCosPublicHost(video.poster),
+  };
+}
 
 /** Convert database tutorial data to UI Chapter format */
 function dbToChapters(data: TutorialFullData): {
@@ -133,17 +150,25 @@ export default async function GuidePage({
 
   const activeId = versions.length > 0 ? activeVersionId : "config";
 
-  // 只在这个页面预连接 COS：视频/封面都在 COS 上，握手推迟到点击播放之后就是白等一次 RTT。
+  // 视频与封面统一改写到 CDN（原因见 toPublicVideo）；章节视频有内容时同样处理。
+  const publicVideo = toPublicVideo(video);
+  const publicChapters = chapters.map((chapter) =>
+    chapter.video ? { ...chapter, video: toPublicVideo(chapter.video) } : chapter,
+  );
+
+  // 只在这个页面预连接取流域名：视频/封面都在上面，握手推迟到点击播放之后就是白等一次 RTT。
   // React 19 会把 <link rel="preconnect"> 提升进 <head>。
   // 不加 crossOrigin：<img>/<video> 发的是 no-cors 请求，加了会另开一条用不上的连接。
-  const cosHost = video ? getCosPublicHost() : null;
+  const rawCosHost = getCosPublicHost();
+  const cosOrigin = getCosPublicBaseUrl() ?? (rawCosHost ? `https://${rawCosHost}` : null);
+  const cosHost = publicVideo ? cosOrigin : null;
 
   return (
     <>
       {cosHost ? (
         <>
-          <link rel="preconnect" href={`https://${cosHost}`} />
-          <link rel="dns-prefetch" href={`https://${cosHost}`} />
+          <link rel="preconnect" href={cosHost} />
+          <link rel="dns-prefetch" href={cosHost} />
         </>
       ) : null}
       <TutorialGuideClient
@@ -152,8 +177,8 @@ export default async function GuidePage({
         title={title}
         subtitle={subtitle}
         imageBasePath={imageBasePath}
-        chapters={chapters}
-        video={video}
+        chapters={publicChapters}
+        video={publicVideo}
       />
     </>
   );

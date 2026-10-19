@@ -89,8 +89,14 @@ const COS_PUBLIC_IMAGE_BASE = process.env.NEXT_PUBLIC_COS_IMAGE_BASE?.trim().rep
 /**
  * 把 COS 源站 URL 改写到 CDN 基址（保留对象路径与原有查询串）。
  * 未配置 CDN 时原样返回。
+ *
+ * 视频也用这个：COS 源站给 `tutorial/` 下的对象回了
+ * `Content-Disposition: attachment` + `x-cos-force-download: true`，
+ * Chrome/Edge 在 <video> 里忽略它，**Safari / iOS / 微信内置浏览器会当成下载**，
+ * 表现为「教程视频播放不了」。CDN 域名不透传这两个头（实测 206 + Content-Range），
+ * 所以视频/封面统一走 CDN 既修播放、也顺带提速。
  */
-function rewriteCosHost<T extends string | null | undefined>(url: T): T {
+export function withCosPublicHost<T extends string | null | undefined>(url: T): T {
   if (!url || !COS_PUBLIC_IMAGE_BASE || !isCosStorageUrl(url)) return url;
 
   try {
@@ -101,6 +107,11 @@ function rewriteCosHost<T extends string | null | undefined>(url: T): T {
   } catch {
     return url;
   }
+}
+
+/** 已配置的 COS 对外基址（CDN 域名）；未配置返回 null。用于 SSR 的 preconnect。 */
+export function getCosPublicBaseUrl(): string | null {
+  return COS_PUBLIC_IMAGE_BASE || null;
 }
 
 /**
@@ -118,10 +129,10 @@ function rewriteCosHost<T extends string | null | undefined>(url: T): T {
  */
 export function withCosImageTransform<T extends string | null | undefined>(url: T, width: number): T {
   if (!url || !isCosStorageUrl(url) || url.includes("imageMogr2")) {
-    return rewriteCosHost(url);
+    return withCosPublicHost(url);
   }
 
-  const source = rewriteCosHost(url);
+  const source = withCosPublicHost(url);
 
   // 已有的查询串要留着（比如 mod-card 失败重试拼的 `_retry=`）：实测
   // `?imageMogr2/thumbnail/800x&_retry=123` 与调换顺序的结果完全一致，COS 只挑自己认识的参数。

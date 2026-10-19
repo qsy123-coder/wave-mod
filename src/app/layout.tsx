@@ -9,6 +9,7 @@ import { PageLoadingOverlay } from "@/components/layout/page-loading-overlay";
 import { RouteChangeListener } from "@/components/layout/route-change-listener";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { getCosPublicBaseUrl } from "@/lib/cos/shared";
 import { getCosPublicHost } from "@/lib/cos/server-config";
 import { getSiteUrl } from "@/lib/site-url";
 import { DEFAULT_THEME, THEMES, THEME_COOKIE, THEME_STORAGE_KEY } from "@/lib/theme/constants";
@@ -70,8 +71,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 未配 COS_BUCKET / COS_REGION 时为 null（本地开发），则不输出预连接标签
-  const cosHost = getCosPublicHost();
+  // 图片/视频实际取流的是 CDN 域名（配了 NEXT_PUBLIC_COS_IMAGE_BASE 时）；
+  // 没配才退回 COS 源站。未配 COS_BUCKET / COS_REGION 时为 null（本地开发），不输出预连接标签。
+  const rawCosHost = getCosPublicHost();
+  const cosOrigin =
+    getCosPublicBaseUrl() ?? (rawCosHost ? `https://${rawCosHost}` : null);
 
   return (
     <html
@@ -91,8 +95,8 @@ export default function RootLayout({
             dns-prefetch 给不支持 preconnect 的浏览器兜底。
             ⚠️ 不要加 crossOrigin：站里的图是普通 <img>（no-cors），带 crossOrigin
             的预连接走的是另一条连接池，复用不上，等于白预连。 */}
-        {cosHost ? <link rel="preconnect" href={`https://${cosHost}`} /> : null}
-        {cosHost ? <link rel="dns-prefetch" href={`https://${cosHost}`} /> : null}
+        {cosOrigin ? <link rel="preconnect" href={cosOrigin} /> : null}
+        {cosOrigin ? <link rel="dns-prefetch" href={cosOrigin} /> : null}
       </head>
       <body className="min-h-full bg-background text-foreground">
         <ThemeProvider>
