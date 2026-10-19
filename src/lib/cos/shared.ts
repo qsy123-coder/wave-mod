@@ -76,7 +76,35 @@ export const COS_IMG_HERO = 1280;
 export const COS_IMG_SRCSET = [640, 960, 1280, 1920] as const;
 
 /**
- * 给 COS 图片 URL 拼上「缩到 width 宽」的处理参数。
+ * COS 图片的对外基址。默认空 = 直接用 COS 源站域名（HTTP/1.1）。
+ *
+ * 配好腾讯云 CDN 后，把 `NEXT_PUBLIC_COS_IMAGE_BASE` 设成 CDN 域名（如
+ * `https://cdn.sunnyrose.xyz`），所有 COS 图片 URL 会自动改写到 CDN：
+ * 浏览器↔CDN 走 HTTP/2，边缘缓存命中后不再受 COS 默认域名 6 条并发的限制。
+ *
+ * 必须是 NEXT_PUBLIC_*：卡片图、头像、预览图都会在客户端拼 URL。
+ */
+const COS_PUBLIC_IMAGE_BASE = process.env.NEXT_PUBLIC_COS_IMAGE_BASE?.trim().replace(/\/+$/, "") ?? "";
+
+/**
+ * 把 COS 源站 URL 改写到 CDN 基址（保留对象路径与原有查询串）。
+ * 未配置 CDN 时原样返回。
+ */
+function rewriteCosHost<T extends string | null | undefined>(url: T): T {
+  if (!url || !COS_PUBLIC_IMAGE_BASE || !isCosStorageUrl(url)) return url;
+
+  try {
+    const parsed = new URL(url);
+    const base = new URL(COS_PUBLIC_IMAGE_BASE);
+    const prefix = base.pathname.replace(/\/+$/, "");
+    return `${base.origin}${prefix}${parsed.pathname}${parsed.search}` as T;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * 给 COS 图片 URL 拼上「缩到 width 宽」的处理参数；配置了 CDN 时先把 host 换到 CDN。
  *
  * ⚠️ **只在渲染层用，不要把结果写回数据库。** 库里 `images` 的值被好几处按精确字符串比较：
  * `isPlaceholderImage` 的 `===`（src/lib/mods-domain/preview-image.ts）、
@@ -90,17 +118,19 @@ export const COS_IMG_SRCSET = [640, 960, 1280, 1920] as const;
  */
 export function withCosImageTransform<T extends string | null | undefined>(url: T, width: number): T {
   if (!url || !isCosStorageUrl(url) || url.includes("imageMogr2")) {
-    return url;
+    return rewriteCosHost(url);
   }
+
+  const source = rewriteCosHost(url);
 
   // 已有的查询串要留着（比如 mod-card 失败重试拼的 `_retry=`）：实测
   // `?imageMogr2/thumbnail/800x&_retry=123` 与调换顺序的结果完全一致，COS 只挑自己认识的参数。
-  const separator = url.includes("?") ? "&" : "?";
+  const separator = source.includes("?") ? "&" : "?";
 
   // `%3E` 就是 `>`，**不能省**：不带它时 thumbnail 会**放大**小图 ——
   // 实测把 2560×1600 的图请求成 `thumbnail/4000x` 真的返回了 4000×2500。
   // 带上 `>` 等于「只在比 width 大时才缩」，小图不会被撑大。
-  return `${url}${separator}imageMogr2/thumbnail/${width}x%3E/format/webp` as T;
+  return `${source}${separator}imageMogr2/thumbnail/${width}x%3E/format/webp` as T;
 }
 
 /**

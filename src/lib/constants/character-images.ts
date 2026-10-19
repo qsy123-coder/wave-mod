@@ -93,6 +93,7 @@ export const characterImageMap: Record<string, string> = {
  */
 const CHARACTER_AVATAR_BASE =
   process.env.NEXT_PUBLIC_CHARACTER_AVATAR_BASE?.trim().replace(/\/+$/, "") ||
+  process.env.NEXT_PUBLIC_COS_IMAGE_BASE?.trim().replace(/\/+$/, "") ||
   "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com";
 
 /** 根据角色名获取头像 URL，无头像时返回 null */

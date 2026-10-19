@@ -30,11 +30,25 @@ const ossRemotePatterns = [
 const cosBucket = process.env.COS_BUCKET?.trim();
 const cosRegion = process.env.COS_REGION?.trim();
 const cosBucketHost = cosBucket && cosRegion ? `${cosBucket}.cos.${cosRegion}.myqcloud.com` : null;
+// 图片挂 CDN 后，next/image 的 remotePatterns 也要放行 CDN host
+let cosCdnHost: string | null = null;
+try {
+  const base = process.env.NEXT_PUBLIC_COS_IMAGE_BASE?.trim();
+  if (base) cosCdnHost = new URL(base).hostname;
+} catch {
+  cosCdnHost = null;
+}
 const cosRemotePatterns = [
   cosBucketHost
     ? {
         protocol: "https" as const,
         hostname: cosBucketHost,
+      }
+    : null,
+  cosCdnHost
+    ? {
+        protocol: "https" as const,
+        hostname: cosCdnHost,
       }
     : null,
 ].filter((pattern): pattern is { protocol: "https"; hostname: string } => Boolean(pattern));
