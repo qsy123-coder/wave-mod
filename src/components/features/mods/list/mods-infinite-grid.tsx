@@ -421,8 +421,11 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         variant="list"
         className="bg-[var(--neo-panel)] p-2.5"
         imageAspectClassName={isMasonry ? "auto" : "aspect-[5/6] sm:aspect-[4/5]"}
-        imagePriority={idx < 4}
-        imageFetchPriority={idx < 4 ? "high" : "auto"}
+        // 卡片图一律 eager 预载：数据页已经由 2000px 哨兵提前取回，若图还等进入视口
+        // 才下载，用户滑到的瞬间就是整屏卡片图骨架（aetouban 的做法是首屏/下一页全预载）。
+        // 前 4 张 high 抢首屏，其余 low，避免挡住当前屏可见内容。
+        imagePriority
+        imageFetchPriority={idx < 4 ? "high" : "low"}
         imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
         // 瀑布流要靠真实宽高比算卡片高度、判定横屏跨列；网格版式固定比例，用不上
         onImageRatioChange={isMasonry ? (ratio) => handleImageRatioChange(mod.id, ratio) : undefined}
