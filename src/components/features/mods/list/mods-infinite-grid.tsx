@@ -421,12 +421,12 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         variant="list"
         className="bg-[var(--neo-panel)] p-2.5"
         imageAspectClassName={isMasonry ? "auto" : "aspect-[5/6] sm:aspect-[4/5]"}
-        // 卡片图一律 eager 预载：数据页已经由 2000px 哨兵提前取回，若图还等进入视口
-        // 才下载，用户滑到的瞬间就是整屏卡片图骨架（aetouban 的做法是首屏/下一页全预载）。
-        // 第一页 high/auto 优先；第二页起 low，作为提前量后台预取。
-        imagePriority
+        // 只 eager 第一页：后面几页若也 eager，会和首屏可见图片抢带宽，
+        // 反而让当前屏更慢。后面的页保持 lazy，进入视口前由 2000px 数据预取兜住。
+        imagePriority={idx < MODS_PAGE_SIZE}
         imageFetchPriority={idx < 4 ? "high" : idx < MODS_PAGE_SIZE ? "auto" : "low"}
-        imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+        // 移动端是 2 列，单卡约 50vw；写 100vw 会让浏览器选 560 档，白花约一半字节。
+        imageSizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 18vw"
         // 瀑布流要靠真实宽高比算卡片高度、判定横屏跨列；网格版式固定比例，用不上
         onImageRatioChange={isMasonry ? (ratio) => handleImageRatioChange(mod.id, ratio) : undefined}
         mediaTopRight={
