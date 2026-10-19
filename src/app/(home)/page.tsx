@@ -4,6 +4,8 @@ import { DailyUpdateDialog } from "@/components/common/daily-update-dialog";
 import { HeroCarousel } from "@/components/features/home/hero-carousel";
 import { HomeHeroIntro } from "@/components/features/home/home-hero-intro";
 import { LazyHomeLower } from "@/components/features/home/lazy-lower-home";
+import { MobileHomeFeed } from "@/components/features/home/mobile-home-feed";
+import { MobileHomeIntro } from "@/components/features/home/mobile-home-intro";
 import { FeaturedCarouselSkeleton } from "@/components/layout/data-skeletons";
 import { getFeaturedMods } from "@/lib/mods";
 
@@ -53,36 +55,53 @@ export default function HomePage() {
   return (
     <>
       <DailyUpdateDialog />
-      <SnapContainer>
-        {/* 区域 1: 现有 Hero（垂直居中，上下各 15vh 留白）。
-             高度基准用"仅导航栏行"的 --home-hero-h（恒定），而非含横条的 --site-header-h，
-             这样顶部横条开/关时大卡片与导航栏的间距保持不变。 */}
-        <section
-          className="relative flex w-full items-center pt-[11vh] pb-[15vh] h-[calc(100vh-var(--home-hero-h))] max-md:pt-4 max-md:pb-4 max-md:h-auto"
-          style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
-        >
-          <div className="mx-auto w-full max-w-[1680px] px-4 sm:px-5 lg:px-6">
-            {/* 左半文案是静态的、渲染即得；只有右半轮播要等 getFeaturedMods。
-                外壳与左半抽到 HomeHeroIntro，跨页导航骨架复用同一份（见 page-skeletons.tsx）。 */}
-            <HomeHeroIntro
-              right={
-                <Suspense fallback={<FeaturedCarouselSkeleton />}>
-                  <HomeFeaturedCarousel />
-                </Suspense>
-              }
-            />
-          </div>
-        </section>
 
-        {/* 区域 2: ZZZ 风格内容（滚动到该屏才加载，首屏不触发，浏览器不再长时间转圈） */}
-        <section
-          id="snap-section-2"
-          className="h-full w-full overflow-hidden max-md:h-auto"
-          style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
-        >
-          <LazyHomeLower />
-        </section>
-      </SnapContainer>
+      {/*
+       * 手机端（< 768px）：普通长滚动，不使用截屏吸附。
+       *
+       * 结构参考 huanmod.top：简洁首屏 → 角色分类 → 资源卡片流。
+       * 这里**不渲染**桌面那套轮播与 ZZZ 第二屏，而不是用 CSS 藏起来：
+       * 藏起来的 LazyHomeLower 仍会挂载、仍可能触发 IntersectionObserver；
+       * 直接不渲染才是确定的「零请求、零高度」。
+       */}
+      <div className="md:hidden">
+        <MobileHomeIntro />
+        <MobileHomeFeed />
+      </div>
+
+      {/* 桌面端（≥ 768px）：与改动前完全一致 —— 大卡 + 轮播 + 第二屏 + 整屏吸附 */}
+      <div className="hidden md:block">
+        <SnapContainer>
+          {/* 区域 1: 现有 Hero（垂直居中，上下各 15vh 留白）。
+               高度基准用"仅导航栏行"的 --home-hero-h（恒定），而非含横条的 --site-header-h，
+               这样顶部横条开/关时大卡片与导航栏的间距保持不变。 */}
+          <section
+            className="relative flex w-full items-center pt-[11vh] pb-[15vh] h-[calc(100vh-var(--home-hero-h))]"
+            style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
+          >
+            <div className="mx-auto w-full max-w-[1680px] px-4 sm:px-5 lg:px-6">
+              {/* 左半文案是静态的、渲染即得；只有右半轮播要等 getFeaturedMods。
+                  外壳与左半抽到 HomeHeroIntro，跨页导航骨架复用同一份（见 page-skeletons.tsx）。 */}
+              <HomeHeroIntro
+                right={
+                  <Suspense fallback={<FeaturedCarouselSkeleton />}>
+                    <HomeFeaturedCarousel />
+                  </Suspense>
+                }
+              />
+            </div>
+          </section>
+
+          {/* 区域 2: ZZZ 风格内容（滚动到该屏才加载，首屏不触发，浏览器不再长时间转圈） */}
+          <section
+            id="snap-section-2"
+            className="h-full w-full overflow-hidden"
+            style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
+          >
+            <LazyHomeLower />
+          </section>
+        </SnapContainer>
+      </div>
     </>
   );
 }
