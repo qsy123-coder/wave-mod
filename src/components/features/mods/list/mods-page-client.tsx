@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowUp } from "lucide-react";
 
 import { useSession } from "@/components/features/auth/session-provider";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
@@ -9,6 +10,7 @@ import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
 import { useLayoutPreference } from "@/components/features/mods/list/use-layout-preference";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import type { ModSort, SiteMod } from "@/lib/mods";
+import { cn } from "@/lib/utils";
 
 type ModsPageClientProps = {
   gameModsPath: string;
@@ -126,6 +128,25 @@ export function ModsPageClient({
   const listingScrollRef = useRef<HTMLDivElement | null>(null);
 
   /**
+   * 「回到顶部」：只滚动右侧资源列表自己的滚动容器，不动窗口。
+   *
+   * 这个页面左边是角色分类侧栏、右边是资源流，滚动的是右边那一列；
+   * 滚 window 在桌面端根本不会动（外壳 `overflow-hidden`），在手机上又会
+   * 把侧栏布局一起拽走。所以必须拿 `listingScrollRef`。
+   *
+   * 按滚动距离显示/隐藏：刚进页面、还在最上面时不该有按钮挡住第一行卡片。
+   */
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  const handleListingScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    setShowBackToTop(event.currentTarget.scrollTop > 240);
+  }, []);
+
+  const scrollListingToTop = useCallback(() => {
+    listingScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  /**
    * 换了筛选条件 = 另一份列表 ⇒ 网格回到顶部。
    *
    * 这条以前是**碰巧**成立的：从 `/mods`（默认筛选）点分类会让 Suspense 边界整棵树
@@ -163,7 +184,38 @@ export function ModsPageClient({
         onMasonryColumnsChange={setMasonryColumns}
       />
 
-      <div ref={listingScrollRef} className="flex-1 overflow-y-auto pt-4 scrollbar-minimal">
+      <div
+        ref={listingScrollRef}
+        onScroll={handleListingScroll}
+        className="flex-1 overflow-y-auto pt-4 scrollbar-minimal"
+      >
+        {/*
+         * 回到顶部：吸顶在右侧资源区顶部、水平居中。
+         *
+         * 外层 h-0 是为了**不占布局**：按钮用 pt-3 溢出到内容上方，
+         * 出现/隐藏不会把第一行卡片往下推。隐藏时关闭 pointer-events，
+         * 避免透明按钮拦截筛选卡片或工具栏的点击。
+         */}
+        <div className="pointer-events-none sticky top-0 z-20 h-0">
+          <div className="flex justify-center pt-3">
+            <button
+              type="button"
+              onClick={scrollListingToTop}
+              aria-label="回到顶部"
+              tabIndex={showBackToTop ? 0 : -1}
+              className={cn(
+                "inline-flex items-center gap-1 border-[3px] border-black bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition duration-200",
+                showBackToTop
+                  ? "pointer-events-auto translate-y-0 opacity-100"
+                  : "pointer-events-none -translate-y-2 opacity-0",
+              )}
+            >
+              <ArrowUp className="size-3.5" strokeWidth={3} />
+              回到顶部
+            </button>
+          </div>
+        </div>
+
         <ModsInfiniteGrid
           sort={sort as ModSort}
           character={character}
