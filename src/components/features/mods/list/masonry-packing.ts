@@ -92,7 +92,10 @@ export function packMasonry(
   const placements: MasonryPlacement[] = [];
 
   for (const item of items) {
-    const wide = columns >= 2 && item.ratio > MASONRY_WIDE_RATIO;
+    // 至少三列才允许跨两列。两列时「跨两列」= 占满整行，手机首页/列表会被横屏图
+    // 撑成一行一张（2026-10-19 用户反馈「首页一行只显示一个 mod 卡片」，实测卡宽
+    // 358px 整行与 171px 单列交替）。两列版式下保持所有卡同宽才是瀑布流。
+    const wide = columns >= 3 && item.ratio > MASONRY_WIDE_RATIO;
 
     if (wide) {
       // 跨列会同时推进两列：顶部取两列较低者（较高那列会留下一个洞），

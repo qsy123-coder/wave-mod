@@ -77,20 +77,27 @@ describe("packMasonry", () => {
 
   it("横屏卡横跨两列，宽度等于跨列宽，顶部对齐较浅的那列", () => {
     const ratios = [PORTRAIT, PORTRAIT, LANDSCAPE];
-    const result = packMasonry(items(ratios), 2, 420);
+    const result = packMasonry(items(ratios), 3, 620);
     const wide = result.placements[2];
 
     expect(wide.span).toBe(2);
     expect(wide.column).toBe(0);
-    // 两列各只有一张竖屏卡，底部相同 ⇒ 横屏卡接在它们下面
+    // 三列各只有一张竖屏卡，底部相同 ⇒ 横屏卡接在它们下面
     const portraitHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
     expect(wide.top).toBeCloseTo(portraitHeight + MASONRY_GAP);
-    expect(masonrySpanWidth(wide.span, result.columnWidth)).toBeCloseTo(420);
+    expect(masonrySpanWidth(wide.span, result.columnWidth)).toBeCloseTo(
+      result.columnWidth * 2 + MASONRY_GAP,
+    );
   });
 
-  it("只有一列时不跨列（否则等于整行，失去瀑布流意义）", () => {
-    const result = packMasonry(items([LANDSCAPE]), 1, 300);
-    expect(result.placements[0].span).toBe(1);
+  it("两列及以下不跨列（否则等于整行，一行只剩一张卡）", () => {
+    for (const columns of [1, 2]) {
+      const result = packMasonry(items([LANDSCAPE, LANDSCAPE]), columns, 390);
+      expect(result.placements.every((p) => p.span === 1)).toBe(true);
+    }
+    // 两列时单列宽必须小于容器，证明没有占满整行
+    const twoCols = packMasonry(items([LANDSCAPE]), 2, 390);
+    expect(twoCols.columnWidth).toBeLessThan(390);
   });
 
   it("接近正方的图不跨列", () => {

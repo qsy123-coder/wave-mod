@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2, BookOpen } from "lucide-react";
+import { Heart, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2, BookOpen, ChevronDown, UserRound } from "lucide-react";
 
 import { getEnabledGames } from "@/config/games";
 import { signOutUser } from "@/actions/auth/auth-actions";
@@ -60,6 +60,18 @@ function getCurrentUrl() {
   return `${window.location.pathname}${window.location.search}`;
 }
 
+/** 下拉菜单条目：与导航的 neo 卡片同一套黑框 + 硬阴影 */
+const DROPDOWN_ITEM_CLASS =
+  "flex w-full items-center gap-2 border-4 border-black bg-white px-3 py-2 text-xs font-black text-black shadow-[3px_3px_0px_0px_#000] transition hover:bg-[var(--neo-secondary)]";
+
+/** 桌面一级导航链接 / 下拉触发器共用的字号与 hover */
+const DESKTOP_NAV_LINK_CLASS =
+  "inline-flex items-center gap-1 border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap";
+
+/** 手机抽屉里的折叠分组标题（原生 details/summary，不依赖 JS） */
+const MOBILE_DETAILS_SUMMARY_CLASS =
+  "flex cursor-pointer list-none items-center justify-between border-4 border-black bg-[var(--neo-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000] [&::-webkit-details-marker]:hidden";
+
 export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
   // 登录态来自客户端 cookie（零网络），不再由服务端下发 —— 服务端读 cookie 会让
   // 所有用到 header 的页面无法静态化。详见 session-provider.tsx。
@@ -75,6 +87,9 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
   // 一次出现动画；受害者只有管理员本人（ADMIN_EMAIL / ADMIN_PHONES 里那一个账号）。
   const { isLoggedIn, isAdmin } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
+  // 手机抽屉里的「全部角色分类」默认收起：60+ 个格子铺开会把后面的入口全推到
+  // 几屏之外。展开时才让 MobileCharacterNav 去拉清单（open 即 enabled）。
+  const [charactersExpanded, setCharactersExpanded] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const navRowRef = useRef<HTMLDivElement>(null);
 
@@ -109,6 +124,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
   const signOutAction = signOutUser.bind(null, "/");
   const games = getEnabledGames();
   const currentGameKey = getCurrentGameKey(pathname);
+  const currentGameName = games.find((game) => game.key === currentGameKey)?.name ?? "主站";
 
   /**
    * 顶部导航任意链接点击 → 立即站点级骨架屏。
@@ -238,44 +254,86 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
             就发出约 50 个预取请求、67 KB，和首屏图抢同一条链路，把 LCP 从
             ~0.8s 推到 ~10s（2026-10-16，本地生产构建 + CDP 模拟 150ms RTT / 4Mbps）。
             站内已有导航骨架屏兜底（PageLoadingOverlay），点击后的等待感不会更差。 */}
+        {/*
+         * 只留两个一级入口（角色分类 / 图库），其余页面收进「更多」下拉。
+         * 此前五个链接 + 游戏切换 + 搜索 + 四个右侧按钮挤在一行，1440 下已经
+         * 没有呼吸空间；教程、问题解答、转载声明都是低频页面，没必要常驻。
+         */}
         <nav className="hidden items-center gap-2 min-[1360px]:flex">
           {isAdminRoute ? (
             <>
               <MotionReveal delay={0.06} rotate={2}>
-                <Link href="/admin/mods" className="border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap rotate-1" style={{ background: "transparent" }}>
+                <Link href="/admin/mods" className={DESKTOP_NAV_LINK_CLASS}>
                   管理列表
                 </Link>
               </MotionReveal>
               <MotionReveal delay={0.1} rotate={-2}>
-                <Link href="/admin/upload" className="border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap -rotate-1" style={{ background: "var(--neo-nav-pill)" }}>
-                  上传页面
-                </Link>
-              </MotionReveal>
-              <MotionReveal delay={0.12} rotate={3}>
-                <Link href="/admin/tutorial" className="border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap rotate-2" style={{ background: "var(--neo-nav-pill)" }}>
-                  教程管理
-                </Link>
-              </MotionReveal>
-              <MotionReveal delay={0.14} rotate={2}>
-                <Link href="/" className="border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap rotate-1" style={{ background: "transparent" }}>
-                  返回前台
-                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger className={DESKTOP_NAV_LINK_CLASS}>
+                    更多
+                    <ChevronDown className="size-3" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-44 border-4 border-black bg-[var(--neo-panel)] p-2 text-black shadow-[8px_8px_0px_0px_#000]"
+                    onClick={handleHeaderNavClick}
+                  >
+                    {[
+                      { href: "/admin/upload", label: "上传页面" },
+                      { href: "/admin/tutorial", label: "教程管理" },
+                      { href: "/", label: "返回前台" },
+                    ].map((item) => (
+                      <DropdownMenuItem key={item.href} className="cursor-pointer p-0 focus:bg-transparent">
+                        <Link href={item.href} prefetch={false} className={DROPDOWN_ITEM_CLASS}>
+                          {item.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </MotionReveal>
             </>
           ) : (
-            siteConfig.primaryNav.map((item, index) => (
-              <MotionReveal key={item.href} delay={0.06 + index * 0.04} rotate={index % 2 === 0 ? 2 : -2}>
-                <Link
-                  href={item.href}
-                  prefetch={false}
-                  onClick={() => handleGalleryEntry(item.href)}
-                  className={`border-2 border-transparent px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--neo-on-nav)] hover:border-black hover:shadow-[4px_4px_0px_0px_#000] whitespace-nowrap ${index % 2 === 0 ? "rotate-1" : "-rotate-1"}`}
-                  style={{ background: index % 2 === 0 ? "transparent" : "var(--neo-nav-pill)" }}
-                >
-                  {item.label}
-                </Link>
+            <>
+              {siteConfig.primaryNav.slice(0, 2).map((item, index) => (
+                <MotionReveal key={item.href} delay={0.06 + index * 0.04} rotate={index % 2 === 0 ? 2 : -2}>
+                  <Link
+                    href={item.href}
+                    prefetch={false}
+                    onClick={() => handleGalleryEntry(item.href)}
+                    className={DESKTOP_NAV_LINK_CLASS}
+                  >
+                    {item.label}
+                  </Link>
+                </MotionReveal>
+              ))}
+              <MotionReveal delay={0.14} rotate={2}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger className={DESKTOP_NAV_LINK_CLASS}>
+                    更多
+                    <ChevronDown className="size-3" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-44 border-4 border-black bg-[var(--neo-panel)] p-2 text-black shadow-[8px_8px_0px_0px_#000]"
+                    onClick={handleHeaderNavClick}
+                  >
+                    {siteConfig.primaryNav.slice(2).map((item) => (
+                      <DropdownMenuItem key={item.href} className="cursor-pointer p-0 focus:bg-transparent">
+                        <Link
+                          href={item.href}
+                          prefetch={false}
+                          onClick={() => handleGalleryEntry(item.href)}
+                          className={DROPDOWN_ITEM_CLASS}
+                        >
+                          {item.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </MotionReveal>
-            ))
+            </>
           )}
         </nav>
         </div>
@@ -294,60 +352,78 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
         {isZzzRoute && <LayoutStyleToggle variant="neo" />}
 
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
-          {/* 前台用户链接：后台路由隐藏 */}
+          {/* 收藏 / 登录退出 / 管理入口收进一个「账户」下拉。
+              以前它们是三到五个并排的卡片，仅右侧就占了半条导航。 */}
           {!isAdminRoute && (
-            <>
-              <MotionReveal delay={0.18} rotate={1}>
-                <Link href="/favorites" prefetch={false} className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
-                  <Heart className="size-3" />
-                  收藏
-                </Link>
-              </MotionReveal>
-              {/* 管理员专属入口：与后台守卫同源判定，非管理员不渲染 */}
-              {isAdmin && (
-                <MotionReveal delay={0.19} rotate={1}>
-                  <Link href="/admin/mods" className="neo-button-secondary inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
-                    <LayoutDashboard className="size-3" />
-                    管理列表
-                  </Link>
-                </MotionReveal>
-              )}
-              {isAdmin && (
-                <MotionReveal delay={0.2} rotate={-1}>
-                  <Link href="/admin/upload" className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
-                    <UploadCloud className="size-3" />
-                    上传
+            <MotionReveal delay={0.18} rotate={1}>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
+                  <UserRound className="size-3" />
+                  账户
+                  <ChevronDown className="size-3" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-48 border-4 border-black bg-[var(--neo-panel)] p-2 text-black shadow-[8px_8px_0px_0px_#000]"
+                  onClick={handleHeaderNavClick}
+                >
+                  <DropdownMenuItem className="cursor-pointer p-0 focus:bg-transparent">
+                    <Link href="/favorites" prefetch={false} className={DROPDOWN_ITEM_CLASS}>
+                      <Heart className="size-3.5" />
+                      收藏
+                    </Link>
+                  </DropdownMenuItem>
+                  {/* 管理员专属入口：与后台守卫同源判定，非管理员不渲染 */}
+                  {isAdmin ? (
+                    <>
+                      <DropdownMenuItem className="cursor-pointer p-0 focus:bg-transparent">
+                        <Link href="/admin/mods" prefetch={false} className={DROPDOWN_ITEM_CLASS}>
+                          <LayoutDashboard className="size-3.5" />
+                          管理列表
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer p-0 focus:bg-transparent">
+                        <Link href="/admin/upload" prefetch={false} className={DROPDOWN_ITEM_CLASS}>
+                          <UploadCloud className="size-3.5" />
+                          上传
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                  <DropdownMenuSeparator className="my-2 h-1 bg-black" />
+                  {isLoggedIn ? (
+                    <form action={signOutAction}>
+                      <button type="submit" className={DROPDOWN_ITEM_CLASS}>
+                        <LogOut className="size-3.5" />
+                        退出登录
+                      </button>
+                    </form>
+                  ) : (
+                    <DropdownMenuItem className="cursor-pointer p-0 focus:bg-transparent">
+                      <Link
+                        href={loginHref}
+                        prefetch={false}
+                        onClick={() => handleLoginEntry(loginHref)}
+                        className={DROPDOWN_ITEM_CLASS}
+                      >
+                        <LogIn className="size-3.5" />
+                        登录
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </MotionReveal>
+          )}
+          {!isAdminRoute && (
+            <MotionReveal delay={0.22} rotate={-1}>
+              <Link href="/mods" prefetch={false} className="neo-button-primary inline-flex -rotate-1 items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
+                <Sparkles className="size-3" />
+                直链下载
               </Link>
             </MotionReveal>
           )}
-            </>
-          )}
-          {!isAdminRoute && (
-            <>
-              <MotionReveal delay={0.2} rotate={-1}>
-                {isLoggedIn ? (
-                  <form action={signOutAction}>
-                    <button type="submit" className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
-                      <LogOut className="size-3" />
-                      退出
-                    </button>
-                  </form>
-                ) : (
-                  <Link href={loginHref} prefetch={false} onClick={() => handleLoginEntry(loginHref)} className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
-                    <LogIn className="size-3" />
-                    登录
-                  </Link>
-                )}
-              </MotionReveal>
-              <MotionReveal delay={0.22} rotate={-1}>
-                <Link href="/mods" prefetch={false} className="neo-button-primary inline-flex -rotate-1 items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
-                  <Sparkles className="size-3" />
-                  直链下载
-                </Link>
-              </MotionReveal>
-            </>
-          )}
-          {/* 后台路由：仅显示退出登录 */}
+          {/* 后台路由：只保留一个退出登录 */}
           {isAdminRoute && (
             <MotionReveal delay={0.2} rotate={-1}>
               <form action={signOutAction}>
@@ -392,54 +468,88 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                 <SiteSearchForm />
               </Suspense>
 
-              <nav className="grid gap-3">
-                <div className="border-4 border-black bg-[var(--neo-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
-                  游戏切换
-                </div>
-                {games.map((game, index) => {
-                  const isActive = game.key === currentGameKey;
-                  return (
-                  <Link
-                    key={game.key}
-                    href={game.nav.home}
-                    onClick={(e) => { if (isActive) { e.preventDefault(); } setMobileOpen(false); }}
-                    // 当前分站：点了不会跳，别起骨架屏（见 handleHeaderNavClick）
-                    data-nav-skip={isActive ? "" : undefined}
-                    className={`border-4 border-black px-4 py-3 text-sm font-black uppercase tracking-[0.14em] shadow-[6px_6px_0px_0px_#000] ${
-                      isActive
-                        ? "bg-black text-white border-white"
-                        : index % 3 === 0 ? "bg-[var(--neo-secondary)] text-black" : index % 3 === 1 ? "bg-[var(--neo-accent)] text-black" : "bg-[var(--neo-muted)] text-black"
-                    }`}
-                  >
-                    {game.name} {isActive ? "✓" : ""}
-                  </Link>
-                  );
-                })}
-              </nav>
-
-              <nav className="grid gap-3">
-                {siteConfig.primaryNav.map((item, index) => (
+              {/* 主入口只留三张卡；低频页面收进「更多页面」，游戏切换与
+                  六十多个角色格各自折叠 —— 以前它们全是平铺的大卡，抽屉要滚好几屏。 */}
+              <nav className="grid grid-cols-3 gap-2">
+                {siteConfig.primaryNav.slice(0, 3).map((item, index) => (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => { setMobileOpen(false); handleGalleryEntry(item.href); }}
-                    className={`border-4 border-black px-4 py-3 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[6px_6px_0px_0px_#000] ${index % 3 === 0 ? "bg-[var(--neo-secondary)]" : index % 3 === 1 ? "bg-[var(--neo-muted)]" : "bg-white"}`}
+                    className={`flex items-center justify-center border-4 border-black px-2 py-3 text-center text-[11px] font-black leading-tight tracking-[0.06em] text-black shadow-[4px_4px_0px_0px_#000] ${index % 3 === 0 ? "bg-[var(--neo-secondary)]" : index % 3 === 1 ? "bg-[var(--neo-muted)]" : "bg-white"}`}
                   >
                     {item.label}
                   </Link>
                 ))}
               </nav>
 
+              <details className="group">
+                <summary className={MOBILE_DETAILS_SUMMARY_CLASS}>
+                  更多页面
+                  <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <nav className="mt-2 grid gap-2">
+                  {siteConfig.primaryNav.slice(3).map((item, index) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => { setMobileOpen(false); handleGalleryEntry(item.href); }}
+                      className={`border-4 border-black px-4 py-2.5 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] ${index % 2 === 0 ? "bg-[var(--neo-muted)]" : "bg-white"}`}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </nav>
+              </details>
+
+              <details className="group">
+                <summary className={MOBILE_DETAILS_SUMMARY_CLASS}>
+                  <span className="min-w-0 truncate">游戏切换 · {currentGameName}</span>
+                  <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <nav className="mt-2 grid gap-2">
+                  {games.map((game, index) => {
+                    const isActive = game.key === currentGameKey;
+                    return (
+                      <Link
+                        key={game.key}
+                        href={game.nav.home}
+                        onClick={(e) => { if (isActive) { e.preventDefault(); } setMobileOpen(false); }}
+                        // 当前分站：点了不会跳，别起骨架屏（见 handleHeaderNavClick）
+                        data-nav-skip={isActive ? "" : undefined}
+                        className={`border-4 border-black px-4 py-2.5 text-sm font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] ${
+                          isActive
+                            ? "bg-black text-white border-white"
+                            : index % 3 === 0 ? "bg-[var(--neo-secondary)] text-black" : index % 3 === 1 ? "bg-[var(--neo-accent)] text-black" : "bg-[var(--neo-muted)] text-black"
+                        }`}
+                      >
+                        {game.name} {isActive ? "✓" : ""}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </details>
+
               {/* 全部角色分类：手机端唯一的按角色浏览入口。
                   /mods 的角色侧栏是 `hidden … lg:block`，那个 CharacterPickerDrawer
                   也挂在侧栏内部跟着被隐藏，所以这里必须补一份。
-                  每一项是一个**具体角色**，点了进该角色的资源列表（/mods?character=…）。 */}
-              <nav className="grid gap-3">
-                <div className="border-4 border-black bg-[var(--neo-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
+                  每一项是一个**具体角色**，点了进该角色的资源列表（/mods?character=…）。
+                  默认收起：60+ 个格子铺开会把下面的入口推到好几屏之外；展开时才拉清单。 */}
+              <details
+                className="group"
+                onToggle={(event) => setCharactersExpanded(event.currentTarget.open)}
+              >
+                <summary className={MOBILE_DETAILS_SUMMARY_CLASS}>
                   全部角色分类
+                  <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="mt-2">
+                  <MobileCharacterNav
+                    open={mobileOpen && charactersExpanded}
+                    onNavigate={() => setMobileOpen(false)}
+                  />
                 </div>
-                <MobileCharacterNav open={mobileOpen} onNavigate={() => setMobileOpen(false)} />
-              </nav>
+              </details>
 
               {/* 移动端风格切换入口：桌面端那个下拉是 hidden md:block，
                   手机上原本没有任何换肤入口。 */}

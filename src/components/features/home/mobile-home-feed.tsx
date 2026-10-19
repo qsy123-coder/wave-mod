@@ -226,8 +226,15 @@ function MobileHomeFeedContent({
         <MemoizedModsInfiniteGrid
           character={character ?? undefined}
           sort={sort}
-          initialMods={initialMods}
-          initialTotalCount={initialTotalCount}
+          // ⚠️ 种子只对应「全部角色 + 最新」这一组筛选。
+          //
+          // 网格把 initialMods 直接灌进 `initialData`，而 React Query 的 initialData
+          // 对**每一个新 queryKey** 都生效：点角色后新 key 也会被种上这份全库第一页，
+          // 配合 staleTime 5 分钟 ⇒ 页面永远不拉该角色的第一页，只会在无限滚动时
+          // 拉到带筛选的第 2 页（实测：点「爱弥斯」后第一页仍是心月狐，列表变成
+          // 16 条旧的 + 16 条新的）。所以换筛选时必须把种子撤掉，让网格自己拉。
+          initialMods={character === null && sort === "latest" ? initialMods : undefined}
+          initialTotalCount={character === null && sort === "latest" ? initialTotalCount : undefined}
           layoutMode="masonry"
           // 手机端固定 2 列：不传的话网格在水合首帧会按桌面 5 列铺骨架，随后才跳成 2 列。
           masonryColumns={2}
