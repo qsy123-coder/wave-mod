@@ -241,8 +241,23 @@ export function ShareModDialog({ open, onClose, url, title, imageUrl }: ShareMod
             </div>
           )}
 
-          <div className={cn(isPortrait ? "shrink-0" : "flex justify-center")}>
-            <div className="size-[var(--share-cover-h)] border-4 border-black bg-white p-3 shadow-[5px_5px_0px_0px_#000]">
+          <div className={cn(isPortrait ? "shrink-0" : "flex w-full justify-center")}>
+            {/*
+              二维码框：竖图并排时是正方形（宽=高）；横图上下排列时**宽度与预览图框一致**
+              （同样按 --share-cover-h × 宽高比算，图片还没加载出比例前先占满整行）。
+              二维码本身保持正方形、在框里居中 —— 拉伸成矩形就扫不出来了。
+            */}
+            <div
+              className={cn(
+                "flex items-center justify-center border-4 border-black bg-white p-3 shadow-[5px_5px_0px_0px_#000]",
+                isPortrait ? "size-[var(--share-cover-h)]" : "h-[var(--share-cover-h)] w-full",
+              )}
+              style={
+                !isPortrait && coverRatio
+                  ? { width: `calc(var(--share-cover-h) * ${coverRatio})` }
+                  : undefined
+              }
+            >
               {qrElement}
             </div>
           </div>
