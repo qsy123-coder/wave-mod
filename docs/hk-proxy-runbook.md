@@ -146,7 +146,7 @@ curl -sI https://go.sunnyrose.xyz/api/mods?sort=new | grep -i x-cache-status   #
 | `/_next/static/*` | 1 年 | 文件名带内容哈希；强制 `immutable` |
 | `/favicon.ico` | 1 年 | 15 天 563MB 的热点请求 |
 | 其他带扩展名的静态资源 | 7 天 | css/js/图片/字体/视频等 |
-| 页面 HTML / RSC | 30 秒，后台刷新 | **带 Cookie 的请求绕过**；上游回 Set-Cookie 的响应不落盘 |
+| 页面 HTML / RSC | 60 秒，后台刷新 | **带 Cookie 的请求绕过**；上游回 Set-Cookie 的响应不落盘。Hobby 的函数调用额度吃紧时，这是第一个该调大的值 |
 | `/api/mods` | 300 秒 | 带 `query=` 的请求不进缓存（长尾搜索） |
 | `/api/updates` | 300 秒 | 与接口自身 `s-maxage` 对齐 |
 | `/api/characters` | 600 秒 | 角色分类列表 |

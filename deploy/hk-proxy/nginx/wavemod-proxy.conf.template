@@ -273,7 +273,11 @@ server {
         add_header X-Cache-Status "BYPASS" always;
     }
 
-    # ── 页面 HTML / RSC：缓存 30 秒，带 Cookie 的请求绕过 ──────────────────
+    # ── 页面 HTML / RSC：缓存 60 秒，带 Cookie 的请求绕过 ──────────────────
+    #
+    # 60 秒而不是 30 秒：Hobby 的 100 万函数调用是与另一个项目共享的额度，
+    # 页面是回源大头。上传脚本的 /api/revalidate 清不到 nginx 这层，
+    # 所以新内容最坏会晚 1 分钟出现 —— 这是可接受的取舍。
     #
     # 这里刻意 `proxy_ignore_headers Cache-Control Expires`：Next 对动态页面发的是
     # `private, no-store`，不忽略的话这一层等于没缓存。安全性靠两点：
@@ -285,7 +289,7 @@ server {
 
         proxy_cache wavemod_cache;
         proxy_cache_key "$host$request_uri";
-        proxy_cache_valid 200 301 302 30s;
+        proxy_cache_valid 200 301 302 60s;
         proxy_ignore_headers Cache-Control Expires;
 
         proxy_cache_bypass $cache_bypass_method $http_cookie;
