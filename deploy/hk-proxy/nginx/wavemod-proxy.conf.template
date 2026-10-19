@@ -1,0 +1,317 @@
+# ============================================================================
+# WaveMod 香港反代 —— nginx 站点配置
+# ============================================================================
+# 本文件是**模板**，由 scripts/setup-hk-proxy.sh 渲染后放到
+#   /etc/nginx/conf.d/wavemod-proxy.conf
+# 它被 include 在 nginx 的 http {} 上下文里，所以 proxy_cache_path / map /
+# log_format 这些「http 级指令」可以写在这里（sites-available 里则不行）。
+#
+# 占位符（脚本替换）：
+#   {{DOMAIN}}        对外域名，例如 go.sunnyrose.xyz
+#   {{UPSTREAM_HOST}} Vercel 的生产别名，例如 wave-mod.vercel.app
+#   {{CERT_FILE}}     fullchain 路径（Let's Encrypt 或自签占位）
+#   {{KEY_FILE}}      私钥路径
+#
+# 设计取舍（改之前先读 PRD 的 Phase 0 流量结论）：
+#   - Hobby 的硬约束是「函数调用 100 万/月」，健康日动态请求约 7.3 万/天 ≈ 220 万/月，
+#     所以必须在这里挡掉重复请求，否则上线第一天就超额。
+#   - /api/engagement 的响应里 `mine` 是 per-device 状态（这台设备赞没赞过），
+#     **绝不能缓存**；PRD 里写的「缓存 30–60 秒」对它是错的，缓存了会把 A 的点赞态
+#     发给 B。这里显式关掉。
+#   - HTML 只缓存 30 秒，并且**带 Cookie 的请求一律绕过**：站点只有登录用户才有
+#     Cookie（匿名访客没有），这样既吃到缓存又不会把用户态页面发给别人。
+# ============================================================================
+
+# ── 代理缓存区 ──────────────────────────────────────────────────────────────
+# 10G / inactive=2d：健康日上游约 1.3GB，两天量足够，磁盘按 40G 预留。
+proxy_cache_path /var/cache/nginx/wavemod levels=1:2 keys_zone=wavemod_cache:100m
+                 max_size=10g inactive=2d use_temp_path=off;
+proxy_temp_path /var/cache/nginx/wavemod_tmp;
+
+# 带缓存命中状态的访问日志：排查「省了多少函数调用」全靠这一列
+log_format wavemod_cache '$remote_addr - [$time_local] "$request" $status $body_bytes_sent '
+                         'rt=$request_time urt=$upstream_response_time '
+                         'cache=$upstream_cache_status ua="$http_user_agent"';
+
+# 只有 GET/HEAD 允许进缓存（POST 必然要穿过，例如点赞、评论、revalidate）
+map $request_method $cache_bypass_method {
+    default 1;
+    GET     0;
+    HEAD    0;
+}
+
+# 从环境变量取不到，只能用静态 upstream。keepalive 让香港→Vercel 的 TLS 握手
+# 按连接复用，代价是 DNS 只在启动时解析一次 —— 脚本会装一个每日 reload 的 cron
+# 兜住 Vercel 换 IP 的情况。
+upstream wavemod_upstream {
+    server {{UPSTREAM_HOST}}:443;
+    keepalive 64;
+}
+
+# ── 80：ACME 挑战 + 跳 HTTPS ────────────────────────────────────────────────
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{DOMAIN}};
+
+    # certbot --webroot 会往这里写文件。必须只放在 80 上：
+    # 证书签发时 443 可能还没就绪。
+    location /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ── 443：反代到 Vercel ──────────────────────────────────────────────────────
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{DOMAIN}};
+
+    # Ubuntu 22.04 自带 nginx 1.18 还不认 `http2 on;`，所以写进 listen。
+    # 升到 1.25+ 后这样写只会多一条 deprecation warning，不影响运行。
+
+    ssl_certificate     {{CERT_FILE}};
+    ssl_certificate_key {{KEY_FILE}};
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    add_header Strict-Transport-Security "max-age=15552000" always;
+
+    server_tokens off;
+    client_max_body_size 20m;
+
+    # 上游的 5xx 用维护页兜底；API 走 JSON 版本，避免前端把 HTML 当 JSON 解析
+    proxy_intercept_errors on;
+    error_page 502 503 504 = @maintenance;
+
+    access_log /var/log/nginx/wavemod.access.log wavemod_cache;
+
+    # ── 本机健康检查（不碰上游，给 uptime 探活用） ─────────────────────────
+    location = /__health {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # ── 回源健康检查（真的打一次 Vercel） ──────────────────────────────────
+    # 不复用 common 片段：那条片段里已经有一条 proxy_pass，同一 location 里
+    # 再写一条（带 URI 的）nginx 会直接报 duplicate。
+    location = /__health/origin {
+        access_log off;
+        proxy_cache off;
+
+        proxy_pass https://wavemod_upstream/api/updates?days=1;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host {{UPSTREAM_HOST}};
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_ssl_server_name on;
+        proxy_ssl_name {{UPSTREAM_HOST}};
+        proxy_ssl_verify on;
+        proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 15s;
+    }
+
+    # ── 静态资源：文件名带内容哈希，可以缓存一年 ───────────────────────────
+    location /_next/static/ {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache wavemod_cache;
+        proxy_cache_key "$host$request_uri";
+        proxy_cache_valid 200 206 1y;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+    }
+
+    # 全站最热的静态请求之一（15 天 563MB），必须缓存
+    location = /favicon.ico {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache wavemod_cache;
+        proxy_cache_key "$host$request_uri";
+        proxy_cache_valid 200 1y;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+    }
+
+    # 其余带扩展名的静态资源（public/ 下的图标、教程图等）。
+    # 注意用普通正则 location：它会被 = /api/mods 之类的精确匹配盖过，
+    # 而 /api/gallery/ 用的是 ^~ 前缀，优先级更高，不会被这条抢走。
+    location ~* \.(?:css|js|mjs|map|woff2?|ttf|otf|eot|svg|png|jpe?g|gif|webp|avif|ico|mp4|webm|txt|xml)$ {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache wavemod_cache;
+        proxy_cache_key "$host$request_uri";
+        proxy_cache_valid 200 7d;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+    }
+
+    # ── 公开数据接口：与接口自己的 s-maxage 对齐 ───────────────────────────
+    # 带 query 的请求不进缓存：搜索词是长尾的，缓存 5 分钟既撑爆缓存区，
+    # 又让搜索结果的变化更迟钝（接口本身给 query 的 TTL 是 60 秒）。
+    location = /api/mods {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache wavemod_cache;
+        proxy_cache_key "$host$request_uri";
+        proxy_cache_valid 200 300s;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_cache_bypass $cache_bypass_method $arg_query;
+        proxy_no_cache $cache_bypass_method;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+        error_page 502 503 504 = @maintenance_api;
+    }
+
+    location = /api/updates {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache wavemod_cache;
+        proxy_cache_key "$host$request_uri";
+        proxy_cache_valid 200 300s;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_cache_bypass $cache_bypass_method;
+        proxy_no_cache $cache_bypass_method;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+        error_page 502 503 504 = @maintenance_api;
+    }
+
+    location = /api/characters {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache wavemod_cache;
+        proxy_cache_key "$host$request_uri";
+        proxy_cache_valid 200 600s;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_cache_bypass $cache_bypass_method;
+        proxy_no_cache $cache_bypass_method;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+        error_page 502 503 504 = @maintenance_api;
+    }
+
+    location = /api/home/lower {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache wavemod_cache;
+        proxy_cache_key "$host$request_uri";
+        proxy_cache_valid 200 300s;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_cache_bypass $cache_bypass_method;
+        proxy_no_cache $cache_bypass_method;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+        error_page 502 503 504 = @maintenance_api;
+    }
+
+    # 图库路由现在只是 302 到 COS。302 本身缓存 1 小时，能省掉大量函数调用；
+    # 真正的图片由浏览器直连 COS，不经过这台机器。
+    location ^~ /api/gallery/ {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache wavemod_cache;
+        proxy_cache_key "$host$request_uri";
+        proxy_cache_valid 200 302 1h;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_cache_bypass $cache_bypass_method;
+        proxy_no_cache $cache_bypass_method;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+        error_page 502 503 504 = @maintenance_api;
+    }
+
+    # ── 其余 /api/*：一律穿过，交给 Vercel ─────────────────────────────────
+    # 这里包含互动计数（per-device，绝不能缓存）、评论、登录、下载跳转等。
+    location /api/ {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache off;
+        add_header X-Cache-Status "BYPASS" always;
+        error_page 502 503 504 = @maintenance_api;
+    }
+
+    # ── 后台与登录：不缓存 ─────────────────────────────────────────────────
+    location ~ ^/(admin|auth|login|favorites) {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache off;
+        add_header X-Cache-Status "BYPASS" always;
+    }
+
+    # ── 页面 HTML / RSC：缓存 30 秒，带 Cookie 的请求绕过 ──────────────────
+    #
+    # 这里刻意 `proxy_ignore_headers Cache-Control Expires`：Next 对动态页面发的是
+    # `private, no-store`，不忽略的话这一层等于没缓存。安全性靠两点：
+    #   1. 带任何 Cookie 的请求直接 bypass（只有登录用户才有 Cookie）
+    #   2. 上游回了 Set-Cookie 的响应不落盘（proxy_no_cache），防止把会话写进共享缓存
+    # 如果以后发现用户态内容串号，把这一段换成 `proxy_cache off;` 即可回退。
+    location / {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache wavemod_cache;
+        proxy_cache_key "$host$request_uri";
+        proxy_cache_valid 200 301 302 30s;
+        proxy_ignore_headers Cache-Control Expires;
+
+        proxy_cache_bypass $cache_bypass_method $http_cookie;
+        proxy_no_cache $cache_bypass_method $upstream_http_set_cookie;
+
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+    }
+
+    # ── 维护页（上游 5xx / 超时） ──────────────────────────────────────────
+    location @maintenance {
+        internal;
+        default_type text/html;
+        add_header Retry-After 60 always;
+        add_header Cache-Control "no-store" always;
+        return 503 '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WaveMod · 维护中</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f1115;color:#e8eaed;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.box{max-width:420px;padding:32px;text-align:center}h1{font-size:20px;margin:0 0 12px}p{margin:0;color:#9aa0a6}</style></head><body><div class="box"><h1>站点正在维护</h1><p>我们正在短暂更新服务，请 1 分钟后刷新重试。</p></div></body></html>';
+    }
+
+    location @maintenance_api {
+        internal;
+        default_type application/json;
+        add_header Retry-After 60 always;
+        add_header Cache-Control "no-store" always;
+        return 503 '{"error":"maintenance","message":"服务暂时不可用，请稍后重试。"}';
+    }
+}

@@ -1,0 +1,234 @@
+# 香港反代上线手册（HK nginx → Vercel）
+
+本文是 `docs/vercel-hk-proxy-migration-prd.md` 里 **Phase 2（香港入口）** 的落地手册。
+目标架构：
+
+```
+大陆访客 ──TLS──> 香港轻量 (nginx + 代理缓存) ──HTTPS──> Vercel 生产别名 (函数区域 hkg1)
+                                                          ├─ Supabase（首尔）
+                                                          └─ COS（广州，仅浏览器直连）
+```
+
+香港机**不放应用**，只做三件事：终止 TLS、代理缓存、上游故障时兜维护页。
+首尔机（`43.133.78.46`）保留 30 天作为热备，回滚就是把 DNS 切回去。
+
+---
+
+## 0. 文件清单
+
+| 路径 | 作用 |
+|---|---|
+| `scripts/setup-hk-proxy.sh` | 一键装机：装 nginx/certbot、渲染配置、占位证书、可选签正式证书 |
+| `deploy/hk-proxy/nginx/wavemod-proxy.conf.template` | 站点配置（缓存、维护页、健康检查） |
+| `deploy/hk-proxy/nginx/wavemod-proxy-common.conf.template` | 每个 location 共用的回源指令 |
+| `scripts/check-hk-proxy.sh` | 上线验收脚本（状态码、缓存行为、证书天数） |
+
+> 模板里的 `{{DOMAIN}}` / `{{UPSTREAM_HOST}}` / `{{CERT_FILE}}` / `{{KEY_FILE}}`
+> 由装机脚本替换，不要手工改渲染后的 `/etc/nginx/*` —— 下次跑脚本会被覆盖
+> （旧文件会留在 `*.bak-<时间戳>`）。
+
+**已验证**（2026-10-19，在首尔机的 nginx 1.18 上用独立端口 8080/8443 跑同一份配置）：
+首页/列表/更新页 200；`/api/mods` MISS→HIT；带 `query` 的参数 BYPASS；
+`/_next/static` MISS→HIT 且 `immutable`；`/api/engagement` BYPASS + `no-store`；
+两个健康检查 200。验收脚本 11 项通过（证书项因为用的是 1 天期自签而失败，预期内）。
+
+---
+
+## 1. 买机器与放行端口
+
+- 腾讯云轻量（香港）：2C2G / 30Mbps / 40GB SSD / Ubuntu 22.04 即可。
+  峰值只有约 5 req/s，瓶颈在磁盘（代理缓存），不在 CPU。
+- **不要选「中国大陆」地域**（要备案）；香港属海外节点。
+- 控制台防火墙放行 **22 / 80 / 443**。
+  ⚠️ 腾讯云轻量的 443 **默认不放行**，首尔机踩过：本机 curl 200、外网 timeout。
+  这个只能在控制台改，服务器上的 ufw 是 inactive，改了没用。
+
+## 2. 装机
+
+先假定用 `ubuntu` 用户登录（腾讯云 Ubuntu 镜像默认禁用 root 的 SSH）。
+脚本会去 `<脚本目录>/../deploy/hk-proxy/nginx/` 读模板，所以**相对路径必须保持**。
+
+```bash
+# 本地：只传必需的文件（比 clone 整个仓库快得多）
+scp -i <密钥> scripts/setup-hk-proxy.sh ubuntu@<香港IP>:/tmp/setup-hk-proxy.sh
+scp -i <密钥> -r deploy/hk-proxy ubuntu@<香港IP>:/tmp/hk-proxy
+
+# 服务器：摆成脚本期望的目录结构
+sudo mkdir -p /opt/wavemod/deploy
+sudo install -D -m 0644 /tmp/setup-hk-proxy.sh /opt/wavemod/scripts/setup-hk-proxy.sh
+sudo cp -r /tmp/hk-proxy /opt/wavemod/deploy/
+
+sudo bash /opt/wavemod/scripts/setup-hk-proxy.sh
+```
+
+（也可以直接 `git clone` 仓库到 `/opt/wavemod`，只是仓库里带着图库源文件，会慢很多。）
+
+脚本会：
+
+1. 装 nginx / certbot / openssl；
+2. 渲染配置到 `/etc/nginx/conf.d/wavemod-proxy.conf` 和
+   `/etc/nginx/snippets/wavemod-proxy-common.conf`；
+3. 没有正式证书时生成一张 30 天自签证书占位（浏览器会警告，但配置能上线）；
+4. `nginx -t` + reload；
+5. 装 `/etc/cron.d/wavemod-nginx-reload`：每天 04:17 reload 一次，
+   让 `upstream` 重新解析 Vercel 的 IP（开源 nginx 只在启动时解析域名）。
+
+## 3. 签证书（推荐在切 DNS 之前签）
+
+两条路，**优先 DNS-01**，这样切换时没有「自签告警」空窗：
+
+### 3a. DNS-01（推荐，零空窗）
+
+需要一个 Cloudflare API Token，权限只要 `Zone → DNS → Edit`：
+
+```bash
+sudo mkdir -p /root/.secrets
+sudo tee /root/.secrets/cloudflare.ini >/dev/null <<'EOF'
+dns_cloudflare_api_token = 你的token
+EOF
+sudo chmod 600 /root/.secrets/cloudflare.ini
+
+sudo bash /opt/wavemod/scripts/setup-hk-proxy.sh --issue-cert-dns --email=你的邮箱
+```
+
+不需要 A 记录已经指过来，也不需要 80 端口。签完证书就会自动切到
+`/etc/letsencrypt/live/<域名>/`。
+
+### 3b. HTTP-01（切完 DNS 之后）
+
+```bash
+dig +short go.sunnyrose.xyz      # 先确认返回香港机 IP，再签
+sudo bash /opt/wavemod/scripts/setup-hk-proxy.sh --issue-cert --email=你的邮箱
+```
+
+脚本会比对「本机公网 IP」和「域名解析结果」，不一致会拒绝签发
+（避免吃 Let's Encrypt 的失败次数限制）。
+
+两条路都会安装续期钩子 `/etc/letsencrypt/renewal-hooks/deploy/wavemod-nginx`，
+续期后自动 reload nginx。
+
+## 4. 切 DNS
+
+在 Cloudflare（**灰云 / DNS only**，不要开橙云）：
+
+1. **提前 24 小时**把 `go.sunnyrose.xyz` 的 TTL 从 Auto(300s) 改成 **60 秒**；
+2. 把 A 记录从首尔 `43.133.78.46` 改成香港机公网 IP；
+3. 验证：`dig +short go.sunnyrose.xyz`。
+
+不要动 `wave-mod.top` / `www.wave-mod.top`，它们保持 410。
+参考 `docs/域名入口拓扑.md` 与记忆里「换域名只改 DNS 不够」的教训。
+
+## 5. 验收
+
+```bash
+bash scripts/check-hk-proxy.sh https://go.sunnyrose.xyz
+```
+
+预期全部通过。手工再确认几件事：
+
+```bash
+# 1) 响应确实来自 Vercel hkg1
+curl -sI https://go.sunnyrose.xyz/api/mods?sort=new | grep -i x-vercel-id
+#    期望形如 icn1::hkg1::xxxx（边缘 icn1 是访客所在区域，函数是 hkg1）
+
+# 2) 缓存状态
+curl -sI https://go.sunnyrose.xyz/api/mods?sort=new | grep -i x-cache-status   # 第一次 MISS
+curl -sI https://go.sunnyrose.xyz/api/mods?sort=new | grep -i x-cache-status   # 第二次 HIT
+
+# 3) 登录、收藏、点赞、下载各点一次（浏览器）
+# 4) 每日上传脚本的 /api/revalidate ping 仍能打穿（它走 POST，必然 BYPASS）
+```
+
+## 6. 缓存策略（改之前先看这张表）
+
+| 路径 | 缓存 | 说明 |
+|---|---|---|
+| `/_next/static/*` | 1 年 | 文件名带内容哈希；强制 `immutable` |
+| `/favicon.ico` | 1 年 | 15 天 563MB 的热点请求 |
+| 其他带扩展名的静态资源 | 7 天 | css/js/图片/字体/视频等 |
+| 页面 HTML / RSC | 30 秒，后台刷新 | **带 Cookie 的请求绕过**；上游回 Set-Cookie 的响应不落盘 |
+| `/api/mods` | 300 秒 | 带 `query=` 的请求不进缓存（长尾搜索） |
+| `/api/updates` | 300 秒 | 与接口自身 `s-maxage` 对齐 |
+| `/api/characters` | 600 秒 | 角色分类列表 |
+| `/api/home/lower` | 300 秒 | 首页下半屏数据 |
+| `/api/gallery/*` | 302 缓存 1 小时 | 真正的图片由浏览器直连 COS |
+| `/api/engagement` | **不缓存** | 响应含 per-device 的 `mine`，缓存会串号 |
+| 其他 `/api/*`、`/admin`、`/auth`、`/login`、`/favorites` | **不缓存** | POST 一律 BYPASS |
+| 上游 502/503/504 | 维护页 | 页面返回 HTML，API 返回 JSON 503 + `Retry-After` |
+
+> ⚠️ PRD 里写「`/api/engagement` 缓存 30–60 秒」是**错的**：该响应包含
+> 「这台设备赞没赞过」，共享缓存会把 A 的状态发给 B。配置里已显式关闭，
+> 不要再加回去。
+
+## 7. 已知问题（切换前必须知道）
+
+### 7.1 Vercel 到广州 COS 不通（阻断级）
+
+2026-10-19 实测：从 Vercel 函数（hkg1）访问
+`wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com`，TCP 连接 40 秒才
+`ETIMEDOUT`，16 个互动计数分片全部失败。后果：
+
+- **互动计数（点赞/收藏/浏览）在 Vercel 上读写都失效**，当前页面只显示基线数字；
+- `/api/mods?sort=hot` 冷路径要读全部分片，4 路并发 × 4 批 × 40 秒 > 120 秒，
+  请求超时；走本反代会由 60 秒读超时切到维护页；
+- 远程兜底快照（COS）拉不到，只能退回打包内那份。
+
+Vercel → Supabase 是正常的（uncached 详情接口 0.94s）。所以**解决方向是让计数
+不再依赖「Vercel → 广州 COS」这条链路**（迁 Supabase Postgres 或经香港中转），
+这件事没定之前不要扩大切换范围。
+
+### 7.2 Hobby 的 100 万次函数调用
+
+健康日动态请求约 7.3 万/天 ≈ 220 万/月，是上限的 2 倍。本反代的缓存就是为它设计
+的。上线后每天在 Vercel 面板看 Function Invocations；如果仍然逼近上限，再考虑
+把 HTML 的 30 秒调长，或给更多 `GET /api/*` 加短缓存。
+
+### 7.3 上游超时
+
+`proxy_read_timeout 60s`。Vercel 冷启动通常 1–2 秒，但 `sort=hot` 这种坏路径会
+直接吃满超时并返回维护页 —— 这是有意的：宁可给一个可读的维护页，也不要让访客
+连接挂 120 秒。
+
+## 8. 回滚
+
+| 场景 | 操作 | 生效时间 |
+|---|---|---|
+| Vercel 部署坏 | Vercel 面板 Promote 上一个 Ready 版本 | ≤ 2 分钟 |
+| 香港机故障 | DNS A 记录切回首尔 `43.133.78.46`（TTL 60s） | ≤ 5 分钟 |
+| nginx 配置错误 | `cd /etc/nginx/conf.d && cp wavemod-proxy.conf.bak-<时间戳> wavemod-proxy.conf && nginx -t && systemctl reload nginx` | 秒级 |
+| 想完全停用反代 | 把 DNS 切回首尔，香港机保留但不再有流量 | ≤ 5 分钟 |
+
+回滚前先确认首尔机还在正常服务（`curl -sI https://www.wave-mod.top/` → 200）。
+
+## 9. 日常运维
+
+```bash
+# 实时看缓存命中/耗时（cache=HIT/MISS/BYPASS 是关键指标）
+tail -f /var/log/nginx/wavemod.access.log
+
+# 错误日志
+tail -f /var/log/nginx/error.log
+
+# 缓存占用
+du -sh /var/cache/nginx/wavemod
+
+# 证书
+certbot certificates
+certbot renew --dry-run
+
+# 配置校验与重载
+nginx -t && systemctl reload nginx
+
+# 上游健康
+curl -s -o /dev/null -w '%{http_code} %{time_total}s\n' https://go.sunnyrose.xyz/__health/origin
+```
+
+监控建议：外部 uptime 服务同时探 `/__health`（香港机）与 `/__health/origin`
+（香港 → Vercel），两段分别告警，能一眼区分「机器挂了」和「上游挂了」。
+
+## 10. 不在本手册范围
+
+- 在香港机上跑应用本体（本方案只做反代）；
+- 国内 CDN / 备案；
+- 多香港节点与自动故障转移（当前是单机 + DNS 回滚）；
+- 限流/防刷（如需，在 `location` 里加 `limit_req`，不要动缓存策略）。

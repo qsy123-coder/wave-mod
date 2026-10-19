@@ -1,0 +1,38 @@
+# ============================================================================
+# WaveMod 香港反代 —— 每个 location 共用的回源指令
+# ============================================================================
+# 由 scripts/setup-hk-proxy.sh 渲染到 /etc/nginx/snippets/wavemod-proxy-common.conf
+# 占位符：{{UPSTREAM_HOST}}
+#
+# 为什么不直接 proxy_set_header Host $host：
+#   go.sunnyrose.xyz 不是挂在 Vercel 项目上的域名（DNS 指向香港机），
+#   用 $host 回源会让 Vercel 找不到对应项目而返回 404。必须换成项目的
+#   生产别名，同时用 X-Forwarded-Host 把访客看到的域名传过去。
+# ============================================================================
+
+proxy_pass https://wavemod_upstream;
+
+proxy_http_version 1.1;
+proxy_set_header Connection "";
+
+proxy_set_header Host {{UPSTREAM_HOST}};
+proxy_set_header X-Forwarded-Host $host;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
+
+proxy_ssl_server_name on;
+proxy_ssl_name {{UPSTREAM_HOST}};
+# 校验证书：上游是 Vercel，证书链正常；出问题时先看 error.log 再考虑临时关掉
+proxy_ssl_verify on;
+proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+
+proxy_connect_timeout 5s;
+# 60s：Vercel 冷启动通常 1–2s，但极端情况会到几十秒；再长就让维护页接手，
+# 别把访客挂在一个没有响应的连接上。
+proxy_send_timeout 60s;
+proxy_read_timeout 60s;
+
+# 放在片段里而不是 server 级：nginx 的 add_header 不继承 ——
+# 只要 location 自己有一条 add_header（例如 X-Cache-Status），server 级的就全丢了。
+add_header Strict-Transport-Security "max-age=15552000" always;

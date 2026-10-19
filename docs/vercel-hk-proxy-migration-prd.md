@@ -246,13 +246,27 @@ WaveMod 目前自托管在腾讯云首尔的一台轻量服务器上（PM2 + ngi
   `engagement/v2/shard-N.json`，按 mod.id 哈希路由；读走 60s 内存缓存，写按分片串行。
   迁移后 4171 个资源 / 点赞 47 / 收藏 285 / 浏览 45720 与源完全一致，对象 ACL 私有。
   未配 COS 时自动回落本地文件实现（本地开发零配置）。
-- ⬜ 部署到 Vercel 预发域名，跑通全部只读页面与登录
+- ✅ **只读页面已在 Vercel 验证**（2026-10-19）：首页/列表/更新页 200，
+  详情页（uncached）0.94s，`x-vercel-id` 显示函数区域 `hkg1`
+- ⬜ 部署到 Vercel 预发域名，跑通登录（登录态页面尚未验证）
 - ⬜ 确认后再删除仓库里的 `public/gallery`（77.5MB，仅用于回滚兜底）
 
+**⚠️ Phase 1 暴露的阻断问题（2026-10-19）**：Vercel 函数到广州 COS 的 TCP
+连接不通（40s ETIMEDOUT）。互动计数分片全部读失败，`sort=hot` 冷路径 120s 超时；
+远程兜底快照也拉不到。Vercel → Supabase 正常（0.94s）。
+在解决「计数不再依赖 Vercel→广州 COS」之前，本方案不能整体切换。
+详见 `docs/hk-proxy-runbook.md` 第 7.1 节。
+
 ### Phase 2: 香港入口（1 天）
-- 采购香港轻量机，安装 nginx / certbot
-- 配置反代、缓存、维护页、日志
-- 用 hosts 绑定域名的测试机验证回源正确
+- ✅ **配置与脚本已就绪**（2026-10-19，commit 待提交）：
+  `scripts/setup-hk-proxy.sh`、`deploy/hk-proxy/nginx/*.template`、
+  `scripts/check-hk-proxy.sh`、`docs/hk-proxy-runbook.md`。
+  已在首尔机的 nginx 1.18 上用独立端口 8080/8443 做过完整冒烟：
+  页面 200、`/api/mods` MISS→HIT、带 query BYPASS、静态资源 immutable、
+  `/api/engagement` BYPASS+no-store、健康检查 200。
+- ⬜ 采购香港轻量机（用户尚未购买）
+- ⬜ 香港机执行装机脚本 + DNS-01 签证书（推荐，避免证书空窗）
+- ⬜ 用 hosts 绑定域名的测试机验证回源正确
 
 ### Phase 3: 切换（1 小时窗口 + 观察 24h）
 - DNS TTL 提前降为 60s → 切换 A 记录 → 验证清单
