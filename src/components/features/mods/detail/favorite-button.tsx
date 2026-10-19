@@ -31,7 +31,7 @@ type FavoriteButtonProps = {
 };
 
 /**
- * 收藏按钮。同 LikeButton：删掉登录分支与点击后的 `router.refresh()`，
+ * 收藏按钮。删掉登录分支与点击后的 `router.refresh()`，
  * 状态改由互动 store 管理（乐观更新 + 失败回滚）。
  */
 export function FavoriteButton({

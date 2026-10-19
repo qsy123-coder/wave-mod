@@ -26,7 +26,6 @@ import {
   toggleCommentReactionAction,
   togglePinCommentAction,
 } from "@/actions/mods/comment-actions";
-import { rateModAction } from "@/actions/mods/rating-actions";
 import type { GameConfig } from "@/config/games";
 import type {
   ModComment,
@@ -55,7 +54,6 @@ type ZenlessCommentsSectionProps = {
 };
 
 const COMMENTS_PAGE_SIZE = 10;
-const ratingRows = [5, 4, 3, 2, 1];
 const sortOptions: { label: string; value: ModCommentSort }[] = [
   { label: "Newest", value: "newest" },
   { label: "Oldest", value: "oldest" },
@@ -188,116 +186,13 @@ function CommentComposer({
 
 function RatingSidebar({
   game,
-  loggedIn,
-  mod,
   recommendedMods,
 }: {
   game: GameConfig;
-  loggedIn: boolean;
-  mod: SiteMod;
   recommendedMods: SiteMod[];
 }) {
-  const [hovered, setHovered] = useState<number | null>(null);
-  const [pending, startTransition] = useTransition();
-  const [optimisticUserRating, setOptimisticUserRating] = useState(mod.userRating ?? null);
-  const activeScore =
-    hovered ?? optimisticUserRating ?? Math.round(mod.ratingAverage);
-  const total = Math.max(mod.ratingCount, 1);
-
-  const rate = (score: number) => {
-    if (!loggedIn) {
-      toast.error("请先登录后评分。");
-      return;
-    }
-
-    const previousRating = optimisticUserRating;
-    setOptimisticUserRating(score);
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.set("modId", mod.id);
-      formData.set("score", String(score));
-      try {
-        await rateModAction(formData);
-        toast.success(`已提交 ${score} 星评分。`);
-      } catch (error) {
-        setOptimisticUserRating(previousRating);
-        toast.error(
-          error instanceof Error ? error.message : "评分失败，请稍后再试。",
-        );
-      }
-    });
-  };
-
   return (
-    <aside className="space-y-4 animate-[zzzRatingRise_360ms_ease-out_both]">
-      <section className={`${panelClass} p-4`}>
-        <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-300">
-          Overall Rating
-        </h3>
-        <div className="mt-3 flex items-center gap-3">
-          <span className="text-4xl font-black text-white">
-            {mod.ratingAverage.toFixed(1)}
-          </span>
-          <div>
-            <div className="flex gap-0.5">
-              {[1, 2, 3, 4, 5].map((score) => (
-                <Star
-                  key={score}
-                  className={`size-4 ${score <= Math.round(mod.ratingAverage) ? "fill-white text-white" : "text-slate-600"}`}
-                />
-              ))}
-            </div>
-            <p className="mt-1 text-[11px] font-bold text-slate-400">
-              {mod.ratingCount} ratings
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 space-y-1.5">
-          {ratingRows.map((score) => {
-            const count = Math.max(1, Math.round((total / (6 - score)) * 0.18));
-            const width = Math.min(92, Math.max(8, (count / total) * 100));
-            return (
-              <div
-                key={score}
-                className="grid grid-cols-[18px_1fr_34px] items-center gap-2 text-[10px] font-bold text-slate-400"
-              >
-                <span>{score}</span>
-                <div className="h-1.5 border border-black bg-[#050914]">
-                  <div
-                    className="h-full bg-slate-300"
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-                <span className="text-right">{count}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-4 border-t border-white/10 pt-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
-            Rate This Resource
-          </p>
-          <div className="mt-2 flex gap-1.5">
-            {[1, 2, 3, 4, 5].map((score) => (
-              <button
-                key={score}
-                type="button"
-                disabled={pending}
-                onMouseEnter={() => setHovered(score)}
-                onMouseLeave={() => setHovered(null)}
-                onFocus={() => setHovered(score)}
-                onBlur={() => setHovered(null)}
-                onClick={() => rate(score)}
-                className="border-2 border-black bg-[#0b1220]/70 p-1.5 shadow-[2px_2px_0_0_#000]"
-              >
-                <Star
-                  className={`size-4 ${score <= activeScore ? "fill-white text-white" : "text-slate-600"}`}
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+    <aside className="space-y-4">
       <section
         className={`${panelClass} animate-[zzzSideDrop_420ms_ease-out_80ms_both] p-4`}
       >
@@ -363,10 +258,6 @@ function RatingSidebar({
                   <span className="inline-flex items-center gap-1">
                     <Download className="size-3" />
                     {compactNumber(item.downloads)}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Star className="size-3 fill-slate-300 text-slate-300" />
-                    {item.ratingAverage.toFixed(1)}
                   </span>
                 </div>
               </div>
@@ -934,8 +825,6 @@ export function ZenlessCommentsSection({
         </div>
         <RatingSidebar
           game={game}
-          loggedIn={loggedIn}
-          mod={mod}
           recommendedMods={recommendedMods}
         />
       </div>

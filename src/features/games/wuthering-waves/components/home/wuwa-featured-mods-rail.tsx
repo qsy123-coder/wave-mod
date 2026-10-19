@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRef } from "react";
-import { ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
 import type { SiteMod } from "@/lib/mods-domain/types";
@@ -62,13 +62,6 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
         <div className="absolute left-2 top-2">
           <ModTag label={tag} />
         </div>
-        <button
-          className="absolute right-2 top-2 rounded-full bg-black/40 p-1.5 text-white/60 backdrop-blur transition hover:text-white"
-          aria-label="Favorite"
-          onClick={(event) => event.preventDefault()}
-        >
-          <Star className="size-3.5" />
-        </button>
       </div>
       <div className="p-2.5">
         <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
@@ -82,11 +75,9 @@ function FeaturedModCard({ mod, index }: { mod: SiteMod; index: number }) {
         </p>
         <div className="flex items-center gap-2 text-[10px] text-slate-400">
           <span className="flex items-center gap-0.5">
-            <Star className="size-3 fill-amber-400 text-amber-400" />
-            {mod.ratingAverage.toFixed(1)}
+            <Download className="size-3" />
+            {(mod.downloads / 1000).toFixed(1)}K
           </span>
-          <span className="text-slate-600">·</span>
-          <span>{(mod.downloads / 1000).toFixed(1)}K</span>
         </div>
       </div>
     </Link>

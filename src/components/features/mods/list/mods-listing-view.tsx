@@ -20,7 +20,6 @@ const sortOptions: { label: string; value: ModSort }[] = [
   { label: "最新", value: "latest" },
   { label: "热度", value: "hot" },
   { label: "收藏", value: "favorites" },
-  { label: "评分", value: "rating" },
 ];
 
 /** 固定排在最前的三个特殊分组；它们不参与角色列表的重复渲染 */

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Download, Heart, Star } from "lucide-react";
+import { Download, Heart } from "lucide-react";
 
 import type { CreatorProfile } from "@/lib/mods";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
@@ -58,10 +58,6 @@ export function ProfileModMiniCard({
           <span className="inline-flex items-center gap-1">
             <Heart className="size-3" />
             {compact(mod.favorites)}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Star className="size-3 fill-slate-300 text-black" />
-            {mod.ratingAverage.toFixed(1)}
           </span>
         </div>
       </div>

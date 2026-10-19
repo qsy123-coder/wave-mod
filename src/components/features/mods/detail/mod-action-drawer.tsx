@@ -1,30 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, Download, Heart, Star, ThumbsUp } from "lucide-react";
+import { ChevronRight, Download, Heart } from "lucide-react";
 
 import type { DriveLink } from "@/lib/mods-domain/types";
 
 import { DownloadButton } from "./download-button";
 import { FavoriteButton } from "./favorite-button";
-import { LikeButton } from "./like-button";
-import { RatingPanel } from "./rating-panel";
 
 type ModActionDrawerProps = {
   downloadUrl: string | null;
   downloads: number;
   driveLinks: DriveLink[];
   isFavorited: boolean;
-  isLiked: boolean;
   isLoggedIn: boolean;
-  likes: number;
   modId: string;
   nextPath: string;
   onExpandedChange: (expanded: boolean) => void;
-  ratingAverage: number;
-  ratingCount: number;
   title: string;
-  userRating: number | null;
 };
 
 export function ModActionDrawer({
@@ -32,19 +25,13 @@ export function ModActionDrawer({
   downloads,
   driveLinks,
   isFavorited,
-  isLiked,
   isLoggedIn,
-  likes,
   modId,
   nextPath,
   onExpandedChange,
-  ratingAverage,
-  ratingCount,
   title,
-  userRating,
 }: ModActionDrawerProps) {
   const [expanded, setExpanded] = useState(false);
-  const safeRatingAverage = Number.isFinite(ratingAverage) ? ratingAverage : 0;
 
   useEffect(() => {
     onExpandedChange(expanded);
@@ -88,26 +75,6 @@ export function ModActionDrawer({
             <div className="mt-2.5 grid gap-2">
               <DownloadButton compact modId={modId} downloadUrl={downloadUrl} downloadCount={downloads} driveLinks={driveLinks} />
               <FavoriteButton compact id={modId} isFavorited={isFavorited} isLoggedIn={isLoggedIn} nextPath={nextPath} favoriteLabel="收藏" unfavoriteLabel="已收藏" loginLabel="登录收藏" />
-              <LikeButton compact modId={modId} isLiked={isLiked} isLoggedIn={isLoggedIn} likeCount={likes} nextPath={nextPath} />
-            </div>
-          </section>
-
-          <section className="border-4 border-black bg-[#C4B5FD] p-2.5 shadow-[5px_5px_0px_0px_#000]">
-            <div className="flex items-end justify-between gap-2 border-4 border-black bg-white p-2.5 shadow-[3px_3px_0px_0px_#000]">
-              <div>
-                <p className="text-2xl font-black leading-none">{safeRatingAverage.toFixed(1)}</p>
-                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-black/60">avg score</p>
-              </div>
-              <div className="flex gap-0.5">
-                {Array.from({ length: 5 }, (_, index) => index + 1).map((score) => (
-                  <Star key={score} className={`size-3.5 ${score <= Math.round(safeRatingAverage) ? "fill-black text-black" : "text-black/20"}`} />
-                ))}
-              </div>
-            </div>
-            <div className="mt-2 scale-[0.86] origin-top-left">
-              <div className="w-[calc(100%/0.86)]">
-                <RatingPanel modId={modId} isLoggedIn={isLoggedIn} ratingAverage={safeRatingAverage} ratingCount={ratingCount} userRating={userRating} />
-              </div>
             </div>
           </section>
         </div>
@@ -115,8 +82,6 @@ export function ModActionDrawer({
         <div className="flex flex-col items-center gap-2 border-t-4 border-black bg-white/90 px-1.5 py-2.5">
           <div className="inline-flex size-8 items-center justify-center border-4 border-black bg-[#FFD93D] shadow-[3px_3px_0px_0px_#000]"><Download className="size-3.5" /></div>
           <div className="inline-flex size-8 items-center justify-center border-4 border-black bg-[#FF6B6B] shadow-[3px_3px_0px_0px_#000]"><Heart className="size-3.5" /></div>
-          <div className="inline-flex size-8 items-center justify-center border-4 border-black bg-[#C4B5FD] shadow-[3px_3px_0px_0px_#000]"><Star className="size-3.5" /></div>
-          <div className="inline-flex size-8 items-center justify-center border-4 border-black bg-white shadow-[3px_3px_0px_0px_#000]"><ThumbsUp className="size-3.5" /></div>
         </div>
       )}
     </aside>

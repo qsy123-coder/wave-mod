@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Download,
   Grid3X3,
-  Star,
   Upload,
   Users,
   WandSparkles,
@@ -34,7 +33,6 @@ function getBackgroundSize(scale: number) {
 const stats = [
   { icon: Download, value: "25K+", label: "可用资源" },
   { icon: Users, value: "18K+", label: "代理人访问" },
-  { icon: Star, value: "4.9", label: "用户评分" },
   { icon: Grid3X3, value: "100+", label: "分类标签" },
   { icon: Zap, value: "Daily", label: "每日更新" },
 ] as const;
@@ -187,10 +185,6 @@ function ZenlessFeaturedCard({
           {mod.title || display.title}
         </h3>
         <div className="flex items-center justify-between text-[10px] font-black text-black/68">
-          <span className="inline-flex items-center gap-1">
-            <Star className="size-3 fill-[#ffb000] text-[#ffb000]" />
-            {mod.ratingAverage.toFixed(1)}
-          </span>
           <span>{Math.max(0.1, mod.downloads / 1000).toFixed(1)}K 下载</span>
         </div>
       </div>

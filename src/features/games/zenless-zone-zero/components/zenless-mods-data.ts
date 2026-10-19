@@ -6,7 +6,6 @@ import type { ModSort, SiteMod } from "@/lib/mods";
 export const zenlessSortOptions: { label: string; value: ModSort }[] = [
   { label: "热门趋势", value: "hot" },
   { label: "最多下载", value: "favorites" },
-  { label: "最高评分", value: "rating" },
   { label: "最新发布", value: "latest" },
 ];
 

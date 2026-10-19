@@ -13,15 +13,10 @@ type ModDetailLayoutShellProps = {
     downloads: number;
     driveLinks: DriveLink[];
     isFavorited: boolean;
-    isLiked: boolean;
     isLoggedIn: boolean;
-    likes: number;
     modId: string;
     nextPath: string;
-    ratingAverage: number;
-    ratingCount: number;
     title: string;
-    userRating: number | null;
   };
   children: React.ReactNode;
   recommendedMods: SiteMod[];

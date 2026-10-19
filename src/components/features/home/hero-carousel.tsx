@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import Autoplay from "embla-carousel-autoplay";
 
-import { ArrowUpRight, Pause, Play, Star } from "lucide-react";
+import { ArrowUpRight, Pause, Play } from "lucide-react";
 
 import { useSession } from "@/components/features/auth/session-provider";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -247,11 +247,6 @@ export function HeroCarousel({ mods }: HeroCarouselProps) {
                       <Badge className={`neo-sticker px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-black hover:bg-inherit ${index % 2 === 0 ? "rotate-2" : ""}`} style={{ background: index % 2 === 0 ? "var(--neo-accent)" : "var(--neo-muted)" }}>
                         {mod.character}
                       </Badge>
-                    </div>
-
-                    <div className="absolute right-3 top-3 z-20 rotate-2 border-4 border-black bg-[#ffd84f] px-2 py-1.5 shadow-[4px_4px_0px_0px_#000] text-black">
-                      <div className="flex items-center gap-1"><Star className="size-3 fill-[#ff7a00] text-[#ff7a00]" /><span className="text-sm font-black leading-none">{mod.ratingAverage.toFixed(1)}</span></div>
-                      <p className="mt-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black/70">{mod.ratingCount} 人评分</p>
                     </div>
 
                     <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-24 text-white">

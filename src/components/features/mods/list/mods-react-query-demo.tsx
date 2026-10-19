@@ -5,7 +5,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
 import { LoaderCircle, Trophy } from "lucide-react";
 
-import { ModInteractionBar, RatingSticker } from "@/components/layout/mod-interaction-bar";
+import { ModInteractionBar } from "@/components/layout/mod-interaction-bar";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import type { ModSort, PaginatedResult, SiteMod } from "@/lib/mods";
@@ -97,7 +97,6 @@ export function ModsReactQueryDemo({ character, query, sort }: ModsReactQueryDem
                 <div className="relative overflow-hidden border-4 border-black bg-black">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={mod.coverImage} alt={mod.title} loading="lazy" decoding="async" className="h-44 w-full object-cover" />
-                  <RatingSticker ratingAverage={mod.ratingAverage} ratingCount={mod.ratingCount} />
                 </div>
                 <div className="mt-3 space-y-2">
                   <div className="flex flex-wrap gap-2">

@@ -30,7 +30,6 @@ async function CreatorData({ params }: PageProps) {
     { label: "Total Downloads", value: compact(profile.stats.totalDownloads) },
     { label: "Favorites Received", value: compact(profile.stats.totalFavorites) },
     { label: "Following", value: "—" },
-    { label: "Likes Received", value: compact(profile.stats.totalLikes) },
   ];
 
   return (

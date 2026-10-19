@@ -100,9 +100,6 @@ export function ProfileRightRail({
                   </span>
                   {name}
                 </span>
-                <span>
-                  {compact(profile.stats.totalLikes / (index + 2))}
-                </span>
               </div>
             );
           })}

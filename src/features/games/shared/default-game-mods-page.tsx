@@ -23,7 +23,6 @@ const sortOptions: { label: string; value: ModSort }[] = [
   { label: "最新", value: "latest" },
   { label: "热度", value: "hot" },
   { label: "收藏", value: "favorites" },
-  { label: "评分", value: "rating" },
 ];
 
 type DefaultGameModsPageProps = {

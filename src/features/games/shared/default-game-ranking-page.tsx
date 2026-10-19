@@ -1,6 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
-import { Crown, Download, Flame, Heart, Star, Tags, Trophy } from "lucide-react";
+import { Crown, Download, Flame, Heart, Trophy } from "lucide-react";
 
 import type { GameConfig } from "@/config/games";
 import { ModCard } from "@/components/common/mod-card";
@@ -24,11 +23,7 @@ function rankByDownloads(mods: SiteMod[]) {
 }
 
 function rankByFavorites(mods: SiteMod[]) {
-  return mods.slice().sort((a, b) => b.favorites - a.favorites || b.likes - a.likes || Date.parse(b.createdAt) - Date.parse(a.createdAt));
-}
-
-function rankByRating(mods: SiteMod[]) {
-  return mods.slice().sort((a, b) => b.ratingAverage - a.ratingAverage || b.ratingCount - a.ratingCount || b.downloads - a.downloads);
+  return mods.slice().sort((a, b) => b.favorites - a.favorites || Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
 function rankByHot(mods: SiteMod[]) {
@@ -61,7 +56,7 @@ function RankingPodium({ game, mods }: { game: GameConfig; mods: SiteMod[] }) {
           <div className="border-4 border-black bg-white px-5 py-6 shadow-[8px_8px_0px_0px_#000]">
             <p className="neo-label text-black/60">Ranking Empty</p>
             <h2 className="mt-2 text-3xl font-black">{game.name} 暂无可排行的资源。</h2>
-            <p className="mt-4 text-sm font-bold leading-7 text-black/75">发布更多公开资源后，这里会自动生成下载、收藏、评分和热度榜单。</p>
+            <p className="mt-4 text-sm font-bold leading-7 text-black/75">发布更多公开资源后，这里会自动生成下载、收藏和热度榜单。</p>
           </div>
         </section>
       </MotionReveal>
@@ -178,7 +173,6 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
   const hotMods = rankByHot(mods);
   const downloadMods = rankByDownloads(mods);
   const favoriteMods = rankByFavorites(mods);
-  const ratingMods = rankByRating(mods);
   const characterStats = buildCharacterStats(mods);
 
   return (
@@ -189,7 +183,7 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
           <div className="relative">
             <p className="neo-label text-black/60">{game.name} Ranking</p>
             <h1 className="mt-2 text-4xl font-black uppercase leading-none md:text-5xl">{game.name} 排行榜</h1>
-            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-black/75">按创作者影响力、资源下载、收藏、评分和互动热度生成运营榜单，发现最受欢迎的内容和创作者。</p>
+            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-black/75">按创作者影响力、资源下载、收藏和互动热度生成运营榜单，发现最受欢迎的内容和创作者。</p>
           </div>
         </section>
       </MotionReveal>
@@ -199,10 +193,9 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
 
       <RankingPodium game={game} mods={hotMods} />
 
-      <section className="grid gap-5 xl:grid-cols-3">
+      <section className="grid gap-5 xl:grid-cols-2">
         <RankingList game={game} icon={<Download className="size-4" />} mods={downloadMods} title="下载榜" valueLabel="下载" valueOf={(mod) => String(mod.downloads)} />
         <RankingList game={game} icon={<Heart className="size-4" />} mods={favoriteMods} title="收藏榜" valueLabel="收藏" valueOf={(mod) => String(mod.favorites)} />
-        <RankingList game={game} icon={<Star className="size-4" />} mods={ratingMods} title="评分榜" valueLabel="评分" valueOf={(mod) => mod.ratingAverage.toFixed(1)} />
       </section>
 
       <MotionReveal delay={0.16} y={22} rotate={-1}>
@@ -211,7 +204,7 @@ export async function DefaultGameRankingPage({ game }: { game: GameConfig }) {
             <Flame className="size-4" />综合热度说明
           </div>
           <p className="mt-4 text-sm font-bold leading-7 text-black/75">
-            创作者排名基于资源总下载量聚合；综合热度由浏览、下载、收藏、点赞、评论、评分人数和平均评分共同计算，适合作为首页推荐和每周热门的基础信号。
+            创作者排名基于资源总下载量聚合；综合热度由浏览、下载、收藏和评论共同计算，适合作为首页推荐和每周热门的基础信号。
           </p>
         </section>
       </MotionReveal>

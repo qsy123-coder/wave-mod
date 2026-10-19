@@ -15,12 +15,11 @@ const panel =
 
 const phRow = "grid grid-cols-[auto_auto_1fr_auto_auto] items-center gap-1.5 sm:gap-2 border-2 border-black/20 px-1.5 sm:px-2 py-1.5 opacity-20";
 
-type Tab = "mod-downloads" | "mod-likes" | "creator-followers" | "creator-reputation";
+type Tab = "mod-downloads" | "creator-followers" | "creator-reputation";
 type Period = "all" | "month" | "week" | "today";
 
 const TABS: { key: Tab; label: string; mobileLabel: string }[] = [
   { key: "mod-downloads", label: "RESOURCE DOWNLOADS", mobileLabel: "Downloads" },
-  { key: "mod-likes", label: "RESOURCE LIKES", mobileLabel: "Likes" },
   { key: "creator-followers", label: "CREATOR FOLLOWERS", mobileLabel: "Followers" },
   { key: "creator-reputation", label: "CREATOR REPUTATION", mobileLabel: "Reputation" },
 ];
@@ -148,7 +147,6 @@ export function ZenlessRankingLeaderboard({
   // 时间过滤 + 排序
   const filteredMods = useMemo(() => filterByPeriod(mods, period), [mods, period]);
   const modsByDownloads = useMemo(() => [...filteredMods].sort((a, b) => b.downloads - a.downloads), [filteredMods]);
-  const modsByLikes = useMemo(() => [...filteredMods].sort((a, b) => b.favorites - a.favorites), [filteredMods]);
   const avgDownloads = useMemo(() => {
     if (filteredMods.length === 0) return 0;
     return filteredMods.reduce((s, m) => s + m.downloads, 0) / filteredMods.length;
@@ -157,7 +155,7 @@ export function ZenlessRankingLeaderboard({
   const creatorsByDownloads = useMemo(() => [...topCreators].sort((a, b) => b.totalDownloads - a.totalDownloads), [topCreators]);
   const creatorsByMods = useMemo(() => [...topCreators].sort((a, b) => b.modCount - a.modCount), [topCreators]);
 
-  const isModTab = activeTab === "mod-downloads" || activeTab === "mod-likes";
+  const isModTab = activeTab === "mod-downloads";
   const isCreatorTab = !isModTab;
 
   const isEmpty = (isModTab && filteredMods.length === 0) || (isCreatorTab && topCreators.length === 0);
@@ -194,7 +192,7 @@ export function ZenlessRankingLeaderboard({
           <span />
           <span>{isModTab ? "RESOURCE" : "CREATOR"}</span>
           <span className="text-right">
-            {activeTab === "mod-downloads" ? "DL" : activeTab === "mod-likes" ? "Likes" : activeTab === "creator-followers" ? "Followers" : "Mods"}
+            {activeTab === "mod-downloads" ? "DL" : activeTab === "creator-followers" ? "Followers" : "Mods"}
           </span>
           {isModTab && <span className="text-right">Trend</span>}
         </div>
@@ -205,10 +203,6 @@ export function ZenlessRankingLeaderboard({
         {activeTab === "mod-downloads" &&
           modsByDownloads.slice(0, 12).map((mod, i) => (
             <ModRow key={mod.id} mod={mod} rank={i + 1} game={game} valueLabel="DL" valueOf={(m) => m.downloads} avgDownloads={avgDownloads} />
-          ))}
-        {activeTab === "mod-likes" &&
-          modsByLikes.slice(0, 12).map((mod, i) => (
-            <ModRow key={mod.id} mod={mod} rank={i + 1} game={game} valueLabel="Likes" valueOf={(m) => m.favorites} avgDownloads={avgDownloads} />
           ))}
         {activeTab === "creator-followers" &&
           creatorsByDownloads.slice(0, 12).map((c, i) => (

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye, Heart, Star } from "lucide-react";
+import { Eye, Heart } from "lucide-react";
 
 import type { GameConfig } from "@/config/games";
 import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
@@ -35,7 +35,6 @@ export function ZenlessModsCard({ game, index, mod }: { game: GameConfig; index:
         <p className="relative text-[8px] font-black uppercase tracking-[0.16em] text-white/58">{mod.character}</p>
         <h3 className="relative line-clamp-1 text-[9px] font-black uppercase leading-tight tracking-[0.16em] text-white/50 group-hover:text-white transition-colors">{mod.title.length > 8 ? `${mod.title.slice(0, 8)}...` : mod.title}</h3>
         <div className="relative flex items-center justify-between text-[8px] font-black uppercase text-white/76">
-          <span className="inline-flex items-center gap-1"><Star className="size-3 fill-[#ffb000] text-[#ffb000]" />{mod.ratingAverage.toFixed(1)}</span>
           <span className="inline-flex items-center gap-1"><Heart className="size-3" />{(mod.favorites / 1000).toFixed(1)}K</span>
           <span className="inline-flex items-center gap-1"><Eye className="size-3" />{(mod.views / 1000).toFixed(1)}K</span>
         </div>

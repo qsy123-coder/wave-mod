@@ -58,15 +58,10 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
         downloads: mod.downloads,
         driveLinks: mod.driveLinks,
         isFavorited: Boolean(mod.isFavorited),
-        isLiked: Boolean(mod.isLiked),
         isLoggedIn: Boolean(user),
-        likes: mod.likes,
         modId: mod.id,
         nextPath: detailPath,
-        ratingAverage: mod.ratingAverage,
-        ratingCount: mod.ratingCount,
         title: mod.title,
-        userRating: mod.userRating ?? null,
       }}
     >
       <ModViewTracker modId={mod.id} />
@@ -115,14 +110,12 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
                   <RightSummaryDownloadTrigger className="inline-flex h-12 w-full items-center justify-center gap-2 border-4 border-black bg-[#FFD93D] px-4 text-sm font-black uppercase tracking-[0.14em] shadow-[5px_5px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none" />
                   <LiveModStats
                     modId={mod.id}
-                    likes={mod.likes}
                     favorites={mod.favorites}
                     views={mod.views}
-                    ratingAverage={mod.ratingAverage}
                     downloads={mod.downloads}
                   />
 
-                  <div className="border-4 border-black bg-[#bcaeff] p-4 shadow-[6px_6px_0px_0px_#000]"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-black"><Copy className="size-3.5" />使用说明</p><p className="mt-2 text-sm font-bold leading-6 text-black/80">下载入口已移到右侧摘要区；左侧 dock 继续保留收藏、点赞和评分等核心操作。</p></div>
+                  <div className="border-4 border-black bg-[#bcaeff] p-4 shadow-[6px_6px_0px_0px_#000]"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-black"><Copy className="size-3.5" />使用说明</p><p className="mt-2 text-sm font-bold leading-6 text-black/80">下载入口已移到右侧摘要区；左侧 dock 继续保留收藏等核心操作。</p></div>
                 </div>
               </div>
             </MotionReveal>

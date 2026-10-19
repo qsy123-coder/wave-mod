@@ -6,8 +6,6 @@ import {
   FileArchive,
   Heart,
   ShieldCheck,
-  ThumbsUp,
-  UserRound,
 } from "lucide-react";
 
 import { ModCard } from "@/components/common/mod-card";
@@ -15,8 +13,6 @@ import { DownloadButton } from "@/components/features/mods/detail/download-butto
 import { FavoriteButton } from "@/components/features/mods/detail/favorite-button";
 import { COS_IMG_CARD, COS_IMG_THUMB, withCosImageTransform } from "@/lib/cos/shared";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
-import { LikeButton } from "@/components/features/mods/detail/like-button";
-import { MiniRatingControl, RatingPanel } from "@/components/features/mods/detail/rating-panel";
 import type { GameConfig } from "@/config/games";
 import type { SiteMod } from "@/lib/mods";
 
@@ -57,23 +53,6 @@ export function ZenlessHeroActions({
         nextPath={detailPath}
         loginLabel="登录收藏"
         className="min-w-[108px] justify-center gap-2 border-2 border-black bg-[#0b1220]/78 px-3 text-slate-100 shadow-[4px_4px_0px_0px_#000] backdrop-blur-[2px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none [&>svg]:shrink-0 [&>svg]:text-slate-100"
-      />
-      <LikeButton
-        compact
-        modId={mod.id}
-        isLiked={Boolean(mod.isLiked)}
-        isLoggedIn={loggedIn}
-        likeCount={mod.likes}
-        nextPath={detailPath}
-        className="min-w-[108px] justify-center gap-2 border-2 border-black bg-[#111827]/78 px-3 text-slate-100 shadow-[4px_4px_0px_0px_#000] backdrop-blur-[2px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none [&>svg]:shrink-0 [&>svg]:text-slate-100"
-      />
-      <MiniRatingControl
-        isLoggedIn={loggedIn}
-        modId={mod.id}
-        nextPath={detailPath}
-        ratingAverage={mod.ratingAverage}
-        ratingCount={mod.ratingCount}
-        userRating={mod.userRating ?? null}
       />
     </div>
   );
@@ -173,7 +152,7 @@ export function ZenlessRightRail({
           </div>
         </div>
         <div className="mt-2 flex gap-3 text-[10px] font-bold text-slate-400">
-          <span>{mod.ratingCount} Resources</span>
+          <span>{compactZenlessNumber(mod.downloads)} Downloads</span>
           <span>{compactZenlessNumber(mod.favorites)} Followers</span>
         </div>
         <div className="mt-2.5 flex h-7 items-center justify-center border-2 border-black bg-[#111827]/50 text-[9px] font-black uppercase tracking-[0.12em] text-slate-100 shadow-[2px_2px_0px_0px_#000] backdrop-blur-[2px]">
@@ -249,24 +228,11 @@ export function ZenlessScreenshots({ mod }: { mod: SiteMod }) {
   );
 }
 
-export function ZenlessSignals({
-  loggedIn,
-  mod,
-}: {
-  loggedIn: boolean;
-  mod: SiteMod;
-}) {
+export function ZenlessSignals({ mod }: { mod: SiteMod }) {
   return (
     <div className="space-y-6">
-      <RatingPanel
-        modId={mod.id}
-        isLoggedIn={loggedIn}
-        ratingAverage={mod.ratingAverage}
-        ratingCount={mod.ratingCount}
-        userRating={mod.userRating ?? null}
-      />
       <ZenlessDarkPanel title="Community Signals">
-        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
           <div className="border-2 border-black bg-[#0b1220]/45 p-3 text-slate-100 shadow-[3px_3px_0px_0px_#000] backdrop-blur-[2px]">
             <Eye className="mb-2 size-4 text-slate-300" />
             <p className="font-black text-white">
@@ -282,18 +248,11 @@ export function ZenlessSignals({
             <p className="text-[11px] font-bold text-slate-400">Favorites</p>
           </div>
           <div className="border-2 border-black bg-[#0f172a]/45 p-3 text-slate-100 shadow-[3px_3px_0px_0px_#000] backdrop-blur-[2px]">
-            <ThumbsUp className="mb-2 size-4 text-slate-300" />
+            <Download className="mb-2 size-4 text-slate-300" />
             <p className="font-black text-white">
-              {compactZenlessNumber(mod.likes)}
+              {compactZenlessNumber(mod.downloads)}
             </p>
-            <p className="text-[11px] font-bold text-slate-400">Likes</p>
-          </div>
-          <div className="border-2 border-black bg-[#102033]/45 p-3 text-slate-100 shadow-[3px_3px_0px_0px_#000] backdrop-blur-[2px]">
-            <UserRound className="mb-2 size-4 text-slate-300" />
-            <p className="font-black text-white">
-              {compactZenlessNumber(mod.ratingCount)}
-            </p>
-            <p className="text-[11px] font-bold text-slate-400">Ratings</p>
+            <p className="text-[11px] font-bold text-slate-400">Downloads</p>
           </div>
         </div>
       </ZenlessDarkPanel>

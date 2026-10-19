@@ -36,7 +36,6 @@ export function ProfileBasicCenter({
     { label: "Total Downloads", value: "—" },
     { label: "Followers", value: "—" },
     { label: "Following", value: "—" },
-    { label: "Likes Received", value: "—" },
   ];
 
   return (

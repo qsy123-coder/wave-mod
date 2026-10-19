@@ -180,9 +180,6 @@ function MobileHomeFeedContent() {
         ) : null}
 
         <div className="mt-3 flex items-center gap-2">
-          <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-black/50">
-            排序
-          </span>
           {SORT_OPTIONS.map((option) => (
             <button
               key={option.value}

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Download, MessageSquare, Star } from "lucide-react";
+import { Download, MessageSquare } from "lucide-react";
 
 import { ModViewTracker } from "@/components/features/mods/detail/mod-view-tracker";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -95,10 +95,6 @@ export function ZenlessModDetailPage({
               <span>
                 By{" "}
                 <strong className="text-white">{mod.character} Creator</strong>
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Star className="size-4 fill-white" />
-                {mod.ratingAverage.toFixed(1)}
               </span>
               <a href="#comments" className="inline-flex items-center gap-1">
                 <MessageSquare className="size-4" />

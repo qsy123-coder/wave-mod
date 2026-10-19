@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Eye, Heart, Share2, Star, ThumbsUp, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Eye, Heart, Share2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +17,6 @@ import { CommentsPanel } from "./comments-panel";
 import { DownloadButton } from "./download-button";
 import { DrawerPreviewGallery } from "./drawer-preview-gallery";
 import { FavoriteButton } from "./favorite-button";
-import { LikeButton } from "./like-button";
-import { RatingPanel } from "./rating-panel";
 import { ShareModDialog, SHARE_BUTTON_CLASS } from "./share-mod-dialog";
 
 type ModDetailDrawerProps = {
@@ -115,8 +113,6 @@ export function ModDetailDrawer({
     refetchOnWindowFocus: false,
   });
 
-  const safeRatingAverage = mod && Number.isFinite(mod.ratingAverage) ? mod.ratingAverage : 0;
-
   /**
    * 分享链接用规范域名，不用 `window.location.origin`：旧域名 wave-mod.top 现在是 410，
    * 从那边打开页面复制出去的链接对方会打不开（memory: wavemod-site-shutdown-410）。
@@ -124,7 +120,7 @@ export function ModDetailDrawer({
   const shareUrl = mod ? buildModShareUrl(getSiteUrl(), mod.id) : "";
 
   /**
-   * 统计行里的浏览 / 点赞 / 收藏。
+   * 统计行里的浏览 / 收藏。
    *
    * 抽屉是默认分站（主站）真正的详情视图 —— `/mods/<id>` 其实渲染的是列表页外壳，
    * 详情由它按 id 拉 `/api/mods/[id]` 填进来。而那个接口的计数源头是 Supabase 快照，
@@ -268,22 +264,10 @@ export function ModDetailDrawer({
           {/* Overview tab */}
           {mod && activeTab === "overview" && (
             <div className="space-y-3 p-3">
-              {/* ── 预览画廊 ──
-                  内容区第一块就是角色图：预览是用户决定「下不下」的核心信息，
-                  优先级高于徽标、统计和按钮。单图展示 + 左右箭头，下方缩略图可点选。 */}
-              <DrawerPreviewGallery
-                images={mod.images ?? []}
-                title={mod.title}
-                index={previewIndex}
-                onIndexChange={setPreviewIndex}
-                onOpenImage={openLightbox}
-              />
-
-              {/* ── 基本信息 ── */}
-              <SectionHeading>基本信息</SectionHeading>
-
-              {/* Metadata badges */}
-              <div className="flex flex-wrap gap-1.5">
+              {/* ── 标签 ──
+                  角色 / 版本 / 适配放在图片上方：先交代「这是什么角色的什么资源」，
+                  再看大图。 */}
+              <div data-slot="drawer-badges" className="flex flex-wrap gap-1.5">
                 <Badge className="neo-sticker -rotate-1 bg-[#ff7a7a] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-black hover:bg-[#ff7a7a]">
                   {mod.character}
                 </Badge>
@@ -295,27 +279,23 @@ export function ModDetailDrawer({
                 </Badge>
               </div>
 
-              {/* Stats row: 4 items in one row */}
-              <div className="grid grid-cols-4 gap-1.5">
-                <div className="border-[3px] border-black bg-[#ffd84f] px-2 py-1.5 text-center shadow-[3px_3px_0px_0px_#000]">
-                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/50">评分</p>
-                  <p className="mt-0.5 inline-flex items-center justify-center gap-1 text-sm font-black">
-                    <Star className="size-3 fill-[#ff7a00] text-[#ff7a00]" />
-                    {safeRatingAverage.toFixed(1)}
-                  </p>
-                </div>
+              {/* ── 预览画廊 ──
+                  单图展示 + 左右箭头，下方缩略图可点选。 */}
+              <DrawerPreviewGallery
+                images={mod.images ?? []}
+                title={mod.title}
+                index={previewIndex}
+                onIndexChange={setPreviewIndex}
+                onOpenImage={openLightbox}
+              />
+
+              {/* Stats row: 浏览 / 收藏 / 下载量 */}
+              <div data-slot="drawer-stats" className="grid grid-cols-3 gap-1.5">
                 <div className="border-[3px] border-black bg-[#fff0cf] px-2 py-1.5 text-center shadow-[3px_3px_0px_0px_#000]">
                   <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/50">浏览</p>
                   <p className="mt-0.5 inline-flex items-center justify-center gap-1 text-sm font-black">
                     <Eye className="size-3" />
                     {counts.views}
-                  </p>
-                </div>
-                <div className="border-[3px] border-black bg-[#ff7a7a] px-2 py-1.5 text-center shadow-[3px_3px_0px_0px_#000]">
-                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/50">点赞</p>
-                  <p className="mt-0.5 inline-flex items-center justify-center gap-1 text-sm font-black">
-                    <ThumbsUp className="size-3" />
-                    {counts.likes}
                   </p>
                 </div>
                 <div className="border-[3px] border-black bg-[#bcaeff] px-2 py-1.5 text-center shadow-[3px_3px_0px_0px_#000]">
@@ -325,27 +305,24 @@ export function ModDetailDrawer({
                     {counts.favorites}
                   </p>
                 </div>
+                <div className="border-[3px] border-black bg-[#ffd84f] px-2 py-1.5 text-center shadow-[3px_3px_0px_0px_#000]">
+                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/50">下载量</p>
+                  <p className="mt-0.5 inline-flex items-center justify-center gap-1 text-sm font-black">
+                    <Download className="size-3" />
+                    {mod.downloads}
+                  </p>
+                </div>
               </div>
 
-              {/* Action buttons: like + favorite */}
-              <div className="grid grid-cols-2 gap-1.5">
-                <FavoriteButton
-                  compact
-                  id={mod.id}
-                  isFavorited={Boolean(mod.isFavorited)}
-                  isLoggedIn={isLoggedIn}
-                  nextPath={`/mods/${mod.id}`}
-                  favoriteCount={mod.favorites}
-                />
-                <LikeButton
-                  compact
-                  modId={mod.id}
-                  isLiked={Boolean(mod.isLiked)}
-                  isLoggedIn={isLoggedIn}
-                  likeCount={mod.likes}
-                  nextPath={`/mods/${mod.id}`}
-                />
-              </div>
+              {/* Action buttons: favorite */}
+              <FavoriteButton
+                compact
+                id={mod.id}
+                isFavorited={Boolean(mod.isFavorited)}
+                isLoggedIn={isLoggedIn}
+                nextPath={`/mods/${mod.id}`}
+                favoriteCount={mod.favorites}
+              />
 
               {/* ── 下载方式 ── */}
               <SectionHeading
@@ -397,24 +374,14 @@ export function ModDetailDrawer({
           {/* Comments tab */}
           {mod && activeTab === "comments" && (
             <div className="p-3">
-              <RatingPanel
-                modId={mod.id}
+              <CommentsPanel
+                admin={admin}
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                initialComments={[]}
                 isLoggedIn={isLoggedIn}
-                ratingAverage={safeRatingAverage}
-                ratingCount={mod.ratingCount}
-                userRating={mod.userRating ?? null}
+                modId={mod.id}
               />
-
-              <div className="mt-3">
-                <CommentsPanel
-                  admin={admin}
-                  currentUserId={currentUserId}
-                  currentUserName={currentUserName}
-                  initialComments={[]}
-                  isLoggedIn={isLoggedIn}
-                  modId={mod.id}
-                />
-              </div>
             </div>
           )}
         </div>
