@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Download, Eye, Share2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Eye, Heart, Share2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -264,7 +264,7 @@ export function ModDetailDrawer({
 
           {/* Overview tab */}
           {mod && activeTab === "overview" && (
-            <div data-slot="drawer-overview-content" className="space-y-4 px-5 py-4">
+            <div data-slot="drawer-overview-content" className="space-y-4 px-7 py-5 sm:px-8">
               {/* ── 标签 ──
                   角色 / 版本 / 适配放在图片上方：先交代「这是什么角色的什么资源」，
                   再看大图。 */}
@@ -295,6 +295,23 @@ export function ModDetailDrawer({
                   <Download className="size-3.5" />
                   {mod.downloads} 次下载
                 </span>
+                <span aria-hidden className="text-black/30">·</span>
+                <span className="inline-flex items-center gap-1">
+                  <Heart className="size-3.5" />
+                  {mod.favorites} 次收藏
+                </span>
+              </div>
+
+              {/* 收藏按钮紧跟在数据卡下面 */}
+              <div data-slot="drawer-favorite-action">
+                <FavoriteButton
+                  compact
+                  id={mod.id}
+                  isFavorited={Boolean(mod.isFavorited)}
+                  isLoggedIn={isLoggedIn}
+                  nextPath={`/mods/${mod.id}`}
+                  favoriteCount={mod.favorites}
+                />
               </div>
 
               {/* ── 预览画廊 ──
@@ -305,16 +322,6 @@ export function ModDetailDrawer({
                 index={previewIndex}
                 onIndexChange={setPreviewIndex}
                 onOpenImage={openLightbox}
-              />
-
-              {/* Action buttons: favorite */}
-              <FavoriteButton
-                compact
-                id={mod.id}
-                isFavorited={Boolean(mod.isFavorited)}
-                isLoggedIn={isLoggedIn}
-                nextPath={`/mods/${mod.id}`}
-                favoriteCount={mod.favorites}
               />
 
               {/* ── 下载方式 ── */}
@@ -366,7 +373,7 @@ export function ModDetailDrawer({
 
           {/* Comments tab */}
           {mod && activeTab === "comments" && (
-            <div className="px-5 py-4">
+            <div className="px-7 py-5 sm:px-8">
               <CommentsPanel
                 admin={admin}
                 currentUserId={currentUserId}
