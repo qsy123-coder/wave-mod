@@ -35,12 +35,12 @@ const THEME_OPTION_BY_ID: Record<ThemeName, Omit<ThemeOption, "id">> = {
   "theme-arcade": {
     label: "Default",
     zh: "新野兽派",
-    background: "#FFFDF5",
+    background: "#3A2418",
     color: "#FF6B6B",
     secondary: "#FFD93D",
-    panel: "#FFFFFF",
+    panel: "#FFFDF5",
     text: "#000000",
-    desc: "奶油纸底 + 红/黄/紫",
+    desc: "褐色底 + 奶油面板 + 红/黄/紫",
   },
   "theme-soft": {
     label: "Soft",

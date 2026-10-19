@@ -124,11 +124,11 @@
 
 | 主题 | 画布 | 面板 | 主色 | 辅色 | 强调/弱强调 | 文字 |
 |---|---|---|---|---|---|---|
-| **Default**（默认） | `#FFFDF5` 奶油 | `#FFFFFF` | `#FF6B6B` 热红 | `#FFD93D` 亮黄 | `#C4B5FD` 柔紫 | `#000000` |
+| **Default**（默认） | `#3A2418` 褐 | `#FFFDF5` | `#FF6B6B` 热红 | `#FFD93D` 亮黄 | `#C4B5FD` 柔紫 | `#FFFDF5`（画布）/ `#000000`（面板） |
 | **Soft** | `#F5F5F5` 浅灰 | `#FFFFFF` | `#F472B6` 柔粉 | `#A3E635` 青柠 | `#38BDF8` 天蓝 | `#1A1A1A` |
 | **薰衣草** | `#F6F0FA` 薰衣草 | `#FFFAF5` | `#FF9E7A` 珊瑚 | `#8FD9BE` 薄荷 | `#D9CCF2` 淡紫 | `#2B2233` |
 
-> 默认配色来自仓库内 `docs/样式参考.md` 的 Neo-brutalism 色板（奶油 `#FFFDF5` / 热红 `#FF6B6B` / 亮黄 `#FFD93D` / 柔紫 `#C4B5FD`）；Soft 来自 StyleKit 官方 Soft；薰衣草为线上 `theme-macaron` 原样保留。导航底色：Default `#FFD93D`、Soft `#E0F2FE`、Lavender `#E6D8F7`。所有正文、导航与标签黑字均通过 WCAG AA。
+> 默认画布使用站点原有褐色 `#3A2418`，面板与强调色来自仓库内 `docs/样式参考.md` 的 Neo-brutalism 色板（奶油 `#FFFDF5` / 热红 `#FF6B6B` / 亮黄 `#FFD93D` / 柔紫 `#C4B5FD`）；Soft 画布 `#F5F5F5`，薰衣草画布 `#F6F0FA`。三套底色各不相同。导航底色：Default `#FFD93D`、Soft `#E0F2FE`、Lavender `#E6D8F7`。所有正文、导航与标签黑字均通过 WCAG AA。
 
 ### 核心功能 2：风格按钮（下拉 + 三色块）
 

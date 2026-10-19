@@ -56,11 +56,11 @@
      横条开/关只改变 --site-header-h，不改变导航栏高度；Hero 卡用此基准居中，
      使大卡片与导航栏的间距在横条开关两种状态下保持恒定。 */
   --home-hero-h: 74px;
-  --background: #fffdf5;
-  --foreground: #000000;
-  --card: #ffffff;
+  --background: #3a2418;
+  --foreground: #fffdf5;
+  --card: #fffdf5;
   --card-foreground: #000000;
-  --popover: #ffffff;
+  --popover: #fffdf5;
   --popover-foreground: #000000;
   --primary: #ff6b6b;
   --primary-foreground: #000000;
@@ -77,19 +77,19 @@
   --neo-accent: #ff6b6b;
   --neo-secondary: #ffd93d;
   --neo-muted: #c4b5fd;
-  --neo-panel: #ffffff;
+  --neo-panel: #fffdf5;
   --neo-surface: #ffffff;
   --neo-nav: #ffd93d;
   --neo-footer: #c4b5fd;
-  --neo-dark: #fffdf5;
+  --neo-dark: #3a2418;
   --neo-search: #ffffff;
   --neo-ink: #000000;
-  --neo-on-canvas: #000000;
+  --neo-on-canvas: #fffdf5;
   --neo-on-nav: #000000;
   --neo-nav-pill: rgba(255, 255, 255, 0.35);
   --neo-success: #4ade80;
-  --neo-canvas-dot: rgba(0, 0, 0, 0.10);
-  --neo-canvas-line: rgba(0, 0, 0, 0.04);
+  --neo-canvas-dot: rgba(0, 0, 0, 0.42);
+  --neo-canvas-line: rgba(0, 0, 0, 0.14);
   --radius: 0rem;
 }
 
