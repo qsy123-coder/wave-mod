@@ -176,6 +176,9 @@ export function ModsPageClient({
           isLoggedIn={isLoggedIn}
           layoutMode={layoutMode}
           masonryColumns={masonryColumns}
+          // 角色分类视图才开「空洞优先」：横屏卡横跨两列留下的洞靠后续卡片回填。
+          // 默认全量视图不开 —— 那里没有这种密集横屏卡，保持原有顺序观感。
+          denseMasonry={Boolean(character)}
           onCardClick={openDrawer}
           onStatusChange={handleStatusChange}
         />

@@ -138,3 +138,68 @@ describe("packMasonry", () => {
     expect(result.placements.map((p) => p.id)).toEqual(ids(3));
   });
 });
+
+describe("packMasonry (dense)", () => {
+  it("横屏卡留下的洞被后续单列卡回填", () => {
+    const ratios = [PORTRAIT, LANDSCAPE, PORTRAIT];
+    const result = packMasonry(items(ratios), 2, 420, { dense: true });
+    const [first, wide, third] = result.placements;
+    const portraitHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
+
+    // 横屏卡仍接在第一张竖屏卡下方（两列中较低者）
+    expect(wide.span).toBe(2);
+    expect(wide.top).toBeCloseTo(first.top + portraitHeight + MASONRY_GAP);
+    // 第三张钻进第二列的洞（顶部），而不是排到两列最底下
+    expect(third.column).toBe(1);
+    expect(third.top).toBe(0);
+  });
+
+  it("同列卡片不重叠，间距不小于一个 gap", () => {
+    const ratios = [PORTRAIT, LANDSCAPE, PORTRAIT, LANDSCAPE, PORTRAIT, PORTRAIT, 1.5, PORTRAIT];
+    const result = packMasonry(items(ratios), 3, 900, { dense: true });
+    const byColumn = new Map<number, { top: number; bottom: number }[]>();
+
+    for (const placement of result.placements) {
+      const width =
+        placement.span === 2
+          ? masonrySpanWidth(2, result.columnWidth)
+          : result.columnWidth;
+      const height = masonryCardHeight(width, ratios[Number(placement.id.slice(1))]);
+      // 横屏卡同时占两列，两边都要登记，否则漏查它和右侧卡片的碰撞
+      const occupiedColumns =
+        placement.span === 2 ? [placement.column, placement.column + 1] : [placement.column];
+      for (const column of occupiedColumns) {
+        const list = byColumn.get(column) ?? [];
+        list.push({ top: placement.top, bottom: placement.top + height });
+        byColumn.set(column, list);
+      }
+    }
+
+    for (const list of byColumn.values()) {
+      list.sort((a, b) => a.top - b.top);
+      for (let i = 1; i < list.length; i += 1) {
+        expect(list[i].top).toBeGreaterThanOrEqual(list[i - 1].bottom + MASONRY_GAP - 1e-6);
+      }
+    }
+  });
+
+  it("容器高度 = 最高卡片的底沿（末尾不多算间距）", () => {
+    const result = packMasonry(items(Array(7).fill(PORTRAIT)), 3, 700, { dense: true });
+    const singleHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
+    expect(result.height).toBeCloseTo(singleHeight * 3 + MASONRY_GAP * 2);
+  });
+
+  it("空列表 / 非法宽度仍返回空布局", () => {
+    expect(packMasonry([], 3, 700, { dense: true }).placements).toHaveLength(0);
+    expect(packMasonry(items([PORTRAIT]), 3, 0, { dense: true }).placements).toHaveLength(0);
+  });
+
+  it("只有一列时横屏卡不跨列", () => {
+    expect(packMasonry(items([LANDSCAPE]), 1, 300, { dense: true }).placements[0].span).toBe(1);
+  });
+
+  it("输出的 id 与输入一一对应且顺序不变", () => {
+    const result = packMasonry(items([PORTRAIT, LANDSCAPE, PORTRAIT]), 4, 900, { dense: true });
+    expect(result.placements.map((p) => p.id)).toEqual(ids(3));
+  });
+});

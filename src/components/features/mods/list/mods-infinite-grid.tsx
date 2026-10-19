@@ -119,6 +119,13 @@ type ModsInfiniteGridProps = {
   layoutMode?: "grid" | "masonry";
   /** 用户显式选过的列数；`null` / 不给 = 按容器宽度自适应 */
   masonryColumns?: MasonryColumns | null;
+  /**
+   * 瀑布流是否用「空洞优先」算法（见 masonry-packing.ts 的 MasonryPackOptions）。
+   *
+   * 只在角色筛选视图开启：那里横屏卡频繁出现，横跨两列必然在较矮那列上方留洞，
+   * 普通算法不会回头填。默认全量视图不传，保持原有观感。
+   */
+  denseMasonry?: boolean;
 };
 
 /** 网格对外汇报的取数状态 */
@@ -129,7 +136,7 @@ export type ModsGridStatus = {
   totalCount: number | null;
 };
 
-export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, denseMasonry = false, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
   // 哨兵节点用 callback ref 存进 state，而不是 useRef。
   //
   // 哨兵是**条件渲染**的（hasNextPage 为假时不渲染），节点会在挂载/卸载之间切换，
@@ -336,8 +343,9 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       mods.map((mod) => ({ id: mod.id, ratio: ratios[mod.id] ?? MASONRY_DEFAULT_RATIO })),
       colCount,
       masonryWidth,
+      { dense: denseMasonry },
     );
-  }, [isMasonry, masonryWidth, mods, ratios, colCount]);
+  }, [isMasonry, masonryWidth, mods, ratios, colCount, denseMasonry]);
 
   const modById = useMemo(() => {
     const map = new Map<string, SiteMod>();

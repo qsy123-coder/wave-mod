@@ -71,6 +71,8 @@ export function GameModsFilterClient({
         preview={activePreview}
         layoutMode={layoutMode}
         masonryColumns={masonryColumns}
+        // 与主站一致：角色筛选视图才开空洞回填
+        denseMasonry={Boolean(initialCharacter)}
       />
     </>
   );
