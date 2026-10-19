@@ -99,22 +99,22 @@ function ThemeDropdown() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="neo-card inline-flex items-center gap-2 bg-[var(--neo-search)] px-3 py-2 text-black"
+        className="neo-card inline-flex items-center gap-1.5 whitespace-nowrap bg-[var(--neo-search)] px-2 py-1 text-black"
         aria-expanded={open}
         aria-label="展开风格切换"
       >
-        <Palette className="size-4" />
-        <span className="text-xs font-black uppercase tracking-[0.12em]">风格</span>
+        <Palette className="size-3.5" />
+        <span className="text-[11px] font-black uppercase tracking-[0.1em]">风格</span>
         {mounted ? (
-          <span className="inline-flex items-center border-4 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[3px_3px_0px_0px_#000]" style={{ background: activeTheme.color }}>
+          <span className="inline-flex items-center border-2 border-black px-1.5 text-[9px] font-black uppercase leading-[1.1] shadow-[2px_2px_0px_0px_#000]" style={{ background: activeTheme.color }}>
             {activeTheme.label}
           </span>
         ) : (
-          <span className="inline-flex items-center border-4 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[3px_3px_0px_0px_#000]" style={{ background: THEME_OPTIONS[0].color }}>
+          <span className="inline-flex items-center border-2 border-black px-1.5 text-[9px] font-black uppercase leading-[1.1] shadow-[2px_2px_0px_0px_#000]" style={{ background: THEME_OPTIONS[0].color }}>
             {THEME_OPTIONS[0].label}
           </span>
         )}
-        <ChevronDown className={`size-4 transition ${open ? "rotate-180" : "rotate-0"}`} />
+        <ChevronDown className={`size-3.5 transition ${open ? "rotate-180" : "rotate-0"}`} />
       </button>
 
       {open ? (

@@ -82,10 +82,10 @@ export function SiteSearchForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="neo-card flex w-full min-w-0 items-center gap-2 px-3 py-2.5"
+      className="neo-card flex w-full min-w-0 items-center gap-1.5 px-2.5 py-1"
       style={{ background: "var(--neo-search)" }}
     >
-      <Search className="size-4 text-black" />
+      <Search className="size-3.5 shrink-0 text-black" />
       {/*
        * 第四样是**网盘平台名**（夸克/百度…），不是标签：站内根本没有 tags 字段，
        * 可搜字段只有这四个，见 sorting.ts 的 modQueryFields。原文案写的「标签」是错的。
@@ -94,11 +94,11 @@ export function SiteSearchForm() {
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="搜索角色 / 标题 / 描述 / 网盘"
-        className="min-w-0 flex-1 bg-transparent text-sm font-bold text-black placeholder:text-black/55 outline-none"
+        className="min-w-0 flex-1 bg-transparent text-xs font-bold text-black placeholder:text-black/55 outline-none"
       />
       <button
         type="submit"
-        className="inline-flex shrink-0 items-center gap-1 border-[3px] border-black bg-[var(--neo-secondary)] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#000]"
+        className="inline-flex shrink-0 items-center gap-1 border-[2px] border-black bg-[var(--neo-secondary)] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.08em] text-black shadow-[2px_2px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_#000]"
       >
         搜索
       </button>

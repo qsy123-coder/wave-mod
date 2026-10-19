@@ -122,7 +122,7 @@ export function ModsListingView({
         <div
           ref={attachSidebarScroll}
           onScroll={(event) => rememberScrollPosition(SIDEBAR_SCROLL_KEY, event.currentTarget.scrollTop)}
-          className="flex-1 overflow-y-auto pr-1"
+          className="flex-1 overflow-y-auto pb-3 pr-1"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           <CharacterSidebar
