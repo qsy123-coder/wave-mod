@@ -116,7 +116,7 @@ export function DownloadButton({ compact = false, modId, downloadUrl, downloadCo
       ) : null}
 
       {driveLinks.length > 0 ? (
-        <div className={`space-y-1.5 ${hasDownload ? "mt-2" : ""}`}>
+        <div className={`${hasDownload ? "mt-2 " : ""}${driveLinks.length > 1 ? "grid grid-cols-2 gap-2" : "space-y-1.5"}`}>
           {driveLinks.map((drive) => {
             const copied = copiedDrive?.platform === drive.platform;
             // 手机端优先直接跳分享页；链接缺 scheme 等脏数据没法跳，就退回复制

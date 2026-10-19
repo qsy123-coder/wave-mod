@@ -280,38 +280,42 @@ export function ModDetailDrawer({
                 </Badge>
               </div>
 
-              {/* ── 数据卡片 ──
-                  浏览 / 下载放在同一张卡里，置于图片上方；收藏次数由下方按钮展示。 */}
-              <div
-                data-slot="drawer-stats"
-                className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-4 border-black bg-white px-3 py-2.5 text-center text-xs font-black text-black shadow-[4px_4px_0px_0px_#000]"
-              >
-                <span className="inline-flex items-center gap-1">
-                  <Eye className="size-3.5" />
-                  {counts.views} 次浏览
-                </span>
-                <span aria-hidden className="text-black/30">·</span>
-                <span className="inline-flex items-center gap-1">
-                  <Download className="size-3.5" />
-                  {mod.downloads} 次下载
-                </span>
-                <span aria-hidden className="text-black/30">·</span>
-                <span className="inline-flex items-center gap-1">
-                  <Heart className="size-3.5" />
-                  {mod.favorites} 次收藏
-                </span>
-              </div>
+              {/* ── 数据卡片 + 收藏按钮 ──
+                  浏览 / 下载 / 收藏放在数据卡里，收藏按钮与数据卡同一行。 */}
+              <div className="flex items-stretch gap-2">
+                <div
+                  data-slot="drawer-stats"
+                  className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 border-4 border-black bg-white px-2 py-2 text-center text-[11px] font-black text-black shadow-[4px_4px_0px_0px_#000]"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Eye className="size-3.5" />
+                    {counts.views} 次浏览
+                  </span>
+                  <span aria-hidden className="text-black/30">·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Download className="size-3.5" />
+                    {mod.downloads} 次下载
+                  </span>
+                  <span aria-hidden className="text-black/30">·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Heart className="size-3.5" />
+                    {mod.favorites} 次收藏
+                  </span>
+                </div>
 
-              {/* 收藏按钮紧跟在数据卡下面 */}
-              <div data-slot="drawer-favorite-action">
-                <FavoriteButton
-                  compact
-                  id={mod.id}
-                  isFavorited={Boolean(mod.isFavorited)}
-                  isLoggedIn={isLoggedIn}
-                  nextPath={`/mods/${mod.id}`}
-                  favoriteCount={mod.favorites}
-                />
+                <div
+                  data-slot="drawer-favorite-action"
+                  className="flex w-[112px] shrink-0 [&>button]:h-full"
+                >
+                  <FavoriteButton
+                    compact
+                    id={mod.id}
+                    isFavorited={Boolean(mod.isFavorited)}
+                    isLoggedIn={isLoggedIn}
+                    nextPath={`/mods/${mod.id}`}
+                    favoriteCount={mod.favorites}
+                  />
+                </div>
               </div>
 
               {/* ── 预览画廊 ──
