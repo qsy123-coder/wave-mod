@@ -154,6 +154,9 @@ export function CharacterSidebar({
          * 里），不是 aside 自己 —— aside 的 overflow 是 visible，内部 `overflow-y-auto` 只包
          * 角色列表、不是本按钮的祖先。所以侧栏滚到哪它都在。
          * 背景用不透明的白：滚动时卡片从下方滑过，靠它整块遮住，不会从缝隙里露出来。
+         *
+         * ⚠️ 必须显式写 text-black：body 的文字色是 --neo-on-canvas（默认主题下是米白），
+         * 只给 bg-white 会变成白底白字、整颗按钮看不见（2026-10-19 用户反馈）。
          */}
         <button
           ref={triggerRef}
@@ -161,7 +164,7 @@ export function CharacterSidebar({
           onClick={() => setPickerOpen(true)}
           aria-haspopup="dialog"
           aria-expanded={pickerOpen}
-          className="sticky top-0 z-10 flex items-center justify-center gap-1.5 border-[3px] border-black bg-white px-2.5 py-2 text-[11px] font-black uppercase tracking-[0.12em] shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+          className="sticky top-0 z-10 flex items-center justify-center gap-1.5 border-[3px] border-black bg-white px-2.5 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
         >
           <span aria-hidden>▦</span>
           全部角色
