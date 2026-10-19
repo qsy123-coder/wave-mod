@@ -577,6 +577,57 @@
   animation: motionRevealIn 0.45s ease-out backwards;
 }
 
+/* Sheet 入场动画。
+   为什么用 @keyframes 而不是“先渲染离屏、下一帧再切 class”：
+   主线程被卡片重渲染占住时，两帧可能落在同一帧里，浏览器会直接把终态画出来，
+   位移动画就“消失”了。CSS 动画在元素插入时自动开始，不受 React 状态时序影响。
+   fill-mode 用 backwards（不是 both）：结束后交还给元素自身的 translate-x-0，
+   避免 transform 长期留在矩阵上、把 fixed 子元素关进 containing block。 */
+@keyframes sheetEnterRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes sheetEnterLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes sheetEnterTop {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes sheetEnterBottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes sheetOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sheet-enter-right {
+  animation: sheetEnterRight 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.sheet-enter-left {
+  animation: sheetEnterLeft 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.sheet-enter-top {
+  animation: sheetEnterTop 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.sheet-enter-bottom {
+  animation: sheetEnterBottom 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.sheet-overlay-enter {
+  animation: sheetOverlayFadeIn 300ms ease-out backwards;
+}
+
 /* 文字颜色 — 面板变暗后，黑字 → 纯白（与原始 text-white 一致） */
 .theme-zzz-dark .zzz-skin-scope .text-black,
 .theme-zzz-dark .zzz-skin-scope [class*="text-black/"] {

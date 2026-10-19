@@ -88,7 +88,7 @@ function SheetOverlay({ className, onClick, ...props }: React.ComponentProps<"di
   return (
     <div
       data-slot="sheet-overlay"
-      className={cn("fixed inset-0 z-50 bg-black/10 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-xs", className)}
+      className={cn("fixed inset-0 z-50 bg-black/10 transition-opacity duration-300 ease-out will-change-[opacity] supports-backdrop-filter:backdrop-blur-xs", className)}
       onClick={(event) => {
         onClick?.(event);
         if (!event.defaultPrevented) setOpen(false);
@@ -113,29 +113,28 @@ function SheetContent({
   customWidth?: boolean;
 }) {
   const { open, setOpen } = useSheetContext();
-  const [visible, setVisible] = React.useState(false);
-  const [animatingIn, setAnimatingIn] = React.useState(false);
+  // 初始就按 open 渲染：抽屉是「挂载即打开」的（ModDetailDrawer 的 isOpen 初值为 true），
+  // 如果这里从 false 起步，第一次打开会先渲染 null、再 setState、再等两帧 —— 主线程一忙
+  // 两次 rAF 可能落在同一帧里，浏览器直接画出最终位置，位移动画就“消失”了。
+  const [visible, setVisible] = React.useState(open);
 
-  // 入场: render → next frame → slide in
-  // 退场: slide out → transition end → remove from DOM
+  // 入场由 globals.css 的 .sheet-enter-* 关键帧负责（元素插入即播放），
+  // 这里只负责挂载/卸载与 body 滚动锁：
+  //   打开 → visible=true；关闭 → 先让退场 transition 播完，再 visible=false。
   React.useEffect(() => {
     if (open) {
       setVisible(true);
-      // 锁定 body 滚动
       const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";
-      const raf = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setAnimatingIn(true));
-      });
       return () => {
-        cancelAnimationFrame(raf);
         document.body.style.overflow = prev;
       };
-    } else {
-      setAnimatingIn(false);
-      const timer = setTimeout(() => setVisible(false), 200); // match duration-200
-      return () => clearTimeout(timer);
     }
+
+    const exitTimer = setTimeout(() => setVisible(false), 300); // match duration-300
+    return () => {
+      clearTimeout(exitTimer);
+    };
   }, [open]);
 
   if (!visible) return null;
@@ -144,18 +143,28 @@ function SheetContent({
 
   const translateClass = isHorizontal
     ? side === "right"
-      ? animatingIn ? "translate-x-0" : "translate-x-full"
-      : animatingIn ? "translate-x-0" : "-translate-x-full"
+      ? open ? "translate-x-0" : "translate-x-full"
+      : open ? "translate-x-0" : "-translate-x-full"
     : side === "bottom"
-      ? animatingIn ? "translate-y-0" : "translate-y-full"
-      : animatingIn ? "-translate-y-0" : "-translate-y-full";
+      ? open ? "translate-y-0" : "translate-y-full"
+      : open ? "-translate-y-0" : "-translate-y-full";
+
+  const enterClass = !open
+    ? ""
+    : side === "right"
+      ? "sheet-enter-right"
+      : side === "left"
+        ? "sheet-enter-left"
+        : side === "bottom"
+          ? "sheet-enter-bottom"
+          : "sheet-enter-top";
 
   return (
     <SheetPortal>
       <SheetOverlay
         className={cn(
           overlayClassName,
-          animatingIn ? "opacity-100" : "opacity-0",
+          open ? "opacity-100 sheet-overlay-enter" : "opacity-0",
         )}
       />
       <div
@@ -164,8 +173,9 @@ function SheetContent({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out",
+          "fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition-transform duration-300 ease-out will-change-transform transform-gpu",
           translateClass,
+          enterClass,
           "data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t",
           "data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b",
           isHorizontal && !customWidth && [

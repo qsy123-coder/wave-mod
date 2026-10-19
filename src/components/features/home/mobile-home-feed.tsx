@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Grid3X3 } from "lucide-react";
 
@@ -24,6 +24,13 @@ const SORT_OPTIONS: { label: string; value: ModSort }[] = [
 
 /** 与 Tailwind 的 `md` 断点对齐（本组件只在手机端挂载，桌面端不拉任何数据） */
 const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
+
+/**
+ * 打开详情抽屉只改 `openModId`，不该让 16+ 张卡片的瀑布流跟着重渲染。
+ * 网格的其余 props（character / sort / isLoggedIn / onCardClick）此时都没变，
+ * memo 会直接跳过；这是点击后「短暂卡顿才打开」的主要来源。
+ */
+const MemoizedModsInfiniteGrid = memo(ModsInfiniteGrid);
 
 /**
  * 手机端首页第二块：角色分类 + 排序 + 资源卡片流。
@@ -203,7 +210,7 @@ function MobileHomeFeedContent() {
       </div>
 
       <div className="mt-4">
-        <ModsInfiniteGrid
+        <MemoizedModsInfiniteGrid
           character={character ?? undefined}
           sort={sort}
           layoutMode="masonry"

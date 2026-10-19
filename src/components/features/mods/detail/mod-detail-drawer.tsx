@@ -140,7 +140,8 @@ export function ModDetailDrawer({
     if (!open) {
       // 面板是 portal 到 body 的，抽屉开始退场时若还开着就会盖在列表上
       setShareOpen(false);
-      setTimeout(() => onClose?.(), 200);
+      // 与 Sheet 的退场时长（300ms）对齐，动画播完再卸载
+      setTimeout(() => onClose?.(), 300);
     }
   };
 
