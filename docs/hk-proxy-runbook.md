@@ -162,20 +162,20 @@ curl -sI https://go.sunnyrose.xyz/api/mods?sort=new | grep -i x-cache-status   #
 
 ## 7. 已知问题（切换前必须知道）
 
-### 7.1 Vercel 到广州 COS 不通（阻断级）
+### 7.1 Vercel 到广州 COS 不通（2026-10-19，计数部分已解决）
 
 2026-10-19 实测：从 Vercel 函数（hkg1）访问
 `wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com`，TCP 连接 40 秒才
-`ETIMEDOUT`，16 个互动计数分片全部失败。后果：
+`ETIMEDOUT`，16 个互动计数分片全部失败。
 
-- **互动计数（点赞/收藏/浏览）在 Vercel 上读写都失效**，当前页面只显示基线数字；
-- `/api/mods?sort=hot` 冷路径要读全部分片，4 路并发 × 4 批 × 40 秒 > 120 秒，
-  请求超时；走本反代会由 60 秒读超时切到维护页；
-- 远程兜底快照（COS）拉不到，只能退回打包内那份。
+**已解决**（commit `087966ab`）：互动计数改存 Supabase Postgres
+（`engagement_totals` + `engagement_devices` + 原子 RPC `engagement_apply`）。
+线上实测 `/api/engagement` 0.7–0.9s、`sort=hot` 1.15s、点赞 toggle 正常落库。
+COS 实现保留为回退，带 5s 截止 + 60s 熔断。
 
-Vercel → Supabase 是正常的（uncached 详情接口 0.94s）。所以**解决方向是让计数
-不再依赖「Vercel → 广州 COS」这条链路**（迁 Supabase Postgres 或经香港中转），
-这件事没定之前不要扩大切换范围。
+**仍存在的轻微影响**：远程兜底快照（COS）拉不到，Supabase 失败时会退回
+打包内那份构建期快照（数据会停在最后一次部署）。概率低、可接受；
+以后若要彻底消除，可把快照也放到 Supabase Storage / 香港中转。
 
 ### 7.2 Hobby 的 100 万次函数调用
 

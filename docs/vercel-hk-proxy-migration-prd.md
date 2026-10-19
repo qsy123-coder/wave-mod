@@ -251,11 +251,16 @@ WaveMod 目前自托管在腾讯云首尔的一台轻量服务器上（PM2 + ngi
 - ⬜ 部署到 Vercel 预发域名，跑通登录（登录态页面尚未验证）
 - ⬜ 确认后再删除仓库里的 `public/gallery`（77.5MB，仅用于回滚兜底）
 
-**⚠️ Phase 1 暴露的阻断问题（2026-10-19）**：Vercel 函数到广州 COS 的 TCP
-连接不通（40s ETIMEDOUT）。互动计数分片全部读失败，`sort=hot` 冷路径 120s 超时；
-远程兜底快照也拉不到。Vercel → Supabase 正常（0.94s）。
-在解决「计数不再依赖 Vercel→广州 COS」之前，本方案不能整体切换。
-详见 `docs/hk-proxy-runbook.md` 第 7.1 节。
+**⚠️ Phase 1 暴露的阻断问题（2026-10-19，已解决）**：Vercel 函数到广州 COS 的
+TCP 连接不通（40s ETIMEDOUT）。互动计数分片全部读失败，`sort=hot` 冷路径 120s
+超时；远程兜底快照也拉不到。Vercel → Supabase 正常（0.94s）。
+
+**解决方式**（commit `087966ab`）：互动计数改存 Supabase Postgres
+（`engagement_totals` + `engagement_devices` + 原子 RPC），
+数据从首尔机权威状态导入并校验一致。线上实测（同一部署）：
+`/api/engagement` 0.68–0.93s、`sort=hot` 1.15s 返回 13 条、点赞 toggle 落库。
+COS 实现保留为回退，并加 5s 截止 + 60s 熔断。
+远程兜底快照仍未解决（COS 不可达时退回打包内快照），概率低、影响可控。
 
 ### Phase 2: 香港入口（1 天）
 - ✅ **配置与脚本已就绪**（2026-10-19，commit 待提交）：
