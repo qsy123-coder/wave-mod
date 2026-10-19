@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Grid3X3 } from "lucide-react";
 
 import { useSession } from "@/components/features/auth/session-provider";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
@@ -12,6 +12,8 @@ import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-
 import { getCharacterImagePath } from "@/lib/constants/character-images";
 import type { ModSort } from "@/lib/mods";
 import { cn } from "@/lib/utils";
+
+import { MobileCharacterDrawer } from "./mobile-character-drawer";
 
 type CharactersResponse = { characters: string[] };
 
@@ -24,7 +26,11 @@ const SORT_OPTIONS: { label: string; value: ModSort }[] = [
 const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
 
 /**
- * 手机端首页第二块：角色分类头像墙 + 排序 + 资源卡片流。
+ * 手机端首页第二块：角色分类 + 排序 + 资源卡片流。
+ *
+ * 视觉上把「角色小卡片 / 排序 chips」收进一张奶油色硬阴影卡片里，而不是直接
+ * 铺在深棕色页面背景上 —— 这是 <docs/样式参考.md> 的卡片规范（border-4 + 硬阴影 +
+ * 高对比文字），也让「角色分类」标题在深色背景上不再糊成一片。
  *
  * 为什么整个组件在桌面端不挂载：它虽然被 `md:hidden` 的容器包着，但客户端组件
  * 在桌面端照样会 hydration、照样会发请求。这里先用 matchMedia 判断，桌面端只渲染
@@ -59,6 +65,8 @@ function MobileHomeFeedContent() {
   const [character, setCharacter] = useState<string | null>(null);
   const [sort, setSort] = useState<ModSort>("latest");
   const [openModId, setOpenModId] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const railRef = useRef<HTMLDivElement | null>(null);
 
   const { data, isError } = useQuery({
     queryKey: ["home-mobile-characters"],
@@ -73,79 +81,141 @@ function MobileHomeFeedContent() {
 
   const characters = data?.characters ?? [];
 
+  /**
+   * 选中角色后把横向角色条滚到该项。
+   *
+   * 从「全部角色」抽屉里选一个靠后的角色时，它在横条里可能在屏幕外 ——
+   * 不滚过去的话，用户看不到自己刚选中的是哪一格。只滚横条本身，不动页面。
+   */
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    if (character === null) {
+      rail.scrollTo({ left: 0, behavior: "smooth" });
+      return;
+    }
+
+    const active = rail.querySelector<HTMLElement>(
+      '[data-slot="mobile-character-item"][aria-pressed="true"]',
+    );
+    if (!active) return;
+
+    const railRect = rail.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const offset = activeRect.left - railRect.left + rail.scrollLeft;
+    const target = offset - (rail.clientWidth - active.clientWidth) / 2;
+    rail.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+  }, [character]);
+
+  const selectCharacter = (next: string | null) => {
+    setCharacter(next);
+    setPickerOpen(false);
+  };
+
   return (
     <section className="px-4 pb-10">
-      <div className="mb-2 flex items-end justify-between gap-3">
-        <h2 className="text-lg font-black uppercase tracking-[0.08em] text-black">角色分类</h2>
-        <Link
-          href="/mods"
-          prefetch={false}
-          className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.14em] text-black/55"
-        >
-          全部资源
-          <ArrowRight className="size-3.5" />
-        </Link>
-      </div>
-
-      {/* 单行横滑：第一格「全部」，其后是库内角色。
-          隐藏滚动条是为了不出现一条横穿头像条的灰色横杠（iOS 上尤其明显）。 */}
       <div
-        data-slot="mobile-character-rail"
-        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        data-slot="mobile-character-panel"
+        className="border-4 border-black bg-[#fff8ef] p-3 shadow-[8px_8px_0px_0px_#000]"
       >
-        <CharacterCell
-          label="全部"
-          active={character === null}
-          onClick={() => setCharacter(null)}
-        />
-        {characters.map((name) => (
-          <CharacterCell
-            key={name}
-            label={name}
-            active={character === name}
-            onClick={() => setCharacter(name)}
-          />
-        ))}
-      </div>
-
-      {isError ? (
-        <p className="mb-2 text-[11px] font-black text-black/50">
-          角色分类加载失败，可直接浏览下方资源。
-        </p>
-      ) : null}
-
-      <div className="mb-3 mt-1 flex items-center gap-2">
-        {SORT_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => setSort(option.value)}
-            aria-pressed={sort === option.value}
-            className={cn(
-              "border-[3px] border-black px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-              sort === option.value
-                ? "bg-[#ff7a7a] text-black"
-                : "bg-white text-black/60",
-            )}
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="inline-flex -rotate-1 items-center border-[3px] border-black bg-[#ffd84f] px-3 py-1 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[3px_3px_0px_0px_#000]">
+            角色分类
+          </h2>
+          <Link
+            href="/mods"
+            prefetch={false}
+            className="inline-flex shrink-0 items-center gap-1 border-2 border-black bg-white px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-black/70 shadow-[2px_2px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
-            {option.label}
+            全部资源
+            <ArrowRight className="size-3" />
+          </Link>
+        </div>
+
+        <div className="flex items-stretch gap-2">
+          {/* 单行横滑：第一格「全部」，其后是库内角色。
+              隐藏滚动条是为了不出现一条横穿头像条的灰色横杠（iOS 上尤其明显）。 */}
+          <div
+            ref={railRef}
+            data-slot="mobile-character-rail"
+            className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            <CharacterCell
+              label="全部"
+              active={character === null}
+              onClick={() => setCharacter(null)}
+            />
+            {characters.map((name) => (
+              <CharacterCell
+                key={name}
+                label={name}
+                active={character === name}
+                onClick={() => setCharacter(name)}
+              />
+            ))}
+          </div>
+
+          {/* 固定在最右侧的「全部角色」卡片：打开全角色抽屉，不占用横滑列表的发现路径 */}
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={pickerOpen}
+            className="flex w-[64px] shrink-0 flex-col items-center justify-center gap-1 border-[3px] border-black bg-[#ffd84f] p-1.5 text-center shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+          >
+            <Grid3X3 className="size-6" strokeWidth={2.5} />
+            <span className="text-[10px] font-black leading-none">全部角色</span>
           </button>
-        ))}
-        <span className="ml-auto truncate text-[10px] font-black uppercase tracking-[0.12em] text-black/40">
-          {character ?? "全部角色"}
-        </span>
+        </div>
+
+        {isError ? (
+          <p className="mt-2 text-[11px] font-black text-black/55">
+            角色分类加载失败，可直接浏览下方资源。
+          </p>
+        ) : null}
+        {!data && !isError ? (
+          <p className="mt-2 text-[11px] font-black text-black/45">角色分类加载中…</p>
+        ) : null}
+
+        <div className="mt-3 flex items-center gap-2">
+          <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-black/50">
+            排序
+          </span>
+          {SORT_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setSort(option.value)}
+              aria-pressed={sort === option.value}
+              className={cn(
+                "border-[3px] border-black px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
+                sort === option.value
+                  ? "bg-[#ff7a7a] text-black"
+                  : "bg-white text-black/60",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+          <span className="ml-auto truncate text-[10px] font-black uppercase tracking-[0.12em] text-black/55">
+            {character ?? "全部角色"}
+          </span>
+        </div>
       </div>
 
-      <ModsInfiniteGrid
-        character={character ?? undefined}
-        sort={sort}
-        layoutMode="masonry"
-        // 手机端固定 2 列：不传的话网格在水合首帧会按桌面 5 列铺骨架，随后才跳成 2 列。
-        masonryColumns={2}
-        isLoggedIn={isLoggedIn}
-        onCardClick={setOpenModId}
-      />
+      <div className="mt-4">
+        <ModsInfiniteGrid
+          character={character ?? undefined}
+          sort={sort}
+          layoutMode="masonry"
+          // 手机端固定 2 列：不传的话网格在水合首帧会按桌面 5 列铺骨架，随后才跳成 2 列。
+          masonryColumns={2}
+          isLoggedIn={isLoggedIn}
+          onCardClick={setOpenModId}
+        />
+      </div>
 
       {openModId ? (
         <ModDetailDrawer
@@ -158,6 +228,14 @@ function MobileHomeFeedContent() {
           onClose={() => setOpenModId(null)}
         />
       ) : null}
+
+      <MobileCharacterDrawer
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        characters={characters}
+        activeCharacter={character}
+        onSelect={selectCharacter}
+      />
     </section>
   );
 }
@@ -181,7 +259,7 @@ function CharacterCell({
       title={label}
       data-slot="mobile-character-item"
       className={cn(
-        "flex w-[60px] shrink-0 flex-col items-center gap-1 border-2 border-black p-1.5 text-center shadow-[2px_2px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
+        "flex w-[64px] shrink-0 flex-col items-center gap-1 border-[3px] border-black p-1.5 text-center shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
         active ? "bg-[#ff7a7a] text-black" : "bg-white text-black/70",
       )}
     >
@@ -210,32 +288,42 @@ function CharacterCell({
 }
 
 /**
- * 水合前的占位：与真实内容同构（头像条 + 排序 + 两列卡片），
+ * 水合前的占位：与真实内容同构（浅色控制卡 + 两列卡片），
  * 只出现在手机端容器里；桌面端它被 `md:hidden` 隐藏，且不会发起请求。
  */
 function MobileHomeFeedSkeleton() {
   return (
     <section className="px-4 pb-10" aria-hidden>
-      <div className="mb-2 flex items-end justify-between gap-3">
-        <div className="h-6 w-24 animate-pulse border-2 border-black bg-white/60" />
-        <div className="h-4 w-16 animate-pulse border-2 border-black bg-white/60" />
-      </div>
-      <div className="flex gap-2 overflow-hidden pb-2">
-        {Array.from({ length: 7 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex w-[60px] shrink-0 flex-col items-center gap-1 border-2 border-black bg-white p-1.5"
-          >
-            <div className="size-11 animate-pulse rounded-full bg-black/10" />
-            <div className="h-2 w-8 animate-pulse bg-black/10" />
+      <div className="border-4 border-black bg-[#fff8ef] p-3 shadow-[8px_8px_0px_0px_#000]">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="h-8 w-24 animate-pulse border-[3px] border-black bg-[#ffd84f]" />
+          <div className="h-6 w-20 animate-pulse border-2 border-black bg-white" />
+        </div>
+        <div className="flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 gap-2 overflow-hidden pb-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex w-[64px] shrink-0 flex-col items-center gap-1 border-[3px] border-black bg-white p-1.5"
+              >
+                <div className="size-11 animate-pulse rounded-full bg-black/10" />
+                <div className="h-2 w-8 animate-pulse bg-black/10" />
+              </div>
+            ))}
           </div>
-        ))}
+          <div className="flex w-[64px] shrink-0 flex-col items-center justify-center gap-1 border-[3px] border-black bg-[#ffd84f] p-1.5">
+            <div className="size-6 animate-pulse bg-black/15" />
+            <div className="h-2 w-10 animate-pulse bg-black/15" />
+          </div>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <div className="h-3 w-8 animate-pulse bg-black/10" />
+          <div className="h-8 w-14 border-[3px] border-black bg-white" />
+          <div className="h-8 w-14 border-[3px] border-black bg-white" />
+        </div>
       </div>
-      <div className="mb-3 mt-1 flex gap-2">
-        <div className="h-7 w-14 border-[3px] border-black bg-white" />
-        <div className="h-7 w-14 border-[3px] border-black bg-white" />
-      </div>
-      <div className="flex gap-4">
+
+      <div className="mt-4 flex gap-4">
         {Array.from({ length: 2 }).map((_, col) => (
           <div key={col} className="flex flex-1 flex-col gap-4">
             {Array.from({ length: 3 }).map((_, row) => (

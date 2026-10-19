@@ -39,10 +39,12 @@ export function DrawerPreviewGallery({
 
   if (count === 0) {
     return (
-      <div className="flex h-[40vh] min-h-[220px] items-center justify-center border-4 border-black bg-white text-black/40">
-        <div className="flex flex-col items-center gap-2">
-          <ImageIcon className="size-8" />
-          <span className="text-[11px] font-black uppercase tracking-[0.14em]">暂无预览图</span>
+      <div className="border-4 border-black bg-[#fff8ef] p-2 shadow-[6px_6px_0px_0px_#000]">
+        <div className="flex h-[40vh] min-h-[220px] items-center justify-center border-[3px] border-black bg-[#fff8ef] text-black/40">
+          <div className="flex flex-col items-center gap-2">
+            <ImageIcon className="size-8" />
+            <span className="text-[11px] font-black uppercase tracking-[0.14em]">暂无预览图</span>
+          </div>
         </div>
       </div>
     );
@@ -56,8 +58,17 @@ export function DrawerPreviewGallery({
 
   return (
     <div data-slot="drawer-preview-gallery" className="space-y-2">
-      <div className="relative h-[44vh] min-h-[260px] max-h-[520px] overflow-hidden border-4 border-black bg-black sm:h-[46vh]">
-        <button
+      {/* 与站内卡片同一套语言：奶油底 + 4px 黑边 + 硬阴影。
+          图片本身不再用黑色画框 —— 留白区域直接取抽屉背景色，避免「黑边套黑图」。 */}
+      <div
+        data-slot="drawer-preview-card"
+        className="border-4 border-black bg-[#fff8ef] p-2 shadow-[6px_6px_0px_0px_#000]"
+      >
+        <div
+          data-slot="drawer-preview-frame"
+          className="relative h-[44vh] min-h-[260px] max-h-[520px] overflow-hidden border-[3px] border-black bg-[#fff8ef] sm:h-[46vh]"
+        >
+          <button
           type="button"
           onClick={() => onOpenImage(safeIndex)}
           aria-label="查看大图"
@@ -101,6 +112,7 @@ export function DrawerPreviewGallery({
             </span>
           </>
         ) : null}
+        </div>
       </div>
 
       {count > 1 ? (
@@ -120,7 +132,7 @@ export function DrawerPreviewGallery({
                 aria-label={`查看第 ${thumbIndex + 1} 张预览`}
                 aria-current={active ? "true" : undefined}
                 className={cn(
-                  "relative size-[64px] shrink-0 overflow-hidden border-[3px] bg-black transition",
+                  "relative size-[64px] shrink-0 overflow-hidden border-[3px] bg-[#fff8ef] transition",
                   active
                     ? "border-[#ff7a7a] shadow-[3px_3px_0px_0px_#000]"
                     : "border-black opacity-70 hover:opacity-100",
