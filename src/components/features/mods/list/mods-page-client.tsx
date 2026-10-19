@@ -170,6 +170,8 @@ export function ModsPageClient({
         sort={sort}
         sortOptions={sortOptions}
         sortHrefs={sortHrefs}
+        // 主站的角色分类页挂「每日更新」入口（/updates 只汇总主站）
+        dailyUpdatesHref="/updates"
         activeDirect={activeDirect}
         activePreview={activePreview}
         activeCharacter={activeCharacter}

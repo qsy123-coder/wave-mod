@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Columns2, LayoutGrid, Search, X } from "lucide-react";
+import { ChevronDown, Columns2, LayoutGrid, Search, Sparkles, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 
@@ -43,6 +44,11 @@ type ModsToolbarProps = {
    * 这样两边行为一致。
    */
   onSelectMod?: (modId: string) => void;
+  /**
+   * 「每日更新」入口（排在排序下拉右边）。**只给主站传**：`/updates` 只汇总主站
+   * （getDailyUpdates 按默认 gameKey 取数），分站挂过来会点进一份别站的列表。
+   */
+  dailyUpdatesHref?: string;
   modCount?: number;
   className?: string;
   layoutMode?: "grid" | "masonry";
@@ -143,6 +149,7 @@ export function ModsToolbar({
   activeQuery,
   gameKey,
   onSelectMod,
+  dailyUpdatesHref,
   modCount,
   className,
   layoutMode = "grid",
@@ -814,6 +821,17 @@ export function ModsToolbar({
           })}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* 每日更新入口：紧挨排序下拉，真链接（弱网下水合前也点得动） */}
+      {dailyUpdatesHref ? (
+        <Link
+          href={dailyUpdatesHref}
+          className="inline-flex items-center gap-1 border-4 border-black bg-[var(--neo-accent)] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]"
+        >
+          <Sparkles className="size-3.5 shrink-0" strokeWidth={2.5} />
+          每日更新
+        </Link>
+      ) : null}
 
       {/* 布局切换 */}
       {onLayoutChange ? (
