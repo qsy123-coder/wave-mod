@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   MASONRY_CARD_CHROME,
   MASONRY_GAP,
+  MASONRY_HOLE_TOLERANCE,
+  MASONRY_MAX_WIDE_DELAY,
   MASONRY_WIDE_RATIO,
   masonryCardHeight,
   masonryColumnLeft,
@@ -90,14 +92,86 @@ describe("packMasonry", () => {
     );
   });
 
-  it("两列及以下不跨列（否则等于整行，一行只剩一张卡）", () => {
-    for (const columns of [1, 2]) {
-      const result = packMasonry(items([LANDSCAPE, LANDSCAPE]), columns, 390);
-      expect(result.placements.every((p) => p.span === 1)).toBe(true);
+  it("两列时横屏卡跨两列（占满整行），宽度等于容器宽", () => {
+    const result = packMasonry(items([PORTRAIT, LANDSCAPE]), 2, 390);
+    const wide = result.placements[1];
+
+    expect(wide.span).toBe(2);
+    expect(wide.column).toBe(0);
+    expect(masonrySpanWidth(wide.span, result.columnWidth)).toBeCloseTo(390);
+    // 竖屏卡仍只占一列
+    expect(result.placements[0].span).toBe(1);
+  });
+
+  it("一列时不跨列（跨列等于整行，无意义）", () => {
+    const result = packMasonry(items([LANDSCAPE]), 1, 300);
+    expect(result.placements[0].span).toBe(1);
+  });
+
+  it("两列避洞：横屏卡等竖屏卡把另一列填平后再放", () => {
+    // m0 竖屏铺满左列 → 右列空出一整张卡的高度；m1 横屏先暂存；
+    // m2 竖屏落进右列最低点，两列齐平后才放 m1。
+    const result = packMasonry(items([PORTRAIT, LANDSCAPE, PORTRAIT]), 2, 390);
+    const [first, wide, filler] = result.placements;
+    const portraitHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
+
+    expect(filler.column).toBe(1);
+    expect(filler.top).toBe(0);
+    expect(wide.span).toBe(2);
+    expect(wide.top).toBeCloseTo(portraitHeight + MASONRY_GAP);
+    expect(first.top).toBe(0);
+  });
+
+  it("两列避洞：填进去反而更不齐时立即放横屏卡，不会越填越歪", () => {
+    // 左列先垫很高，后面的单列卡比剩余缺口矮：第二张再填就会 overshoot。
+    const tallPortrait = PORTRAIT * 1.4;
+    const result = packMasonry(items([tallPortrait, LANDSCAPE, PORTRAIT, PORTRAIT]), 2, 390);
+    const wide = result.placements[1];
+    const tallHeight = masonryCardHeight(result.columnWidth, tallPortrait);
+
+    // 横屏卡只等了 1 张单列卡就放（第二张单列卡会把它撑得更不齐）
+    const othersBefore = result.placements.filter(
+      (p) => p.span === 1 && p.top < wide.top,
+    );
+    expect(othersBefore.length).toBeLessThanOrEqual(MASONRY_MAX_WIDE_DELAY);
+    expect(wide.top).toBeGreaterThan(0);
+    expect(wide.top).toBeGreaterThanOrEqual(tallHeight);
+  });
+
+  it("两列避洞：连续横屏卡不互相等待，保持输入顺序", () => {
+    const result = packMasonry(items([PORTRAIT, LANDSCAPE, LANDSCAPE, LANDSCAPE]), 2, 390);
+    const portraitHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
+
+    expect(result.placements.every((p, i) => p.id === `m${i}`)).toBe(true);
+    // 第一张横屏卡遇到两列差，但下一张也是横屏、没有单列卡可填 ⇒ 立即放
+    expect(result.placements[1].top).toBeCloseTo(portraitHeight + MASONRY_GAP);
+    expect(result.placements[2].span).toBe(2);
+  });
+
+  it("两列避洞：输出顺序仍与输入一致（只是纵坐标延后）", () => {
+    const result = packMasonry(
+      items([PORTRAIT, LANDSCAPE, PORTRAIT, LANDSCAPE, PORTRAIT]),
+      2,
+      390,
+    );
+    expect(result.placements.map((p) => p.id)).toEqual(ids(5));
+    // 延后不会让任何两个单列卡重叠
+    const byColumn = new Map<number, typeof result.placements>();
+    for (const placement of result.placements) {
+      if (placement.span !== 1) continue;
+      const list = byColumn.get(placement.column) ?? [];
+      list.push(placement);
+      byColumn.set(placement.column, list);
     }
-    // 两列时单列宽必须小于容器，证明没有占满整行
-    const twoCols = packMasonry(items([LANDSCAPE]), 2, 390);
-    expect(twoCols.columnWidth).toBeLessThan(390);
+    for (const list of byColumn.values()) {
+      for (let i = 1; i < list.length; i += 1) {
+        const prev = list[i - 1];
+        const current = list[i];
+        const prevHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
+        expect(current.top).toBeGreaterThanOrEqual(prev.top + prevHeight + MASONRY_GAP - 1e-6);
+      }
+    }
+    expect(MASONRY_HOLE_TOLERANCE).toBeGreaterThan(0);
   });
 
   it("接近正方的图不跨列", () => {
