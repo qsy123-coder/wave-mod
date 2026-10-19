@@ -109,6 +109,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // 香港反代（nginx）回源时 Host 被改写成 Vercel 的生产别名，而浏览器发来的
+  // Origin 仍是 https://go.sunnyrose.xyz。Next 的 Server Action 会拿两者比对，
+  // 不一致就整条 action 以 500 拒绝 —— 表现为页面能打开、但皮肤同步/点赞等
+  // POST 动作静默失败。这里显式放行对外域名（只匹配 host，不写 scheme）。
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["go.sunnyrose.xyz"],
+    },
+  },
   reactCompiler: true,
   images: {
     unoptimized: true,
