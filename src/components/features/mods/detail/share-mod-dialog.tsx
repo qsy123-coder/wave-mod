@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  */
 const QRCodeSVG = dynamic(() => import("qrcode.react").then((mod) => mod.QRCodeSVG), {
   ssr: false,
-  loading: () => <div className="size-44 animate-pulse border-4 border-black bg-white" aria-hidden />,
+  loading: () => <div className="size-full animate-pulse bg-white" aria-hidden />,
 });
 
 /**
@@ -36,7 +36,7 @@ class QrErrorBoundary extends Component<{ children: ReactNode }, { failed: boole
   render() {
     if (this.state.failed) {
       return (
-        <div className="flex size-44 items-center justify-center border-4 border-black bg-white px-4 text-center text-xs font-black leading-5 text-black/60">
+        <div className="flex size-full items-center justify-center bg-white px-4 text-center text-xs font-black leading-5 text-black/60">
           二维码加载失败
           <br />
           请直接复制下方链接
@@ -143,8 +143,8 @@ export function ShareModDialog({ open, onClose, url, title, imageUrl }: ShareMod
 
   /**
    * 完整显示，不裁切：object-contain + 固定高度的盒子。
-   * 竖图放左侧与二维码并排（盒高与二维码盒子对齐，都是 176px）；
-   * 横图放上方、二维码在下方。
+   * 竖图放左侧与二维码并排，横图放上方、二维码在下方；
+   * 两种排法下二维码盒与预览图盒都取行上的 `--share-cover-h`，永远等高。
    */
   const coverElement = coverSrc ? (
     <Image
@@ -173,8 +173,9 @@ export function ShareModDialog({ open, onClose, url, title, imageUrl }: ShareMod
         bgColor="#ffffff"
         fgColor="#000000"
         title={`打开分享链接：${url}`}
-        // 并排时窄屏要留给预览图，二维码退到 144；桌面 224
-        className={cn("block", isPortrait ? "size-36 sm:size-56" : "size-44 sm:size-56")}
+        // 边长完全由外层方框决定（size={224} 只是未加载时的固有尺寸兜底），
+        // 方框高度跟着预览图走，二维码就跟着缩放
+        className="block size-full"
         data-qr-code
       />
     </QrErrorBoundary>
@@ -215,16 +216,22 @@ export function ShareModDialog({ open, onClose, url, title, imageUrl }: ShareMod
           </div>
         </div>
 
-        <div className={cn("mt-4 flex", isPortrait ? "items-center justify-center gap-2 sm:gap-4" : "flex-col items-center gap-4")}>
+        <div
+          className={cn(
+            "mt-4 flex",
+            // 预览图与二维码共用一个高度（--share-cover-h）：两个盒子都读它，永远等高。
+            // 二维码是正方形，宽度=高度，所以并排时整行宽度 ≈ 盒高 ×(1+宽高比)，
+            // 竖图档位的盒高要留够（桌面 18rem 时 ≤ 4:5 的竖图都放得下）。
+            isPortrait
+              ? "items-center justify-center gap-2 [--share-cover-h:10rem] sm:gap-4 sm:[--share-cover-h:18rem]"
+              : "flex-col items-center gap-4 [--share-cover-h:12rem] sm:[--share-cover-h:16rem]",
+          )}
+        >
           {coverSrc && (
             <div
               className={cn(
-                "flex min-w-0 items-center justify-center overflow-hidden border-4 border-black bg-white p-1 shadow-[5px_5px_0px_0px_#000]",
-                // 方框宽度 = 高度 × 图片宽高比（--share-cover-h 与 h-* 同值），不留左右白边。
-                // 并排时图片要够大：桌面给到 24rem 高（常见竖图可见约 209×384）。
-                isPortrait
-                  ? "h-56 shrink-0 [--share-cover-h:14rem] sm:h-96 sm:[--share-cover-h:24rem]"
-                  : "h-48 [--share-cover-h:12rem] sm:h-64 sm:[--share-cover-h:16rem]",
+                "flex h-[var(--share-cover-h)] min-w-0 items-center justify-center overflow-hidden border-4 border-black bg-white p-1 shadow-[5px_5px_0px_0px_#000]",
+                // 方框宽度 = 高度 × 图片宽高比，不留左右白边
                 coverRatio ? "max-w-full" : "w-full",
               )}
               style={coverRatio ? { width: `calc(var(--share-cover-h) * ${coverRatio})` } : undefined}
@@ -235,7 +242,7 @@ export function ShareModDialog({ open, onClose, url, title, imageUrl }: ShareMod
           )}
 
           <div className={cn(isPortrait ? "shrink-0" : "flex justify-center")}>
-            <div className="border-4 border-black bg-white p-3 shadow-[5px_5px_0px_0px_#000]">
+            <div className="size-[var(--share-cover-h)] border-4 border-black bg-white p-3 shadow-[5px_5px_0px_0px_#000]">
               {qrElement}
             </div>
           </div>
