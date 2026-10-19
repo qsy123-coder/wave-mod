@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Download, Eye, Heart, Share2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Eye, Share2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -264,7 +264,7 @@ export function ModDetailDrawer({
 
           {/* Overview tab */}
           {mod && activeTab === "overview" && (
-            <div className="space-y-3 p-3">
+            <div data-slot="drawer-overview-content" className="space-y-4 px-5 py-4">
               {/* ── 标签 ──
                   角色 / 版本 / 适配放在图片上方：先交代「这是什么角色的什么资源」，
                   再看大图。 */}
@@ -280,6 +280,23 @@ export function ModDetailDrawer({
                 </Badge>
               </div>
 
+              {/* ── 数据卡片 ──
+                  浏览 / 下载放在同一张卡里，置于图片上方；收藏次数由下方按钮展示。 */}
+              <div
+                data-slot="drawer-stats"
+                className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-4 border-black bg-white px-3 py-2.5 text-center text-xs font-black text-black shadow-[4px_4px_0px_0px_#000]"
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Eye className="size-3.5" />
+                  {counts.views} 次浏览
+                </span>
+                <span aria-hidden className="text-black/30">·</span>
+                <span className="inline-flex items-center gap-1">
+                  <Download className="size-3.5" />
+                  {mod.downloads} 次下载
+                </span>
+              </div>
+
               {/* ── 预览画廊 ──
                   单图展示 + 左右箭头，下方缩略图可点选。 */}
               <DrawerPreviewGallery
@@ -289,31 +306,6 @@ export function ModDetailDrawer({
                 onIndexChange={setPreviewIndex}
                 onOpenImage={openLightbox}
               />
-
-              {/* Stats row: 浏览 / 收藏 / 下载量 */}
-              <div data-slot="drawer-stats" className="grid grid-cols-3 gap-1.5">
-                <div className="border-[3px] border-black bg-[#fff0cf] px-2 py-1.5 text-center shadow-[3px_3px_0px_0px_#000]">
-                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/50">浏览</p>
-                  <p className="mt-0.5 inline-flex items-center justify-center gap-1 text-sm font-black">
-                    <Eye className="size-3" />
-                    {counts.views}
-                  </p>
-                </div>
-                <div className="border-[3px] border-black bg-[#bcaeff] px-2 py-1.5 text-center shadow-[3px_3px_0px_0px_#000]">
-                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/50">收藏</p>
-                  <p className="mt-0.5 inline-flex items-center justify-center gap-1 text-sm font-black">
-                    <Heart className="size-3" />
-                    {counts.favorites}
-                  </p>
-                </div>
-                <div className="border-[3px] border-black bg-[#ffd84f] px-2 py-1.5 text-center shadow-[3px_3px_0px_0px_#000]">
-                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-black/50">下载量</p>
-                  <p className="mt-0.5 inline-flex items-center justify-center gap-1 text-sm font-black">
-                    <Download className="size-3" />
-                    {mod.downloads}
-                  </p>
-                </div>
-              </div>
 
               {/* Action buttons: favorite */}
               <FavoriteButton
@@ -374,7 +366,7 @@ export function ModDetailDrawer({
 
           {/* Comments tab */}
           {mod && activeTab === "comments" && (
-            <div className="p-3">
+            <div className="px-5 py-4">
               <CommentsPanel
                 admin={admin}
                 currentUserId={currentUserId}
