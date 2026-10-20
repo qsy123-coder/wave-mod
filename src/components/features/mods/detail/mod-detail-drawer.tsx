@@ -210,15 +210,15 @@ export function ModDetailDrawer({
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       {/*
-       * 居中弹窗（side="center"）：手机整屏，桌面 720px 宽的居中卡片。
-       * 桌面从「右侧 45% 窄抽屉」改成居中宽弹窗，是为了让横屏预览图有足够展示宽度。
+       * 右侧抽屉：手机整屏，桌面 45% 宽。用户 2026-10-20 明确要求保留原来的弹出方式
+       * （曾试过改成 720px 居中弹窗，已回退）。
        */}
       <SheetContent
-        side="center"
+        side="right"
         overlayClassName="bg-black/5"
         showCloseButton={false}
         customWidth
-        className="h-full w-full max-h-[100dvh] border-0 bg-[#fff8ef] p-0 text-black sm:h-auto sm:max-h-[90dvh] sm:max-w-[720px] sm:rounded-none sm:border-4 sm:border-black"
+        className="flex w-full flex-col bg-[#fff8ef] p-0 text-black sm:w-[45%]"
       >
         {/* ── 顶栏：角色标签 + 关闭 ── */}
         <div className="flex shrink-0 items-center justify-between gap-3 border-b-4 border-black px-4 py-3">
