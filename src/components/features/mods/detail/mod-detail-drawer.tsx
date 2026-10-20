@@ -1,11 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Copy, Share2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Share2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { copyToClipboard } from "@/lib/clipboard";
 import { reportView } from "@/lib/engagement/client";
 import { useEngagement } from "@/lib/engagement/use-engagement";
 import { buildModShareUrl } from "@/lib/mod-share";
@@ -89,10 +88,8 @@ export function ModDetailDrawer({
   onClose,
 }: ModDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<DrawerTab>("overview");
-  const [descExpanded, setDescExpanded] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
   /**
    * 当前展示第几张预览图。**抽屉与灯箱共用这一份状态**：
    * 灯箱里左右翻页后再关闭，抽屉顶部画廊停在同一张，而不是跳回第一张。
@@ -146,18 +143,6 @@ export function ModDetailDrawer({
 
   // 引用必须稳定：分享面板的焦点管理 effect 依赖它，换引用会让面板每渲染都抢一次焦点
   const closeShare = useCallback(() => setShareOpen(false), []);
-
-  // 主盘 = driveLinks[0]（顺序来自后端）。徽章、主下载按钮、底部「复制网盘链接」共用这一份判定
-  const primaryDrive = mod?.driveLinks?.[0] ?? null;
-
-  const handleCopyPrimaryLink = useCallback(async () => {
-    if (!primaryDrive) return;
-    // 只复制，不唤起客户端：底部这个按钮的语义是「我要链接」，不是「我要下载」
-    const ok = await copyToClipboard(primaryDrive.url);
-    if (!ok) return;
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
-  }, [primaryDrive]);
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
@@ -289,20 +274,36 @@ export function ModDetailDrawer({
                 {mod.title}
               </h1>
 
-              {/* ── 徽章行：主网盘 / 更新时间 / 浏览·下载 ──
-                  参考图把这三项压成一行徽章，替代原来的「标签 + 数据卡」两块。 */}
+              {/* ── 徽章行：每个网盘一张卡 + 更新时间 ── */}
               <div data-slot="drawer-badges" className="flex flex-wrap items-center gap-1.5">
-                {primaryDrive ? (
-                  <span className="border-[3px] border-black bg-[#22D3EE] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[2px_2px_0px_0px_#000]">
-                    {primaryDrive.platform}
+                {(mod.driveLinks ?? []).map((drive) => (
+                  <span
+                    key={`${drive.platform}-${drive.url}`}
+                    className="border-[3px] border-black bg-[#22D3EE] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[2px_2px_0px_0px_#000]"
+                  >
+                    {drive.platform}
                   </span>
-                ) : null}
+                ))}
                 <span className="border-[3px] border-black bg-white px-2.5 py-1 text-[11px] font-black tracking-[0.06em] text-black shadow-[2px_2px_0px_0px_#000]">
                   更新于 {formatUpdatedAt(mod.createdAt)}
                 </span>
-                <span className="border-[3px] border-black bg-white px-2.5 py-1 text-[11px] font-black tracking-[0.06em] text-black shadow-[2px_2px_0px_0px_#000]">
+              </div>
+
+              {/* ── 游戏版本 + 数据卡片（同一行） ── */}
+              <div data-slot="drawer-meta-row" className="flex flex-wrap items-stretch gap-2">
+                <div
+                  data-slot="drawer-game-version"
+                  className="min-w-[120px] flex-1 border-4 border-black bg-[#22D3EE] px-3 py-2 shadow-[4px_4px_0px_0px_#000]"
+                >
+                  <p className={BLOCK_LABEL_CLASS}>游戏版本</p>
+                  <p className="text-lg font-black leading-tight">{mod.gameVersion || "未标注"}</p>
+                </div>
+                <div
+                  data-slot="drawer-stats"
+                  className="flex min-w-[150px] flex-1 items-center justify-center border-4 border-black bg-white px-3 py-2 text-center text-[11px] font-black leading-5 text-black shadow-[4px_4px_0px_0px_#000]"
+                >
                   {counts.views} 次浏览 · {mod.downloads} 次下载
-                </span>
+                </div>
               </div>
 
               {/* ── 预览画廊：横图铺满 / 竖图限高，画框跟着图走 ── */}
@@ -314,55 +315,11 @@ export function ModDetailDrawer({
                 onOpenImage={openLightbox}
               />
 
-              {/* ── 游戏版本 ── */}
-              <div
-                data-slot="drawer-game-version"
-                className="w-fit min-w-[55%] border-4 border-black bg-[#22D3EE] px-3 py-2 shadow-[4px_4px_0px_0px_#000]"
-              >
-                <p className={BLOCK_LABEL_CLASS}>游戏版本</p>
-                <p className="text-lg font-black leading-tight">{mod.gameVersion || "未知"}</p>
-              </div>
-
-              {/* ── 简介 ── */}
-              <div
-                data-slot="drawer-description"
-                className="border-4 border-black bg-white px-3 py-3 shadow-[4px_4px_0px_0px_#000]"
-              >
-                <p className={BLOCK_LABEL_CLASS}>简介</p>
-                <p
-                  className={cn(
-                    "mt-1 text-[13px] font-bold leading-6 text-black/80",
-                    !descExpanded && "line-clamp-4",
-                  )}
-                >
-                  {mod.description || "站长还没有填写简介。"}
-                </p>
-                {mod.description.length > 160 && (
-                  <button
-                    type="button"
-                    onClick={() => setDescExpanded(!descExpanded)}
-                    className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-black/50 hover:text-black"
-                  >
-                    {descExpanded ? "收起" : "展开全部"}
-                  </button>
-                )}
-              </div>
-
-              {/* ── 下载：主下载大按钮 + 其他网盘 ── */}
-              <div data-slot="drawer-download" className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className={BLOCK_LABEL_CLASS}>下载</span>
-                  <span className="shrink-0 border-[3px] border-black bg-[#ff7a7a] px-2 py-0.5 text-[10px] font-bold tracking-widest text-black shadow-[2px_2px_0px_0px_#000]">
-                    解压码 x77syq
-                  </span>
-                </div>
-                <DownloadButton
-                  layout="blocks"
-                  modId={mod.id}
-                  downloadUrl={mod.downloadUrl}
-                  downloadCount={mod.downloads}
-                  driveLinks={mod.driveLinks}
-                />
+              {/* 解压码：下载按钮在底栏，密码跟着内容走，别让用户回滚找 */}
+              <div data-slot="drawer-unzip-code" className="flex justify-end">
+                <span className="border-[3px] border-black bg-[#ff7a7a] px-2 py-0.5 text-[10px] font-bold tracking-widest text-black shadow-[2px_2px_0px_0px_#000]">
+                  解压码 x77syq
+                </span>
               </div>
             </div>
           )}
@@ -382,35 +339,33 @@ export function ModDetailDrawer({
           )}
         </div>
 
-        {/* ── 底部操作条：分享 / 复制网盘链接 / 收藏 ──
-            固定在弹窗底部，不随内容滚动；分享入口从顶栏挪到这里（与参考图一致）。 */}
+        {/* ── 底部操作条：分享 / 各网盘下载 / 收藏 ──
+            固定在弹窗底部，不随内容滚动；下载按钮按用户要求统一收进这一行。 */}
         <div className="flex shrink-0 items-stretch gap-2 border-t-4 border-black bg-[#fff8ef] px-3 py-3">
           <button
             type="button"
             onClick={() => setShareOpen(true)}
             disabled={!mod || isLoading}
             className={cn(
-              "inline-flex h-11 flex-1 items-center justify-center gap-1.5 border-4 border-black bg-black text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
+              // 分享按内容宽度收缩，把剩余宽度让给下载按钮（手机上一行要塞下 分享 + 各网盘 + 收藏）
+              "inline-flex h-11 shrink-0 items-center justify-center gap-1.5 border-4 border-black bg-black px-3 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
               "disabled:cursor-not-allowed disabled:opacity-40",
             )}
           >
             <Share2 className="size-4" strokeWidth={3} />
             分享
           </button>
-          <button
-            type="button"
-            onClick={handleCopyPrimaryLink}
-            disabled={!primaryDrive}
-            className={cn(
-              "inline-flex h-11 flex-1 items-center justify-center gap-1.5 border-4 border-black bg-white text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-              "disabled:cursor-not-allowed disabled:opacity-40",
-            )}
-            aria-label="复制主网盘链接"
-          >
-            <Copy className="size-4" strokeWidth={3} />
-            {linkCopied ? "已复制" : "复制网盘链接"}
-          </button>
-          <div className="flex w-[110px] shrink-0">
+          {/* 下载按钮：每个网盘一个，全部排在「分享」右边 */}
+          {mod ? (
+            <DownloadButton
+              layout="bar"
+              modId={mod.id}
+              downloadUrl={mod.downloadUrl}
+              downloadCount={mod.downloads}
+              driveLinks={mod.driveLinks}
+            />
+          ) : null}
+          <div className="flex w-[88px] shrink-0">
             {mod ? (
               <FavoriteButton
                 compact

@@ -20,10 +20,10 @@ type DownloadButtonProps = {
   driveLinks: DriveLink[];
   /**
    * 版式。`stacked`（默认）是原来那种「直链 + 网盘按钮一竖排」，
-   * `blocks` 是详情弹窗用的三段式：主下载大按钮 + 灰底「其他网盘」块。
+   * `bar` 是详情底部操作条用的横排：每个网盘一个按钮，排在「分享」右边。
    * 默认值保持旧的，所以 mod-action-drawer / 分站详情不用改。
    */
-  layout?: "stacked" | "blocks";
+  layout?: "stacked" | "bar";
 };
 
 export function DownloadButton({
@@ -166,125 +166,79 @@ export function DownloadButton({
   );
 
   /**
-   * blocks 版式：主下载 + 灰底「其他网盘」。
-   * 主盘取 `driveLinks[0]`（顺序来自后端），其余收进第二块；有直链时作为「其他网盘」里的
-   * 一项，而不是再占一个同等权重的通栏按钮。
+   * bar 版式：每个网盘一个按钮，直接排进详情底部操作条的「分享」右边。
+   *
+   * 复制后的操作教程浮在操作条**上方**（绝对定位），不占内容高度 —— 否则提示卡一出现
+   * 就把底栏撑高，可视区跟着跳。直链（若有）作为最后一个紫色按钮一起排在这里。
    */
-  if (layout === "blocks") {
-    const primaryDrive = driveLinks[0] ?? null;
-    const firstOther = driveLinks.slice(1);
-
-    // ⚠️ 这里**不要**再写 `inline-flex`：它和调用方的 `hidden` / `sm:hidden` 同属 display 工具类，
-    // 谁在生成的 CSS 里靠后谁生效（与 class 书写顺序无关），曾导致手机端主下载出现两个按钮。
-    // display 一律由调用方决定。
-    const primaryClass = (copied: boolean) =>
-      `w-full items-center justify-center gap-2 border-4 border-black text-sm font-black uppercase tracking-[0.16em] shadow-[5px_5px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none h-12 px-4 ${copied ? "bg-[#86efac] text-black" : "bg-[#FF2D78] text-white"}`;
-    const secondaryClass = (copied: boolean) =>
-      `w-full items-center justify-center gap-2 border-4 border-black text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none h-11 px-3 ${copied ? "bg-[#86efac]" : "bg-white"}`;
+  if (layout === "bar") {
+    // ⚠️ display 一律由调用方给：`inline-flex` 若写进基础类，会和调用方的 `hidden` /
+    // `sm:hidden` 打架（同为 display 工具类，按生成顺序生效），曾因此出现重复按钮。
+    const barClass = (copied: boolean, tone: "drive" | "direct") =>
+      `flex-1 items-center justify-center gap-1.5 border-4 border-black h-11 px-2 text-[11px] font-black tracking-[0.06em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
+        copied ? "bg-[#86efac] text-black" : tone === "direct" ? "bg-[#C4B5FD] text-black" : "bg-[#FF2D78] text-white"
+      }`;
 
     return (
-      <div className="space-y-3">
-        {primaryDrive ? (
-          <div>
-            {driveOpenHref(primaryDrive.url) ? (
-              <a
-                href={driveOpenHref(primaryDrive.url) ?? primaryDrive.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex sm:hidden ${primaryClass(Boolean(copiedDrive?.platform === primaryDrive.platform))}`}
+      <div className="relative flex flex-1 items-stretch gap-2">
+        {driveLinks.map((drive) => {
+          const copied = copiedDrive?.platform === drive.platform;
+          const openHref = driveOpenHref(drive.url);
+          // 底栏很窄，按钮上去掉「网盘」后缀（夸克网盘 → 夸克），aria/title 里保留全称
+          const shortLabel = drive.platform.replace(/网盘$/, "");
+
+          return (
+            <div key={`${drive.platform}-${drive.url}`} className="flex flex-1">
+              {/* 手机端优先直接跳分享页；链接缺 scheme 等脏数据没法跳，就退回复制 */}
+              {openHref ? (
+                <a
+                  href={openHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`打开${drive.platform}分享页`}
+                  className={`inline-flex sm:hidden ${barClass(copied, "drive")}`}
+                >
+                  <ExternalLink className="size-4" />
+                  {shortLabel}
+                </a>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => handleCopy(drive)}
+                className={`${openHref ? "hidden sm:inline-flex" : "inline-flex"} ${barClass(copied, "drive")}`}
+                title={copied ? `已复制 ${drive.platform} 链接` : `复制 ${drive.platform} 链接并唤起客户端`}
               >
-                <ExternalLink className="size-4" />
-                打开{primaryDrive.platform}
-              </a>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => handleCopy(primaryDrive)}
-              className={`${driveOpenHref(primaryDrive.url) ? "hidden sm:inline-flex" : "inline-flex"} ${primaryClass(Boolean(copiedDrive?.platform === primaryDrive.platform))}`}
-            >
-              {copiedDrive?.platform === primaryDrive.platform ? (
-                <Check className="size-4" />
-              ) : (
-                <Download className="size-4" />
-              )}
-              {copiedDrive?.platform === primaryDrive.platform
-                ? `已复制 · ${primaryDrive.platform}`
-                : `下载模组 · ${primaryDrive.platform}`}
-            </button>
-          </div>
-        ) : hasDownload ? (
-          <button type="button" onClick={handleDownload} disabled={isPending} className={`inline-flex ${primaryClass(false)}`}>
+                {copied ? <Check className="size-4" /> : <Download className="size-4" />}
+                {copied ? "已复制" : shortLabel}
+              </button>
+            </div>
+          );
+        })}
+
+        {hasDownload ? (
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={isPending}
+            className={`inline-flex ${barClass(false, "direct")}`}
+            title="直链下载 ZIP"
+          >
             {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
-            {isPending ? "跳转中" : `直链下载 ZIP · ${downloadCount}`}
+            直链
           </button>
         ) : null}
 
-        {failureMessage ? (
-          <p
-            role="alert"
-            className="border-4 border-black bg-[#ffb5c3] px-3 py-2 text-xs font-black leading-5 text-black shadow-[4px_4px_0px_0px_#000]"
-          >
-            {failureMessage}
-          </p>
-        ) : null}
-
-        {firstOther.length > 0 || (hasDownload && primaryDrive) ? (
-          <div className="border-4 border-black bg-[#f2f2f2] p-3 shadow-[4px_4px_0px_0px_#000]">
-            <p className="mb-2 text-[11px] font-black uppercase tracking-[0.16em] text-black/70">其他网盘</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {firstOther.map((drive) => {
-                const copied = copiedDrive?.platform === drive.platform;
-                const openHref = driveOpenHref(drive.url);
-                return (
-                  <div key={`${drive.platform}-${drive.url}`}>
-                    {openHref ? (
-                      <a
-                        href={openHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={`打开${drive.platform}分享页`}
-                        className={`inline-flex sm:hidden ${secondaryClass(copied)}`}
-                      >
-                        <ExternalLink className="size-4" />
-                        打开{drive.platform}
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(drive)}
-                        className={`inline-flex sm:hidden ${secondaryClass(copied)}`}
-                      >
-                        {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                        {copied ? `已复制 · ${drive.platform}` : `复制链接 · ${drive.platform}`}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(drive)}
-                      className={`hidden sm:inline-flex ${secondaryClass(copied)}`}
-                    >
-                      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                      {copied ? `已复制 · ${drive.platform}` : `复制链接 · ${drive.platform}`}
-                    </button>
-                  </div>
-                );
-              })}
-              {hasDownload && primaryDrive ? (
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={isPending}
-                  className={`inline-flex ${secondaryClass(false)}`}
-                >
-                  {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
-                  {isPending ? "跳转中" : "直链下载 ZIP"}
-                </button>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {copyTipPanel}
+        <div className="absolute bottom-[calc(100%+10px)] left-0 right-0 z-20">
+          {failureMessage ? (
+            <p
+              role="alert"
+              className="mb-2 border-4 border-black bg-[#ffb5c3] px-3 py-2 text-xs font-black leading-5 text-black shadow-[4px_4px_0px_0px_#000]"
+            >
+              {failureMessage}
+            </p>
+          ) : null}
+          {copyTipPanel}
+        </div>
       </div>
     );
   }
