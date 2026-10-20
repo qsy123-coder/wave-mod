@@ -146,8 +146,8 @@ curl -sI https://go.sunnyrose.xyz/api/mods?sort=new | grep -i x-cache-status   #
 | `/_next/static/*` | 1 年 | 文件名带内容哈希；强制 `immutable` |
 | `/favicon.ico` | 1 年 | 15 天 563MB 的热点请求 |
 | 其他带扩展名的静态资源 | 7 天 | css/js/图片/字体/视频等 |
-| 页面 HTML / RSC | 60 秒，后台刷新 | **带 Cookie 的请求绕过**；上游回 Set-Cookie 的响应不落盘。Hobby 的函数调用额度吃紧时，这是第一个该调大的值 |
-| `/api/mods` | 300 秒 | 带 `query=` 的请求不进缓存（长尾搜索） |
+| 页面 HTML / RSC | 300 秒，后台刷新 | **只有带登录态 Cookie（`sb-*-auth-token`）的请求绕过**；皮肤/布局 cookie 不绕过；上游回 Set-Cookie 的响应不落盘 |
+| `/api/mods` | 1800 秒 | 带 `query=` 的请求不进缓存（长尾搜索） |
 | `/api/updates` | 300 秒 | 与接口自身 `s-maxage` 对齐 |
 | `/api/characters` | 600 秒 | 角色分类列表 |
 | `/api/home/lower` | 300 秒 | 首页下半屏数据 |
@@ -177,19 +177,31 @@ COS 实现保留为回退，带 5s 截止 + 60s 熔断。
 打包内那份构建期快照（数据会停在最后一次部署）。概率低、可接受；
 以后若要彻底消除，可把快照也放到 Supabase Storage / 香港中转。
 
-### 7.2 Hobby 的 100 万次函数调用
+### 7.2 缓存曾被皮肤 cookie 整层打穿（2026-10-21 已修）
+
+`ThemeProvider` 挂载时会无条件写 `wavemod-theme`（默认皮肤也写），而反代原先按
+「请求带任何 Cookie 就绕过缓存」判断登录态，结果**97% 的页面请求都在 BYPASS**：
+日志 33 小时里 `/updates` 3,144 次 BYPASS / 31 次 HIT。同一时段 `/api/mods` 的
+300 秒 TTL 对「十几分钟才来一次」的 URL 也基本不命中——它一条路由占了 Vercel
+全部 Active CPU 的 65%，按当时速率外推约 10.75 CPU 小时/月，而 Hobby 只有 4 小时。
+
+修法（纯 nginx 配置）：`$cache_bypass_cookie` 只认 `sb-*-auth-token`、
+`/api/mods` TTL 提到 1800 秒、HTML 提到 300 秒、UA 拉黑扫描器。
+验收：带皮肤 cookie 应 HIT，带 `sb-*-auth-token` 应 BYPASS。
+
+### 7.3 Hobby 的 100 万次函数调用
 
 健康日动态请求约 7.3 万/天 ≈ 220 万/月，是上限的 2 倍。本反代的缓存就是为它设计
-的。上线后每天在 Vercel 面板看 Function Invocations；如果仍然逼近上限，再考虑
-把 HTML 的 30 秒调长，或给更多 `GET /api/*` 加短缓存。
+的。上线后每天在 Vercel 面板看 Function Invocations；2026-10-21 实测已降到
+约 9.1K 次/12 小时（≈55 万/月），余量充足，下一个瓶颈是 Active CPU 而不是调用次数。
 
-### 7.3 上游超时
+### 7.4 上游超时
 
 `proxy_read_timeout 60s`。Vercel 冷启动通常 1–2 秒，但 `sort=hot` 这种坏路径会
 直接吃满超时并返回维护页 —— 这是有意的：宁可给一个可读的维护页，也不要让访客
 连接挂 120 秒。
 
-### 7.4 Server Action 的 Origin 校验（2026-10-19 已修）
+### 7.5 Server Action 的 Origin 校验（2026-10-19 已修）
 
 **现象**：切换后页面全部 200，但某些动作静默失败；抓包能看到形如
 `POST /`（Next Server Action）返回 **500**，响应体是一个 digest 错误。
