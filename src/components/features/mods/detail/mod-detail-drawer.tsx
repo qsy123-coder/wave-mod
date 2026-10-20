@@ -136,6 +136,8 @@ export function ModDetailDrawer({
     likes: mod?.likes ?? 0,
     favorites: mod?.favorites ?? 0,
     views: mod?.views ?? 0,
+    // 基线来自快照里的历史下载数；点下载后由互动接口实时 +1（以前这里永远是快照值）
+    downloads: mod?.downloads ?? 0,
   });
 
   // 引用必须稳定：分享面板的焦点管理 effect 依赖它，换引用会让面板每渲染都抢一次焦点
@@ -301,11 +303,11 @@ export function ModDetailDrawer({
                   data-slot="drawer-stats"
                   className="flex min-w-[132px] flex-1 items-center justify-center border-[3px] border-black bg-white px-2 py-1 text-center text-[10px] font-black leading-4 text-black shadow-[3px_3px_0px_0px_#000]"
                 >
-                  {counts.views} 次浏览 · {mod.downloads} 次下载
+                  {counts.views} 次浏览 · {counts.downloads} 次下载
                 </div>
               </div>
 
-              {/* ── 预览画廊：横图铺满 / 竖图限高，画框跟着图走 ── */}
+              {/* ── 预览画廊：横图铺满 / 竖图限高居中，画框始终满宽 ── */}
               <DrawerPreviewGallery
                 images={mod.images ?? []}
                 title={mod.title}
@@ -313,6 +315,20 @@ export function ModDetailDrawer({
                 onIndexChange={setPreviewIndex}
                 onOpenImage={openLightbox}
               />
+
+              {/* 简介只在**单图**时出现：多图时下面还有缩略图条，再塞简介就会顶出滚动条。
+                  两行截断 + 紧凑字号，保证任何情况下都不撑高内容区。 */}
+              {(mod.images?.length ?? 0) === 1 ? (
+                <div
+                  data-slot="drawer-description"
+                  className="border-[3px] border-black bg-white px-2 py-1.5 shadow-[3px_3px_0px_0px_#000]"
+                >
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-black/55">简介</p>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] font-bold leading-5 text-black/80">
+                    {mod.description || "站长还没有填写简介。"}
+                  </p>
+                </div>
+              ) : null}
 
             </div>
           )}

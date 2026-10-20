@@ -10,11 +10,16 @@
  * 校验 schema 全部放在 `./schemas`，只给 API route 用。
  */
 
-/** 单个资源的三个互动计数（已含基线，见 store 里的 baseline 说明） */
+/** 单个资源的四个互动计数（已含基线，见 store 里的 baseline 说明） */
 export type EngagementCounts = {
   likes: number;
   favorites: number;
   views: number;
+  /**
+   * 下载次数。2026-10-20 新增：以前只有「直链下载」会 +1、且写进 Supabase，
+   * 而前台读的是快照，所以点夸克/迅雷永远显示 0。现在改为和其它计数一样实时累加。
+   */
+  downloads: number;
 };
 
 /** 当前设备对某个资源的互动状态 */
@@ -29,7 +34,7 @@ export type EngagementReadResult = {
   mine: Record<string, EngagementMine>;
 };
 
-export const engagementActions = ["like", "unlike", "favorite", "unfavorite", "view"] as const;
+export const engagementActions = ["like", "unlike", "favorite", "unfavorite", "view", "download"] as const;
 export type EngagementAction = (typeof engagementActions)[number];
 
 /**

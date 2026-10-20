@@ -7,6 +7,7 @@ import Image from "next/image";
 
 import { copyToClipboard } from "@/lib/clipboard";
 import { driveCopyTip } from "@/lib/cloud-drive";
+import { reportDownload } from "@/lib/engagement/client";
 import { driveOpenHref } from "@/lib/drive-client";
 import { launchDriveClient } from "@/lib/drive-client-launch";
 import { DIRECT_DOWNLOAD_UNAVAILABLE, resolveDownloadResponse } from "@/lib/mods-domain/download-result";
@@ -76,6 +77,7 @@ export function DownloadButton({
       }
 
       window.open(resolution.url, "_blank", "noopener,noreferrer");
+      reportDownload(modId);
     } catch {
       // 网络层失败（断网、请求被中断）也要给用户一个说法
       setFailureMessage(DIRECT_DOWNLOAD_UNAVAILABLE);
@@ -88,6 +90,8 @@ export function DownloadButton({
     const ok = await copyToClipboard(drive.url);
     // 复制失败就不唤起：客户端被拉起来了却读不到剪贴板，比不唤起更让人困惑
     if (!ok) return;
+    // 复制成功即视为一次下载（这也是桌面端真正的下载动作）
+    reportDownload(modId);
     // 把对应客户端拉起来（它自己会读剪贴板弹转存框）。同一条链接本会话已唤起过就跳过，
     // 免得反复把它切到前台。返回值决定文案口径 —— 见 lib/drive-client-launch.ts
     const launched = launchDriveClient(drive.platform, drive.url);
@@ -213,6 +217,7 @@ export function DownloadButton({
                   rel="noopener noreferrer"
                   aria-label={`打开${drive.platform}分享页${unzipCode ? `，解压码 ${unzipCode}` : ""}`}
                   className={`inline-flex sm:hidden ${barClass(copied, "drive")}`}
+                  onClick={() => reportDownload(modId)}
                 >
                   <ExternalLink className="size-3.5 shrink-0" />
                   {barLabel(shortLabel)}
@@ -297,6 +302,7 @@ export function DownloadButton({
                     rel="noopener noreferrer"
                     aria-label={`打开${drive.platform}分享页`}
                     className={driveOpenClass}
+                    onClick={() => reportDownload(modId)}
                   >
                     <ExternalLink className="size-4" />
                     打开{drive.platform}

@@ -24,6 +24,8 @@ export type StoredMod = {
   views: number;
   /** 近期浏览去重表：日期 → 当天浏览过的设备号 */
   viewDays: Record<string, string[]>;
+  /** 累计新增下载数（每次点击都算，不做设备去重 —— 下载两次就是两次） */
+  downloads: number;
 };
 
 export type EngagementState = {
@@ -87,6 +89,8 @@ export function parseState(raw: unknown): EngagementState {
       favoritedAt,
       views: toCount(entry.views),
       viewDays,
+      // 老文件里没有这个字段 → 0，读取时不会把已有计数清零
+      downloads: toCount(entry.downloads),
     };
   }
 
@@ -106,6 +110,7 @@ export function parseBaseline(raw: unknown): EngagementBaseline {
     if (entry.likes !== undefined) parsed.likes = toCount(entry.likes);
     if (entry.favorites !== undefined) parsed.favorites = toCount(entry.favorites);
     if (entry.views !== undefined) parsed.views = toCount(entry.views);
+    if (entry.downloads !== undefined) parsed.downloads = toCount(entry.downloads);
 
     if (Object.keys(parsed).length > 0) baseline[modId] = parsed;
   }
@@ -118,7 +123,7 @@ export function slot(state: EngagementState, modId: string): StoredMod {
   const existing = state.mods[modId];
   if (existing) return existing;
 
-  const created: StoredMod = { likedBy: [], favoritedBy: [], favoritedAt: {}, views: 0, viewDays: {} };
+  const created: StoredMod = { likedBy: [], favoritedBy: [], favoritedAt: {}, views: 0, viewDays: {}, downloads: 0 };
   state.mods[modId] = created;
   return created;
 }
@@ -137,6 +142,7 @@ export function computeCountsFromIncrements(
     likes: (base?.likes ?? 0) + (increments.likes ?? 0),
     favorites: (base?.favorites ?? 0) + (increments.favorites ?? 0),
     views: (base?.views ?? 0) + (increments.views ?? 0),
+    downloads: (base?.downloads ?? 0) + (increments.downloads ?? 0),
   };
 }
 
@@ -147,6 +153,7 @@ export function computeCounts(state: EngagementState, baseline: EngagementBaseli
     likes: entry?.likedBy.length ?? 0,
     favorites: entry?.favoritedBy.length ?? 0,
     views: entry?.views ?? 0,
+    downloads: entry?.downloads ?? 0,
   });
 }
 
@@ -216,6 +223,11 @@ export function applyAction(
       if (today.includes(deviceId)) break;
       today.push(deviceId);
       entry.views += 1;
+      break;
+    }
+    case "download": {
+      // 不去重：用户点两次就是下载两次（真正防刷靠频率，不靠设备号）
+      entry.downloads += 1;
       break;
     }
     default:

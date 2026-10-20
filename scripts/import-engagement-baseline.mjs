@@ -44,15 +44,20 @@ requireDatabaseUrl();
 console.log(APPLY ? "✍️  APPLY 模式：将覆盖写入基线文件。" : "🔍 DRY-RUN 模式：只统计，不写文件。");
 console.log(`   产物路径: ${BASELINE_PATH}\n`);
 
-// 只读：把三个计数列原样取出来。coalesce 是为了把 NULL 变成 0，
+// 只读：把计数列原样取出来。coalesce 是为了把 NULL 变成 0，
 // 而不是让它以 null 混进 JSON（下游 parseBaseline 虽然也容错，但没必要留隐患）。
+//
+// `downloads` 是 2026-10-20 加的：那之前前台读的是详情的 downloads_count，而
+// 「点夸克/迅雷」根本不写库，所以永远显示 0。现在下载也走「基线 + 增量」，
+// 历史值必须一并导入，否则切换那一刻所有 mod 的下载数会从 28 变成 0。
 const rows = await psqlJson(`
 select coalesce(
   json_agg(json_build_object(
     'id', id,
     'likes', coalesce(likes_count, 0),
     'favorites', coalesce(favorites_count, 0),
-    'views', coalesce(views, 0)
+    'views', coalesce(views, 0),
+    'downloads', coalesce(downloads_count, 0)
   )),
   '[]'::json
 )::text
@@ -70,28 +75,32 @@ let tracked = 0;
 let sumLikes = 0;
 let sumFavorites = 0;
 let sumViews = 0;
+let sumDownloads = 0;
 
 for (const row of rows) {
   const likes = Math.max(0, Math.floor(Number(row.likes) || 0));
   const favorites = Math.max(0, Math.floor(Number(row.favorites) || 0));
   const views = Math.max(0, Math.floor(Number(row.views) || 0));
+  const downloads = Math.max(0, Math.floor(Number(row.downloads) || 0));
 
-  // 全 0 的条目不入库：绝大多数 mod 三个数都是 0，写进去只会把文件撑大
-  if (likes === 0 && favorites === 0 && views === 0) continue;
+  // 全 0 的条目不入库：绝大多数 mod 几个数都是 0，写进去只会把文件撑大
+  if (likes === 0 && favorites === 0 && views === 0 && downloads === 0) continue;
 
-  baseline[row.id] = { likes, favorites, views };
+  baseline[row.id] = { likes, favorites, views, downloads };
   tracked += 1;
   sumLikes += likes;
   sumFavorites += favorites;
   sumViews += views;
+  sumDownloads += downloads;
 }
 
 console.log("=== 基线统计 ===");
 console.log(`   库内 mod 总数      : ${rows.length}`);
-console.log(`   计入基线的 mod     : ${tracked}（三个数全为 0 的不写）`);
+console.log(`   计入基线的 mod     : ${tracked}（四项全为 0 的不写）`);
 console.log(`   点赞合计           : ${sumLikes}`);
 console.log(`   收藏合计           : ${sumFavorites}`);
 console.log(`   浏览合计           : ${sumViews}`);
+console.log(`   下载合计           : ${sumDownloads}`);
 
 if (!APPLY) {
   console.log("\n🔍 DRY-RUN：未写文件。确认无误后加 --apply 落盘。");

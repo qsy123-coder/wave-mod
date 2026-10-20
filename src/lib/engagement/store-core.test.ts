@@ -19,7 +19,7 @@ const B = "device-bbbbbbbb";
 
 describe("computeCounts", () => {
   it("没有基线也没有增量时全为 0", () => {
-    expect(computeCounts(emptyState(), {}, MOD)).toEqual({ likes: 0, favorites: 0, views: 0 });
+    expect(computeCounts(emptyState(), {}, MOD)).toEqual({ likes: 0, favorites: 0, views: 0, downloads: 0 });
   });
 
   it("基线 + 增量累加，而不是覆盖", () => {
@@ -30,6 +30,7 @@ describe("computeCounts", () => {
       likes: 8,
       favorites: 3,
       views: 100,
+      downloads: 0,
     });
   });
 });
@@ -45,13 +46,14 @@ describe("computeCountsFromIncrements", () => {
       likes: 2,
       favorites: 1,
       views: 9,
+      downloads: 0,
     });
   });
 
   it("基线 + 增量逐字段相加", () => {
     expect(
       computeCountsFromIncrements({ likes: 47, favorites: 285, views: 45_720 }, { likes: 1, favorites: 0, views: 3 }),
-    ).toEqual({ likes: 48, favorites: 285, views: 45_723 });
+    ).toEqual({ likes: 48, favorites: 285, views: 45_723, downloads: 0 });
   });
 
   it("基线只导了部分列时其余列按 0", () => {
@@ -59,6 +61,7 @@ describe("computeCountsFromIncrements", () => {
       likes: 6,
       favorites: 2,
       views: 3,
+      downloads: 0,
     });
   });
 });
@@ -99,7 +102,7 @@ describe("点赞 / 收藏去重", () => {
 
     applyAction(state, "favorite", MOD, A, "2026-10-02");
 
-    expect(computeCounts(state, {}, MOD)).toEqual({ likes: 0, favorites: 1, views: 0 });
+    expect(computeCounts(state, {}, MOD)).toEqual({ likes: 0, favorites: 1, views: 0, downloads: 0 });
   });
 });
 
@@ -137,6 +140,24 @@ describe("listFavoritedIds（我的收藏清单）", () => {
     applyAction(state, "favorite", MOD, A, "2026-10-02", "2026-10-02T02:00:00.000Z");
 
     expect(listFavoritedIds(state, A)).toEqual([]);
+  });
+});
+
+describe("下载：每次点击都算（2026-10-20 新增）", () => {
+  it("同一设备连点两次就是两次", () => {
+    const state = emptyState();
+
+    applyAction(state, "download", MOD, A, "2026-10-02");
+    applyAction(state, "download", MOD, A, "2026-10-02");
+
+    expect(computeCounts(state, {}, MOD).downloads).toBe(2);
+  });
+
+  it("基线里的历史下载数会保留", () => {
+    const state = emptyState();
+    applyAction(state, "download", MOD, A, "2026-10-02");
+
+    expect(computeCounts(state, { [MOD]: { downloads: 28 } }, MOD).downloads).toBe(29);
   });
 });
 

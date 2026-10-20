@@ -13,7 +13,7 @@ import { ENGAGEMENT_MAX_IDS, type EngagementCounts, type EngagementMine } from "
  *   3. 本地有未完成的改动时，**不让拉取结果覆盖**（靠 mutationSeq 判断）。
  */
 
-export const EMPTY_COUNTS: EngagementCounts = { likes: 0, favorites: 0, views: 0 };
+export const EMPTY_COUNTS: EngagementCounts = { likes: 0, favorites: 0, views: 0, downloads: 0 };
 export const EMPTY_MINE: EngagementMine = { liked: false, favorited: false };
 
 export type EngagementEntry = {
@@ -85,10 +85,15 @@ export function getEntry(id: string): EngagementEntry | undefined {
   return entries.get(id);
 }
 
-/** 用服务端渲染快照打底。已经有更权威的值时不覆盖。 */
-export function seed(id: string, initialCounts: EngagementCounts): void {
+/**
+ * 用服务端渲染快照打底。已经有更权威的值时不覆盖。
+ *
+ * 入参允许是**部分计数**：卡片、轮播这些地方只用得到浏览/点赞，不必关心下载；
+ * 缺的字段在这里补 0，避免 `undefined + 1 = NaN` 传到界面上。
+ */
+export function seed(id: string, initialCounts: Partial<EngagementCounts>): void {
   if (entries.has(id)) return;
-  entries.set(id, { counts: initialCounts, mine: EMPTY_MINE, hydrated: false });
+  entries.set(id, { counts: { ...EMPTY_COUNTS, ...initialCounts }, mine: EMPTY_MINE, hydrated: false });
 }
 
 /** 登记一个待拉取的 id 并触发去抖合并 */
@@ -224,6 +229,36 @@ export function reportView(id: string): void {
     })
     .catch(() => {
       // 静默：浏览数不是关键路径
+    });
+}
+
+/**
+ * 上报一次下载。
+ *
+ * 与浏览不同：**不做会话去重**，每次点击都算一次（用户连点两次就是下载两次）。
+ * 先乐观 +1 给即时反馈，再用服务端返回的权威值覆盖；失败就保留乐观值（宁可多 1）。
+ */
+export function reportDownload(id: string): void {
+  if (typeof window === "undefined") return;
+
+  const prev = entries.get(id);
+  if (prev) put(id, { ...prev, counts: { ...prev.counts, downloads: prev.counts.downloads + 1 } });
+
+  void fetch("/api/engagement", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-device-id": getDeviceId() },
+    body: JSON.stringify({ modId: id, action: "download" }),
+    keepalive: true,
+  })
+    .then(async (response) => {
+      if (!response.ok) return;
+      const data = (await response.json()) as { counts?: Record<string, EngagementCounts> };
+      const counts = data.counts?.[id];
+      const current = entries.get(id);
+      if (counts && current) put(id, { ...current, counts, hydrated: true });
+    })
+    .catch(() => {
+      // 静默：下载计数不是关键路径，失败了本地已经 +1
     });
 }
 

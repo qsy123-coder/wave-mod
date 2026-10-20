@@ -37,11 +37,20 @@ import type { EngagementAction, EngagementCounts, EngagementMine, EngagementRead
 
 const QUERY_TIMEOUT_MS = 10_000;
 
+// ⚠️ 这套 Supabase 后端已停用（生产用本地文件 + COS 镜像，见 store.ts 的说明）。
+// `downloads` 没有对应的库表列，这里统一按 0 处理 —— 永远为 0 也比类型对不上强。
 type ReadRow = {
-  counts: Record<string, { likes: number; favorites: number; views: number }>;
+  counts: Record<string, { likes: number; favorites: number; views: number; downloads?: number }>;
   mine: Record<string, { liked: boolean; favorited: boolean }>;
 };
-type ApplyRow = { likes: number; favorites: number; views: number; liked: boolean; favorited: boolean };
+type ApplyRow = {
+  likes: number;
+  favorites: number;
+  views: number;
+  downloads?: number;
+  liked: boolean;
+  favorited: boolean;
+};
 
 export function isSupabaseEngagementEnabled(): boolean {
   return (
@@ -126,6 +135,7 @@ export async function supabaseReadEngagement(ids: string[], deviceId: string): P
       let likes = 0;
       let favorites = 0;
       let views = 0;
+      let downloads = 0;
       let mineRow: EngagementMine | undefined;
 
       for (const row of rows) {
@@ -134,13 +144,14 @@ export async function supabaseReadEngagement(ids: string[], deviceId: string): P
           likes += Number(increment.likes ?? 0);
           favorites += Number(increment.favorites ?? 0);
           views += Number(increment.views ?? 0);
+          downloads += Number(increment.downloads ?? 0);
         }
 
         const device = row.mine[id];
         if (device) mineRow = device;
       }
 
-      counts[id] = computeCountsFromIncrements(base[id], { likes, favorites, views });
+      counts[id] = computeCountsFromIncrements(base[id], { likes, favorites, views, downloads });
       if (deviceId) mine[id] = { liked: mineRow?.liked ?? false, favorited: mineRow?.favorited ?? false };
     }
 
@@ -191,6 +202,7 @@ export async function supabaseWriteEngagement(
           likes: Number(row.likes),
           favorites: Number(row.favorites),
           views: Number(row.views),
+          downloads: Number(row.downloads ?? 0),
         }),
       },
       mine: { [modId]: { liked: Boolean(row.liked), favorited: Boolean(row.favorited) } },

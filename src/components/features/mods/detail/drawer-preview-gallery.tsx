@@ -136,20 +136,17 @@ export function DrawerPreviewGallery({
 
   /**
    * 画框尺寸**纯 CSS** 决定，不测量 DOM：
-   * - 横图：`w-full` + `aspect-ratio` ⇒ 高度自动跟着容器宽走；
-   * - 竖图：高度锁 46vh + `aspect-ratio` ⇒ 宽度反推、外层 `flex justify-center` 居中。
+   * - 横图：`w-full` + `aspect-ratio` ⇒ 高度自动跟着容器宽走，图片铺满、上下不留白；
+   * - 竖图：同样 `w-full`，高度锁 46vh，图片 `object-contain` 居中 ⇒ 左右留白（2026-10-20
+   *   用户要求：竖图也套满宽的边框，而不是画框收窄到图片宽度）。
    *
    * 之前用 ResizeObserver 量像素宽度，切换时滚动条出现/消失会让量到的宽度差 18px，
    * 画框在淡入过程中还会二次跳宽（实测 350→360→368）。
    */
-  const frameClassName = cn(
-    "relative border-4 border-black bg-[#fff8ef] shadow-[6px_6px_0px_0px_#000]",
-    isPortrait ? "w-auto max-w-full" : "w-full",
-  );
-  const frameStyle: React.CSSProperties = {
-    aspectRatio: String(activeRatio),
-    ...(isPortrait ? { height: `${PORTRAIT_MAX_VH * 100}vh` } : {}),
-  };
+  const frameClassName = "relative w-full border-4 border-black bg-[#fff8ef] shadow-[6px_6px_0px_0px_#000]";
+  const frameStyle: React.CSSProperties = isPortrait
+    ? { height: `${PORTRAIT_MAX_VH * 100}vh` }
+    : { aspectRatio: String(activeRatio) };
 
   return (
     <div data-slot="drawer-preview-gallery" className="space-y-2">

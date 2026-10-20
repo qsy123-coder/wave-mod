@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  EMPTY_COUNTS,
   EMPTY_MINE,
   getEntry,
+  reportDownload,
   reportView,
   request,
   seed,
@@ -20,9 +22,10 @@ import type { EngagementCounts } from "./types";
  * `initialCounts` 是服务端渲染时快照里的旧值：它保证**首屏/hydration 与 SSR 一致**，
  * 等客户端批量拉到新值后再无缝替换。拉不到就一直是它 —— 这就是「静默降级」。
  */
-export function useEngagement(modId: string, initialCounts: EngagementCounts) {
+export function useEngagement(modId: string, initialCounts: Partial<EngagementCounts>) {
   const [entry, setEntry] = useState<EngagementEntry>(() => ({
-    counts: initialCounts,
+    // 允许只给部分计数（卡片用不到下载数），缺的字段补 0
+    counts: { ...EMPTY_COUNTS, ...initialCounts },
     mine: EMPTY_MINE,
     hydrated: false,
   }));
@@ -45,6 +48,7 @@ export function useEngagement(modId: string, initialCounts: EngagementCounts) {
   const like = useCallback(() => toggle(modId, "like"), [modId]);
   const favorite = useCallback(() => toggle(modId, "favorite"), [modId]);
   const view = useCallback(() => reportView(modId), [modId]);
+  const download = useCallback(() => reportDownload(modId), [modId]);
 
   return {
     counts: entry.counts,
@@ -53,5 +57,6 @@ export function useEngagement(modId: string, initialCounts: EngagementCounts) {
     like,
     favorite,
     view,
+    download,
   } as const;
 }
