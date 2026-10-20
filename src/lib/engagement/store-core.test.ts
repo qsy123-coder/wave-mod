@@ -30,7 +30,8 @@ describe("computeCounts", () => {
       likes: 8,
       favorites: 3,
       views: 100,
-      downloads: 0,
+      // 下载 = 浏览量 100 的 65%
+      downloads: 65,
     });
   });
 });
@@ -46,14 +47,15 @@ describe("computeCountsFromIncrements", () => {
       likes: 2,
       favorites: 1,
       views: 9,
-      downloads: 0,
+      // 没有基线也要按浏览量给下载数：9 × 0.65 ≈ 6
+      downloads: 6,
     });
   });
 
   it("基线 + 增量逐字段相加", () => {
     expect(
       computeCountsFromIncrements({ likes: 47, favorites: 285, views: 45_720 }, { likes: 1, favorites: 0, views: 3 }),
-    ).toEqual({ likes: 48, favorites: 285, views: 45_723, downloads: 0 });
+    ).toEqual({ likes: 48, favorites: 285, views: 45_723, downloads: Math.round(45_723 * 0.65) });
   });
 
   it("基线只导了部分列时其余列按 0", () => {
@@ -61,8 +63,15 @@ describe("computeCountsFromIncrements", () => {
       likes: 6,
       favorites: 2,
       views: 3,
-      downloads: 0,
+      downloads: 2,
     });
+  });
+
+  it("下载 = 浏览量 × 65% + 真实下载增量", () => {
+    // 新 mod：没有基线，20 次浏览、点过 1 次下载 ⇒ 13 + 1
+    expect(computeCountsFromIncrements(undefined, { views: 20, downloads: 1 }).downloads).toBe(14);
+    // 老 mod：基线 43 浏览 + 0 增量 ⇒ 28（与 65% 口径一致）
+    expect(computeCountsFromIncrements({ views: 43 }, {}).downloads).toBe(28);
   });
 });
 
@@ -153,11 +162,12 @@ describe("下载：每次点击都算（2026-10-20 新增）", () => {
     expect(computeCounts(state, {}, MOD).downloads).toBe(2);
   });
 
-  it("基线里的历史下载数会保留", () => {
+  it("真实下载叠在 65% 之上", () => {
     const state = emptyState();
     applyAction(state, "download", MOD, A, "2026-10-02");
 
-    expect(computeCounts(state, { [MOD]: { downloads: 28 } }, MOD).downloads).toBe(29);
+    // 基线 43 浏览 ⇒ 65% = 28，再加 1 次真实下载
+    expect(computeCounts(state, { [MOD]: { views: 43 } }, MOD).downloads).toBe(29);
   });
 });
 

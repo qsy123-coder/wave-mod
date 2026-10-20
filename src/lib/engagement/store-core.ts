@@ -134,15 +134,29 @@ export function slot(state: EngagementState, modId: string): StoredMod {
  * 抽出来是因为增量有两种形态：本地文件/COS 分片里是数组与计数，Postgres 里是
  * 三列 bigint。展示口径必须只有一处，否则换存储时计数会悄悄偏掉。
  */
+/**
+ * 下载数的展示口径：**浏览量的 65% + 真实下载增量**（用户 2026-10-20 要求）。
+ *
+ * 为什么不能只把 65% 写进基线：基线只覆盖「上线那一刻已有浏览的 mod」。新上传的 mod
+ * 历史浏览是 0，基线里根本没有它的条目，此后涨上来的浏览全是**增量** —— 只按基线算的话
+ * 它会一直显示「20 次浏览 · 0 次下载」。所以 65% 必须按**当前浏览量**算。
+ *
+ * `base.downloads` 因此不再参与计算（字段保留只为兼容旧基线文件）；
+ * 真实下载（`increments.downloads`）叠在 65% 之上，点一次就多一次。
+ */
+export const DOWNLOAD_RATIO_OF_VIEWS = 0.65;
+
 export function computeCountsFromIncrements(
   base: Partial<EngagementCounts> | undefined,
   increments: Partial<EngagementCounts>,
 ): EngagementCounts {
+  const views = (base?.views ?? 0) + (increments.views ?? 0);
+
   return {
     likes: (base?.likes ?? 0) + (increments.likes ?? 0),
     favorites: (base?.favorites ?? 0) + (increments.favorites ?? 0),
-    views: (base?.views ?? 0) + (increments.views ?? 0),
-    downloads: (base?.downloads ?? 0) + (increments.downloads ?? 0),
+    views,
+    downloads: Math.round(views * DOWNLOAD_RATIO_OF_VIEWS) + (increments.downloads ?? 0),
   };
 }
 

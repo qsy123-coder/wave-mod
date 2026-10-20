@@ -47,14 +47,9 @@ console.log(`   产物路径: ${BASELINE_PATH}\n`);
 // 只读：把计数列原样取出来。coalesce 是为了把 NULL 变成 0，
 // 而不是让它以 null 混进 JSON（下游 parseBaseline 虽然也容错，但没必要留隐患）。
 //
-// `downloads` 是 2026-10-20 加的：那之前前台读的是详情的 downloads_count，而
-// 「点夸克/迅雷」根本不写库，所以永远显示 0。现在下载也走「基线 + 增量」。
-//
-// **下载基线不取 downloads_count，而是按浏览量的 65% 推算**（用户 2026-10-20 要求）：
-// 库里的 downloads_count 只有「直链下载」这一条路径写过，对绝大多数 mod 恒为 0，
-// 直接导入会出现「几百次浏览、0 次下载」的怪相。
-const DOWNLOAD_RATIO_OF_VIEWS = 0.65;
-
+// ⚠️ 这里**不导入 downloads**：下载数的展示口径是「当前浏览量 × 65% + 真实下载增量」，
+// 在 computeCountsFromIncrements 里实时算（见 store-core.ts）。写进基线反而会双重计数，
+// 而且新 mod 的历史浏览是 0、基线里根本没条目 —— 那正是「20 次浏览、0 次下载」的来源。
 const rows = await psqlJson(`
 select coalesce(
   json_agg(json_build_object(
@@ -79,33 +74,28 @@ let tracked = 0;
 let sumLikes = 0;
 let sumFavorites = 0;
 let sumViews = 0;
-let sumDownloads = 0;
 
 for (const row of rows) {
   const likes = Math.max(0, Math.floor(Number(row.likes) || 0));
   const favorites = Math.max(0, Math.floor(Number(row.favorites) || 0));
   const views = Math.max(0, Math.floor(Number(row.views) || 0));
-  // 初始下载量 = 浏览量的 65%（四舍五入）
-  const downloads = Math.round(views * DOWNLOAD_RATIO_OF_VIEWS);
 
-  // 全 0 的条目不入库：绝大多数 mod 几个数都是 0，写进去只会把文件撑大
-  if (likes === 0 && favorites === 0 && views === 0 && downloads === 0) continue;
+  // 全 0 的条目不入库：绝大多数 mod 三个数都是 0，写进去只会把文件撑大
+  if (likes === 0 && favorites === 0 && views === 0) continue;
 
-  baseline[row.id] = { likes, favorites, views, downloads };
+  baseline[row.id] = { likes, favorites, views };
   tracked += 1;
   sumLikes += likes;
   sumFavorites += favorites;
   sumViews += views;
-  sumDownloads += downloads;
 }
 
 console.log("=== 基线统计 ===");
 console.log(`   库内 mod 总数      : ${rows.length}`);
-console.log(`   计入基线的 mod     : ${tracked}（四项全为 0 的不写）`);
+console.log(`   计入基线的 mod     : ${tracked}（三项全为 0 的不写）`);
 console.log(`   点赞合计           : ${sumLikes}`);
 console.log(`   收藏合计           : ${sumFavorites}`);
 console.log(`   浏览合计           : ${sumViews}`);
-console.log(`   下载合计           : ${sumDownloads}`);
 
 if (!APPLY) {
   console.log("\n🔍 DRY-RUN：未写文件。确认无误后加 --apply 落盘。");
