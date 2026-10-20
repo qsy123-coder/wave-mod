@@ -27,6 +27,11 @@ create table if not exists public.engagement_totals (
     check (views >= 0 and likes >= 0 and favorites >= 0)
 );
 
+-- 2026-10-20：下载也走「基线 + 增量」。表是早先建的，create table if not exists
+-- 不会补列，所以这里必须显式 alter（幂等）。
+alter table public.engagement_totals
+  add column if not exists downloads bigint not null default 0;
+
 create table if not exists public.engagement_devices (
   mod_id        text        not null,
   device_id     text        not null,
@@ -75,9 +80,11 @@ declare
   v_delta_likes     integer := 0;
   v_delta_favorites integer := 0;
   v_delta_views     integer := 0;
+  v_delta_downloads integer := 0;
   v_total_likes     bigint;
   v_total_favorites bigint;
   v_total_views     bigint;
+  v_total_downloads bigint;
 begin
   if p_device_id is null or length(p_device_id) = 0 then
     raise exception 'device_id required' using errcode = '22023';
@@ -130,6 +137,11 @@ begin
     if v_last_view_day is distinct from p_day then
       v_delta_views := 1;
     end if;
+
+  elsif p_action = 'download' then
+    -- 下载**不去重**：点两次就是下载两次（与本地文件实现一致）。
+    -- 防刷靠频率，不靠设备号 —— 同一台设备不同时间下载不同版本也是两次。
+    v_delta_downloads := 1;
   end if;
 
   update public.engagement_devices
@@ -146,21 +158,23 @@ begin
          updated_at    = now()
    where mod_id = p_mod_id and device_id = p_device_id;
 
-  insert into public.engagement_totals (mod_id, likes, favorites, views)
+  insert into public.engagement_totals (mod_id, likes, favorites, views, downloads)
   values (
     p_mod_id,
     greatest(v_delta_likes, 0),
     greatest(v_delta_favorites, 0),
-    v_delta_views
+    v_delta_views,
+    v_delta_downloads
   )
   on conflict (mod_id) do update
      set likes      = greatest(0, public.engagement_totals.likes + v_delta_likes),
          favorites  = greatest(0, public.engagement_totals.favorites + v_delta_favorites),
          views      = public.engagement_totals.views + v_delta_views,
+         downloads  = public.engagement_totals.downloads + v_delta_downloads,
          updated_at = now();
 
-  select likes, favorites, views
-    into v_total_likes, v_total_favorites, v_total_views
+  select likes, favorites, views, downloads
+    into v_total_likes, v_total_favorites, v_total_views, v_total_downloads
     from public.engagement_totals
    where mod_id = p_mod_id;
 
@@ -168,6 +182,7 @@ begin
     'likes',     coalesce(v_total_likes, 0),
     'favorites', coalesce(v_total_favorites, 0),
     'views',     coalesce(v_total_views, 0),
+    'downloads', coalesce(v_total_downloads, 0),
     'liked',     v_liked,
     'favorited', v_favorited
   );
@@ -201,7 +216,7 @@ begin
       (
         select jsonb_object_agg(
                  mod_id,
-                 jsonb_build_object('likes', likes, 'favorites', favorites, 'views', views)
+                 jsonb_build_object('likes', likes, 'favorites', favorites, 'views', views, 'downloads', downloads)
                )
           from public.engagement_totals
          where mod_id = any (p_ids)
