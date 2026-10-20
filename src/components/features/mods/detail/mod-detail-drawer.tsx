@@ -34,9 +34,6 @@ const tabs: { id: DrawerTab; label: string }[] = [
   { id: "comments", label: "评论" },
 ];
 
-/** 信息块内的小标题，与参考图的「游戏版本 / 简介」标签同一套字号 */
-const BLOCK_LABEL_CLASS = "text-[10px] font-black uppercase tracking-[0.16em] text-black/55";
-
 /**
  * 「更新于 YYYY-MM-DD（N 天前）」。
  *
@@ -206,7 +203,7 @@ export function ModDetailDrawer({
         className="flex w-full flex-col bg-[#fff8ef] p-0 text-black sm:w-[45%]"
       >
         {/* ── 顶栏：角色标签 + 关闭 ── */}
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b-4 border-black px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b-4 border-black px-3 py-2">
           {/* 参考图顶栏是黑底白字方块标签；这里用黄底黑字保持站内配色，形状改成直角方块 */}
           <span className="max-w-[70%] truncate border-[3px] border-black bg-[#ffd84f] px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-black shadow-[3px_3px_0px_0px_#000]">
             {isLoading ? "加载中" : (mod?.character ?? "外观资源")}
@@ -229,7 +226,7 @@ export function ModDetailDrawer({
               type="button"
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "flex-1 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition",
+                "flex-1 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] transition",
                 activeTab === tab.id
                   ? "bg-[#ffd84f] text-black"
                   : "bg-white text-black/50 hover:bg-[#fff0cf] hover:text-black",
@@ -241,7 +238,9 @@ export function ModDetailDrawer({
         </div>
 
         {/* ── 内容区 ── */}
-        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+        {/* scrollbar-gutter: 预留滚动条槽位 —— 否则内容高度一变（切横竖预览图），
+            滚动条出现/消失会让整块内容左右横移几像素，看起来像在抖 */}
+        <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable]" style={{ scrollbarWidth: "thin" }}>
           {/* Loading */}
           {isLoading && <ModDetailDrawerSkeleton />}
 
@@ -265,11 +264,11 @@ export function ModDetailDrawer({
 
           {/* Overview tab */}
           {mod && activeTab === "overview" && (
-            <div data-slot="drawer-overview-content" className="space-y-4 px-4 pb-6 pt-4 sm:px-6">
+            <div data-slot="drawer-overview-content" className="space-y-2.5 px-3 pb-4 pt-3 sm:px-5">
               {/* ── 标题 ── */}
               <h1
                 data-slot="drawer-title"
-                className="text-2xl font-black leading-tight tracking-[0.01em] sm:text-3xl"
+                className="line-clamp-2 text-xl font-black leading-tight tracking-[0.01em] sm:text-2xl"
               >
                 {mod.title}
               </h1>
@@ -289,18 +288,18 @@ export function ModDetailDrawer({
                 </span>
               </div>
 
-              {/* ── 游戏版本 + 数据卡片（同一行） ── */}
+              {/* ── 游戏版本 + 数据卡片（同一行，尺寸收紧） ── */}
               <div data-slot="drawer-meta-row" className="flex flex-wrap items-stretch gap-2">
                 <div
                   data-slot="drawer-game-version"
-                  className="min-w-[120px] flex-1 border-4 border-black bg-[#22D3EE] px-3 py-2 shadow-[4px_4px_0px_0px_#000]"
+                  className="min-w-[104px] flex-1 border-[3px] border-black bg-[#22D3EE] px-2 py-1 shadow-[3px_3px_0px_0px_#000]"
                 >
-                  <p className={BLOCK_LABEL_CLASS}>游戏版本</p>
-                  <p className="text-lg font-black leading-tight">{mod.gameVersion || "未标注"}</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-black/55">游戏版本</p>
+                  <p className="text-[13px] font-black leading-tight">{mod.gameVersion || "未标注"}</p>
                 </div>
                 <div
                   data-slot="drawer-stats"
-                  className="flex min-w-[150px] flex-1 items-center justify-center border-4 border-black bg-white px-3 py-2 text-center text-[11px] font-black leading-5 text-black shadow-[4px_4px_0px_0px_#000]"
+                  className="flex min-w-[132px] flex-1 items-center justify-center border-[3px] border-black bg-white px-2 py-1 text-center text-[10px] font-black leading-4 text-black shadow-[3px_3px_0px_0px_#000]"
                 >
                   {counts.views} 次浏览 · {mod.downloads} 次下载
                 </div>
@@ -315,12 +314,6 @@ export function ModDetailDrawer({
                 onOpenImage={openLightbox}
               />
 
-              {/* 解压码：下载按钮在底栏，密码跟着内容走，别让用户回滚找 */}
-              <div data-slot="drawer-unzip-code" className="flex justify-end">
-                <span className="border-[3px] border-black bg-[#ff7a7a] px-2 py-0.5 text-[10px] font-bold tracking-widest text-black shadow-[2px_2px_0px_0px_#000]">
-                  解压码 x77syq
-                </span>
-              </div>
             </div>
           )}
 
@@ -341,7 +334,7 @@ export function ModDetailDrawer({
 
         {/* ── 底部操作条：分享 / 各网盘下载 / 收藏 ──
             固定在弹窗底部，不随内容滚动；下载按钮按用户要求统一收进这一行。 */}
-        <div className="flex shrink-0 items-stretch gap-2 border-t-4 border-black bg-[#fff8ef] px-3 py-3">
+        <div className="flex shrink-0 items-stretch gap-2 border-t-4 border-black bg-[#fff8ef] px-2.5 py-2">
           <button
             type="button"
             onClick={() => setShareOpen(true)}
@@ -363,6 +356,7 @@ export function ModDetailDrawer({
               downloadUrl={mod.downloadUrl}
               downloadCount={mod.downloads}
               driveLinks={mod.driveLinks}
+              unzipCode="x77syq"
             />
           ) : null}
           <div className="flex w-[88px] shrink-0">

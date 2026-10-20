@@ -24,6 +24,8 @@ type DownloadButtonProps = {
    * 默认值保持旧的，所以 mod-action-drawer / 分站详情不用改。
    */
   layout?: "stacked" | "bar";
+  /** 解压码：bar 版式下显示在按钮第二行的括号里（点下去就要输，放点击处最省事） */
+  unzipCode?: string;
 };
 
 export function DownloadButton({
@@ -33,6 +35,7 @@ export function DownloadButton({
   downloadCount,
   driveLinks,
   layout = "stacked",
+  unzipCode,
 }: DownloadButtonProps) {
   const [isPending, setIsPending] = useState(false);
   // 记下「这一次复制有没有真的去唤起客户端」：这个网盘本会话已唤起过时会跳过，
@@ -175,9 +178,22 @@ export function DownloadButton({
     // ⚠️ display 一律由调用方给：`inline-flex` 若写进基础类，会和调用方的 `hidden` /
     // `sm:hidden` 打架（同为 display 工具类，按生成顺序生效），曾因此出现重复按钮。
     const barClass = (copied: boolean, tone: "drive" | "direct") =>
-      `flex-1 items-center justify-center gap-1.5 border-4 border-black h-11 px-2 text-[11px] font-black tracking-[0.06em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
+      `flex-1 items-center justify-center gap-1 border-4 border-black h-11 px-1.5 text-[11px] font-black leading-[1.05] tracking-[0.04em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
         copied ? "bg-[#86efac] text-black" : tone === "direct" ? "bg-[#C4B5FD] text-black" : "bg-[#FF2D78] text-white"
       }`;
+
+    /**
+     * 按钮内两行：网盘简称 + 括号里的解压码。
+     * 解压码写在按钮上而不是内容里 —— 用户拿到网盘链接就要输密码，放在点击处最省事。
+     */
+    const barLabel = (label: string) => (
+      <span className="flex min-w-0 flex-col items-center">
+        <span className="max-w-full truncate">{label}</span>
+        {unzipCode ? (
+          <span className="mt-0.5 max-w-full truncate text-[9px] font-bold opacity-90">（{unzipCode}）</span>
+        ) : null}
+      </span>
+    );
 
     return (
       <div className="relative flex flex-1 items-stretch gap-2">
@@ -195,11 +211,11 @@ export function DownloadButton({
                   href={openHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`打开${drive.platform}分享页`}
+                  aria-label={`打开${drive.platform}分享页${unzipCode ? `，解压码 ${unzipCode}` : ""}`}
                   className={`inline-flex sm:hidden ${barClass(copied, "drive")}`}
                 >
-                  <ExternalLink className="size-4" />
-                  {shortLabel}
+                  <ExternalLink className="size-3.5 shrink-0" />
+                  {barLabel(shortLabel)}
                 </a>
               ) : null}
               <button
@@ -208,8 +224,8 @@ export function DownloadButton({
                 className={`${openHref ? "hidden sm:inline-flex" : "inline-flex"} ${barClass(copied, "drive")}`}
                 title={copied ? `已复制 ${drive.platform} 链接` : `复制 ${drive.platform} 链接并唤起客户端`}
               >
-                {copied ? <Check className="size-4" /> : <Download className="size-4" />}
-                {copied ? "已复制" : shortLabel}
+                {copied ? <Check className="size-3.5 shrink-0" /> : <Download className="size-3.5 shrink-0" />}
+                {copied ? barLabel("已复制") : barLabel(shortLabel)}
               </button>
             </div>
           );
@@ -223,8 +239,8 @@ export function DownloadButton({
             className={`inline-flex ${barClass(false, "direct")}`}
             title="直链下载 ZIP"
           >
-            {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
-            直链
+            {isPending ? <LoaderCircle className="size-3.5 shrink-0 animate-spin" /> : <Download className="size-3.5 shrink-0" />}
+            {barLabel("直链")}
           </button>
         ) : null}
 
