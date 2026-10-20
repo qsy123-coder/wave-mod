@@ -358,6 +358,64 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   );
 
   /**
+   * 直接量 DOM 的比例兜底 —— **不依赖 ModCard 的 `onImageRatioChange` 回调**。
+   *
+   * 实测（2026-10-20）：从首页客户端跳到 `/mods` 后，卡片的比例回调一次都没触发，
+   * `ratios` 永远是空对象 ⇒ 全部按兜底 3/4 打包（每张卡预留 218px），而卡片实际按真实
+   * 比例渲染（横图只有 80–120px 高）⇒ 每张横图下面空出一大块，要刷新页面才恢复。
+   *
+   * 这里在瀑布流容器上挂一个捕获阶段的 `load` 监听 + 挂载时扫一遍，直接从 `<img>` 的
+   * naturalWidth/naturalHeight 取比例。只要图渲染出来了就一定量得到，与 React 的
+   * 回调时序无关。`data-mod-id` 由渲染层写在卡片外层。
+   */
+  const masonryRootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isMasonry) return;
+    const root = masonryRootRef.current;
+    if (!root) return;
+
+    const sync = () => {
+      const found: Record<string, number> = {};
+      root.querySelectorAll<HTMLElement>("[data-mod-id]").forEach((el) => {
+        const img = el.querySelector("img");
+        const id = el.dataset.modId;
+        if (!id || !img || !img.naturalWidth || !img.naturalHeight) return;
+        const ratio = img.naturalWidth / img.naturalHeight;
+        if (Number.isFinite(ratio) && ratio > 0) found[id] = ratio;
+      });
+      if (Object.keys(found).length === 0) return;
+
+      // 同时写回 ratiosRef：ModCard 之后补报同样的值时直接走去重，不再触发重排
+      Object.assign(ratiosRef.current, found);
+
+      setRatios((prev) => {
+        let changed = false;
+        for (const [id, ratio] of Object.entries(found)) {
+          if (Math.abs((prev[id] ?? 0) - ratio) > 0.005) {
+            changed = true;
+            break;
+          }
+        }
+        return changed ? { ...prev, ...found } : prev;
+      });
+    };
+
+    sync();
+    const onLoad = (event: Event) => {
+      if (event.target instanceof HTMLImageElement) sync();
+    };
+    root.addEventListener("load", onLoad, true);
+    // 缓存命中的图可能在监听挂上之前就完成了，补一次延迟扫描
+    const timer = setTimeout(sync, 400);
+
+    return () => {
+      root.removeEventListener("load", onLoad, true);
+      clearTimeout(timer);
+    };
+  }, [isMasonry, mods]);
+
+  /**
    * 瀑布流摆放：横屏（宽高比 > 1.1）横跨两列，其余卡片进当前最矮的列。
    * 高度公式见 masonry-packing.ts —— 卡片高度只由「列宽 + 图片比例」决定。
    */
@@ -527,7 +585,12 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       {isMasonry ? (
         /* 瀑布流：绝对定位摆放 —— 横屏卡要横跨两列，flex 分列做不到。
            没量到容器宽度时退回 flex 分列，见 attachMasonryContainer 的注释。 */
-        <div ref={attachMasonryContainer}>
+        <div
+          ref={(node) => {
+            attachMasonryContainer(node);
+            masonryRootRef.current = node;
+          }}
+        >
           {masonryPack ? (
             <>
               <div className="relative" style={{ height: masonryPack.height }}>
@@ -538,6 +601,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
                   return (
                     <div
                       key={mod.id}
+                      data-mod-id={mod.id}
                       className="absolute"
                       style={{
                         left: masonryColumnLeft(placement.column, masonryPack.columnWidth),
@@ -599,6 +663,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
                     return (
                       <MotionReveal
                         key={mod.id}
+                        data-mod-id={mod.id}
                         delay={0.03 + (idx % 8) * 0.02}
                         y={14}
                         rotate={idx % 2 === 0 ? -1 : 1}

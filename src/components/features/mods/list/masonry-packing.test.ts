@@ -5,6 +5,7 @@ import {
   MASONRY_GAP,
   MASONRY_HOLE_TOLERANCE,
   MASONRY_MAX_WIDE_DELAY,
+  MASONRY_WIDE_MAX_HOLE,
   MASONRY_WIDE_RATIO,
   masonryCardHeight,
   masonryColumnLeft,
@@ -92,14 +93,24 @@ describe("packMasonry", () => {
     );
   });
 
-  it("两列时横屏卡跨两列（占满整行），宽度等于容器宽", () => {
+  it("两列齐平时横屏卡跨两列（占满整行），宽度等于容器宽", () => {
+    // 两张横屏卡：第一张落下后两列底部相同 ⇒ 第二张可以安全跨列
+    const result = packMasonry(items([LANDSCAPE, LANDSCAPE]), 2, 390);
+    const [first, second] = result.placements;
+
+    expect(first.span).toBe(2);
+    expect(second.span).toBe(2);
+    expect(masonrySpanWidth(second.span, result.columnWidth)).toBeCloseTo(390);
+  });
+
+  it("两列不齐时横屏卡降级成单列，不在列顶留空", () => {
+    // 第一张竖屏落左列后，右列还是空的；此时跨列会在右上角空出一整张卡
     const result = packMasonry(items([PORTRAIT, LANDSCAPE]), 2, 390);
     const wide = result.placements[1];
 
-    expect(wide.span).toBe(2);
-    expect(wide.column).toBe(0);
-    expect(masonrySpanWidth(wide.span, result.columnWidth)).toBeCloseTo(390);
-    // 竖屏卡仍只占一列
+    expect(wide.span).toBe(1);
+    expect(wide.top).toBe(0);
+    expect(wide.column).toBe(1);
     expect(result.placements[0].span).toBe(1);
   });
 
@@ -138,14 +149,16 @@ describe("packMasonry", () => {
     expect(wide.top).toBeGreaterThanOrEqual(tallHeight);
   });
 
-  it("两列避洞：连续横屏卡不互相等待，保持输入顺序", () => {
+  it("两列避洞：连续横屏卡先降级铺满空列，两列齐平后再跨列", () => {
     const result = packMasonry(items([PORTRAIT, LANDSCAPE, LANDSCAPE, LANDSCAPE]), 2, 390);
-    const portraitHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
 
     expect(result.placements.every((p, i) => p.id === `m${i}`)).toBe(true);
-    // 第一张横屏卡遇到两列差，但下一张也是横屏、没有单列卡可填 ⇒ 立即放
-    expect(result.placements[1].top).toBeCloseTo(portraitHeight + MASONRY_GAP);
-    expect(result.placements[2].span).toBe(2);
+    // 第一张横屏卡遇到两列差（右列还是空的）⇒ 降级成单列，落在右列顶部
+    expect(result.placements[0].top).toBe(0);
+    expect(result.placements[1].span).toBe(1);
+    expect(result.placements[1].top).toBe(0);
+    // 后续总有一张横屏卡在两列齐平后跨列
+    expect(result.placements.some((p) => p.span === 2)).toBe(true);
   });
 
   it("两列避洞：输出顺序仍与输入一致（只是纵坐标延后）", () => {
@@ -217,5 +230,61 @@ describe("packMasonry", () => {
   it("输出的 id 与输入一一对应且顺序不变", () => {
     const result = packMasonry(items([PORTRAIT, LANDSCAPE, PORTRAIT]), 4, 900);
     expect(result.placements.map((p) => p.id)).toEqual(ids(3));
+  });
+});
+
+describe("packMasonry 不留大洞", () => {
+  /**
+   * 返回同列相邻两张卡之间最大的空隙。
+   *
+   * 洞只可能由横屏卡跨列产生：它的顶边取两列的 `max(bottom)`，较短那列从自己的底
+   * 到这个顶之间就空出来一块。2026-10-20 线上实测手机端出现过 562px 的洞。
+   */
+  const maxHole = (ratios: number[], columns: number, containerWidth: number) => {
+    const result = packMasonry(items(ratios), columns, containerWidth);
+    const byColumn = new Map<number, { top: number; height: number }[]>();
+
+    for (const placement of result.placements) {
+      const ratio = ratios[Number(placement.id.slice(1))]!;
+      const width = masonrySpanWidth(placement.span, result.columnWidth);
+      const height = masonryCardHeight(width, ratio);
+      // 跨列卡同时占据它压住的那几列
+      for (let column = placement.column; column < placement.column + placement.span; column += 1) {
+        const list = byColumn.get(column) ?? [];
+        list.push({ top: placement.top, height });
+        byColumn.set(column, list);
+      }
+    }
+
+    let worst = 0;
+    for (const list of byColumn.values()) {
+      list.sort((a, b) => a.top - b.top);
+      for (let i = 1; i < list.length; i += 1) {
+        const hole = list[i]!.top - (list[i - 1]!.top + list[i - 1]!.height) - MASONRY_GAP;
+        worst = Math.max(worst, hole);
+      }
+    }
+    return worst;
+  };
+
+  // 取自 2026-10-20 线上真实比例：心-琳琅 1.61 / 丰汝肥屯 2.86 / 心-圣诞 0.5 …
+  const REAL_RATIOS = [1.61, 2.94, 2.35, 2.56, 0.5, 0.53, 0.7, 0.63, 2.0, 1.34, 0.47, 2.35, 0.66, 1.61];
+
+  it("手机 2 列：竖图横图混排不留超过阈值的洞", () => {
+    expect(maxHole(REAL_RATIOS, 2, 360)).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
+  });
+
+  it("桌面 5 列：同样不留大洞", () => {
+    expect(maxHole(REAL_RATIOS, 5, 1128)).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
+  });
+
+  it("全是横图时也不会集体留洞", () => {
+    const wide = Array.from({ length: 12 }, (_, i) => 1.6 + (i % 3) * 0.4);
+    expect(maxHole(wide, 2, 360)).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
+  });
+
+  it("横图夹在竖图中间（最难对齐的情况）", () => {
+    const ratios = [0.5, 0.9, 2.8, 0.55, 0.52, 2.9, 0.48, 0.6, 1.7, 0.5];
+    expect(maxHole(ratios, 2, 360)).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
   });
 });

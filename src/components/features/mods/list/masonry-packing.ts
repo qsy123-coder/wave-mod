@@ -42,6 +42,15 @@ export const MASONRY_HOLE_TOLERANCE = 24;
  */
 export const MASONRY_MAX_WIDE_DELAY = 3;
 
+/**
+ * 横屏卡跨两列时，允许在较短那一列留下的最大空隙。超过它就把这张卡**降级成单列**。
+ *
+ * 跨列卡的顶边必须取两列的 `max(bottom)`，较短那列从自己的底到这个顶之间就是洞。
+ * 旧版只有「最多延后 3 张」的补救，等不到齐平时照样硬放 —— 2026-10-20 实测手机端
+ * 出现过 562px 的洞（接近一整屏），比「横图小一号」难看得多，所以这里封顶。
+ */
+export const MASONRY_WIDE_MAX_HOLE = 72;
+
 /** 图片还没加载、拿不到真实宽高比时的兜底，与 ModCard 内联的 3/4 一致 */
 export const MASONRY_DEFAULT_RATIO = 3 / 4;
 
@@ -124,23 +133,35 @@ export function packMasonry(
     bottoms[shortest] += height + MASONRY_GAP;
   };
 
-  /** 跨两列的横屏卡：顶部取相邻列对里较浅的那个位置。 */
-  const placeWide = (item: MasonryPackItem) => {
-    let bestColumn = 0;
-    let bestTop = Number.POSITIVE_INFINITY;
-    for (let column = 0; column <= columns - 2; column += 1) {
-      const top = Math.max(bottoms[column], bottoms[column + 1]);
-      if (top < bestTop) {
-        bestTop = top;
-        bestColumn = column;
-      }
-    }
-
+  /** 跨两列的横屏卡：顶部取这一对列里较深的那个位置（会在这对列的较浅侧留洞）。 */
+  const placeWide = (item: MasonryPackItem, column: number) => {
+    const top = Math.max(bottoms[column], bottoms[column + 1]);
     const width = masonrySpanWidth(2, columnWidth);
     const height = masonryCardHeight(width, item.ratio);
-    placements.push({ id: item.id, column: bestColumn, span: 2, top: bestTop });
-    bottoms[bestColumn] = bestTop + height + MASONRY_GAP;
-    bottoms[bestColumn + 1] = bestTop + height + MASONRY_GAP;
+
+    placements.push({ id: item.id, column, span: 2, top });
+    bottoms[column] = top + height + MASONRY_GAP;
+    bottoms[column + 1] = top + height + MASONRY_GAP;
+  };
+
+  /** 相邻列对里「底部最齐」的一对；用于横屏卡选位，尽量把洞压到最小。 */
+  const findLevelPair = () => {
+    let best: { column: number; gap: number } | null = null;
+    for (let column = 0; column <= columns - 2; column += 1) {
+      const gap = Math.abs(bottoms[column] - bottoms[column + 1]);
+      if (!best || gap < best.gap) best = { column, gap };
+    }
+    return best;
+  };
+
+  /**
+   * 横屏卡：只有两列底部足够齐平时才跨两列，否则**降级成单列卡**。
+   * 宁可这张图小一号，也不要在列里留一个能停下一张卡的大洞。
+   */
+  const placeWideOrSingle = (item: MasonryPackItem) => {
+    const pair = findLevelPair();
+    if (pair && pair.gap <= MASONRY_WIDE_MAX_HOLE) placeWide(item, pair.column);
+    else placeSingle(item);
   };
 
   if (columns === 2) {
@@ -155,7 +176,8 @@ export function packMasonry(
 
     const flushHeld = () => {
       if (!held) return;
-      placeWide(held);
+      // 等到这个时候还没齐平的话，就降级成单列，别硬跨着留洞
+      placeWideOrSingle(held);
       held = null;
       deferred = 0;
     };
@@ -192,7 +214,7 @@ export function packMasonry(
       flushHeld();
 
       if (columnGap() <= MASONRY_HOLE_TOLERANCE) {
-        placeWide(item);
+        placeWideOrSingle(item);
       } else {
         held = item;
       }
@@ -200,9 +222,9 @@ export function packMasonry(
 
     flushHeld();
   } else {
-    // 1 列：没有跨列可言；3 列及以上：横屏卡只占两列、不独占整行，沿用即时摆放。
+    // 1 列：没有跨列可言；3 列及以上：横屏卡跨两列但不独占整行，同样受「不留大洞」约束。
     for (const item of items) {
-      if (columns >= 2 && item.ratio > MASONRY_WIDE_RATIO) placeWide(item);
+      if (columns >= 2 && item.ratio > MASONRY_WIDE_RATIO) placeWideOrSingle(item);
       else placeSingle(item);
     }
   }
