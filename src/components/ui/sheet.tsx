@@ -107,7 +107,12 @@ function SheetContent({
   customWidth,
   ...props
 }: React.ComponentProps<"div"> & {
-  side?: "top" | "right" | "bottom" | "left";
+  /**
+   * `center` 是纯增量变体（2026-10-20 加，给 mod 详情用）：不贴边、不位移，
+   * 以 `inset-0 + m-auto + max-h` 居中，入场走 `.sheet-enter-center` 的淡入缩放。
+   * 其余四个方向的行为一行都没改。
+   */
+  side?: "top" | "right" | "bottom" | "left" | "center";
   showCloseButton?: boolean;
   overlayClassName?: string;
   customWidth?: boolean;
@@ -140,15 +145,19 @@ function SheetContent({
   if (!visible) return null;
 
   const isHorizontal = side === "left" || side === "right";
+  const isCenter = side === "center";
 
-  const translateClass = isHorizontal
-    ? side === "right"
-      ? open ? "translate-x-0" : "translate-x-full"
-      : open ? "translate-x-0" : "-translate-x-full"
-    : side === "bottom"
-      ? open ? "translate-y-0" : "translate-y-full"
-      : open ? "-translate-y-0" : "-translate-y-full";
+  const translateClass = isCenter
+    ? ""
+    : isHorizontal
+      ? side === "right"
+        ? open ? "translate-x-0" : "translate-x-full"
+        : open ? "translate-x-0" : "-translate-x-full"
+      : side === "bottom"
+        ? open ? "translate-y-0" : "translate-y-full"
+        : open ? "-translate-y-0" : "-translate-y-full";
 
+  // 居中态没有位移方向：退场用 opacity/scale 过渡，入场用 keyframes（与其它方向同一套思路）
   const enterClass = !open
     ? ""
     : side === "right"
@@ -157,7 +166,9 @@ function SheetContent({
         ? "sheet-enter-left"
         : side === "bottom"
           ? "sheet-enter-bottom"
-          : "sheet-enter-top";
+          : isCenter
+            ? "sheet-enter-center"
+            : "sheet-enter-top";
 
   return (
     <SheetPortal>
@@ -173,9 +184,16 @@ function SheetContent({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition-transform duration-300 ease-out will-change-transform transform-gpu",
+          "fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg duration-300 ease-out will-change-transform transform-gpu",
+          // 居中态退场要同时过渡 opacity 与 transform，其它方向只需要 transform
+          isCenter ? "transition" : "transition-transform",
           translateClass,
           enterClass,
+          // 高度上限交给调用方（手机要整屏、桌面要留边距），组件只负责居中与宽度夹层
+          isCenter && [
+            "inset-0 m-auto h-auto max-w-[calc(100vw-1.5rem)]",
+            open ? "opacity-100 scale-100" : "opacity-0 scale-95",
+          ],
           "data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t",
           "data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b",
           isHorizontal && !customWidth && [

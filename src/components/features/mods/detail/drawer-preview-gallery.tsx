@@ -2,8 +2,15 @@
 
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
+import { useCallback, useState } from "react";
 
-import { COS_IMG_HERO, COS_IMG_THUMB, withCosImageTransform } from "@/lib/cos/shared";
+import {
+  COS_IMG_HERO,
+  COS_IMG_SRCSET,
+  COS_IMG_THUMB,
+  cosImageSrcSet,
+  withCosImageTransform,
+} from "@/lib/cos/shared";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
 import { cn } from "@/lib/utils";
 
@@ -17,16 +24,19 @@ type DrawerPreviewGalleryProps = {
   onOpenImage: (index: number) => void;
 };
 
+/** 竖图的最大展示高度：超过这个高度整张等比缩到框内，避免把下载区推出几屏 */
+const PORTRAIT_MAX_HEIGHT = "62vh";
+
 /**
- * 详情抽屉顶部的预览画廊：**同一时刻只展示一张图**，左右箭头循环切换，
- * 下方保留一排可点缩略图。参考 huanmod 详情页「图在信息上面」的阅读顺序。
+ * 详情抽屉的预览画廊：**同一时刻只展示一张图**，左右箭头循环切换，
+ * 下方保留一排可点缩略图。
  *
- * 几个刻意的选择：
- * - 画框**固定高度 + object-contain**：这批预览图宽高比差异很大，按图片自适应
- *   会让切换时整个抽屉上下跳；固定画框只换内容，视觉稳定。
- * - 图片本身是按钮：点击进灯箱；左右箭头是兄弟节点，避免按钮嵌套按钮。
- * - 单图时不显示箭头/计数/缩略图条，避免「1 / 1」这类没有信息量的装饰。
- * - `sizes` 按抽屉宽度给：手机是全宽，桌面抽屉是 45% 宽。
+ * 尺寸策略（2026-10-20 重构，见 docs/mod-detail-sheet-refactor-prd.md）：
+ * - **横图**：宽度撑满内容区、高度按原始比例自动 —— 画框就是图片本身，上下不留白。
+ * - **竖图**：整张等比缩进 `${PORTRAIT_MAX_HEIGHT}`，宽度由高度反推、画框居中收窄。
+ * - 两种分支都靠图片加载后读 `naturalWidth / naturalHeight` 判定；未测到比例前先按
+ *   「撑满 + object-contain + 限高」渲染，加载完再切分支，不会出现拉伸变形。
+ * - 旧版用固定高度画框是为了多图切换时抽屉不跳；本次明确选择「按图自适应、接受高度变化」。
  */
 export function DrawerPreviewGallery({
   images,
@@ -36,6 +46,15 @@ export function DrawerPreviewGallery({
   onOpenImage,
 }: DrawerPreviewGalleryProps) {
   const count = images.length;
+  const [ratio, setRatio] = useState<number | null>(null);
+
+  // 缓存命中时 `load` 可能在 React 挂载前就触发，`onLoad` 不会再被调用 ——
+  // 用 ref 回调在元素挂载时补读一次（与 mod-card 的做法一致）。
+  const readRatio = useCallback((img: HTMLImageElement | null) => {
+    if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      setRatio(img.naturalWidth / img.naturalHeight);
+    }
+  }, []);
 
   if (count === 0) {
     return (
@@ -56,62 +75,85 @@ export function DrawerPreviewGallery({
   const goPrev = () => onIndexChange((safeIndex - 1 + count) % count);
   const goNext = () => onIndexChange((safeIndex + 1) % count);
 
+  // 宽/高 < 1 视为竖图。还没测到时按横图处理（宽度不受 `w-auto` 塌陷影响）
+  const isPortrait = ratio !== null && ratio < 1;
+
   return (
     <div data-slot="drawer-preview-gallery" className="space-y-2">
-      {/* 与站内卡片同一套语言：奶油底 + 4px 黑边 + 硬阴影。
-          图片本身不再用黑色画框 —— 留白区域直接取抽屉背景色，避免「黑边套黑图」。 */}
-      <div
-        data-slot="drawer-preview-card"
-        className="border-4 border-black bg-[#fff8ef] p-2 shadow-[6px_6px_0px_0px_#000]"
-      >
+      {/* 单层画框：黑边直接贴图（旧版是「奶油底 padding + 内层黑框」两层，横图上下会攒出两层浅色留白） */}
+      <div data-slot="drawer-preview-card" className="flex justify-center">
         <div
           data-slot="drawer-preview-frame"
-          className="relative h-[44vh] min-h-[260px] max-h-[520px] overflow-hidden border-[3px] border-black bg-[#fff8ef] sm:h-[46vh]"
-        >
-          <button
-          type="button"
-          onClick={() => onOpenImage(safeIndex)}
-          aria-label="查看大图"
-          className="absolute inset-0 cursor-zoom-in"
+          className={cn(
+            "relative border-4 border-black bg-[#fff8ef] shadow-[6px_6px_0px_0px_#000]",
+            isPortrait ? "w-auto max-w-full" : "w-full",
+          )}
         >
           {/*
-           * 直接给 next/image 的 fill：外层是定位元素，图片按画框居中裁切区域
-           * 由 object-contain 保证「不裁也不放大」。
+           * `w-full` 必须给按钮：表单控件即便 `display: block`，auto 宽度也是 fit-content
+           * 而不是铺满 —— 漏掉它横图只会按自身固有宽度渲染，画框两侧各空出一块。
            */}
-          <Image
-            src={withCosImageTransform(current, COS_IMG_HERO)}
-            alt={`${title} 预览 ${safeIndex + 1}`}
-            fill
-            sizes="(max-width: 640px) 100vw, 45vw"
-            loading={safeIndex === 0 ? "eager" : "lazy"}
-            unoptimized={isExternalStorageUrl(current ?? "")}
-            className="object-contain"
-          />
-        </button>
+          <button
+            type="button"
+            onClick={() => onOpenImage(safeIndex)}
+            aria-label="查看大图"
+            className={cn("block cursor-zoom-in", isPortrait ? "w-auto" : "w-full")}
+          >
+            {/*
+             * 原生 <img> 而不是 next/image：站点要自定义 COS srcset，而 next/image 会把
+             * 自定义 srcSet 丢掉（见 lib/cos/shared.ts 的说明）。`key` 让换图时重新挂载，
+             * ref 回调才能重新量到新图的真实比例。
+             */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={current}
+              ref={readRatio}
+              onLoad={(e) => readRatio(e.currentTarget)}
+              src={withCosImageTransform(current, COS_IMG_HERO) ?? current}
+              srcSet={cosImageSrcSet(current, COS_IMG_SRCSET)}
+              sizes="(max-width: 640px) 100vw, 720px"
+              alt={`${title} 预览 ${safeIndex + 1}`}
+              loading={safeIndex === 0 ? "eager" : "lazy"}
+              className={cn(
+                "block",
+                isPortrait
+                  ? "w-auto max-w-full object-contain"
+                  : "h-auto w-full",
+                // 比例未测到时的兜底：撑满但限制高度，绝不拉伸
+                ratio === null && "max-h-[62vh] object-contain",
+              )}
+              style={isPortrait ? { height: PORTRAIT_MAX_HEIGHT } : undefined}
+            />
+          </button>
 
-        {count > 1 ? (
-          <>
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label="上一张预览"
-              className="absolute left-2 top-1/2 z-10 inline-flex size-10 -translate-y-1/2 items-center justify-center border-[3px] border-black bg-white/95 text-black shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[calc(-50%+2px)] active:shadow-none"
-            >
-              <ChevronLeft className="size-5" />
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label="下一张预览"
-              className="absolute right-2 top-1/2 z-10 inline-flex size-10 -translate-y-1/2 items-center justify-center border-[3px] border-black bg-white/95 text-black shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[calc(-50%+2px)] active:shadow-none"
-            >
-              <ChevronRight className="size-5" />
-            </button>
-            <span className="absolute bottom-2 right-2 z-10 border-[3px] border-black bg-white px-2 py-0.5 text-[10px] font-black tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000]">
-              {safeIndex + 1} / {count}
-            </span>
-          </>
-        ) : null}
+          {/* 「点击查看大图」角标：与图 2 一致，压在图片右下角 */}
+          <span className="pointer-events-none absolute bottom-2 right-2 border-[3px] border-black bg-white px-2 py-1 text-[10px] font-black tracking-[0.08em] text-black shadow-[3px_3px_0px_0px_#000]">
+            点击查看大图
+          </span>
+
+          {count > 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={goPrev}
+                aria-label="上一张预览"
+                className="absolute left-2 top-1/2 z-10 inline-flex size-10 -translate-y-1/2 items-center justify-center border-[3px] border-black bg-white/95 text-black shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[calc(-50%+2px)] active:shadow-none"
+              >
+                <ChevronLeft className="size-5" />
+              </button>
+              <button
+                type="button"
+                onClick={goNext}
+                aria-label="下一张预览"
+                className="absolute right-2 top-1/2 z-10 inline-flex size-10 -translate-y-1/2 items-center justify-center border-[3px] border-black bg-white/95 text-black shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[calc(-50%+2px)] active:shadow-none"
+              >
+                <ChevronRight className="size-5" />
+              </button>
+              <span className="absolute left-2 top-2 z-10 border-[3px] border-black bg-white px-2 py-0.5 text-[10px] font-black tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000]">
+                {safeIndex + 1} / {count}
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
 

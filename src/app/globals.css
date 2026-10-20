@@ -698,6 +698,14 @@
   to { opacity: 1; }
 }
 
+/* 居中弹窗（side="center"）：没有位移方向，用淡入 + 轻微缩放。
+   from 里写 opacity 是必要的 —— 退场靠 className 的 opacity-0，入场若不动 opacity
+   会先以终值闪一帧再缩放。 */
+@keyframes sheetEnterCenter {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .sheet-enter-right {
   animation: sheetEnterRight 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
@@ -712,6 +720,10 @@
 
 .sheet-enter-bottom {
   animation: sheetEnterBottom 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.sheet-enter-center {
+  animation: sheetEnterCenter 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .sheet-overlay-enter {
