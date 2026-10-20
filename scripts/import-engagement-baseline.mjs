@@ -48,16 +48,20 @@ console.log(`   产物路径: ${BASELINE_PATH}\n`);
 // 而不是让它以 null 混进 JSON（下游 parseBaseline 虽然也容错，但没必要留隐患）。
 //
 // `downloads` 是 2026-10-20 加的：那之前前台读的是详情的 downloads_count，而
-// 「点夸克/迅雷」根本不写库，所以永远显示 0。现在下载也走「基线 + 增量」，
-// 历史值必须一并导入，否则切换那一刻所有 mod 的下载数会从 28 变成 0。
+// 「点夸克/迅雷」根本不写库，所以永远显示 0。现在下载也走「基线 + 增量」。
+//
+// **下载基线不取 downloads_count，而是按浏览量的 65% 推算**（用户 2026-10-20 要求）：
+// 库里的 downloads_count 只有「直链下载」这一条路径写过，对绝大多数 mod 恒为 0，
+// 直接导入会出现「几百次浏览、0 次下载」的怪相。
+const DOWNLOAD_RATIO_OF_VIEWS = 0.65;
+
 const rows = await psqlJson(`
 select coalesce(
   json_agg(json_build_object(
     'id', id,
     'likes', coalesce(likes_count, 0),
     'favorites', coalesce(favorites_count, 0),
-    'views', coalesce(views, 0),
-    'downloads', coalesce(downloads_count, 0)
+    'views', coalesce(views, 0)
   )),
   '[]'::json
 )::text
@@ -81,7 +85,8 @@ for (const row of rows) {
   const likes = Math.max(0, Math.floor(Number(row.likes) || 0));
   const favorites = Math.max(0, Math.floor(Number(row.favorites) || 0));
   const views = Math.max(0, Math.floor(Number(row.views) || 0));
-  const downloads = Math.max(0, Math.floor(Number(row.downloads) || 0));
+  // 初始下载量 = 浏览量的 65%（四舍五入）
+  const downloads = Math.round(views * DOWNLOAD_RATIO_OF_VIEWS);
 
   // 全 0 的条目不入库：绝大多数 mod 几个数都是 0，写进去只会把文件撑大
   if (likes === 0 && favorites === 0 && views === 0 && downloads === 0) continue;
