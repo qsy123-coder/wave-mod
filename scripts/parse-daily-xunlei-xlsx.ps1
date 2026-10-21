@@ -21,6 +21,22 @@ param(
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
+# OOXML files are ZIP archives: they start with the magic bytes "PK\x03\x04".
+# The Xunlei export is sometimes saved with a ".csv" extension (it is still an
+# OOXML workbook), so pick files by CONTENT, not by extension. The Quark CSV in
+# the same folder fails this check and is skipped.
+function Test-ZipSignature([string]$path) {
+  try {
+    $fs = [System.IO.File]::OpenRead($path)
+    try {
+      $buf = New-Object byte[] 4
+      $n = $fs.Read($buf, 0, 4)
+      return ($n -eq 4 -and $buf[0] -eq 0x50 -and $buf[1] -eq 0x4B -and `
+              $buf[2] -eq 0x03 -and $buf[3] -eq 0x04)
+    } finally { $fs.Dispose() }
+  } catch { return $false }
+}
+
 function Read-ZipEntry($zip, $path) {
   $e = $zip.GetEntry($path)
   if (-not $e) { return "" }
@@ -47,8 +63,13 @@ $dirs = Get-ChildItem -LiteralPath $Root -Directory | Where-Object { $_.Name -li
 Write-Host ("date folders: " + $dirs.Count)
 
 foreach ($d in $dirs) {
-  $files = Get-ChildItem -LiteralPath $d.FullName -Filter "*.xlsx" | Sort-Object Name
+  # Only .xlsx/.csv are candidates (keeps the 4-byte sniff off .exe/.png files),
+  # then the signature check decides which ones are really OOXML.
+  $files = Get-ChildItem -LiteralPath $d.FullName |
+    Where-Object { -not $_.PSIsContainer -and ($_.Extension -eq ".xlsx" -or $_.Extension -eq ".csv") } |
+    Sort-Object Name
   foreach ($f in $files) {
+    if (-not (Test-ZipSignature $f.FullName)) { continue }
     $zip = [System.IO.Compression.ZipFile]::OpenRead($f.FullName)
     $strings = Parse-SharedStrings (Read-ZipEntry $zip "xl/sharedStrings.xml")
     $sheet = Read-ZipEntry $zip "xl/worksheets/sheet1.xml"
