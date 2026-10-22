@@ -114,6 +114,32 @@ describe("packMasonry", () => {
     expect(result.placements[0].span).toBe(1);
   });
 
+  it("多列时横屏卡优先落到最低的一对列上", () => {
+    // 5 列：前 3 张竖屏占住 0/1/2 列，最空的相邻列对是 3/4
+    const result = packMasonry(items([PORTRAIT, PORTRAIT, PORTRAIT, LANDSCAPE]), 5, 1024);
+    const wide = result.placements[3];
+
+    expect(wide.span).toBe(2);
+    expect(wide.column).toBe(3);
+  });
+
+  it("多列时连续横屏卡在各对列间轮转，不会全堆在同一对列（2026-10-22 尤诺分类）", () => {
+    // 跨列卡压过的两列底部必然相等 ⇒ 只按「两列差最小」选会永远选中同一对，
+    // 几十张横图全挤在左边、右侧整片空白。这里钉住「会轮转」这个行为。
+    const result = packMasonry(items(Array(10).fill(LANDSCAPE)), 5, 1024);
+    const usedColumns = new Set(result.placements.map((p) => p.column));
+
+    expect(usedColumns.size).toBeGreaterThanOrEqual(2);
+
+    let run = 1;
+    let longest = 1;
+    for (let i = 1; i < result.placements.length; i += 1) {
+      run = result.placements[i]!.column === result.placements[i - 1]!.column ? run + 1 : 1;
+      longest = Math.max(longest, run);
+    }
+    expect(longest).toBeLessThanOrEqual(2);
+  });
+
   it("一列时不跨列（跨列等于整行，无意义）", () => {
     const result = packMasonry(items([LANDSCAPE]), 1, 300);
     expect(result.placements[0].span).toBe(1);

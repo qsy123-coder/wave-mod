@@ -59,6 +59,12 @@ const LIMIT = limitArg ? Number(limitArg.split("=")[1]) : Infinity;
  * 「图片所在文件夹名」当 base；日期目录那棵仍按图片文件名当 base。
  */
 const EXTRA_SRCS = cliArgs.filter((a) => a.startsWith("--src=")).map((a) => a.slice(6));
+/**
+ * 从 COS 上残留的**非 webp 原图**取源（`mods/<slug>/<modId>/preview.png|jpg`）。
+ * 这批是 2026-07 批量转 webp 时没删掉的原始文件，900–1000px 宽、1MB 上下，
+ * 且键里带 mod id ⇒ 不靠标题匹配，也不会认错行。比任何下载路径都省事。
+ */
+const FROM_COS = cliArgs.includes("--from-cos");
 
 // ==================== 本地原图索引 ====================
 
@@ -120,6 +126,20 @@ function buildLocalImageIndex() {
   return index;
 }
 
+// ==================== COS 客户端（--from-cos 列桶时要，放在最前面免得 TDZ） ====================
+
+const cosBucket = process.env.COS_BUCKET?.trim();
+const cosRegion = process.env.COS_REGION?.trim();
+if (!cosBucket || !cosRegion) {
+  console.error("❌ 缺少 COS_BUCKET / COS_REGION（本地在 .env.local）");
+  process.exit(1);
+}
+
+const cos = new COS({
+  SecretId: process.env.COS_SECRET_ID?.trim(),
+  SecretKey: process.env.COS_SECRET_KEY?.trim(),
+});
+
 // ==================== 库内行 ====================
 
 const ROW_COLUMNS =
@@ -163,6 +183,38 @@ function findRowForBase(base) {
 const plans = [];
 const unmatched = [];
 const skipped = [];
+/** 同一条 mod 可能同时有本地原图和 COS 原图，只做一次 */
+const plannedIds = new Set();
+
+function pushPlan(row, source) {
+  if (plannedIds.has(row.id)) return;
+  const currentUrl = (row.images ?? [])[0] ?? "";
+  if (currentUrl.endsWith(`/${HD_FILENAME}`)) {
+    skipped.push(`${row.character} | ${row.title}（已是 hd）`);
+    return;
+  }
+  plannedIds.add(row.id);
+  plans.push({ row, currentUrl, ...source });
+}
+
+/** 分页列出 COS 对象（getBucket 单页上限 1000） */
+function listAll(prefix) {
+  return new Promise((res, rej) => {
+    const out = [];
+    const next = (marker) => {
+      cos.getBucket(
+        { Bucket: cosBucket, Region: cosRegion, Prefix: prefix, Marker: marker, MaxKeys: 1000 },
+        (err, data) => {
+          if (err) return rej(err);
+          for (const o of data.Contents ?? []) out.push({ key: o.Key, size: Number(o.Size) });
+          if (data.IsTruncated === "true" && data.NextMarker) next(data.NextMarker);
+          else res(out);
+        }
+      );
+    };
+    next("");
+  });
+}
 
 for (const [base, file] of localIndex) {
   const row = findRowForBase(base);
@@ -170,12 +222,47 @@ for (const [base, file] of localIndex) {
     unmatched.push(base);
     continue;
   }
-  const currentUrl = (row.images ?? [])[0] ?? "";
-  if (currentUrl.endsWith(`/${HD_FILENAME}`)) {
-    skipped.push(`${row.character} | ${row.title}（已是 hd）`);
-    continue;
+  pushPlan(row, { kind: "file", file, base });
+}
+
+if (FROM_COS) {
+  // 列出 mods/ 下的非 webp 原图，按对象键里的 mod id 归并（同一个 mod 多份取最大的）
+  const objs = await listAll("mods/");
+  const byModId = new Map();
+  for (const o of objs) {
+    if (/\.webp$/i.test(o.key) || !/\.(png|jpe?g)$/i.test(o.key)) continue;
+    const m = /^mods\/[^/]+\/([0-9a-f-]{36})\//i.exec(o.key);
+    if (!m) continue;
+    const prev = byModId.get(m[1]);
+    if (!prev || o.size > prev.size) byModId.set(m[1], o);
   }
-  plans.push({ row, file, base, currentUrl });
+  console.log(`\n☁️  COS 上的非 webp 原图: ${byModId.size} 个 mod`);
+
+  const ids = [...byModId.keys()];
+  const rowsById = new Map();
+  for (let i = 0; i < ids.length; i += 200) {
+    const slice = ids.slice(i, i + 200);
+    const json = await psqlJson(`
+select coalesce(json_agg(${ROW_COLUMNS}), '[]'::json)::text
+from mods
+where id = any(array[${slice.map((s) => dollarQuote(s)).join(",")}]::uuid[])
+`);
+    for (const r of json) rowsById.set(r.id, r);
+  }
+
+  let added = 0;
+  for (const [id, o] of byModId) {
+    const row = rowsById.get(id);
+    if (!row) continue;
+    const before = plans.length;
+    pushPlan(row, {
+      kind: "cos",
+      url: `https://${cosBucket}.cos.${cosRegion}.myqcloud.com/${o.key}`,
+      base: row.title,
+    });
+    if (plans.length > before) added++;
+  }
+  console.log(`   其中可重做: ${added} 条（含与本地重复的会自动跳过）`);
 }
 
 console.log(`✅ 可重做: ${plans.length} 条`);
@@ -202,18 +289,6 @@ function hdKeyFromUrl(url, bucket) {
   return `${dir}${HD_FILENAME}`;
 }
 
-const cosBucket = process.env.COS_BUCKET?.trim();
-const cosRegion = process.env.COS_REGION?.trim();
-if (!cosBucket || !cosRegion) {
-  console.error("❌ 缺少 COS_BUCKET / COS_REGION（本地在 .env.local）");
-  process.exit(1);
-}
-
-const cos = new COS({
-  SecretId: process.env.COS_SECRET_ID?.trim(),
-  SecretKey: process.env.COS_SECRET_KEY?.trim(),
-});
-
 function putObject(key, buffer) {
   return new Promise((res, rej) => {
     cos.putObject(
@@ -234,12 +309,23 @@ const updates = [];
 let converted = 0;
 let failed = 0;
 
+/** 取源图字节：本地文件直接读，COS 原图走 https（公开读，不需要签名） */
+async function loadSource(item) {
+  if (item.kind === "cos") {
+    const res = await fetch(item.url);
+    if (!res.ok) throw new Error(`下载原图失败 HTTP ${res.status}`);
+    return Buffer.from(await res.arrayBuffer());
+  }
+  return readFileSync(item.file);
+}
+
 for (const item of todo) {
-  const { row, file } = item;
+  const { row } = item;
   const label = `${row.character} | ${row.title}`;
   try {
-    const src = await sharp(file).metadata();
-    const buffer = await sharp(readFileSync(file))
+    const raw = await loadSource(item);
+    const src = await sharp(raw).metadata();
+    const buffer = await sharp(raw)
       .resize({ width: PREVIEW_WIDTH, withoutEnlargement: true })
       .webp({ quality: WEBP_QUALITY })
       .toBuffer();

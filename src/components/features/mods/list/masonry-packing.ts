@@ -144,23 +144,41 @@ export function packMasonry(
     bottoms[column + 1] = top + height + MASONRY_GAP;
   };
 
-  /** 相邻列对里「底部最齐」的一对；用于横屏卡选位，尽量把洞压到最小。 */
-  const findLevelPair = () => {
-    let best: { column: number; gap: number } | null = null;
+  /**
+   * 挑选横屏卡要压住的那一对相邻列。
+   *
+   * **先看「这一对有多深」，再看两列差**：优先放到当前最低的一对列上，同样深浅时再挑
+   * 更齐平的一对、最后取靠左的。两列差超过 `MASONRY_WIDE_MAX_HOLE` 的对直接排除
+   * （放进去会在较短那列留下停得下一张卡的大洞）。
+   *
+   * 为什么不能只按「两列差最小」挑（2026-10-22 尤诺分类的 bug）：
+   * 跨列卡摆完之后它压住的两列底部**必然相等**，于是这一对的差值恒为 0，永远是最小值；
+   * 只比差值就会一直选中同一对，连续几十张横图全堆在那里 —— 其它列空空如也，
+   * 看起来就是「底部卡片全挤在最左边，右边完全没用」。
+   * 改按「最低的一对」选，横图会在各对列之间轮转，整块瀑布流的高度也更均衡。
+   */
+  const findPlacementPair = () => {
+    let best: { column: number; gap: number; deepest: number } | null = null;
     for (let column = 0; column <= columns - 2; column += 1) {
       const gap = Math.abs(bottoms[column] - bottoms[column + 1]);
-      if (!best || gap < best.gap) best = { column, gap };
+      if (gap > MASONRY_WIDE_MAX_HOLE) continue;
+
+      const deepest = Math.max(bottoms[column], bottoms[column + 1]);
+      // 亚像素比较留容差：底部差几百分之一像素不该让选位在两次重排间跳来跳去
+      const shallower = !best || deepest < best.deepest - 0.5;
+      const moreLevel = best !== null && Math.abs(deepest - best.deepest) <= 0.5 && gap < best.gap - 0.5;
+      if (shallower || moreLevel) best = { column, gap, deepest };
     }
     return best;
   };
 
   /**
-   * 横屏卡：只有两列底部足够齐平时才跨两列，否则**降级成单列卡**。
+   * 横屏卡：只有存在一对足够齐平的列时才跨两列，否则**降级成单列卡**。
    * 宁可这张图小一号，也不要在列里留一个能停下一张卡的大洞。
    */
   const placeWideOrSingle = (item: MasonryPackItem) => {
-    const pair = findLevelPair();
-    if (pair && pair.gap <= MASONRY_WIDE_MAX_HOLE) placeWide(item, pair.column);
+    const pair = findPlacementPair();
+    if (pair) placeWide(item, pair.column);
     else placeSingle(item);
   };
 
