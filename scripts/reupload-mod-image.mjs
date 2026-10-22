@@ -34,8 +34,8 @@ import { dollarQuote, psqlJson } from "./psql-db.mjs";
 config({ path: resolve(process.cwd(), ".env"), override: true, quiet: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true, quiet: true });
 
-/** 与 upload-daka.mjs / upload-daily-by-date.mjs 同一套转换参数（750px webp q80） */
-const WEBP_WIDTH = 750;
+/** 与 upload-daily-by-date.mjs 同一套转换参数（1000px webp q80；2026-10-22 由 750 提高，见该脚本 PREVIEW_WIDTH） */
+const WEBP_WIDTH = 1000;
 const WEBP_QUALITY = 80;
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
 /** 源目录默认与 upload-daka.mjs 一致；本批次是扁平目录 */

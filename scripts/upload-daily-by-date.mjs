@@ -669,11 +669,22 @@ function lookupImage(imageMap, key) {
 
 // ==================== 图片转换 ====================
 
+/**
+ * 预览图入库规格：1000px 宽。
+ *
+ * 2026-10-22 之前是 750，更早的存量是 560。卡片位真正吃像素的是**瀑布流里横跨
+ * 两列的横屏卡**：手机约 355 CSS px、桌面 5 列约 490 CSS px，2x 屏分别要 ~710 / ~980
+ * 设备像素 —— 560 被放大 1.3–1.8 倍，750 在桌面大卡上仍然不够（用户 2026-10-22 反馈
+ * 「卡片还是太糊」）。渲染层 `imageMogr2/thumbnail/Nx%3E` 只缩不放，图源多高就是天花板，
+ * 所以这里直接按 1000 存（单张实测 60–90KB，仍在手机首屏 ≤1.2MB 的预算内）。
+ */
+const PREVIEW_WIDTH = 1000;
+
 async function convertToWebP(imagePath) {
   const fileBuffer = readFileSync(imagePath);
   const origSize = (fileBuffer.length / 1024).toFixed(1);
   const webpBuffer = await sharp(fileBuffer)
-    .resize({ width: 750, withoutEnlargement: true })
+    .resize({ width: PREVIEW_WIDTH, withoutEnlargement: true })
     .webp({ quality: 80 })
     .toBuffer();
   const webpSize = (webpBuffer.length / 1024).toFixed(1);

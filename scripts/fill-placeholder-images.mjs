@@ -37,8 +37,8 @@ config({ path: resolve(process.cwd(), ".env"), override: true, quiet: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true, quiet: true });
 
 const GAME_KEY = "wuthering-waves";
-/** 与 upload-daily-by-date.mjs 完全同一套转换参数，保证补的图和批量入库的图看起来一致 */
-const WEBP_WIDTH = 750;
+/** 与 upload-daily-by-date.mjs 完全同一套转换参数（2026-10-22 起 1000px），保证补的图和批量入库的图一致 */
+const WEBP_WIDTH = 1000;
 const WEBP_QUALITY = 80;
 
 const SOURCE_DIR = String.raw`D:\BaiduNetdiskDownload\MC-MOD整合包\wMOD全集-每日更新\补图`;
