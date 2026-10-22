@@ -8,7 +8,7 @@ import type { EngagementAction, EngagementCounts, EngagementMine } from "./types
  *   1. **基线**（engagement-baseline.json）：上线时从 Supabase 只读导出的历史计数，
  *      此后不再变动。重跑导入脚本只是覆盖这个文件，天然幂等，不会叠加。
  *   2. **增量**（engagement.json）：上线之后的新互动。点赞靠 likedBy 里的设备号去重，
- *      浏览靠 viewDays 里「设备 + 日期」去重。
+ *      浏览与下载都靠「设备 + 日期」去重（viewDays / downloadDays）。
  * 对外展示的计数 = 基线 + 增量。
  */
 
@@ -24,7 +24,9 @@ export type StoredMod = {
   views: number;
   /** 近期浏览去重表：日期 → 当天浏览过的设备号 */
   viewDays: Record<string, string[]>;
-  /** 累计新增下载数（每次点击都算，不做设备去重 —— 下载两次就是两次） */
+  /** 近期下载去重表：日期 → 当天下载过的设备号（口径与 viewDays 相同） */
+  downloadDays: Record<string, string[]>;
+  /** 累计新增下载数（同设备同天只算一次；被 prune 掉的旧日期仍计入） */
   downloads: number;
 };
 
@@ -53,6 +55,18 @@ function toCount(value: unknown): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
 
+/** 解析「日期 → 设备号」的去重表：坏条目丢弃，好条目照常读回 */
+function parseDayBuckets(value: unknown): Record<string, string[]> {
+  const buckets: Record<string, string[]> = {};
+  if (!value || typeof value !== "object") return buckets;
+
+  for (const [day, devices] of Object.entries(value as Record<string, unknown>)) {
+    const list = toStringArray(devices);
+    if (list.length > 0) buckets[day] = list;
+  }
+  return buckets;
+}
+
 /**
  * 宽容解析落盘内容：**宁可丢掉坏字段也不要整份清零**。
  * 文件被截断/手改坏时，能救回来的部分照常工作，调用方负责把异常记进日志。
@@ -68,13 +82,9 @@ export function parseState(raw: unknown): EngagementState {
     if (!value || typeof value !== "object") continue;
     const entry = value as Record<string, unknown>;
 
-    const viewDays: Record<string, string[]> = {};
-    if (entry.viewDays && typeof entry.viewDays === "object") {
-      for (const [day, devices] of Object.entries(entry.viewDays as Record<string, unknown>)) {
-        const list = toStringArray(devices);
-        if (list.length > 0) viewDays[day] = list;
-      }
-    }
+    const viewDays = parseDayBuckets(entry.viewDays);
+    // 老文件里没有这个字段 → 空表，读取时不会把已有下载数清零
+    const downloadDays = parseDayBuckets(entry.downloadDays);
 
     const favoritedAt: Record<string, string> = {};
     if (entry.favoritedAt && typeof entry.favoritedAt === "object") {
@@ -89,6 +99,7 @@ export function parseState(raw: unknown): EngagementState {
       favoritedAt,
       views: toCount(entry.views),
       viewDays,
+      downloadDays,
       // 老文件里没有这个字段 → 0，读取时不会把已有计数清零
       downloads: toCount(entry.downloads),
     };
@@ -123,7 +134,15 @@ export function slot(state: EngagementState, modId: string): StoredMod {
   const existing = state.mods[modId];
   if (existing) return existing;
 
-  const created: StoredMod = { likedBy: [], favoritedBy: [], favoritedAt: {}, views: 0, viewDays: {}, downloads: 0 };
+  const created: StoredMod = {
+    likedBy: [],
+    favoritedBy: [],
+    favoritedAt: {},
+    views: 0,
+    viewDays: {},
+    downloadDays: {},
+    downloads: 0,
+  };
   state.mods[modId] = created;
   return created;
 }
@@ -246,7 +265,12 @@ export function applyAction(
       break;
     }
     case "download": {
-      // 不去重：用户点两次就是下载两次（真正防刷靠频率，不靠设备号）
+      // 与浏览同一套规则：**同设备同天只算一次**（2026-10-22 用户要求）。
+      // 连点多下、夸克迅雷各点一次，当天都只 +1；隔天再下载算新的一次。
+      // 不去重的话一个人一分钟就能刷出几十次下载，下载量就失去意义了。
+      const today = entry.downloadDays[day] ?? (entry.downloadDays[day] = []);
+      if (today.includes(deviceId)) break;
+      today.push(deviceId);
       entry.downloads += 1;
       break;
     }
@@ -256,10 +280,10 @@ export function applyAction(
 }
 
 /**
- * 只保留最近 `keep` 天的浏览去重表。
- * `views` 计数是累计值，不受影响 —— 这也是它必须与 viewDays 分开存的原因。
+ * 只保留最近 `keep` 天的浏览 / 下载去重表。
+ * `views` / `downloads` 计数是累计值，不受影响 —— 这也是它们必须与去重表分开存的原因。
  */
-export function pruneViewDays(state: EngagementState, today: string, keep = 2): void {
+export function pruneDayBuckets(state: EngagementState, today: string, keep = 2): void {
   const cutoffDays = new Set<string>();
   const cursor = new Date(`${today}T00:00:00Z`);
   for (let offset = 0; offset < keep; offset += 1) {
@@ -270,6 +294,9 @@ export function pruneViewDays(state: EngagementState, today: string, keep = 2): 
   for (const entry of Object.values(state.mods)) {
     for (const day of Object.keys(entry.viewDays)) {
       if (!cutoffDays.has(day)) delete entry.viewDays[day];
+    }
+    for (const day of Object.keys(entry.downloadDays)) {
+      if (!cutoffDays.has(day)) delete entry.downloadDays[day];
     }
   }
 }

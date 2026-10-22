@@ -9,6 +9,7 @@
 --   计数 = 基线（data/engagement-baseline.json，随代码部署）+ 增量（本表）
 --   点赞/收藏：同一设备重复触发 = 抵消（toggle）
 --   浏览：同一设备同一天只算一次（last_view_day 记在设备行上，不需要保留历史）
+--   下载：同一设备同一天只算一次（last_download_day，2026-10-22 起；此前是每次点击都 +1）
 --
 -- 执行方式（会改库，先确认）：
 --   node scripts/run-engagement-sql.mjs --dry-run
@@ -39,9 +40,15 @@ create table if not exists public.engagement_devices (
   favorited     boolean     not null default false,
   favorited_at  timestamptz,
   last_view_day date,
+  last_download_day date,
   updated_at    timestamptz not null default now(),
   primary key (mod_id, device_id)
 );
+
+-- 2026-10-22：下载改为「同设备同一天只算一次」。表是早先建的，create table if not exists
+-- 不会补列，所以这里必须显式 alter（幂等）。
+alter table public.engagement_devices
+  add column if not exists last_download_day date;
 
 -- 「我的收藏」只看某个设备收藏了哪些，走这个部分索引
 create index if not exists engagement_devices_favorited_idx
@@ -77,6 +84,7 @@ declare
   v_liked           boolean;
   v_favorited       boolean;
   v_last_view_day   date;
+  v_last_download_day date;
   v_delta_likes     integer := 0;
   v_delta_favorites integer := 0;
   v_delta_views     integer := 0;
@@ -96,8 +104,8 @@ begin
   values (p_mod_id, p_device_id)
   on conflict (mod_id, device_id) do nothing;
 
-  select liked, favorited, last_view_day
-    into v_liked, v_favorited, v_last_view_day
+  select liked, favorited, last_view_day, last_download_day
+    into v_liked, v_favorited, v_last_view_day, v_last_download_day
     from public.engagement_devices
    where mod_id = p_mod_id and device_id = p_device_id
    for update;
@@ -139,9 +147,12 @@ begin
     end if;
 
   elsif p_action = 'download' then
-    -- 下载**不去重**：点两次就是下载两次（与本地文件实现一致）。
-    -- 防刷靠频率，不靠设备号 —— 同一台设备不同时间下载不同版本也是两次。
-    v_delta_downloads := 1;
+    -- 与浏览同一套规则：同一设备同一天只算一次（2026-10-22 用户要求）。
+    -- 连点多下、夸克迅雷各点一次，当天都只 +1；隔天再下载算新的一次。
+    -- 不去重的话一个人一分钟就能刷出几十次下载，下载量就失去意义了。
+    if v_last_download_day is distinct from p_day then
+      v_delta_downloads := 1;
+    end if;
   end if;
 
   update public.engagement_devices
@@ -154,6 +165,10 @@ begin
          last_view_day = case
                            when p_action = 'view' then p_day
                            else last_view_day
+                         end,
+         last_download_day = case
+                           when p_action = 'download' then p_day
+                           else last_download_day
                          end,
          updated_at    = now()
    where mod_id = p_mod_id and device_id = p_device_id;

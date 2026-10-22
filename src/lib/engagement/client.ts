@@ -1,4 +1,5 @@
 import { getDeviceId } from "./device";
+import { shanghaiDateKeyOf } from "./downloads-policy";
 import { ENGAGEMENT_MAX_IDS, type EngagementCounts, type EngagementMine } from "./types";
 
 /**
@@ -233,16 +234,57 @@ export function reportView(id: string): void {
 }
 
 /**
+ * 「这台设备今天已经为这个 mod 算过一次下载」的本地标记。
+ *
+ * 服务端按「同设备 + 同一天」去重（见 scripts/engagement-supabase.sql）。前端要是
+ * 每次都先乐观 +1，连点或夸克迅雷各点一次就会先跳到 2、再被服务端返回值打回 1 ——
+ * 看得见的回弹像 bug。标记只决定**要不要做那一次乐观 +1**：请求照发，去重仍以服务端为准。
+ */
+const DOWNLOAD_MARKER_PREFIX = "wavemod:download";
+
+function downloadMarkerKey(id: string): string | null {
+  const day = shanghaiDateKeyOf(new Date());
+  return day ? `${DOWNLOAD_MARKER_PREFIX}:${day}:${id}` : null;
+}
+
+function hasCountedDownloadToday(id: string): boolean {
+  if (typeof window === "undefined") return false;
+  const key = downloadMarkerKey(id);
+  if (!key) return false;
+  try {
+    return window.localStorage.getItem(key) === "1";
+  } catch {
+    // 隐私模式下 localStorage 会抛：退回「每次都乐观 +1」，只是可能回弹一次
+    return false;
+  }
+}
+
+function markDownloadCounted(id: string): void {
+  const key = downloadMarkerKey(id);
+  if (!key) return;
+  try {
+    window.localStorage.setItem(key, "1");
+  } catch {
+    // 同上：标记写不进去不影响计数，服务端仍然去重
+  }
+}
+
+/**
  * 上报一次下载。
  *
- * 与浏览不同：**不做会话去重**，每次点击都算一次（用户连点两次就是下载两次）。
+ * 口径：**同设备同一天只算一次**（2026-10-22 用户要求，与浏览一致）。连点两次、
+ * 点夸克又点迅雷，当天都只 +1；隔天再下载算新的一次。
  * 先乐观 +1 给即时反馈，再用服务端返回的权威值覆盖；失败就保留乐观值（宁可多 1）。
  */
 export function reportDownload(id: string): void {
   if (typeof window === "undefined") return;
 
+  // 今天已经算过一次就不再乐观 +1，否则会先跳到 N+1 再被服务端打回 N
+  const countedToday = hasCountedDownloadToday(id);
+  markDownloadCounted(id);
+
   const prev = entries.get(id);
-  if (prev) {
+  if (prev && !countedToday) {
     // 两个口径都要 +1：老 mod 看 `downloads`（含 65% 基数），新 mod 看 `downloadsReal`。
     // 只加一个的话，另一种口径要等下一次服务端响应才更新，会出现「点了没反应」。
     put(id, {

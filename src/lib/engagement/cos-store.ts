@@ -11,7 +11,7 @@ import {
   emptyState,
   listFavoritedIds,
   parseState,
-  pruneViewDays,
+  pruneDayBuckets,
   shanghaiDayKey,
   type EngagementState,
 } from "./store-core";
@@ -369,7 +369,7 @@ export async function cosWriteEngagement(
     }
 
     applyAction(state, action, modId, deviceId, day);
-    pruneViewDays(state, day, 2);
+    pruneDayBuckets(state, day, 2);
 
     try {
       await saveShard(index, state);

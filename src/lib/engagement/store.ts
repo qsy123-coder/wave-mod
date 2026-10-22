@@ -28,7 +28,7 @@ import {
   listFavoritedIds,
   parseBaseline,
   parseState,
-  pruneViewDays,
+  pruneDayBuckets,
   shanghaiDayKey,
   type EngagementBaseline,
   type EngagementState,
@@ -265,7 +265,7 @@ async function fsWriteEngagement(
     const day = shanghaiDayKey();
 
     applyAction(current, action, modId, deviceId, day);
-    pruneViewDays(current, day, VIEW_DAY_KEEP);
+    pruneDayBuckets(current, day, VIEW_DAY_KEEP);
 
     try {
       await persist(current);

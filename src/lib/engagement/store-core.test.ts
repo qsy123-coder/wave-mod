@@ -9,7 +9,7 @@ import {
   listFavoritedIds,
   parseBaseline,
   parseState,
-  pruneViewDays,
+  pruneDayBuckets,
   shanghaiDayKey,
 } from "@/lib/engagement/store-core";
 
@@ -174,15 +174,34 @@ describe("listFavoritedIds（我的收藏清单）", () => {
   });
 });
 
-describe("下载：每次点击都算（2026-10-20 新增）", () => {
-  it("同一设备连点两次就是两次", () => {
+describe("下载：同设备同天只算一次（2026-10-22 起）", () => {
+  it("同一设备同一天连点两次只算一次", () => {
     const state = emptyState();
 
     applyAction(state, "download", MOD, A, "2026-10-02");
     applyAction(state, "download", MOD, A, "2026-10-02");
 
-    expect(computeCounts(state, {}, MOD).downloads).toBe(2);
-    expect(computeCounts(state, {}, MOD).downloadsReal).toBe(2);
+    expect(computeCounts(state, {}, MOD).downloads).toBe(1);
+    expect(computeCounts(state, {}, MOD).downloadsReal).toBe(1);
+  });
+
+  it("换一天或换一台设备，都算新的一次", () => {
+    const state = emptyState();
+
+    applyAction(state, "download", MOD, A, "2026-10-02");
+    applyAction(state, "download", MOD, A, "2026-10-03");
+    applyAction(state, "download", MOD, B, "2026-10-02");
+
+    expect(computeCounts(state, {}, MOD).downloadsReal).toBe(3);
+  });
+
+  it("去重表里只记设备号，不对外暴露点击次数", () => {
+    const state = emptyState();
+
+    applyAction(state, "download", MOD, A, "2026-10-02");
+    applyAction(state, "download", MOD, A, "2026-10-02");
+
+    expect(state.mods[MOD].downloadDays).toEqual({ "2026-10-02": [A] });
   });
 
   it("真实下载叠在 65% 之上", () => {
@@ -228,7 +247,7 @@ describe("浏览：同设备同天只算一次", () => {
   });
 });
 
-describe("pruneViewDays", () => {
+describe("pruneDayBuckets", () => {
   it("只保留最近两天，但累计浏览数不受影响", () => {
     const state = emptyState();
 
@@ -236,7 +255,7 @@ describe("pruneViewDays", () => {
     applyAction(state, "view", MOD, B, "2026-10-02");
     applyAction(state, "view", MOD, "device-cccccccc", "2026-10-01");
 
-    pruneViewDays(state, "2026-10-02", 2);
+    pruneDayBuckets(state, "2026-10-02", 2);
 
     expect(Object.keys(state.mods[MOD].viewDays).sort()).toEqual(["2026-10-01", "2026-10-02"]);
     // 09-01 的去重记录被清掉了，但它贡献的那一次浏览仍在累计值里
@@ -247,7 +266,7 @@ describe("pruneViewDays", () => {
     const state = emptyState();
 
     applyAction(state, "view", MOD, A, "2026-09-01");
-    pruneViewDays(state, "2026-10-02", 2);
+    pruneDayBuckets(state, "2026-10-02", 2);
     applyAction(state, "view", MOD, A, "2026-10-02");
 
     expect(computeCounts(state, {}, MOD).views).toBe(2);
@@ -265,7 +284,13 @@ describe("parseState / parseBaseline 宽容解析", () => {
   it("只有坏字段被丢弃，好字段照常读回", () => {
     const state = parseState({
       mods: {
-        [MOD]: { likedBy: [A, 42, null], favoritedBy: "bad", views: "12", viewDays: { "2026-10-02": [B, 7] } },
+        [MOD]: {
+          likedBy: [A, 42, null],
+          favoritedBy: "bad",
+          views: "12",
+          viewDays: { "2026-10-02": [B, 7] },
+          downloadDays: { "2026-10-02": [A, null], "2026-10-03": "bad" },
+        },
       },
     });
 
@@ -274,6 +299,7 @@ describe("parseState / parseBaseline 宽容解析", () => {
     expect(state.mods[MOD].favoritedAt).toEqual({});
     expect(state.mods[MOD].views).toBe(12);
     expect(state.mods[MOD].viewDays).toEqual({ "2026-10-02": [B] });
+    expect(state.mods[MOD].downloadDays).toEqual({ "2026-10-02": [A] });
   });
 
   it("基线里的负数与 NaN 归零", () => {
