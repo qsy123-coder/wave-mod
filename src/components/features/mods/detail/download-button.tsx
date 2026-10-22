@@ -119,12 +119,18 @@ export function DownloadButton({
   const copyTipPanel = (
     <AnimatePresence initial={false}>
       {copiedDrive ? (
+        /*
+         * ⚠️ 这里**不能用 height: auto + overflow-hidden** 的撑开动画（2026-10-22 修的 bug）：
+         * 底栏版式里提示卡是 `absolute bottom-[calc(100%+10px)]` 锚在操作条上方的，内容一撑高，
+         * 整张卡连同「?」一起往上移 ⇒ 光标离开「?」⇒ 收起 ⇒ 又落回光标下 ⇒ 再撑开……
+         * 实测进入 open/closed 抖动循环，表现为「hover 半天教程图也不出来」。
+         * 现在只做淡入位移，卡片高度恒定；教程图改成绝对定位浮层（见下方），不参与布局。
+         */
         <motion.div
-          initial={{ opacity: 0, height: 0, marginTop: 0 }}
-          animate={{ opacity: 1, height: "auto", marginTop: 8 }}
-          exit={{ opacity: 0, height: 0, marginTop: 0 }}
-          transition={{ duration: 0.28, ease: "easeOut" }}
-          className="overflow-hidden"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 6 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
         >
           <div className="relative border-4 border-black bg-white p-3.5 shadow-[4px_4px_0px_0px_#000]">
             <button
@@ -148,6 +154,8 @@ export function DownloadButton({
                     onMouseLeave={() => setShowTip(false)}
                     onFocus={() => setShowTip(true)}
                     onBlur={() => setShowTip(false)}
+                    // 触屏没有 hover：点一下也能看，再点收起
+                    onClick={() => setShowTip((prev) => !prev)}
                     className="ml-1.5 inline-flex size-[18px] -translate-y-[1px] cursor-help items-center justify-center rounded-full border-2 border-black bg-[#FFD93D] text-[10px] font-black leading-none text-black shadow-[1px_1px_0px_0px_#000] transition hover:bg-[#fff3c4] active:translate-y-0 active:shadow-none"
                   >
                     ?
@@ -155,13 +163,20 @@ export function DownloadButton({
                 ) : null}
               </p>
               {tipImage ? (
-                <div className={`overflow-hidden transition-all duration-200 ${showTip ? "max-h-[320px] opacity-100" : "max-h-0 opacity-0"}`}>
+                // 浮层：不占高度、不推动卡片，所以「?」不会从光标下跑掉（见上面那段说明）。
+                // pointer-events-none 保证它不会把鼠标从「?」上抢走。
+                <div
+                  aria-hidden={!showTip}
+                  className={`pointer-events-none absolute bottom-full left-0 right-0 z-30 mb-2 transition-opacity duration-150 ${
+                    showTip ? "opacity-100" : "opacity-0"
+                  }`}
+                >
                   <Image
                     src={tipImage}
                     alt={`${copiedDrive.platform} 粘贴链接操作教程`}
                     width={440}
                     height={263}
-                    className="h-auto w-full rounded-md border-2 border-black"
+                    className="h-auto w-full rounded-md border-2 border-black bg-white shadow-[4px_4px_0px_0px_#000]"
                   />
                 </div>
               ) : null}
@@ -187,14 +202,20 @@ export function DownloadButton({
       }`;
 
     /**
-     * 按钮内两行：网盘简称 + 括号里的解压码。
-     * 解压码写在按钮上而不是内容里 —— 用户拿到网盘链接就要输密码，放在点击处最省事。
+     * 按钮内两行：动作（复制/打开 哪个网盘）+ 解压密码。
+     *
+     * 第一行必须写清「点下去会发生什么」（用户 2026-10-22：光写「夸克」看不出是复制链接）；
+     * 第二行显式标出「解压密码」—— 只写一个括号里的 x77syq，很多人不知道那是干什么用的。
      */
     const barLabel = (label: string) => (
       <span className="flex min-w-0 flex-col items-center">
         <span className="max-w-full truncate">{label}</span>
+        {/* 只在 sm 以上显示：手机上两个网盘按钮并排时，这一行会把收藏按钮挤出屏幕
+            （实测 390px 视口下 min-content 超宽 34px）。手机端的密码由详情底栏的独立一行交代。 */}
         {unzipCode ? (
-          <span className="mt-0.5 max-w-full truncate text-[9px] font-bold opacity-90">（{unzipCode}）</span>
+          <span className="mt-0.5 hidden max-w-full truncate text-[9px] font-bold opacity-90 sm:block">
+            解压密码 {unzipCode}
+          </span>
         ) : null}
       </span>
     );
@@ -215,22 +236,22 @@ export function DownloadButton({
                   href={openHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`打开${drive.platform}分享页${unzipCode ? `，解压码 ${unzipCode}` : ""}`}
+                  aria-label={`打开${drive.platform}分享页${unzipCode ? `，解压密码 ${unzipCode}` : ""}`}
                   className={`inline-flex sm:hidden ${barClass(copied, "drive")}`}
                   onClick={() => reportDownload(modId)}
                 >
                   <ExternalLink className="size-3.5 shrink-0" />
-                  {barLabel(shortLabel)}
+                  {barLabel(`打开${shortLabel}`)}
                 </a>
               ) : null}
               <button
                 type="button"
                 onClick={() => handleCopy(drive)}
                 className={`${openHref ? "hidden sm:inline-flex" : "inline-flex"} ${barClass(copied, "drive")}`}
-                title={copied ? `已复制 ${drive.platform} 链接` : `复制 ${drive.platform} 链接并唤起客户端`}
+                title={copied ? `已复制 ${drive.platform} 链接` : `复制 ${drive.platform} 链接（会尝试唤起客户端）`}
               >
-                {copied ? <Check className="size-3.5 shrink-0" /> : <Download className="size-3.5 shrink-0" />}
-                {copied ? barLabel("已复制") : barLabel(shortLabel)}
+                {copied ? <Check className="size-3.5 shrink-0" /> : <Copy className="size-3.5 shrink-0" />}
+                {copied ? barLabel("已复制") : barLabel(`复制${shortLabel}链接`)}
               </button>
             </div>
           );

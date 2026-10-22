@@ -360,42 +360,51 @@ export function ModDetailDrawer({
 
         {/* ── 底部操作条：分享 / 各网盘下载 / 收藏 ──
             固定在弹窗底部，不随内容滚动；下载按钮按用户要求统一收进这一行。 */}
-        <div className="flex shrink-0 items-stretch gap-2 border-t-4 border-black bg-[#fff8ef] px-2.5 py-2">
-          <button
-            type="button"
-            onClick={() => setShareOpen(true)}
-            disabled={!mod || isLoading}
-            className={cn(
-              // 分享按内容宽度收缩，把剩余宽度让给下载按钮（手机上一行要塞下 分享 + 各网盘 + 收藏）
-              "inline-flex h-11 shrink-0 items-center justify-center gap-1.5 border-4 border-black bg-black px-3 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-              "disabled:cursor-not-allowed disabled:opacity-40",
-            )}
-          >
-            <Share2 className="size-4" strokeWidth={3} />
-            分享
-          </button>
-          {/* 下载按钮：每个网盘一个，全部排在「分享」右边 */}
+        <div className="shrink-0 border-t-4 border-black bg-[#fff8ef] px-2.5 py-2">
+          {/* 手机上按钮里放不下这行字（会把收藏挤出屏幕），所以单独占一行；
+              sm 以上仍写在按钮第二行，见 download-button.tsx 的 barLabel。 */}
           {mod ? (
-            <DownloadButton
-              layout="bar"
-              modId={mod.id}
-              downloadUrl={mod.downloadUrl}
-              downloadCount={mod.downloads}
-              driveLinks={mod.driveLinks}
-              unzipCode="x77syq"
-            />
+            <p className="mb-1.5 text-[10px] font-black leading-none text-black/70 sm:hidden">
+              解压密码 x77syq
+            </p>
           ) : null}
-          <div className="flex w-[88px] shrink-0">
+          <div className="flex items-stretch gap-2">
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              disabled={!mod || isLoading}
+              className={cn(
+                // 分享按内容宽度收缩，把剩余宽度让给下载按钮（手机上一行要塞下 分享 + 各网盘 + 收藏）
+                "inline-flex h-11 shrink-0 items-center justify-center gap-1.5 border-4 border-black bg-black px-3 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
+                "disabled:cursor-not-allowed disabled:opacity-40",
+              )}
+            >
+              <Share2 className="size-4" strokeWidth={3} />
+              分享
+            </button>
+            {/* 下载按钮：每个网盘一个，全部排在「分享」右边 */}
             {mod ? (
-              <FavoriteButton
-                compact
-                id={mod.id}
-                isFavorited={Boolean(mod.isFavorited)}
-                isLoggedIn={isLoggedIn}
-                nextPath={`/mods/${mod.id}`}
-                favoriteCount={mod.favorites}
+              <DownloadButton
+                layout="bar"
+                modId={mod.id}
+                downloadUrl={mod.downloadUrl}
+                downloadCount={mod.downloads}
+                driveLinks={mod.driveLinks}
+                unzipCode="x77syq"
               />
             ) : null}
+            <div className="flex w-[88px] shrink-0">
+              {mod ? (
+                <FavoriteButton
+                  compact
+                  id={mod.id}
+                  isFavorited={Boolean(mod.isFavorited)}
+                  isLoggedIn={isLoggedIn}
+                  nextPath={`/mods/${mod.id}`}
+                  favoriteCount={mod.favorites}
+                />
+              ) : null}
+            </div>
           </div>
         </div>
       </SheetContent>
