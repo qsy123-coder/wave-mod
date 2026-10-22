@@ -334,6 +334,35 @@ describe("横屏为主的列表（2026-10-23 绯雪分类）", () => {
     expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(widest);
   });
 
+  it("2 列不受影响：仍走 hold/flush，不在列顶留大洞", () => {
+    // 2 列只有一对列，放宽过滤等于「不齐也硬跨」= 2026-10-20 那个 562px 大洞
+    const ratios = feixue();
+    const result = packMasonry(items(ratios), 2, 390);
+
+    const byColumn = new Map<number, { top: number; height: number }[]>();
+    for (const placement of result.placements) {
+      const height = masonryCardHeight(
+        masonrySpanWidth(placement.span, result.columnWidth),
+        ratios[Number(placement.id.slice(1))]!,
+      );
+      for (let column = placement.column; column < placement.column + placement.span; column += 1) {
+        const list = byColumn.get(column) ?? [];
+        list.push({ top: placement.top, height });
+        byColumn.set(column, list);
+      }
+    }
+
+    let worstHole = 0;
+    for (const list of byColumn.values()) {
+      list.sort((a, b) => a.top - b.top);
+      for (let i = 1; i < list.length; i += 1) {
+        worstHole = Math.max(worstHole, list[i]!.top - (list[i - 1]!.top + list[i - 1]!.height) - MASONRY_GAP);
+      }
+    }
+    expect(worstHole).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
+    expect(result.placements.some((placement) => placement.span === 2)).toBe(true);
+  });
+
   it("横屏为主时即使列数是奇数，也不会把横屏卡全堆在同一对列上", () => {
     // 修复前：一对列被压平后永远是最「齐平」的一对，其余列再也长不高
     const result = packMasonry(items(feixue()), 5, 1128);

@@ -173,11 +173,14 @@ export function packMasonry(
   const bottoms = new Array<number>(columns).fill(0);
   const placements: MasonryPlacement[] = [];
   /**
-   * 横屏为主 ⇒ 放宽 `MASONRY_WIDE_MAX_HOLE`（理由见该常量的注释）：
+   * 横屏为主 **且列数够多** ⇒ 放宽 `MASONRY_WIDE_MAX_HOLE`（理由见该常量的注释）：
    * 跨列卡把一对列的底部压成相等以后，那对列永远是「最齐平」的一对，硬过滤会让
    * 后面所有横屏卡死守在这里，其余列再也长不高。
+   *
+   * 2 列不走这条：那里只有一对列，放宽等于「不齐也硬跨」，正是 2026-10-20 那个
+   * 562px 大洞的来源。2 列靠上面那段 hold/flush 机制填平，实测洞更小、总高更矮。
    */
-  const wideDominant = isWideDominantMasonry(items);
+  const wideDominant = columns >= 3 && isWideDominantMasonry(items);
 
   /** 单列卡：放进当前最短的列。 */
   const placeSingle = (item: MasonryPackItem) => {
