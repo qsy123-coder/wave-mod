@@ -7,6 +7,10 @@
  * 默认 dry-run，只打印统计与样例；加 --apply 才会写库。
  * 用 GREATEST 保证**永远不会把已有真实下载量改小** —— 这个脚本可以安全重跑。
  *
+ * ⚠️ 2026-10-22 起发布的 mod **不参与**这次初始化：用户要求这些卡片从 0 开始计数，
+ * 不再套「浏览量 × 65%」的历史基数（与 src/lib/engagement/downloads-policy.ts 同一分界日）。
+ * 重跑本脚本时若不跳过它们，会把这些 mod 的下载量凭空抬起来。
+ *
  * 用法（在项目根目录）：
  *   node --env-file=.env.local scripts/seed-downloads-from-views.mjs
  *   node --env-file=.env.local scripts/seed-downloads-from-views.mjs --apply
@@ -20,6 +24,27 @@ const BASE = (process.env.WM_BASE || "https://go.sunnyrose.xyz").replace(/\/+$/,
 const APPLY = process.argv.includes("--apply");
 const PAGE_SIZE = 48;
 const DOWNLOAD_RATIO = 0.65;
+
+// 与 src/lib/engagement/downloads-policy.ts 的 DOWNLOAD_BASE_ZERO_SINCE 保持一致
+// （scripts 进不了 TS 模块，只能手抄；改一处必须同步另一处）。
+const DOWNLOAD_BASE_ZERO_SINCE = "2026-10-22";
+
+const shanghaiDayFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Shanghai",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** 发布日期是否在分界日之后（含当天）；解析不了按「老 mod」参与初始化 */
+function isDownloadBaseFromZero(createdAt) {
+  if (!createdAt) return false;
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return false;
+  return shanghaiDayFormatter.format(date) >= DOWNLOAD_BASE_ZERO_SINCE;
+}
+
+let skippedNewEra = 0;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -45,6 +70,11 @@ async function fetchAllMods() {
     const items = Array.isArray(data.items) ? data.items : [];
     for (const item of items) {
       if (!item?.id) continue;
+      // 2026-10-22 起发布的 mod 从 0 起算，不套 65% 基数（见文件头）
+      if (isDownloadBaseFromZero(item.createdAt)) {
+        skippedNewEra++;
+        continue;
+      }
       mods.push({ id: item.id, views: Number(item.views) || 0, downloads: Number(item.downloads) || 0 });
     }
     if (!data.hasMore) break;
@@ -72,7 +102,7 @@ const zeroViews = targets.filter((mod) => mod.views === 0).length;
 const zeroTargets = targets.filter((mod) => mod.next === 0).length;
 
 console.log(`\n数据源：${BASE}`);
-console.log(`mod 总数：${mods.length}`);
+console.log(`mod 总数：${mods.length}（另跳过 ${skippedNewEra} 条 ${DOWNLOAD_BASE_ZERO_SINCE} 起发布、从 0 起算的）`);
 console.log(`浏览量合计：${totalViews}`);
 console.log(`下载量合计：${totalDownloadsBefore} -> ${totalDownloadsAfter}`);
 console.log(`会发生变化：${changed.length} 条；浏览量为 0 的：${zeroViews} 条；目标仍为 0 的：${zeroTargets} 条`);

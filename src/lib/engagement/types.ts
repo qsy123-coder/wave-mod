@@ -16,10 +16,19 @@ export type EngagementCounts = {
   favorites: number;
   views: number;
   /**
-   * 下载次数。2026-10-20 新增：以前只有「直链下载」会 +1、且写进 Supabase，
+   * 下载次数的**旧展示口径**：当前浏览量 × 65% + 真实下载增量。
+   * 2026-10-20 新增：以前只有「直链下载」会 +1、且写进 Supabase，
    * 而前台读的是快照，所以点夸克/迅雷永远显示 0。现在改为和其它计数一样实时累加。
+   *
+   * 2026-10-22 起发布的 mod 不再用这个值，改用 `downloadsReal` —— 见
+   * ./downloads-policy.ts 的选择逻辑。
    */
   downloads: number;
+  /**
+   * 真实下载增量（只有点击，不含浏览量折算、也不含基线）。
+   * 2026-10-22 及以后发布的 mod 用它作为展示值，从 0 开始涨。
+   */
+  downloadsReal: number;
 };
 
 /** 当前设备对某个资源的互动状态 */

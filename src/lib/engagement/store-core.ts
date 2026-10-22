@@ -143,6 +143,10 @@ export function slot(state: EngagementState, modId: string): StoredMod {
  *
  * `base.downloads` 因此不再参与计算（字段保留只为兼容旧基线文件）；
  * 真实下载（`increments.downloads`）叠在 65% 之上，点一次就多一次。
+ *
+ * ⚠️ 2026-10-22 起，新发布的 mod 不再用 `downloads`，改用 `downloadsReal`
+ * （纯真实下载增量）—— 选择逻辑在 ./downloads-policy.ts。这里两个值都算出来，
+ * 让展示层按 mod 的发布时间决定用哪个。
  */
 export const DOWNLOAD_RATIO_OF_VIEWS = 0.65;
 
@@ -151,12 +155,14 @@ export function computeCountsFromIncrements(
   increments: Partial<EngagementCounts>,
 ): EngagementCounts {
   const views = (base?.views ?? 0) + (increments.views ?? 0);
+  const downloadsReal = increments.downloads ?? 0;
 
   return {
     likes: (base?.likes ?? 0) + (increments.likes ?? 0),
     favorites: (base?.favorites ?? 0) + (increments.favorites ?? 0),
     views,
-    downloads: Math.round(views * DOWNLOAD_RATIO_OF_VIEWS) + (increments.downloads ?? 0),
+    downloads: Math.round(views * DOWNLOAD_RATIO_OF_VIEWS) + downloadsReal,
+    downloadsReal,
   };
 }
 

@@ -13,7 +13,7 @@ import { ENGAGEMENT_MAX_IDS, type EngagementCounts, type EngagementMine } from "
  *   3. 本地有未完成的改动时，**不让拉取结果覆盖**（靠 mutationSeq 判断）。
  */
 
-export const EMPTY_COUNTS: EngagementCounts = { likes: 0, favorites: 0, views: 0, downloads: 0 };
+export const EMPTY_COUNTS: EngagementCounts = { likes: 0, favorites: 0, views: 0, downloads: 0, downloadsReal: 0 };
 export const EMPTY_MINE: EngagementMine = { liked: false, favorited: false };
 
 export type EngagementEntry = {
@@ -242,7 +242,18 @@ export function reportDownload(id: string): void {
   if (typeof window === "undefined") return;
 
   const prev = entries.get(id);
-  if (prev) put(id, { ...prev, counts: { ...prev.counts, downloads: prev.counts.downloads + 1 } });
+  if (prev) {
+    // 两个口径都要 +1：老 mod 看 `downloads`（含 65% 基数），新 mod 看 `downloadsReal`。
+    // 只加一个的话，另一种口径要等下一次服务端响应才更新，会出现「点了没反应」。
+    put(id, {
+      ...prev,
+      counts: {
+        ...prev.counts,
+        downloads: prev.counts.downloads + 1,
+        downloadsReal: prev.counts.downloadsReal + 1,
+      },
+    });
+  }
 
   void fetch("/api/engagement", {
     method: "POST",

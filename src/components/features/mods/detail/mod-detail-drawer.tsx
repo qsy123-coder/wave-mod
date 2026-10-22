@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { reportView } from "@/lib/engagement/client";
+import { isDownloadBaseFromZero } from "@/lib/engagement/downloads-policy";
 import { useEngagement } from "@/lib/engagement/use-engagement";
 import { buildModShareUrl } from "@/lib/mod-share";
 import type { SiteMod } from "@/lib/mods";
@@ -139,6 +140,15 @@ export function ModDetailDrawer({
     // 基线来自快照里的历史下载数；点下载后由互动接口实时 +1（以前这里永远是快照值）
     downloads: mod?.downloads ?? 0,
   });
+
+  /**
+   * 统计行里显示的下载量。
+   *
+   * 2026-10-22 及以后发布的 mod 不再套「浏览量 × 65%」的历史基数，只显示真实点击
+   * （`downloadsReal`，从 0 开始）；更早的 mod 保持原显示不动（用户明确要求不回改）。
+   * 口径与日期见 @/lib/engagement/downloads-policy。
+   */
+  const displayDownloads = mod && isDownloadBaseFromZero(mod.createdAt) ? counts.downloadsReal : counts.downloads;
 
   // 引用必须稳定：分享面板的焦点管理 effect 依赖它，换引用会让面板每渲染都抢一次焦点
   const closeShare = useCallback(() => setShareOpen(false), []);
@@ -303,7 +313,7 @@ export function ModDetailDrawer({
                   data-slot="drawer-stats"
                   className="flex min-w-[132px] flex-1 items-center justify-center border-[3px] border-black bg-white px-2 py-1 text-center text-[10px] font-black leading-4 text-black shadow-[3px_3px_0px_0px_#000]"
                 >
-                  {counts.views} 次浏览 · {counts.downloads} 次下载
+                  {counts.views} 次浏览 · {displayDownloads} 次下载
                 </div>
               </div>
 
