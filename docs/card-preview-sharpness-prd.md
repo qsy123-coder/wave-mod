@@ -55,6 +55,20 @@
 
 **Validation**：Phase 0 上线后 3 天内跑一次抽样；Phase 1 完成后跑全量报表并附上前 10 条最糊的截图对比。
 
+### 首屏预算实测（2026-10-22，`scripts/measure-first-screen-images.mjs`）
+
+用 headless Chrome + CDP 设真机视口，读 `performance.getEntriesByType('resource')` 的
+`transferSize`（只统计 `initiatorType === 'img'`）：
+
+| 场景 | 图片张数 | 图片合计 | 主要档位 |
+|---|---|---|---|
+| 手机 390×844 @2x | 7 | **229KB** | 800w ×7 |
+| 手机 390×844 @3x | 19 | **656KB** | 1000w ×7（371KB）+ 480w ×12（284KB） |
+| 桌面 1440×900 @2x | 54 | **937KB** | 1000w ×10（569KB）+ 480w ×13（368KB） |
+
+三档都在 1.2MB 预算内（2x 手机只用了 19%）。注意 2x 屏的大卡落在 **800w** 档而不是
+1000w —— 浏览器按 `sizes` 算出的 710 设备像素选了 800，这正是预期行为，不是漏配。
+
 ---
 
 ## User Personas

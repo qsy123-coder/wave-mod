@@ -218,6 +218,23 @@ describe("packMasonry", () => {
     expect(packMasonry(items([nearSquare]), 5, 1024).placements[0].span).toBe(1);
   });
 
+  it("近方形（尤诺常见的 393×349 ≈ 1.126）不算横屏", () => {
+    // 这类图若跨两列，5 列会被迫空出一整列；见 MASONRY_WIDE_RATIO 的注释
+    expect(packMasonry(items([393 / 349]), 5, 1024).placements[0].span).toBe(1);
+  });
+
+  it("5:4 及更宽才算横屏，跨两列", () => {
+    expect(packMasonry(items([5 / 4]), 5, 1024).placements[0].span).toBe(2);
+  });
+
+  it("近方形为主的列表在 5 列下能铺满所有列（尤诺分类回归）", () => {
+    const ratios = Array.from({ length: 20 }, (_, i) => (i % 4 === 0 ? PORTRAIT : 393 / 349));
+    const result = packMasonry(items(ratios), 5, 1024);
+
+    expect(result.placements.every((p) => p.span === 1)).toBe(true);
+    expect(new Set(result.placements.map((p) => p.column)).size).toBe(5);
+  });
+
   it("容器高度 = 最高列的底部减去末尾间距", () => {
     const result = packMasonry(items(Array(7).fill(PORTRAIT)), 3, 700);
     const singleHeight = masonryCardHeight(result.columnWidth, PORTRAIT);
