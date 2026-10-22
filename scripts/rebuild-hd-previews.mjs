@@ -53,6 +53,12 @@ const cliArgs = process.argv.slice(2);
 const isApply = cliArgs.includes("--apply");
 const limitArg = cliArgs.find((a) => a.startsWith("--limit="));
 const LIMIT = limitArg ? Number(limitArg.split("=")[1]) : Infinity;
+/**
+ * 额外扫描目录（可多次给）：把重新下载解压的 mod 包放哪里都行，不必塞进 W-* 日期目录。
+ * 解压出来的包里图叫 `Preview.png` 且躺在**以 mod 命名的文件夹**里，所以这棵树按
+ * 「图片所在文件夹名」当 base；日期目录那棵仍按图片文件名当 base。
+ */
+const EXTRA_SRCS = cliArgs.filter((a) => a.startsWith("--src=")).map((a) => a.slice(6));
 
 // ==================== 本地原图索引 ====================
 
@@ -81,6 +87,35 @@ function buildLocalImageIndex() {
     const dir = join(BASE, d.name);
     addFrom(dir);
     addFrom(join(dir, "预览图"));
+  }
+
+  /**
+   * `--src` 树：递归找图，base 取**图片所在文件夹名**。
+   * 解压出来的包结构是 `<mod名>/Preview.png`（同级还有 Normal/、Textures/ 等），
+   * 按文件名当 base 全是 "Preview"，只有文件夹名对得上库内 title。
+   * 深度上限 4 层，免得扫进 Textures 里的 dds/大图。
+   */
+  for (const root of EXTRA_SRCS) {
+    if (!existsSync(root)) {
+      console.warn(`⚠️  --src 目录不存在：${root}`);
+      continue;
+    }
+    const walk = (dir, depth) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, e.name);
+        if (e.isDirectory()) {
+          if (depth < 4) walk(full, depth + 1);
+          continue;
+        }
+        const ext = extname(e.name).toLowerCase();
+        if (!IMAGE_EXTS.has(ext)) continue;
+        // 只要「文件夹里的预览图」：文件名以 preview 开头才认，避免把贴图当预览
+        if (!/^preview/i.test(basename(e.name, extname(e.name)))) continue;
+        const base = basename(dir);
+        if (!index.has(base)) index.set(base, full);
+      }
+    };
+    walk(root, 0);
   }
   return index;
 }

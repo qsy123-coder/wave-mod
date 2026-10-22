@@ -1,6 +1,6 @@
 # 待换高清预览图的横图清单
 
-生成时间：2026-10-22 05:21（UTC）
+生成时间：2026-10-22 05:22（UTC）
 
 口径：近 30 天 ∪ 浏览 Top200 里还没换 HD 的 **横图**（宽高比 >1.1，即瀑布流跨两列的大卡），
 且当前预览图宽度 <800px。竖图不在其中 —— 手机 2 列下 560 已经够用。
@@ -8,12 +8,12 @@
 共 **38** 条。下载解压后不用管目录结构，直接跑：
 
 ```bash
-node scripts/rebuild-hd-previews.mjs            # 先 dry-run 看能匹配上哪些
-node scripts/rebuild-hd-previews.mjs --apply    # 真正重做
+node scripts/rebuild-hd-previews.mjs --src=<解压目录>           # 先 dry-run 看能匹配上哪些
+node scripts/rebuild-hd-previews.mjs --src=<解压目录> --apply   # 真正重做
 ```
 
-> 脚本目前只扫 `A_每日更新/W-*` 日期目录。解压到别处时，把原图**连同 mod 名**
-> 放进任意 `W-YYYY.M.D/` 目录即可；`Preview.png` 会在文件夹里，脚本按文件夹名匹配。
+> 解压出来的包结构是 `<mod 名>/Preview.png`，脚本按**图片所在文件夹名**匹配库内标题，
+> 所以解压时保持默认的「每个包一个同名文件夹」即可，放在哪个目录都行。
 
 | # | 角色 | 标题 | 现尺寸 | 创建日 | 夸克 | 迅雷 |
 |---|---|---|---|---|---|---|
