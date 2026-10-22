@@ -4,6 +4,9 @@
  * 与 upload-a-daily.mjs 的区别：
  *   1. 数据组织为日期子目录 W-YYYY.M.D（每目录一个 CSV + exe + 预览图；
  *      预览图在顶层或「预览图」子目录）。
+ *      **多图**：同一 mod 的额外图命名为 `<主图 base>-1.png` / `-2.png` …，
+ *      一起入库到 images[] —— 主图（无编号的那张）是 images[0]（站内首图/封面），
+ *      编号图按数字升序排后面。COS 键：preview.webp / preview-2.webp / preview-3.webp …
  *   2. 每条记录显式设置 created_at = 该目录日期中午(上海时区)，保证每日更新页
  *      按 9.4 / 9.5 / 9.6 分组，而不会全部落到"今天"。
  *   3. **一键吃下当天所有网盘**：目录里有什么盘就写什么盘，不再分两个脚本跑。
@@ -649,22 +652,67 @@ function indexFilesInto(byBase, dir) {
   }
 }
 
+/**
+ * 多图预览的后缀：主图 base 之后接 `-1` / `_1`（1 起），如
+ * `锁暝-黑白双色裙（…）-1.png`。**只认纯数字后缀** —— 中段括号、`v1.2` 这类是
+ * 标题的一部分（见 IMAGE_KEY_ALIASES 的注），当通则会把真名字削掉。
+ */
+const GALLERY_SUFFIX_RE = /^[-_](\d{1,3})$/;
+
 function buildImageIndex(dir) {
   const byBase = new Map();
   // 先扫顶层，再扫「预览图」子目录（子目录可能被顶层同名覆盖，需顶层优先）
   indexFilesInto(byBase, dir);
   indexFilesInto(byBase, join(dir, "预览图"));
-  const map = new Map();
+  const primary = new Map();
   for (const [base, list] of byBase) {
     list.sort((a, b) => PREFERRED_EXTS.indexOf(a.ext) - PREFERRED_EXTS.indexOf(b.ext));
-    map.set(base, list[0].file);
+    primary.set(base, list[0]);
   }
-  return map;
+  return { primary, byBase };
 }
 
-/** 与 lookupXunlei 同构：先试精确 key，再退到「去重名后缀」的别名。找不到返回 null。 */
-function lookupImage(imageMap, key) {
-  return imageMap.get(key) || imageMap.get(stripRenameSuffix(key)) || null;
+/**
+ * 取某个 mod 的全部预览图，**首图在前**。
+ *
+ * 顺序规则（用户 2026-10-22 定的）：主图（不带编号后缀的那张）是首图，也是站内
+ * images[0]（列表封面）；`-1` / `-2` … 按数字升序排在后面。只有编号图、没有主图时，
+ * 就从 `-1` 起按序当预览图（`-1` 成为首图），不再退化成占位图。
+ *
+ * 返回 [{ file, ext }]，无图时返回 []。
+ */
+function lookupImages({ primary }, key) {
+  const stripped = stripRenameSuffix(key);
+  const mainBase = primary.has(key) ? key : primary.has(stripped) ? stripped : null;
+  if (!mainBase) {
+    // 没有主图：看有没有 <key>-1 / <key>_1 这一组
+    const hasNumbered = [`${key}-1`, `${stripped}-1`, `${key}_1`, `${stripped}_1`].some((k) => primary.has(k));
+    if (!hasNumbered) return [];
+  }
+  const base = mainBase ?? (primary.has(`${key}-1`) ? key : stripped);
+
+  const out = [];
+  const seen = new Set();
+  const push = (entry) => {
+    if (!entry || seen.has(entry.file)) return;
+    seen.add(entry.file);
+    out.push(entry);
+  };
+
+  push(primary.get(base));
+
+  // 编号图：base + `-N` / `_N`。按 N 升序，同 N 再按扩展名优先级
+  const numbered = [];
+  for (const [candidate, entry] of primary) {
+    if (candidate === base || !candidate.startsWith(base)) continue;
+    const m = GALLERY_SUFFIX_RE.exec(candidate.slice(base.length));
+    if (m) numbered.push({ order: Number(m[1]), entry });
+  }
+  numbered.sort((a, b) => a.order - b.order || PREFERRED_EXTS.indexOf(a.entry.ext) - PREFERRED_EXTS.indexOf(b.entry.ext));
+  // 去重名后缀的别名也会进 primary（如 `x-1 (2)`），按 file 去重避免同一张传两遍
+  for (const { entry } of numbered) push(entry);
+
+  return out;
 }
 
 // ==================== 图片转换 ====================
@@ -844,6 +892,9 @@ where game_key = ${dollarQuote(GAME_KEY)};
   let placeholder = 0;
   let skipDup = 0;
   let xunleiAttached = 0;
+  // 多图预览（主图之外的额外图）：条数与张数分开计数，便于验收
+  let multiImageMods = 0;
+  let extraImageCount = 0;
   // 每天 { 夸克条数, 迅雷条数, 迅雷导出条数 }，收尾时用来一眼看出哪天漏了盘
   const driveCoverage = {};
   // 已存在记录拿到的迅雷链接：本轮不写库（走的是 dedup 跳过分支），但必须让人知道
@@ -877,8 +928,8 @@ where game_key = ${dollarQuote(GAME_KEY)};
     console.log(`   解析 ${records.length} 条，去重后 ${unique.length} 条`);
 
     // 3c. 该目录图片索引
-    const imageMap = buildImageIndex(dirPath);
-    console.log(`   预览图索引: ${imageMap.size} 个唯一 base`);
+    const imageIndex = buildImageIndex(dirPath);
+    console.log(`   预览图索引: ${imageIndex.primary.size} 个唯一 base`);
 
     // 3d. 该目录的迅雷导出（可能没有：那就只有夸克一个盘）
     const xunleiDay = xunleiIndex.get(dir.name) || null;
@@ -910,31 +961,47 @@ where game_key = ${dollarQuote(GAME_KEY)};
       const versionMatch = title.match(/v(\d+[\d.]*)/i);
       const version = versionMatch ? `v${versionMatch[1]}` : DEFAULT_VERSION;
 
-      const imagePath = lookupImage(imageMap, canonicalKey);
-      let imageUrl;
-      if (!imagePath) {
-        imageUrl = PLACEHOLDER_IMAGE_URL;
+      // 多图：首图 → preview.webp，第 2 张起 → preview-2.webp / preview-3.webp …
+      // images 数组的顺序就是站内顺序（images[0] 是封面，见 mappers.ts）。
+      const imageEntries = lookupImages(imageIndex, canonicalKey);
+      const imageUrls = [];
+      if (imageEntries.length === 0) {
+        imageUrls.push(PLACEHOLDER_IMAGE_URL);
         placeholder++;
         placeholderKeys.push(`${dateLabel} · ${character} | ${title}`);
       } else {
-        matchedImage++;
-        try {
-          const { buffer, origSizeKB, webpSizeKB, reduction } = await convertToWebP(imagePath);
-          const objectKey = `mods/${slugify(character)}/${modId}/preview.webp`;
-          if (isDryRun) {
-            imageUrl = buildCosUrl(objectKey);
-            console.log(`   🖼  ${dateLabel} ${character} | ${title}  (${origSizeKB}KB → ${webpSizeKB}KB, -${reduction}%)`);
-          } else {
-            await uploadToCos(objectKey, buffer, "image/webp");
-            imageUrl = buildCosUrl(objectKey);
-            console.log(`   ✅ ${dateLabel} ${character} | ${title}`);
-          }
-        } catch (err) {
-          console.error(`   ❌ ${record.key}: ${err.message}`);
-          imageUrl = PLACEHOLDER_IMAGE_URL;
-          placeholder++;
-          placeholderKeys.push(`${dateLabel} · ${character} | ${title}`);
+        if (imageEntries.length > 1) {
+          multiImageMods++;
+          extraImageCount += imageEntries.length - 1;
         }
+        const slug = slugify(character);
+        for (const [idx, entry] of imageEntries.entries()) {
+          const name = idx === 0 ? "preview" : `preview-${idx + 1}`;
+          const label = idx === 0 ? "" : `  [图 ${idx + 1}]`;
+          try {
+            const { buffer, origSizeKB, webpSizeKB, reduction } = await convertToWebP(entry.file);
+            const objectKey = `mods/${slug}/${modId}/${name}.webp`;
+            if (isDryRun) {
+              imageUrls.push(buildCosUrl(objectKey));
+              console.log(
+                `   🖼  ${dateLabel} ${character} | ${title}${label}  (${origSizeKB}KB → ${webpSizeKB}KB, -${reduction}%)`
+              );
+            } else {
+              await uploadToCos(objectKey, buffer, "image/webp");
+              imageUrls.push(buildCosUrl(objectKey));
+              console.log(`   ✅ ${dateLabel} ${character} | ${title}${label}`);
+            }
+          } catch (err) {
+            console.error(`   ❌ ${entry.file}: ${err.message}`);
+            // 首图失败才落占位图；额外图失败只是少一张，不把主图挤掉
+            if (idx === 0) {
+              imageUrls.push(PLACEHOLDER_IMAGE_URL);
+              placeholder++;
+              placeholderKeys.push(`${dateLabel} · ${character} | ${title}`);
+            }
+          }
+        }
+        if (imageUrls.length > 0 && imageUrls[0] !== PLACEHOLDER_IMAGE_URL) matchedImage++;
       }
 
       if (!charCount[character]) charCount[character] = 0;
@@ -960,7 +1027,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
         nsfw: false,
         is_published: true,
         is_available: true,
-        images: [imageUrl],
+        images: imageUrls,
         xxmi_install_guide: XXMI_GUIDE,
         mod_author_url: null,
         video_url: null,
@@ -972,6 +1039,9 @@ where game_key = ${dollarQuote(GAME_KEY)};
   }
 
   console.log(`\n✅ 匹配预览图: ${matchedImage}，占位图: ${placeholder}，去重跳过: ${skipDup}`);
+  if (multiImageMods > 0) {
+    console.log(`🖼  多图预览: ${multiImageMods} 条（首图之外的额外图 ${extraImageCount} 张）`);
+  }
   console.log(`⚡ 附上迅雷链接: ${xunleiAttached} 条`);
 
   // 网盘覆盖表：一个日期目录里认出了哪几个盘、实际挂上了几个。
