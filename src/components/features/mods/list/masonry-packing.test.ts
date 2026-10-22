@@ -5,8 +5,12 @@ import {
   MASONRY_GAP,
   MASONRY_HOLE_TOLERANCE,
   MASONRY_MAX_WIDE_DELAY,
+  MASONRY_WIDE_DOMINANT_MIN_ITEMS,
+  MASONRY_WIDE_DOMINANT_SHARE,
   MASONRY_WIDE_MAX_HOLE,
   MASONRY_WIDE_RATIO,
+  evenColumnsForWideList,
+  isWideDominantMasonry,
   masonryCardHeight,
   masonryColumnLeft,
   masonrySpanWidth,
@@ -273,6 +277,68 @@ describe("packMasonry", () => {
   it("输出的 id 与输入一一对应且顺序不变", () => {
     const result = packMasonry(items([PORTRAIT, LANDSCAPE, PORTRAIT]), 4, 900);
     expect(result.placements.map((p) => p.id)).toEqual(ids(3));
+  });
+});
+
+describe("横屏为主的列表（2026-10-23 绯雪分类）", () => {
+  // 绯雪 163/198 换成横版封面后的真实比例
+  const FEIXUE_WIDE = 2544 / 1546;
+  const feixue = () => [
+    ...Array(17).fill(PORTRAIT),
+    ...Array(163).fill(FEIXUE_WIDE),
+  ];
+
+  it("判据：横屏占比 ≥ 阈值且张数够多才算「横屏为主」", () => {
+    const make = (wide: number, total: number) =>
+      Array.from({ length: total }, (_, i) => ({ id: `m${i}`, ratio: i < wide ? LANDSCAPE : PORTRAIT }));
+
+    expect(isWideDominantMasonry(make(20, 20))).toBe(true);
+    // 57% 的混排（REAL_RATIOS 那种）仍走老规则
+    expect(isWideDominantMasonry(make(8, 14))).toBe(false);
+    // 张数太少不判：图片还没加载完就切列数，整页会跳
+    expect(MASONRY_WIDE_DOMINANT_MIN_ITEMS).toBeGreaterThan(10);
+    expect(isWideDominantMasonry(make(8, 8))).toBe(false);
+    expect(MASONRY_WIDE_DOMINANT_SHARE).toBeGreaterThan(0.5);
+  });
+
+  it("奇数列降成偶数列，偶数与 1 列原样返回", () => {
+    expect(evenColumnsForWideList(5, true)).toBe(4);
+    expect(evenColumnsForWideList(3, true)).toBe(2);
+    expect(evenColumnsForWideList(4, true)).toBe(4);
+    expect(evenColumnsForWideList(2, true)).toBe(2);
+    expect(evenColumnsForWideList(1, true)).toBe(1);
+    // 不是横屏为主就一个数都不动
+    expect(evenColumnsForWideList(5, false)).toBe(5);
+  });
+
+  /** 每列最底下那张卡的下沿 */
+  const columnBottoms = (ratios: number[], columns: number, width: number) => {
+    const result = packMasonry(items(ratios), columns, width);
+    const bottoms = new Array(columns).fill(0);
+    for (const placement of result.placements) {
+      const ratio = ratios[Number(placement.id.slice(1))]!;
+      const height = masonryCardHeight(masonrySpanWidth(placement.span, result.columnWidth), ratio);
+      for (let column = placement.column; column < placement.column + placement.span; column += 1) {
+        bottoms[column] = Math.max(bottoms[column], placement.top + height);
+      }
+    }
+    return bottoms;
+  };
+
+  it("4 列下没有饿死的列（修复前 5 列会有一列从头空到底）", () => {
+    const ratios = feixue();
+    const bottoms = columnBottoms(ratios, 4, 1128);
+
+    // 任意两列的底部差不超过一张横屏卡的高度 —— 否则就是有一列早早停止生长
+    const widest = masonryCardHeight(masonrySpanWidth(2, (1128 - MASONRY_GAP * 3) / 4), FEIXUE_WIDE);
+    expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(widest);
+  });
+
+  it("横屏为主时即使列数是奇数，也不会把横屏卡全堆在同一对列上", () => {
+    // 修复前：一对列被压平后永远是最「齐平」的一对，其余列再也长不高
+    const result = packMasonry(items(feixue()), 5, 1128);
+    const usedColumns = new Set(result.placements.map((placement) => placement.column));
+    expect(usedColumns.size).toBeGreaterThanOrEqual(3);
   });
 });
 

@@ -61,6 +61,25 @@ export const MASONRY_MAX_WIDE_DELAY = 3;
  */
 export const MASONRY_WIDE_MAX_HOLE = 72;
 
+/**
+ * 横屏卡占比达到它就切到「横屏为主」的版式。
+ *
+ * 背景（2026-10-23 绯雪分类）：整类 163/198 张换成横版封面后，5 列里跨两列的卡
+ * 只能两两成对铺（0-1、2-3），第 5 列永远填不满 —— 用户看到的是「一列空着」。
+ * 横屏为主时改两件事（见 packMasonry 与 evenColumnsForWideList）：
+ *   1. 列数取偶数（5 → 4），跨列卡正好铺满整行；
+ *   2. 取消 `MASONRY_WIDE_MAX_HOLE` 的硬过滤 —— 那个值是为「混排」定的，
+ *      横屏为主时它会锁死在一对列上（那对列底部恒等，其它列判据永远超阈值），
+ *      剩余列被饿死后整页高得离谱。
+ *
+ * 0.65 取「稳」：实测混合样例 8/14 = 57% 仍走老规则，只有整类换过横版封面
+ * （绯雪 82%）才切换。
+ */
+export const MASONRY_WIDE_DOMINANT_SHARE = 0.65;
+
+/** 少于这么多张不判：图片还没加载完就来回切列数，整页会跳 */
+export const MASONRY_WIDE_DOMINANT_MIN_ITEMS = 12;
+
 /** 图片还没加载、拿不到真实宽高比时的兜底，与 ModCard 内联的 3/4 一致 */
 export const MASONRY_DEFAULT_RATIO = 3 / 4;
 
@@ -87,6 +106,29 @@ export type MasonryPackResult = {
   /** 单列宽度（像素） */
   columnWidth: number;
 };
+
+/**
+ * 这批卡片是不是「横屏为主」。
+ *
+ * 未知比例（图还没加载）由调用方按 `MASONRY_DEFAULT_RATIO` 传进来，也就是算作竖屏 ——
+ * 宁可晚一点切换，也不要在加载过程中在 4/5 列之间来回跳。
+ */
+export function isWideDominantMasonry(items: readonly MasonryPackItem[]): boolean {
+  if (items.length < MASONRY_WIDE_DOMINANT_MIN_ITEMS) return false;
+  const wide = items.filter((item) => item.ratio > MASONRY_WIDE_RATIO).length;
+  return wide / items.length >= MASONRY_WIDE_DOMINANT_SHARE;
+}
+
+/**
+ * 横屏为主的列表把奇数列降成偶数列（5 → 4）。
+ *
+ * 跨两列的卡在偶数列里正好两两铺满；奇数列必然剩一列没东西可放。已是偶数、或只有
+ * 一列时原样返回。
+ */
+export function evenColumnsForWideList(columns: number, wideDominant: boolean): number {
+  if (!wideDominant || columns < 2 || columns % 2 === 0) return columns;
+  return columns - 1;
+}
 
 /** 单张卡片（含边框和内边距）在给定宽度下的高度 */
 export function masonryCardHeight(width: number, ratio: number): number {
@@ -130,6 +172,12 @@ export function packMasonry(
   // 每列当前的底部纵坐标（最后一张卡下沿 + 间距）
   const bottoms = new Array<number>(columns).fill(0);
   const placements: MasonryPlacement[] = [];
+  /**
+   * 横屏为主 ⇒ 放宽 `MASONRY_WIDE_MAX_HOLE`（理由见该常量的注释）：
+   * 跨列卡把一对列的底部压成相等以后，那对列永远是「最齐平」的一对，硬过滤会让
+   * 后面所有横屏卡死守在这里，其余列再也长不高。
+   */
+  const wideDominant = isWideDominantMasonry(items);
 
   /** 单列卡：放进当前最短的列。 */
   const placeSingle = (item: MasonryPackItem) => {
@@ -171,13 +219,23 @@ export function packMasonry(
     let best: { column: number; gap: number; deepest: number } | null = null;
     for (let column = 0; column <= columns - 2; column += 1) {
       const gap = Math.abs(bottoms[column] - bottoms[column + 1]);
-      if (gap > MASONRY_WIDE_MAX_HOLE) continue;
+      // 混排时超过阈值的一对列不能放（会在浅的那列留一个停得下整张卡的洞）；
+      // 横屏为主时这条会锁死选位，见 wideDominant 的注释
+      if (!wideDominant && gap > MASONRY_WIDE_MAX_HOLE) continue;
 
       const deepest = Math.max(bottoms[column], bottoms[column + 1]);
       // 亚像素比较留容差：底部差几百分之一像素不该让选位在两次重排间跳来跳去
       const shallower = !best || deepest < best.deepest - 0.5;
-      const moreLevel = best !== null && Math.abs(deepest - best.deepest) <= 0.5 && gap < best.gap - 0.5;
-      if (shallower || moreLevel) best = { column, gap, deepest };
+      const moreLevel =
+        !wideDominant && best !== null && Math.abs(deepest - best.deepest) <= 0.5 && gap < best.gap - 0.5;
+      /**
+       * 横屏为主时的并列处理：两对列一样深就挑**洞更大**的那对。
+       * 洞大意味着那一列落后了，正是该补的地方；挑洞小的（混排口径）会一直
+       * 挑到同一对列上，落后的列永远追不回来。
+       */
+      const fillsMore =
+        wideDominant && best !== null && Math.abs(deepest - best.deepest) <= 0.5 && gap > best.gap + 0.5;
+      if (shallower || moreLevel || fillsMore) best = { column, gap, deepest };
     }
     return best;
   };

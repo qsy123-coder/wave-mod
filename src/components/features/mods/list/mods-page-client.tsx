@@ -7,7 +7,7 @@ import { useSession } from "@/components/features/auth/session-provider";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { ModsInfiniteGrid, type ModsGridStatus } from "@/components/features/mods/list/mods-infinite-grid";
 import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
-import { useLayoutPreference } from "@/components/features/mods/list/use-layout-preference";
+import { useLayoutPreference, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import type { ModSort, SiteMod } from "@/lib/mods";
 import { cn } from "@/lib/utils";
@@ -85,11 +85,20 @@ export function ModsPageClient({
    * 事件里调 startLoading —— `/mods?sort=latest` 点「全部」这类导航 URL 变了、筛选
    * 却没变，不会发起任何请求，自己起的进度条没人负责停（详见 mods-infinite-grid）。
    */
+  /**
+   * 网格实际画出来的列数（工具栏高亮用）。
+   *
+   * 横屏为主的分类会自动降成偶数列（5 → 4，见 masonry-packing.ts），跟 localStorage
+   * 里的偏好可能对不上；不高亮实际值的话，用户会看到「高亮 5 列、却是 4 列」。
+   */
+  const [effectiveColumns, setEffectiveColumns] = useState<MasonryColumns | null>(null);
+
   const handleStatusChange = useCallback(
-    ({ loading, totalCount }: ModsGridStatus) => {
+    ({ loading, totalCount, effectiveColumns: columns }: ModsGridStatus) => {
       if (loading) startLoading();
       else stopLoading();
       setGridTotal(totalCount);
+      setEffectiveColumns(columns);
     },
     [startLoading, stopLoading],
   );
@@ -183,6 +192,7 @@ export function ModsPageClient({
         layoutMode={layoutMode}
         onLayoutChange={setLayoutMode}
         masonryColumns={masonryColumns}
+        effectiveMasonryColumns={effectiveColumns}
         onMasonryColumnsChange={setMasonryColumns}
       />
 

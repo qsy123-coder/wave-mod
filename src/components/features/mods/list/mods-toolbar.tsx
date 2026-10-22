@@ -55,6 +55,12 @@ type ModsToolbarProps = {
   onLayoutChange?: (mode: "grid" | "masonry") => void;
   /** 用户显式选过的列数；`null` = 跟随网格自适应（手机上默认 2 列） */
   masonryColumns?: MasonryColumns | null;
+  /**
+   * 网格**实际**画出来的列数。横屏为主的分类会自动降成偶数列（5 → 4），
+   * 跟上面的偏好值可能不同；高亮必须跟实际值走，否则用户会看到「高亮 5 列、却是 4 列」。
+   * 网格还没上报时为 null。
+   */
+  effectiveMasonryColumns?: MasonryColumns | null;
   onMasonryColumnsChange?: (cols: MasonryColumns) => void;
   onFilterChange?: () => void;
 };
@@ -155,6 +161,7 @@ export function ModsToolbar({
   layoutMode = "grid",
   onLayoutChange,
   masonryColumns = null,
+  effectiveMasonryColumns = null,
   onMasonryColumnsChange,
   onFilterChange,
 }: ModsToolbarProps) {
@@ -183,10 +190,15 @@ export function ModsToolbar({
   const columnOptions = columnOptionsForWidth(viewportWidth);
   // 高亮同样要按当前档位校验：桌面存的 6 列切到手机宽度后不再生效（网格会退回 2 列），
   // 这时如果还拿 masonryColumns 去比，六个档位里一个都不会亮，看不出当前几列。
+  //
+  // 网格报上来的「实际列数」优先：横屏为主的分类会被降成偶数列（5 → 4），
+  // 那是用户眼前真正看到的版式，偏好值在这里只是「意图」。
   const activeColumns =
-    masonryColumns && columnOptions.includes(masonryColumns)
-      ? masonryColumns
-      : defaultColumnsForWidth(viewportWidth);
+    effectiveMasonryColumns && columnOptions.includes(effectiveMasonryColumns)
+      ? effectiveMasonryColumns
+      : masonryColumns && columnOptions.includes(masonryColumns)
+        ? masonryColumns
+        : defaultColumnsForWidth(viewportWidth);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   // 本地已提交搜索词：提交瞬间用于渲染「搜索: xxx」筛选条，随后与服务端 activeQuery 对齐

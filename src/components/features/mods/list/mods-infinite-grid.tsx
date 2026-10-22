@@ -9,6 +9,8 @@ import { CardDownloadAction } from "@/components/features/mods/detail/card-downl
 import {
   MASONRY_CARD_CHROME,
   MASONRY_DEFAULT_RATIO,
+  evenColumnsForWideList,
+  isWideDominantMasonry,
   masonryColumnLeft,
   masonrySpanWidth,
   packMasonry,
@@ -138,6 +140,11 @@ export type ModsGridStatus = {
   loading: boolean;
   /** 当前筛选下的全库总数；loading 中或请求失败时为 null */
   totalCount: number | null;
+  /**
+   * 实际画出来的列数（瀑布流）；网格模式或还没量到宽度时为 null。
+   * 工具栏用它高亮 —— 横屏为主的整类会自动降成偶数列，跟偏好值可能不同。
+   */
+  effectiveColumns: MasonryColumns | null;
 };
 
 export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
@@ -219,13 +226,8 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    * 无限滚动时顶部闪一条进度条太吵。总数在 isPending 期间报 null（那时 data 是空的）
    * —— 上层据此不显示计数，而不是显示一个 0。
    */
-  useEffect(() => {
-    onStatusChange?.({
-      // 乐观加载态（侧栏/工具栏刚点下）也要让顶部进度条立刻亮着
-      loading: isPending || pendingCharacter !== null || pendingListingLoad,
-      totalCount: isPending ? null : (data?.pages[0]?.totalCount ?? null),
-    });
-  }, [data, isPending, pendingCharacter, pendingListingLoad, onStatusChange]);
+  // ⚠️ 实现见下面「列数」那一节之后 —— 它还要报**实际生效的列数**（横屏为主的整类会
+  // 降成偶数列，工具栏的高亮得跟着走，否则会高亮 5 列却只画 4 列）。
 
   // 依赖里必须带上 sentinel 节点本身：节点换了就重建 observer。
   // isFetchingNextPage 也在依赖里 —— 每次取数状态变化都会重建，而新 observer 的首次
@@ -286,7 +288,11 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
     return () => window.removeEventListener("resize", update);
   }, [isMasonry]);
 
-  const colCount =
+  /**
+   * 用户显式选过 / 按屏幕宽度自适应得到的列数。
+   * 还没过「横屏为主降列」那道关 —— 那个要等图片比例，见下面的 `colCount`。
+   */
+  const preferredColCount =
     masonryColumns && columnOptionsForWidth(autoColState.width).includes(masonryColumns)
       ? masonryColumns
       : autoColState.count;
@@ -334,6 +340,48 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   const ratiosRef = useRef<Record<string, number>>({});
   const pendingRatiosRef = useRef<Record<string, number>>({});
   const ratioFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** 打包用的 (id, 比例) 列表；比例未知的按兜底 3/4 算（= 不算横屏） */
+  const packItems = useMemo(
+    () => mods.map((mod) => ({ id: mod.id, ratio: ratios[mod.id] ?? MASONRY_DEFAULT_RATIO })),
+    [mods, ratios],
+  );
+
+  /**
+   * 实际列数 = 偏好列数，但**横屏为主的整类降成偶数列**（5 → 4）。
+   *
+   * 跨两列的卡在奇数列里必然剩一列填不满（绯雪 163/198 换成横版封面后，5 列布局
+   * 就是「一列从头空到底」）。比例要等图片加载才知道，所以首屏会在 5 → 4 之间重排
+   * 一次；换来的是每行两张横屏卡、铺满不留空列。判据见 masonry-packing.ts。
+   */
+  const colCount = evenColumnsForWideList(preferredColCount, isWideDominantMasonry(packItems));
+
+  /**
+   * 把取数状态**镜像**给上层：顶部进度条按它起停，工具栏那句「共 N 个资源」用它的真总数。
+   *
+   * 为什么是「镜像当前状态」而不是「开始/结束两次通知」：一对 start/stop 只要有一边漏掉
+   * 就永久卡住（2026-09-21 那次「点了筛选一直骨架屏」正是如此）。镜像没有这个失败模式
+   * —— 每次状态变化都会把当前值报上去，网格落定就一定报 false。
+   *
+   * 也因此调用方**不应该**在点击时自己 startLoading：`/mods?sort=latest` 点「全部」这类
+   * 导航，URL 变了但解析出来的筛选一模一样，queryKey 不变、不会发起任何请求，自己起的
+   * 进度条就没人负责停。
+   *
+   * `loading` 覆盖「第一页还没到 / 正在用旧列表占位 / 侧栏工具栏乐观态」，但不跟翻页走：
+   * 无限滚动时顶部闪一条进度条太吵。总数在 isPending 期间报 null（那时 data 是空的）
+   * —— 上层据此不显示计数，而不是显示一个 0。
+   *
+   * `effectiveColumns` 给工具栏高亮用：非瀑布流（网格模式）报 null，让工具栏按老口径算。
+   * 它必须跟 `colCount` 同步上报 —— 用户看到的列数就是这里算出来的那个。
+   */
+  useEffect(() => {
+    onStatusChange?.({
+      // 乐观加载态（侧栏/工具栏刚点下）也要让顶部进度条立刻亮着
+      loading: isPending || pendingCharacter !== null || pendingListingLoad,
+      totalCount: isPending ? null : (data?.pages[0]?.totalCount ?? null),
+      effectiveColumns: isMasonry ? (colCount as MasonryColumns) : null,
+    });
+  }, [data, isPending, pendingCharacter, pendingListingLoad, onStatusChange, isMasonry, colCount]);
 
   const handleImageRatioChange = useCallback((modId: string, ratio: number) => {
     if (!Number.isFinite(ratio) || ratio <= 0) return;
@@ -421,12 +469,8 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    */
   const masonryPack = useMemo(() => {
     if (!isMasonry || masonryWidth <= 0) return null;
-    return packMasonry(
-      mods.map((mod) => ({ id: mod.id, ratio: ratios[mod.id] ?? MASONRY_DEFAULT_RATIO })),
-      colCount,
-      masonryWidth,
-    );
-  }, [isMasonry, masonryWidth, mods, ratios, colCount]);
+    return packMasonry(packItems, colCount, masonryWidth);
+  }, [isMasonry, masonryWidth, packItems, colCount]);
 
   const modById = useMemo(() => {
     const map = new Map<string, SiteMod>();
