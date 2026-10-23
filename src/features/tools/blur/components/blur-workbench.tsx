@@ -13,7 +13,7 @@ type DoneItem = { blob: Blob; name: string; url: string };
 const PAGE_SIZE = 48;
 
 /** 与 src/lib/cos/shared.ts 同一套数据万象参数：`%3E` 不能省，否则小图会被放大 */
-function thumb(url: string, width = 320) {
+function thumb(url: string, width = 640) {
   if (!url || !url.includes(".cos.") || url.includes("imageMogr2")) return url;
   return `${url}${url.includes("?") ? "&" : "?"}imageMogr2/thumbnail/${width}x%3E/format/webp`;
 }
@@ -187,14 +187,19 @@ export function BlurWorkbench() {
         {notice && <p className="mt-2 text-xs text-cyan-300/80">{notice}</p>}
       </div>
 
-      {/* 网格 */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+      {/*
+        瀑布流：预览图竖横比例差得多（竖屏常见 9:16、横屏 5:4），
+        固定比例 + object-cover 会把竖图裁成一条横条 —— 审阅时根本看不全"身上有什么"。
+        这里按自然比例铺：图片 width:100%、height:auto，不裁不放大。
+        用 CSS 多列而不是 grid：不需要预先知道每张图的宽高比，图片加载完自动流式重排。
+      */}
+      <div className="columns-2 gap-3 sm:columns-3 lg:columns-4 2xl:columns-5">
         {shown.map((item) => {
           const finished = done.get(item.id);
           return (
             <div
               key={item.id}
-              className="group overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900"
+              className="group mb-3 break-inside-avoid overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900"
             >
               <button
                 type="button"
@@ -204,10 +209,10 @@ export function BlurWorkbench() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={thumb(item.image, 320)}
+                  src={thumb(item.image, 640)}
                   alt={item.title}
                   loading="lazy"
-                  className="aspect-video w-full object-cover"
+                  className="block h-auto w-full bg-zinc-950"
                 />
                 <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/45 group-hover:opacity-100">
                   <span className="rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-black">
