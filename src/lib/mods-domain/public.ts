@@ -9,9 +9,9 @@ import { readEngagement } from "@/lib/engagement/store";
 import { modCacheTags } from "@/lib/mod-cache";
 import { mapMod, publicModColumns, publicModDetailColumns } from "@/lib/mods-domain/mappers";
 import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
-import { MODS_MAX_PAGE_SIZE, MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
+import { normalizeModsPageArgs } from "@/lib/mods-domain/filter-params";
 import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, rankModsByQuery, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
-import type { ModRow, ModsPage, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
+import type { ModRow, ModsPage, ModSort, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
 /**
@@ -130,7 +130,7 @@ const getCachedPublishedModCount = unstable_cache(
  * 分片全部命中缓存时不产生任何 Supabase 往返（与改动前一致），
  * 且 mapMod 也一并省掉 —— 这是本次改造的目的，见 getCachedModShard 的注释。
  */
-async function getAllPublishedMods(gameKey: string): Promise<SiteMod[]> {
+async function getAllPublishedMods(gameKey: string, strict = false): Promise<SiteMod[]> {
   try {
     const total = await getCachedPublishedModCount(gameKey);
     // 总数为 0 时也拉一片，走统一路径返回空数组
@@ -153,6 +153,10 @@ async function getAllPublishedMods(gameKey: string): Promise<SiteMod[]> {
 
     return batches.flat();
   } catch (error) {
+    // strict：调用方（列表页缓存）需要知道「这是兜底结果」，否则会把快照固化一整个 TTL。
+    // 见 getPublicModsPage 的 catch —— 那边会退回到不缓存的老路径。
+    if (strict) throw error;
+
     // Supabase 网关不可用（典型：项目因超配额被 restriction，全站 402）时回退到本地快照。
     // 故意放在这一层、而不是 getCachedModShard 内部：让失败继续向上抛，
     // 不被 unstable_cache 把兜底结果固化一整个 TTL —— 网关一恢复就能立刻回到实时数据。
@@ -246,6 +250,14 @@ export async function getCharacterSuggestions(gameKey = defaultGameKey) {
 export type PublicModsOptions = { relaxQuery?: boolean };
 
 /**
+ * 模块内部的加载选项。
+ *
+ * `strict` 只给列表页缓存用：Supabase 读失败时抛错而不是回退快照，
+ * 免得 `unstable_cache` 把「兜底数据」当成正常结果固化一整个 TTL。
+ */
+type LoadPublicModsOptions = PublicModsOptions & { strict?: boolean };
+
+/**
  * 用互动计数器的**实时值**覆盖 views / likes / favorites。
  *
  * 为什么非做不可：这三个字段的 Supabase 列**早已没有写入方** —— 点赞、收藏、浏览
@@ -288,14 +300,17 @@ async function withLiveEngagement(mods: SiteMod[]): Promise<SiteMod[]> {
  */
 async function loadPublicMods(
   filters: PublicModsFilters,
-  options: PublicModsOptions = {},
+  options: LoadPublicModsOptions = {},
 ): Promise<{ mods: SiteMod[]; relaxed: boolean }> {
   const { gameKey = defaultGameKey, sort = "default" } = filters;
 
   let allMods: SiteMod[];
   try {
-    allMods = await getAllPublishedMods(gameKey);
+    allMods = await getAllPublishedMods(gameKey, options.strict);
   } catch (error) {
+    // 缓存回填那条路必须把错误抛出去（见 LoadPublicModsOptions.strict）。
+    if (options.strict) throw error;
+
     // Supabase env 缺失、或某批拉取失败：回退空列表（与改动前行为一致），
     // 且失败结果不会被写入缓存，下一请求会重试。
     logger.warn("[mods] getPublicMods failed, fallback to empty list", { error: error instanceof Error ? error.message : "unknown" });
@@ -401,10 +416,8 @@ export async function getLatestMods(limit: number, gameKey = defaultGameKey) {
  * `MODS_MAX_PAGE_SIZE` 是**防呆**用的 —— 见 filter-params.ts 里那个常量的注释。
  */
 export function paginateMods(allMods: SiteMod[], page: number, pageSize: number, relaxed = false): ModsPage {
-  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
-  const safePageSize = Number.isFinite(pageSize)
-    ? Math.min(MODS_MAX_PAGE_SIZE, Math.max(1, Math.floor(pageSize)))
-    : MODS_PAGE_SIZE;
+  // 钳制口径与缓存键共用一份（filter-params.ts），否则等价 URL 会各占一个缓存项
+  const { page: safePage, pageSize: safePageSize } = normalizeModsPageArgs(page, pageSize);
   const from = (safePage - 1) * safePageSize;
   const items = allMods.slice(from, from + safePageSize);
   const hasMore = from + safePageSize < allMods.length;
@@ -422,20 +435,122 @@ export function paginateMods(allMods: SiteMod[], page: number, pageSize: number,
   };
 }
 
+/**
+ * ==================== 列表页结果缓存 ====================
+ *
+ * 分片缓存（getCachedModShard）只省掉了「Supabase 往返 + 整表 mapMod」；
+ * **每个请求仍然要付**：11 个分片缓存项的反序列化（≈5.5MB JSON，比它承载的
+ * 16 条结果大两个数量级）+ 整表 filter/sort。
+ *
+ * 2026-10-23 线上实测：/api/mods 单次 ≈160ms Active CPU，占全站 53%；
+ * 按当时速率外推约 5.5 CPU 小时/月，而 Hobby 的额度只有 4 小时/月
+ * （超了不是计费，是项目直接被暂停）。
+ *
+ * 所以再加一层「整页结果」缓存：命中时只反序列化这一页的 16 条。
+ * 香港反代日志同日显示 /api/mods 的请求里 90% 不带搜索词、40% 是 STALE
+ * （缓存过期回源），这一层的键空间因此是可控的。
+ *
+ * 三条边界：
+ *   1. **带 query 的请求不进缓存**：搜索词长尾无界，缓存它既撑爆缓存区也没收益。
+ *   2. **hot / favorites 单独 60 秒**：这两种排序读点赞/收藏的实时计数，
+ *      和「列表成员」不是一个变化频率，不能共用 6 小时 TTL。
+ *   3. **Supabase 失败时不缓存兜底快照**：缓存函数用 strict，失败就抛给
+ *      getPublicModsPage，由它退回不缓存的老路径（见下面的 catch）。
+ */
+const LIVE_PAGE_CACHE_SECONDS = 60;
+
+/**
+ * 角色名超过这个长度就不进缓存。
+ *
+ * 正常角色名最长也就十来个字；这个上限只防「匿名请求用一个超长字符串
+ * 刷出无数个缓存项」。超限的请求仍能正常返回，只是不缓存。
+ */
+const MAX_CACHED_CHARACTER_LENGTH = 64;
+
+type ModsPageCacheArgs = {
+  character: string;
+  direct: boolean;
+  gameKey: string;
+  page: number;
+  pageSize: number;
+  preview: boolean;
+  sort: ModSort;
+};
+
+/**
+ * `query` 单独传、不进 `args`：它**不能**出现在缓存键里（长尾无界），
+ * 只有「不缓存」那条分支会带上它。缓存分支调用时永远是 undefined。
+ */
+async function computeModsPage(
+  args: ModsPageCacheArgs,
+  options: LoadPublicModsOptions = {},
+  query?: string,
+): Promise<ModsPage> {
+  const { mods, relaxed } = await loadPublicMods(
+    {
+      character: args.character || undefined,
+      direct: args.direct,
+      gameKey: args.gameKey,
+      preview: args.preview,
+      query,
+      sort: args.sort,
+    },
+    options,
+  );
+
+  return paginateMods(mods, args.page, args.pageSize, relaxed);
+}
+
+const getCachedModsPage = unstable_cache(
+  async (args: ModsPageCacheArgs) => computeModsPage(args, { strict: true }),
+  ["public-mods-page"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: [modCacheTags.list] },
+);
+
+const getCachedLiveModsPage = unstable_cache(
+  async (args: ModsPageCacheArgs) => computeModsPage(args, { strict: true }),
+  ["public-mods-page-live"],
+  { revalidate: LIVE_PAGE_CACHE_SECONDS, tags: [modCacheTags.list] },
+);
+
 export async function getPublicModsPage(
   page: number,
   pageSize: number,
   filters: PublicModsFilters = {},
   options: PublicModsOptions = {},
 ): Promise<ModsPage> {
-  const sort = filters.sort ?? "default";
+  // 钳制后再进缓存键：?page=0 与 ?page=1 是同一页，不该各占一个缓存项
+  const { page: safePage, pageSize: safePageSize } = normalizeModsPageArgs(page, pageSize);
 
-  // 注意：整表 filter+sort 已经在上面的 loadPublicMods 里做完，这里只剩切片。
-  // 调用方（如 ModsListing）自己要拿总数时，应当复用同一份 allMods 调 paginateMods，
-  // 而不是再调一次本函数 —— 那会把整表扫描白跑第二遍。
-  const { mods, relaxed } = await loadPublicMods({ ...filters, sort }, options);
+  const args: ModsPageCacheArgs = {
+    character: filters.character ?? "",
+    direct: Boolean(filters.direct),
+    gameKey: filters.gameKey ?? defaultGameKey,
+    page: safePage,
+    pageSize: safePageSize,
+    preview: Boolean(filters.preview),
+    sort: filters.sort ?? "default",
+  };
 
-  return paginateMods(mods, page, pageSize, relaxed);
+  const cacheable = !filters.query && args.character.length <= MAX_CACHED_CHARACTER_LENGTH;
+
+  if (!cacheable) {
+    return computeModsPage(args, options, filters.query);
+  }
+
+  const readPage =
+    args.sort === "hot" || args.sort === "favorites" ? getCachedLiveModsPage : getCachedModsPage;
+
+  try {
+    return await readPage(args);
+  } catch (error) {
+    // 走到这里通常是 Supabase 读失败（strict 故意抛出来，避免把快照固化一整个 TTL）。
+    // 退回不缓存的老路径：它会走 getSnapshotRows 兜底，行为与改动前一致。
+    logger.warn("[mods] 列表页缓存回填失败，本次走实时路径", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
+    return computeModsPage(args, options);
+  }
 }
 
 /**

@@ -147,7 +147,7 @@ curl -sI https://go.sunnyrose.xyz/api/mods?sort=new | grep -i x-cache-status   #
 | `/favicon.ico` | 1 年 | 15 天 563MB 的热点请求 |
 | 其他带扩展名的静态资源 | 7 天 | css/js/图片/字体/视频等 |
 | 页面 HTML / RSC | 300 秒，后台刷新 | **只有带登录态 Cookie（`sb-*-auth-token`）的请求绕过**；皮肤/布局 cookie 不绕过；上游回 Set-Cookie 的响应不落盘 |
-| `/api/mods` | 1800 秒 | 带 `query=` 的请求不进缓存（长尾搜索） |
+| `/api/mods` | 7200 秒 | 带 `query=` 的请求不进缓存（长尾搜索）。2026-10-23 日志实测 40% 是 STALE，故从 1800s 再提到 2h |
 | `/api/updates` | 300 秒 | 与接口自身 `s-maxage` 对齐 |
 | `/api/characters` | 600 秒 | 角色分类列表 |
 | `/api/home/lower` | 300 秒 | 首页下半屏数据 |
@@ -194,6 +194,15 @@ COS 实现保留为回退，带 5s 截止 + 60s 熔断。
 健康日动态请求约 7.3 万/天 ≈ 220 万/月，是上限的 2 倍。本反代的缓存就是为它设计
 的。上线后每天在 Vercel 面板看 Function Invocations；2026-10-21 实测已降到
 约 9.1K 次/12 小时（≈55 万/月），余量充足，下一个瓶颈是 Active CPU 而不是调用次数。
+
+**2026-10-23 复查：调用次数确实安全，Active CPU 才是真瓶颈。** 面板显示 7K 次/12h
+（≈42 万/月），但 Active CPU 合计 453s/12h，按 nginx 日志里「12:00–24:00 占全天 69%」
+折算约 **5.5 CPU 小时/月**，而 Hobby 只有 4 小时/月（超了直接暂停，不是计费）。
+其中 `/api/mods` 一条占 53%（单次 ≈160ms）。两条措施一起上：
+
+1. 本表 TTL 从 1800s 提到 7200s（日志 40% 是 STALE，长尾 URL 半小时 TTL 基本不命中）；
+2. 列表页结果在 Next 侧再加一层整页缓存（`public.ts` 的 `getCachedModsPage`），
+   命中时不再反序列化 11 个分片（≈5.5MB）再重排整表。
 
 ### 7.4 上游超时
 

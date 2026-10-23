@@ -4,6 +4,7 @@ import {
   DEFAULT_MODS_FILTERS,
   isDefaultModsFilters,
   modsListingKey,
+  normalizeModsPageArgs,
   parseModsFilters,
 } from "@/lib/mods-domain/filter-params";
 
@@ -81,5 +82,27 @@ describe("modsListingKey", () => {
   // 用 join("|") 拼字符串就会在这里撞键：值本身带分隔符时，两份不同的筛选拼出同一个串。
   it("值里的分隔符不会造成碰撞", () => {
     expect(modsListingKey(parse("character=a%7Cb"))).not.toBe(modsListingKey(parse("character=a&query=b")));
+  });
+});
+
+/**
+ * 分页钳制是切片与缓存键的共同口径：两边不一致会让等价 URL 各占一个缓存项。
+ */
+describe("normalizeModsPageArgs", () => {
+  it("合法值原样返回", () => {
+    expect(normalizeModsPageArgs(3, 16)).toEqual({ page: 3, pageSize: 16 });
+  });
+
+  it("page 小于 1 / 非数 / 小数都归一", () => {
+    expect(normalizeModsPageArgs(0, 16)).toEqual({ page: 1, pageSize: 16 });
+    expect(normalizeModsPageArgs(-5, 16)).toEqual({ page: 1, pageSize: 16 });
+    expect(normalizeModsPageArgs(Number.NaN, 16)).toEqual({ page: 1, pageSize: 16 });
+    expect(normalizeModsPageArgs(2.7, 16)).toEqual({ page: 2, pageSize: 16 });
+  });
+
+  it("pageSize 被钳到 1..MODS_MAX_PAGE_SIZE", () => {
+    expect(normalizeModsPageArgs(1, 999999).pageSize).toBe(48);
+    expect(normalizeModsPageArgs(1, 0).pageSize).toBe(1);
+    expect(normalizeModsPageArgs(1, Number.POSITIVE_INFINITY).pageSize).toBe(16);
   });
 });

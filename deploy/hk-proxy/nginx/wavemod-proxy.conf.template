@@ -218,7 +218,14 @@ server {
         # 十几分钟才来一次，300 秒命中不了几次却每次都要回源，而这条路由单次
         # 156ms Active CPU、占 Vercel 全部 CPU 的 65%。30 分钟的滞后对「每日更新」
         # 的站完全够用（站点自己的数据缓存 TTL 是 6 小时）。
-        proxy_cache_valid 200 1800s;
+        #
+        # 2026-10-23 再提到 7200s：全天 3,758 次请求里 1,519 次（40%）是 STALE ——
+        # 缓存过期回源，说明 30 分钟对「十几分钟来一次」的长尾几乎等于没缓存；
+        # 另外 970 个不同的 URL，778 个一天只来一次（TTL 对它们本来就无效）。
+        # 提到 2 小时后，重复访问的 URL 回源次数降到 1/4。
+        # 内容新鲜度不受影响：新 mod 的失效是 /api/revalidate 清 Vercel 那层，
+        # /updates 页仍是 300s；这条只影响「按角色筛选/翻页」的列表最多 2 小时。
+        proxy_cache_valid 200 7200s;
         proxy_ignore_headers Cache-Control Expires Set-Cookie;
         proxy_cache_bypass $cache_bypass_method $arg_query;
         proxy_no_cache $cache_bypass_method;

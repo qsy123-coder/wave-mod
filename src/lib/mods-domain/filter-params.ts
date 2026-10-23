@@ -29,6 +29,22 @@ export const MODS_PAGE_SIZE = 16;
  */
 export const MODS_MAX_PAGE_SIZE = 48;
 
+/**
+ * 分页参数的钳制口径（**唯一**一份）。
+ *
+ * 谁用它：`paginateMods` 的切片、以及 `getPublicModsPage` 的缓存键。
+ * 两处必须一致 —— 键用了原始值、切片用了钳制值的话，`?page=0` 与 `?page=1`
+ * 会各占一个缓存项却返回同一页，长尾 URL 再多一倍。
+ */
+export function normalizeModsPageArgs(page: number, pageSize: number) {
+  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+  const safePageSize = Number.isFinite(pageSize)
+    ? Math.min(MODS_MAX_PAGE_SIZE, Math.max(1, Math.floor(pageSize)))
+    : MODS_PAGE_SIZE;
+
+  return { page: safePage, pageSize: safePageSize };
+}
+
 /** 列表页的筛选条件。字段与 URL 参数一一对应（参数名见 buildModsFilterHref）。 */
 export type ModsFilters = {
   sort: ModSort;
