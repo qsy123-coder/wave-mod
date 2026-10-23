@@ -165,9 +165,23 @@
 - 覆盖脚本（URL → key，断库可用）
 - 单测：URL → 对象键解析
 
+### Phase 1.5: 审阅台（同批追加，2026-10-24）
+需求方追加：「我有很多图要改，最好边看哪些图有问题直接就打模糊」。单张上传->处理->跑命令
+的循环对批量场景太慢，因此追加：
+
+- `GET /api/tools/blur-index` —— 读本地 `data/mods-snapshot.json.gz` 生成图片清单（**不查库**）
+- `/tools/blur` —— 把全站 5509 张预览图铺成卡片网格，可搜标题、按角色筛
+- 卡片点开即在该图上框选打码，保存后收回网格并打「已打码」标
+- 一次性导出 `blur-batch.zip`（零依赖 STORE zip）+ `blur-jobs.json`（打码图名 → 原图 URL）
+- `scripts/overwrite-cos-images-batch.mjs` 按清单批量覆盖，同样不查库
+
+**为什么不在真实 `ModCard` 上加按钮**：管理员判定走 Supabase 登录，库不可用时判不出来 ——
+按钮要么不出现、要么对所有人出现；且改 `ModCard` 需要重新部署，而库挂着时 build 有把空数据
+烤进产物的前科。审阅台把同样「卡片 + 按钮」的体验隔离在一个独立路由里，零风险可用。
+
 ### Phase 2: Enhancements
-- `/admin/tools/blur` 复用同一页面，支持从库内选图（`images[]` 里挑一张）
 - 覆盖后自动校验：拉一次图片 ETag 对比
+- 审阅台支持多图 mod（目前只处理 `images[0]`）
 
 ### Future Considerations
 - 批量打码（一个 mod 的多张图）
