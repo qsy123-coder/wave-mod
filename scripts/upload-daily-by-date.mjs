@@ -34,6 +34,7 @@ import COS from "cos-nodejs-sdk-v5";
 import sharp from "sharp";
 
 import { resolveDakaIfApplicable } from "./daka-classify.mjs";
+import { resolveReshareAlias } from "./reshare-title-aliases.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
@@ -534,6 +535,10 @@ function resolveCharacterAndTitle(key) {
   if (key.startsWith("尤诺的月环")) {
     return { character: "尤诺", title: key.slice("尤诺".length) };
   }
+  // 重分享的老 mod：分享名换个写法（前缀/作者位置/切换键写法），而库内 title 是旧写法。
+  // 不归一会让全量重跑把它们当新增再插一遍 —— 与改分类踩的是同一个坑，见别名表注释。
+  const reshare = resolveReshareAlias(key);
+  if (reshare) return reshare;
   // 独立分类：爱弥斯的机甲 / 爱弥斯大招 → 「爱弥斯的机甲」，title 保留完整 key
   for (const p of AEMEATH_MECH_PREFIXES) {
     if (key.startsWith(p)) {

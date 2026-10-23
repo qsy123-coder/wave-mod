@@ -40,6 +40,7 @@ import COS from "cos-nodejs-sdk-v5";
 
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
+import { resolveReshareAlias } from "./reshare-title-aliases.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
@@ -249,6 +250,11 @@ if (onlyQuark.length || onlyXunlei.length) {
   console.log("");
 }
 
+// 分享名可能是重分享后的新写法（前缀 / 作者位置 / 切换键写法都变过），
+// 别名表把它归一成库内 title 再匹配；未登记的 key 原样查，行为与之前一致。
+const titleOf = (key) => resolveReshareAlias(key)?.title ?? key;
+const lookupTitles = [...new Set(allKeys.map(titleOf))].sort();
+
 // ==================== 拉库内记录 ====================
 
 const dbMods = await psqlJson(`
@@ -263,7 +269,7 @@ select coalesce(
 )::text
 from mods
 where game_key = ${dollarQuote(GAME_KEY)}
-  and title in (${allKeys.map((k) => dollarQuote(k)).join(", ")});
+  and title in (${lookupTitles.map((k) => dollarQuote(k)).join(", ")});
 `);
 
 if (!Array.isArray(dbMods)) {
@@ -286,7 +292,8 @@ const unmatched = [];
 const ambiguous = [];
 
 for (const key of allKeys) {
-  const hits = byTitle.get(key) ?? [];
+  const dbTitle = titleOf(key);
+  const hits = byTitle.get(dbTitle) ?? [];
   if (hits.length === 0) { unmatched.push(key); continue; }
   if (hits.length > 1) { ambiguous.push({ key, candidates: hits.map((h) => `${h.id} | ${h.character}`) }); continue; }
 
@@ -313,6 +320,7 @@ console.log(`⚠️  歧义(同 title 多命中): ${ambiguous.length}\n`);
 
 for (const t of toWrite) {
   console.log(`  ${t.character} | ${t.title}`);
+  if (t.key !== t.title) console.log(`      （分享名: ${t.key}）`);
   console.log(`      夸克  ${t.before.quark ?? "(无)"}`);
   console.log(`         →  ${t.after.quark ?? "(无)"}`);
   console.log(`      迅雷  ${t.before.xunlei ?? "(无)"}`);
