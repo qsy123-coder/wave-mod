@@ -118,13 +118,26 @@ describe("packMasonry", () => {
     expect(result.placements[0].span).toBe(1);
   });
 
-  it("多列时横屏卡优先落到最低的一对列上", () => {
-    // 5 列：前 3 张竖屏占住 0/1/2 列，最空的相邻列对是 3/4
+  it("多列时横屏卡优先落到最低的**齐平**列对上", () => {
+    // 5 列：前 3 张竖屏占住 0/1/2 列。横屏卡只从偶数下标起跨（0-1、2-3），
+    // 其中 2-3 里第 4 列还是空的（两列差 = 一整张卡 > 阈值，放进去会留大洞），
+    // 只有 0-1 是齐平的，所以落在 0 列。
     const result = packMasonry(items([PORTRAIT, PORTRAIT, PORTRAIT, LANDSCAPE]), 5, 1024);
     const wide = result.placements[3];
 
     expect(wide.span).toBe(2);
-    expect(wide.column).toBe(3);
+    expect(wide.column).toBe(0);
+  });
+
+  it("跨列卡只从偶数下标起跨，边列不会被饿死（2026-10-23 绯雪 6 列）", () => {
+    // 6 列真实数据下曾经出现「首列尾部 877 / 中间列 4574」：第一张横屏落在 1-2，
+    // 之后 0-1、2-3 都因为两列差超过阈值被排除，横屏只能在 1-2 / 3-4 之间来回。
+    const ratios = [0.5, 0.52, 0.49, 0.53, 0.51, 0.5, 0.55, 0.48,
+      1.6, 1.6, 0.52, 1.6, 0.5, 1.6, 0.53, 1.6, 0.51, 1.6];
+    const result = packMasonry(items(ratios), 6, 1320);
+    for (const placement of result.placements.filter((p) => p.span === 2)) {
+      expect(placement.column % 2).toBe(0);
+    }
   });
 
   it("多列时连续横屏卡在各对列间轮转，不会全堆在同一对列（2026-10-22 尤诺分类）", () => {
@@ -293,8 +306,10 @@ describe("横屏为主的列表（2026-10-23 绯雪分类）", () => {
       Array.from({ length: total }, (_, i) => ({ id: `m${i}`, ratio: i < wide ? LANDSCAPE : PORTRAIT }));
 
     expect(isWideDominantMasonry(make(20, 20))).toBe(true);
-    // 57% 的混排（REAL_RATIOS 那种）仍走老规则
-    expect(isWideDominantMasonry(make(8, 14))).toBe(false);
+    // 57% 也算「横屏为主」了：0.65 那版正是因为绯雪第一页 58% 被漏掉才留下空列
+    expect(isWideDominantMasonry(make(8, 14))).toBe(true);
+    // 正好一半（50%）仍走老规则 —— 实测 5 列下只差 232px，切过去反而更差
+    expect(isWideDominantMasonry(make(7, 14))).toBe(false);
     // 张数太少不判：图片还没加载完就切列数，整页会跳
     expect(MASONRY_WIDE_DOMINANT_MIN_ITEMS).toBeGreaterThan(10);
     expect(isWideDominantMasonry(make(8, 8))).toBe(false);
@@ -412,8 +427,17 @@ describe("packMasonry 不留大洞", () => {
     expect(maxHole(REAL_RATIOS, 2, 360)).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
   });
 
-  it("桌面 5 列：同样不留大洞", () => {
-    expect(maxHole(REAL_RATIOS, 5, 1128)).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
+  it("桌面 5 列・混排（横屏不到一半）仍不留大洞", () => {
+    // 6/14 ≈ 43%，低于 MASONRY_WIDE_DOMINANT_SHARE ⇒ 走的还是带硬过滤的老路径
+    const mixed = [1.61, 2.94, 2.35, 2.56, 0.5, 0.53, 0.7, 0.63, 0.47, 0.66, 0.52, 0.61, 0.55, 0.58];
+    expect(maxHole(mixed, 5, 1128)).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
+  });
+
+  it("桌面 5 列・横屏为主：洞放宽到 2 倍，换取列高均衡", () => {
+    // REAL_RATIOS 是 8/14 = 57% ⇒ 横屏为主。这条路**刻意**取消硬过滤：
+    // 死守 72px 会把其余列饿死（2026-10-23 实测整页 62087px、两列只剩 1450px）。
+    // 放宽后的洞仍小于一张卡的高度（列宽 211 时最矮的横卡也有 ~330px）。
+    expect(maxHole(REAL_RATIOS, 5, 1128)).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE * 2 + 1e-6);
   });
 
   it("全是横图时也不会集体留洞", () => {
