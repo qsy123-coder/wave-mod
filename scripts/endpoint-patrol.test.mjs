@@ -124,15 +124,21 @@ describe("classifyProbe · 站点自身探测", () => {
   });
 });
 
-describe("classifyProbe · DNS 探测", () => {
-  it("解析到首尔 IP → ok", () => {
+describe("classifyProbe · DNS 探测（首尔机 2026-10-23 退场后的口径）", () => {
+  it("解析不出东西 = A 记录已删除 → ok（这是退场后的正常态）", () => {
+    const v = classifyProbe({ kind: "dns", status: null, headers: {}, addresses: [] });
+    expect(v.severity).toBe("ok");
+  });
+
+  it("还指着已退场的首尔 IP = 记录没删干净 → warn（不天天报红）", () => {
     const v = classifyProbe({
       kind: "dns",
       status: null,
       headers: {},
       addresses: ["43.133.78.46"],
     });
-    expect(v.severity).toBe("ok");
+    expect(v.severity).toBe("warn");
+    expect(v.reason).toContain("43.133.78.46");
   });
 
   it("解析到 Vercel 的 IP = A 记录被改回去了 → critical", () => {
@@ -145,19 +151,14 @@ describe("classifyProbe · DNS 探测", () => {
     expect(v.severity).toBe("critical");
   });
 
-  it("解析到任何别的 IP（被劫持/改动）→ critical", () => {
+  it("解析到任何别的 IP（被劫持/改动）→ warn", () => {
     const v = classifyProbe({
       kind: "dns",
       status: null,
       headers: {},
       addresses: ["1.2.3.4"],
     });
-    expect(v.severity).toBe("critical");
-  });
-
-  it("解析不出东西 → critical", () => {
-    const v = classifyProbe({ kind: "dns", status: null, headers: {}, addresses: [] });
-    expect(v.severity).toBe("critical");
+    expect(v.severity).toBe("warn");
   });
 });
 

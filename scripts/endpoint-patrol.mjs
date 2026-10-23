@@ -13,11 +13,13 @@
  *
  * 三项检查：
  *   ① 带 Host 头直打 Vercel anycast IP —— 还回 402 就说明残留用户又在看暂停页
- *   ② www.wave-mod.top 从公共 DNS 解析 —— 必须仍是首尔 IP
- *   ③ 新入口 go.sunnyrose.xyz 与主站 —— 必须 200
+ *   ② www.wave-mod.top 从公共 DNS 解析 —— 2026-10-23 首尔机不续费后退场，
+ *      这里的预期反过来了：**解析不出东西才是正常的**（A 记录应当已删除）
+ *   ③ 唯一入口 go.sunnyrose.xyz —— 必须 200
  *
  * 只有 critical 会让进程退出码为 1（→ GitHub Actions 报红并给仓库主发邮件）。
- * warn 只打印，因为它是「可接受的退化」（例如兜底项目拆掉后 Vercel 回 404）。
+ * warn 只打印，因为它是「可接受的退化」（例如兜底项目拆掉后 Vercel 回 404、
+ * 旧 A 记录还没删干净）。
  *
  * 用法：node scripts/endpoint-patrol.mjs
  * 无第三方依赖，只用 Node 内置模块。
@@ -26,9 +28,9 @@ import { request } from "node:https";
 import { Resolver } from "node:dns/promises";
 import { pathToFileURL } from "node:url";
 
-/** 首尔自托管服务器 */
+/** 已退场的首尔自托管服务器（2026-10-23 到期未续费；保留常量只为识别残留解析） */
 export const SEOUL_IP = "43.133.78.46";
-/** 规范主站（也是 NEXT_PUBLIC_SITE_URL 的值） */
+/** 旧域名（已停用；解析到任何地址都值得看一眼，尤其是被改回 Vercel 时） */
 export const CANONICAL_HOST = "www.wave-mod.top";
 /** 新入口：全新主机名，无 DNS 缓存包袱，见 docs/域名入口拓扑.md */
 export const ALT_HOST = "go.sunnyrose.xyz";
@@ -154,22 +156,33 @@ function classifyVercelEdge({ status, headers, error }) {
   return { severity: "warn", reason: `Vercel 边缘返回意外状态码 ${status}` };
 }
 
+/**
+ * 旧域名的解析判定（首尔机退场之后的预期）。
+ *
+ * 正常状态是**解析不出任何地址**：A 记录已删除，老链接直接 NXDOMAIN，
+ * 这是去索引之后最干净的下场。
+ *
+ * 两种异常要分开对待：
+ *   - 指回 Vercel 的 IP ⇒ critical：等于又把「网站已暂停部署」那张页暴露给残留用户。
+ *   - 还指着别的地址（比如没删干净、或 IP 被腾讯回收后转给他人）⇒ warn：
+ *     旧域名本来就不该再解析，但也不至于每天报红，看到的人再去控制台删干净。
+ */
 function classifyDns({ addresses, host }) {
   const list = (addresses ?? []).filter(Boolean);
   const label = host ?? CANONICAL_HOST;
   if (list.length === 0) {
-    return { severity: "critical", reason: `${label} 解析不出任何地址` };
+    return { severity: "ok", reason: `${label} 已不解析（A 记录已删除，符合预期）` };
   }
-  const bad = list.filter((ip) => ip !== SEOUL_IP);
-  if (bad.length === 0) {
-    return { severity: "ok", reason: `${label} → ${SEOUL_IP}` };
+  const isVercel = list.some((ip) => VERCEL_IP_PREFIXES.some((p) => ip.startsWith(p)));
+  if (isVercel) {
+    return {
+      severity: "critical",
+      reason: `${label} 解析到了 Vercel 的 IP（${list.join(", ")}）—— A 记录被改回去了`,
+    };
   }
-  const isVercel = bad.some((ip) => VERCEL_IP_PREFIXES.some((p) => ip.startsWith(p)));
   return {
-    severity: "critical",
-    reason: isVercel
-      ? `${label} 解析到了 Vercel 的 IP（${bad.join(", ")}）—— A 记录被改回去了`
-      : `${label} 解析到了非预期 IP（${bad.join(", ")}）`,
+    severity: "warn",
+    reason: `${label} 仍在解析（${list.join(", ")}）—— 旧域名应当已删记录${list.includes(SEOUL_IP) ? "；首尔机已退场" : ""}`,
   };
 }
 
@@ -265,17 +278,16 @@ async function main() {
     record(`vercel-edge ${ip}`, classifyProbe({ kind: "vercel-edge", ...r }));
   }
 
-  // ② A 记录是否仍指向首尔（含国内解析器，代表大陆用户会拿到什么）
+  // ② 旧域名的 A 记录删干净了没有（含国内解析器，代表大陆用户会拿到什么）
   for (const { label, server } of PUBLIC_DNS) {
     const addresses = await resolveVia(server, CANONICAL_HOST);
     record(`dns ${label} (${server})`, classifyProbe({ kind: "dns", addresses, host: CANONICAL_HOST }));
   }
 
-  // ③ 两个入口自己是否活着（证书也顺带校验）
-  for (const host of [ALT_HOST, CANONICAL_HOST]) {
-    const r = await probeByHost(host);
-    record(`site ${host}`, classifyProbe({ kind: "site", host, ...r }));
-  }
+  // ③ 唯一入口自己是否活着（证书也顺带校验）。
+  // 旧域名不再探测：记录删掉后它本来就该连不上，探它只会天天报红。
+  const r = await probeByHost(ALT_HOST);
+  record(`site ${ALT_HOST}`, classifyProbe({ kind: "site", host: ALT_HOST, ...r }));
 
   const severity = worstSeverity(results.map((r) => r.severity));
   const criticals = results.filter((r) => r.severity === "critical");
