@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>预览图打码 · WaveMod</title>
+<!--
+  纯前端打码工具。全部处理在本机浏览器完成：不上传、不登录、不查库、不含任何密钥。
+  产物下载到本地，再由页面生成的命令（scripts/overwrite-cos-image.mjs）覆盖回 COS 原对象。
+  相关文档：docs/preview-image-blur-tool-prd.md
+-->
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #14171c;
+    --line: #262b33;
+    --text: #e6e9ee;
+    --muted: #8b94a3;
+    --accent: #22d3ee;
+    --warn: #f5b544;
+    --err: #f2555a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  header { margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0 0 6px; font-weight: 600; }
+  .sub { margin: 0; color: var(--muted); }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .drop {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; min-height: 168px; cursor: pointer;
+    border: 1.5px dashed var(--line); border-radius: 10px;
+    color: var(--muted); transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.hot { border-color: var(--accent); background: rgba(34,211,238,.06); }
+  .drop strong { color: var(--text); font-size: 15px; }
+  .urlrow { display: flex; gap: 8px; margin-top: 12px; }
+  .urlrow input { flex: 1; }
+  input[type="text"], input[type="url"] {
+    width: 100%; padding: 9px 11px; border-radius: 8px;
+    border: 1px solid var(--line); background: #0f1216; color: var(--text);
+    font: inherit;
+  }
+  input:focus { outline: 2px solid rgba(34,211,238,.45); outline-offset: 1px; }
+  .btn {
+    padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: #1b2027; color: var(--text); font: inherit; cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { border-color: #3a424e; background: #20262e; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #06282e; font-weight: 600; }
+  .btn.primary:hover:not(:disabled) { background: #4ee0f5; }
+  .btn.ghost { background: transparent; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button {
+    padding: 7px 14px; border: 0; background: transparent; color: var(--muted);
+    font: inherit; cursor: pointer;
+  }
+  .seg button.on { background: rgba(34,211,238,.16); color: var(--accent); }
+  .slider { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); }
+  .slider input { width: 150px; accent-color: var(--accent); }
+  .slider span { min-width: 86px; font-variant-numeric: tabular-nums; }
+  .hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  .err { color: var(--err); font-size: 13px; margin: 8px 0 0; white-space: pre-wrap; }
+  .stage {
+    position: relative; margin: 12px auto 0; line-height: 0;
+    border-radius: 8px; overflow: hidden; background: #07090b;
+    width: fit-content; max-width: 100%;
+  }
+  .stage canvas { display: block; }
+  #cv { max-width: 100%; height: auto; }
+  #ov { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+  .footerbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+  .field { display: block; margin: 14px 0 10px; }
+  .field span { display: block; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  pre {
+    margin: 0 0 10px; padding: 12px; border-radius: 8px;
+    background: #0f1216; border: 1px solid var(--line);
+    color: #cfe9f2; font: 12.5px/1.65 ui-monospace, Consolas, "Cascadia Mono", monospace;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  code { font-family: ui-monospace, Consolas, monospace; color: #cfe9f2; }
+  h2 { font-size: 15px; margin: 18px 0 0; font-weight: 600; }
+  .warn { color: var(--warn); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>预览图打码</h1>
+    <p class="sub">拖入图片 → 框出敏感区域 → 下载 → 用底部命令覆盖回 COS。全部在本机完成，不上传、不登录、不查库。</p>
+  </header>
+
+  <section id="loader" class="panel">
+    <label id="drop" class="drop" for="fileInput">
+      <strong>拖入图片</strong>
+      <span>或点击选择 · 也可以直接 Ctrl+V 粘贴</span>
+    </label>
+    <input id="fileInput" type="file" accept="image/*" hidden>
+    <div class="urlrow">
+      <input id="urlInput" type="text" placeholder="或粘贴 COS 原图链接 https://…myqcloud.com/mods/…/preview.webp">
+      <button id="urlLoad" class="btn">载入</button>
+    </div>
+    <p class="hint">链接载入依赖 COS 桶的跨域配置；被浏览器拦住时，先把原图下载到本地再拖进来。</p>
+    <p id="loadError" class="err" hidden></p>
+  </section>
+
+  <section id="editor" class="panel" hidden>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="打码方式">
+        <button type="button" data-mode="mosaic" class="on">马赛克</button>
+        <button type="button" data-mode="blur">高斯模糊</button>
+      </div>
+      <label class="slider">
+        <span id="strengthLabel">方块 16px</span>
+        <input id="strength" type="range" min="4" max="80" step="2" value="16">
+      </label>
+      <button id="btnDelete" class="btn ghost" disabled>删除选中</button>
+      <button id="btnUndo" class="btn ghost" disabled>撤销</button>
+      <button id="btnReset" class="btn ghost">重新选择</button>
+    </div>
+    <p class="hint">在图上拖出矩形即可打码。点击区域可选中，拖动可移动，拖右下角方块可改大小，Delete 删除，Ctrl+Z 撤销。</p>
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <canvas id="ov"></canvas>
+    </div>
+
+    <div class="footerbar">
+      <button id="btnExport" class="btn primary">下载打码图（WebP）</button>
+      <span id="exportInfo" class="hint"></span>
+    </div>
+
+    <h2>覆盖回 COS</h2>
+    <label class="field">
+      <span>原图链接（前台正在读的那张，不带 ? 查询串）</span>
+      <input id="srcUrl" type="text" placeholder="https://…myqcloud.com/mods/…/preview.webp">
+    </label>
+    <pre id="cmd">先填原图链接 ↑</pre>
+    <div class="row">
+      <button id="btnCopyCmd" class="btn" disabled>复制命令</button>
+      <button id="btnCopyUrl" class="btn ghost" disabled>复制链接</button>
+      <button id="btnDownloadUrlFile" class="btn ghost" hidden>下载 blur-url.txt</button>
+    </div>
+    <p class="hint">命令在项目根目录执行。建议先加 <code>--dry-run</code> 看一眼对象键，确认无误再去掉。链接含中文时页面会自动改用 <code>--url-file</code>。</p>
+    <p id="copyInfo" class="hint"></p>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var MODE_CONF = {
+    mosaic: { min: 4, max: 80, step: 2, def: 16, label: function (v) { return "方块 " + v + "px"; } },
+    blur: { min: 2, max: 60, step: 1, def: 12, label: function (v) { return "半径 " + v + "px"; } }
+  };
+  var MIN_REGION = 8;
+
+  var el = function (id) { return document.getElementById(id); };
+  var loader = el("loader"), editor = el("editor");
+  var drop = el("drop"), fileInput = el("fileInput"), urlInput = el("urlInput"), urlLoad = el("urlLoad");
+  var loadError = el("loadError");
+  var cv = el("cv"), ov = el("ov"), stage = el("stage");
+  var strengthInput = el("strength"), strengthLabel = el("strengthLabel");
+  var btnDelete = el("btnDelete"), btnUndo = el("btnUndo"), btnReset = el("btnReset");
+  var btnExport = el("btnExport"), exportInfo = el("exportInfo");
+  var srcUrl = el("srcUrl"), cmd = el("cmd");
+  var btnCopyCmd = el("btnCopyCmd"), btnCopyUrl = el("btnCopyUrl"), btnDownloadUrlFile = el("btnDownloadUrlFile");
+  var copyInfo = el("copyInfo");
+
+  var state = {
+    src: null,          // 原始分辨率的离屏 canvas
+    baseName: "image",
+    regions: [],        // { x, y, w, h, mode, strength } —— 全部用源图坐标
+    selected: -1,
+    drag: null,
+    mode: "mosaic",
+    strength: 16,
+    history: [],
+    exportedName: ""
+  };
+
+  // 复用的临时画布，避免每个区域每次重绘都新建
+  var tmpA = document.createElement("canvas");
+  var tmpB = document.createElement("canvas");
+
+  /* ---------- 载入 ---------- */
+
+  function showError(msg) {
+    loadError.textContent = msg;
+    loadError.hidden = false;
+  }
+  function clearError() {
+    loadError.hidden = true;
+    loadError.textContent = "";
+  }
+
+  function nameFromUrl(url) {
+    try {
+      var last = decodeURIComponent(url.split("?")[0].split("/").pop() || "");
+      return last || "image";
+    } catch (e) {
+      return "image";
+    }
+  }
+
+  async function loadBlob(blob, name, originUrl) {
+    if (!blob || !/^image\//.test(blob.type)) throw new Error("这不是图片文件。");
+    if (blob.size > 40 * 1024 * 1024) throw new Error("图片超过 40MB，先压缩一下再试。");
+
+    var bitmap;
+    try {
+      // 让浏览器按 EXIF 摆正（手机截图常见带旋转标记）
+      bitmap = await createImageBitmap(blob, { imageOrientation: "from-image" });
+    } catch (e) {
+      // 老 Safari 不认这个选项，退回默认解码
+      bitmap = await createImageBitmap(blob);
+    }
+    if (bitmap.width * bitmap.height > 40e6) {
+      bitmap.close && bitmap.close();
+      throw new Error("图片像素超过 4000 万，浏览器可能处理不动，先缩小再试。");
+    }
+
+    var src = document.createElement("canvas");
+    src.width = bitmap.width;
+    src.height = bitmap.height;
+    src.getContext("2d").drawImage(bitmap, 0, 0);
+    bitmap.close && bitmap.close();
+
+    state.src = src;
+    state.baseName = (name || "image").replace(/\.[^.]+$/, "") || "image";
+    state.regions = [];
+    state.selected = -1;
+    state.history = [];
+    state.drag = null;
+    state.exportedName = "";
+
+    cv.width = src.width;
+    cv.height = src.height;
+    ov.width = src.width;
+    ov.height = src.height;
+
+    if (originUrl) srcUrl.value = originUrl;
+    loader.hidden = true;
+    editor.hidden = false;
+    exportInfo.textContent = "";
+    syncStageSize();
+    renderAll();
+    updateControls();
+    updateCommand();
+  }
+
+  function syncStageSize() {
+    if (!state.src) return;
+    var avail = Math.min(stage.parentElement.clientWidth, 1100);
+    var maxH = Math.floor(window.innerHeight * 0.68);
+    var byWidth = avail;
+    var byHeight = maxH * (state.src.width / state.src.height);
+    var w = Math.max(160, Math.min(byWidth, byHeight));
+    stage.style.width = Math.round(w) + "px";
+  }
+
+  async function loadFile(file) {
+    clearError();
+    try {
+      await loadBlob(file, file.name, "");
+      urlInput.value = "";
+    } catch (e) {
+      showError("载入失败：" + (e && e.message ? e.message : e));
+    }
+  }
+
+  async function loadFromUrl(url) {
+    clearError();
+    var trimmed = (url || "").trim();
+    if (!trimmed) {
+      showError("先粘贴一个图片链接。");
+      return;
+    }
+    if (!/^https?:\/\//i.test(trimmed)) {
+      showError("链接需要以 http(s):// 开头。");
+      return;
+    }
+    var bare = trimmed.split("?")[0];
+    try {
+      var res = await fetch(trimmed, { mode: "cors", credentials: "omit" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      var blob = await res.blob();
+      await loadBlob(blob, nameFromUrl(bare), bare);
+      urlInput.value = "";
+    } catch (e) {
+      showError(
+        "链接载入失败（" + (e && e.message ? e.message : e) + "）。\n" +
+        "多半是 COS 桶没有给本站开放跨域读取。解决：在浏览器里打开原图 → 右键另存为 → 拖进上面的框。"
+      );
+    }
+  }
+
+  fileInput.addEventListener("change", function () {
+    if (fileInput.files && fileInput.files[0]) loadFile(fileInput.files[0]);
+    fileInput.value = "";
+  });
+  urlLoad.addEventListener("click", function () { loadFromUrl(urlInput.value); });
+  urlInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") loadFromUrl(urlInput.value);
+  });
+
+  ["dragenter", "dragover"].forEach(function (type) {
+    drop.addEventListener(type, function (e) {
+      e.preventDefault();
+      drop.classList.add("hot");
+    });
+  });
+  ["dragleave", "drop"].forEach(function (type) {
+    drop.addEventListener(type, function (e) {
+      e.preventDefault();
+      drop.classList.remove("hot");
+    });
+  });
+  drop.addEventListener("drop", function (e) {
+    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) loadFile(file);
+  });
+
+  document.addEventListener("paste", function (e) {
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf("image/") === 0) {
+        var file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          loadFile(file);
+          return;
+        }
+      }
+    }
+  });
+
+  /* ---------- 绘制 ---------- */
+
+  function paintRegion(ctx, r) {
+    var x = Math.round(r.x), y = Math.round(r.y);
+    var w = Math.round(r.w), h = Math.round(r.h);
+    if (w < 1 || h < 1) return;
+
+    // 裁剪到源图范围内，避免边界外取到空白
+    var sx = Math.max(0, x), sy = Math.max(0, y);
+    var ex = Math.min(state.src.width, x + w), ey = Math.min(state.src.height, y + h);
+    var sw = ex - sx, sh = ey - sy;
+    if (sw < 1 || sh < 1) return;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(sx, sy, sw, sh);
+    ctx.clip();
+
+    if (r.mode === "mosaic") {
+      var block = Math.max(2, Math.round(r.strength));
+      var tw = Math.max(1, Math.round(sw / block));
+      var th = Math.max(1, Math.round(sh / block));
+      tmpA.width = tw;
+      tmpA.height = th;
+      var actx = tmpA.getContext("2d");
+      actx.imageSmoothingEnabled = true;
+      actx.clearRect(0, 0, tw, th);
+      actx.drawImage(state.src, sx, sy, sw, sh, 0, 0, tw, th);
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(tmpA, 0, 0, tw, th, sx, sy, sw, sh);
+      ctx.imageSmoothingEnabled = true;
+    } else {
+      var radius = Math.max(1, r.strength);
+      // 多取一圈源像素，让高斯模糊在裁剪边缘不会露出透明的"描边"
+      var pad = Math.ceil(radius * 3);
+      var px = Math.max(0, sx - pad), py = Math.max(0, sy - pad);
+      var pex = Math.min(state.src.width, ex + pad), pey = Math.min(state.src.height, ey + pad);
+      var pw = pex - px, ph = pey - py;
+
+      tmpB.width = pw;
+      tmpB.height = ph;
+      var bctx = tmpB.getContext("2d");
+      bctx.clearRect(0, 0, pw, ph);
+      bctx.filter = "blur(" + radius + "px)";
+      bctx.drawImage(state.src, px, py, pw, ph, 0, 0, pw, ph);
+      bctx.filter = "none";
+
+      ctx.drawImage(tmpB, px, py);
+    }
+    ctx.restore();
+  }
+
+  function renderImageInto(target) {
+    var ctx = target.getContext("2d");
+    ctx.clearRect(0, 0, target.width, target.height);
+    ctx.drawImage(state.src, 0, 0);
+    for (var i = 0; i < state.regions.length; i++) paintRegion(ctx, state.regions[i]);
+  }
+
+  function pxScale() {
+    var rect = ov.getBoundingClientRect();
+    return rect.width > 0 ? ov.width / rect.width : 1;
+  }
+
+  function renderOverlay() {
+    var ctx = ov.getContext("2d");
+    ctx.clearRect(0, 0, ov.width, ov.height);
+    var s = pxScale();
+
+    for (var i = 0; i < state.regions.length; i++) {
+      var r = state.regions[i];
+      var on = i === state.selected;
+      ctx.lineWidth = Math.max(1, 2 * s);
+      ctx.setLineDash(on ? [] : [6 * s, 4 * s]);
+      ctx.strokeStyle = on ? "#22d3ee" : "rgba(255,255,255,.82)";
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+
+      if (on) {
+        var hs = 11 * s;
+        ctx.setLineDash([]);
+        ctx.fillStyle = "#22d3ee";
+        ctx.fillRect(r.x + r.w - hs / 2, r.y + r.h - hs / 2, hs, hs);
+      }
+    }
+
+    if (state.drag && state.drag.kind === "new") {
+      var d = state.drag, rectNow = normRect(d.start, d.cur);
+      ctx.setLineDash([6 * s, 4 * s]);
+      ctx.lineWidth = Math.max(1, 2 * s);
+      ctx.strokeStyle = "#22d3ee";
+      ctx.strokeRect(rectNow.x, rectNow.y, rectNow.w, rectNow.h);
+    }
+    ctx.setLineDash([]);
+  }
+
+  function renderAll() {
+    renderImageInto(cv);
+    renderOverlay();
+  }
+
+  /* ---------- 交互 ---------- */
+
+  function toNatural(e) {
+    var rect = ov.getBoundingClientRect();
+    var s = ov.width / rect.width;
+    return {
+      x: clamp((e.clientX - rect.left) * s, 0, ov.width),
+      y: clamp((e.clientY - rect.top) * s, 0, ov.height)
+    };
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function normRect(a, b) {
+    return {
+      x: Math.min(a.x, b.x),
+      y: Math.min(a.y, b.y),
+      w: Math.abs(a.x - b.x),
+      h: Math.abs(a.y - b.y)
+    };
+  }
+
+  function hitRegion(p) {
+    for (var i = state.regions.length - 1; i >= 0; i--) {
+      var r = state.regions[i];
+      if (p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) return i;
+    }
+    return -1;
+  }
+
+  function onHandle(r, p, tol) {
+    return Math.abs(p.x - (r.x + r.w)) <= tol && Math.abs(p.y - (r.y + r.h)) <= tol;
+  }
+
+  function pushHistory() {
+    state.history.push(JSON.stringify(state.regions));
+    if (state.history.length > 50) state.history.shift();
+    btnUndo.disabled = false;
+  }
+
+  function select(index) {
+    state.selected = index;
+    syncToolbarToSelection();
+    updateControls();
+    renderOverlay();
+  }
+
+  var rafId = 0;
+  function scheduleRender(moveOnly) {
+    if (rafId) return;
+    rafId = requestAnimationFrame(function () {
+      rafId = 0;
+      if (moveOnly) renderOverlay();
+      else renderAll();
+    });
+  }
+
+  ov.addEventListener("pointerdown", function (e) {
+    if (!state.src) return;
+    e.preventDefault();
+    var p = toNatural(e);
+    var tol = 10 * pxScale();
+    var sel = state.regions[state.selected];
+
+    if (sel && onHandle(sel, p, tol)) {
+      pushHistory();
+      state.drag = { kind: "resize", index: state.selected, start: p, orig: { x: sel.x, y: sel.y, w: sel.w, h: sel.h } };
+    } else {
+      var hit = hitRegion(p);
+      if (hit >= 0) {
+        select(hit);
+        pushHistory();
+        var r = state.regions[hit];
+        state.drag = { kind: "move", index: hit, start: p, orig: { x: r.x, y: r.y, w: r.w, h: r.h } };
+      } else {
+        select(-1);
+        state.drag = { kind: "new", start: p, cur: p };
+      }
+    }
+    ov.setPointerCapture(e.pointerId);
+    scheduleRender(true);
+  });
+
+  ov.addEventListener("pointermove", function (e) {
+    if (!state.drag) return;
+    var p = toNatural(e);
+    var d = state.drag;
+
+    if (d.kind === "new") {
+      d.cur = p;
+      scheduleRender(true);
+      return;
+    }
+
+    var r = state.regions[d.index];
+    if (!r) return;
+
+    if (d.kind === "move") {
+      var nx = clamp(d.orig.x + (p.x - d.start.x), 0, state.src.width - d.orig.w);
+      var ny = clamp(d.orig.y + (p.y - d.start.y), 0, state.src.height - d.orig.h);
+      r.x = nx;
+      r.y = ny;
+    } else {
+      r.w = clamp(d.orig.w + (p.x - d.start.x), MIN_REGION, state.src.width - d.orig.x);
+      r.h = clamp(d.orig.h + (p.y - d.start.y), MIN_REGION, state.src.height - d.orig.y);
+    }
+    scheduleRender(false);
+  });
+
+  function endDrag(e) {
+    if (!state.drag) return;
+    var d = state.drag;
+    state.drag = null;
+
+    if (d.kind === "new") {
+      var rect = normRect(d.start, d.cur);
+      if (rect.w >= MIN_REGION && rect.h >= MIN_REGION) {
+        // 新建区域时不需要 pushHistory（外面没推过）：先把当前状态存进历史
+        pushHistory();
+        state.regions.push({
+          x: rect.x, y: rect.y, w: rect.w, h: rect.h,
+          mode: state.mode, strength: state.strength
+        });
+        state.selected = state.regions.length - 1;
+      }
+    }
+    try { ov.releasePointerCapture(e.pointerId); } catch (err) { /* 指针已释放 */ }
+    syncToolbarToSelection();
+    updateControls();
+    renderAll();
+  }
+  ov.addEventListener("pointerup", endDrag);
+  ov.addEventListener("pointercancel", endDrag);
+
+  /* ---------- 工具栏 ---------- */
+
+  function applyMode(mode) {
+    state.mode = mode;
+    var conf = MODE_CONF[mode];
+    strengthInput.min = conf.min;
+    strengthInput.max = conf.max;
+    strengthInput.step = conf.step;
+
+    var sel = state.regions[state.selected];
+    if (sel) {
+      sel.mode = mode;
+      // 换模式时强度含义变了（方块边长 vs 模糊半径），沿用当前值但夹到新范围
+      sel.strength = clamp(sel.strength, conf.min, conf.max);
+      state.strength = sel.strength;
+    } else {
+      state.strength = clamp(state.strength, conf.min, conf.max);
+    }
+    strengthInput.value = String(state.strength);
+    updateStrengthLabel();
+    updateModeButtons();
+    renderAll();
+  }
+
+  function updateStrengthLabel() {
+    strengthLabel.textContent = MODE_CONF[state.mode].label(Number(strengthInput.value));
+  }
+
+  function updateModeButtons() {
+    var buttons = document.querySelectorAll(".seg button");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].classList.toggle("on", buttons[i].getAttribute("data-mode") === state.mode);
+    }
+  }
+
+  function syncToolbarToSelection() {
+    var sel = state.regions[state.selected];
+    if (!sel) return;
+    state.mode = sel.mode;
+    state.strength = sel.strength;
+    var conf = MODE_CONF[state.mode];
+    strengthInput.min = conf.min;
+    strengthInput.max = conf.max;
+    strengthInput.step = conf.step;
+    strengthInput.value = String(sel.strength);
+    updateStrengthLabel();
+    updateModeButtons();
+  }
+
+  function updateControls() {
+    var hasSel = state.selected >= 0 && state.regions[state.selected];
+    btnDelete.disabled = !hasSel;
+    btnUndo.disabled = state.history.length === 0;
+  }
+
+  var segButtons = document.querySelectorAll(".seg button");
+  for (var i = 0; i < segButtons.length; i++) {
+    segButtons[i].addEventListener("click", function () {
+      applyMode(this.getAttribute("data-mode"));
+    });
+  }
+
+  strengthInput.addEventListener("input", function () {
+    state.strength = Number(strengthInput.value);
+    var sel = state.regions[state.selected];
+    if (sel) sel.strength = state.strength;
+    updateStrengthLabel();
+    renderAll();
+  });
+
+  btnDelete.addEventListener("click", function () {
+    if (state.selected < 0) return;
+    pushHistory();
+    state.regions.splice(state.selected, 1);
+    state.selected = -1;
+    updateControls();
+    renderAll();
+  });
+
+  btnUndo.addEventListener("click", undo);
+  function undo() {
+    if (state.history.length === 0) return;
+    state.regions = JSON.parse(state.history.pop());
+    if (state.selected >= state.regions.length) state.selected = -1;
+    syncToolbarToSelection();
+    updateControls();
+    renderAll();
+  }
+
+  btnReset.addEventListener("click", function () {
+    state.src = null;
+    state.regions = [];
+    state.selected = -1;
+    state.history = [];
+    state.exportedName = "";
+    editor.hidden = true;
+    loader.hidden = false;
+    clearError();
+    exportInfo.textContent = "";
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (editor.hidden) return;
+    var tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+    if ((e.key === "Delete" || e.key === "Backspace") && state.selected >= 0) {
+      e.preventDefault();
+      btnDelete.click();
+    } else if (e.key === "Escape") {
+      select(-1);
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      undo();
+    }
+  });
+
+  window.addEventListener("resize", function () {
+    syncStageSize();
+    renderOverlay();
+  });
+
+  /* ---------- 导出 ---------- */
+
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  btnExport.addEventListener("click", function () {
+    if (!state.src) return;
+    exportInfo.textContent = "导出中…";
+
+    var out = document.createElement("canvas");
+    out.width = state.src.width;
+    out.height = state.src.height;
+    renderImageInto(out);
+
+    out.toBlob(function (blob) {
+      if (!blob) {
+        exportInfo.textContent = "导出失败：浏览器没能编码这张图。";
+        return;
+      }
+      var name = (state.baseName || "image") + "-blur.webp";
+      downloadBlob(blob, name);
+      state.exportedName = name;
+      exportInfo.textContent =
+        "已下载 " + name + "（" + out.width + "×" + out.height + "，" +
+        Math.round(blob.size / 1024) + "KB）。文件在浏览器下载目录。";
+      updateCommand();
+    }, "image/webp", 0.92);
+  });
+
+  /* ---------- 命令生成 ---------- */
+
+  function isAscii(value) {
+    return /^[\x20-\x7E]*$/.test(value);
+  }
+
+  // 不带查询串：带 ?imageMogr2/... 的是渲染层拼的缩略图地址，不是对象本身
+  function isCosUrl(value) {
+    return /^https:\/\/[a-z0-9.\-]+\.cos\.[a-z0-9\-]+\.myqcloud\.com\/[^\s?#]+$/i.test(value);
+  }
+
+  function updateCommand() {
+    var url = srcUrl.value.trim();
+
+    if (!url) {
+      cmd.textContent = "node scripts/overwrite-cos-image.mjs --url=\"<上面填的原图链接>\" --latest --dry-run";
+      btnCopyCmd.disabled = true;
+      btnCopyUrl.disabled = true;
+      btnDownloadUrlFile.hidden = true;
+      copyInfo.textContent = "";
+      return;
+    }
+
+    btnCopyUrl.disabled = false;
+
+    if (!isCosUrl(url)) {
+      cmd.textContent =
+        "⚠️ 这不像本桶的 COS 裸对象地址（应为 https://<bucket>.cos.<region>.myqcloud.com/<key>，且不带 ? 查询串）。\n" +
+        "照此填写的命令会被脚本拒绝。";
+      btnCopyCmd.disabled = true;
+      btnDownloadUrlFile.hidden = true;
+      return;
+    }
+
+    var ascii = isAscii(url);
+    var line;
+    if (ascii) {
+      line = 'node scripts/overwrite-cos-image.mjs --url="' + url + '" --latest --dry-run';
+      btnDownloadUrlFile.hidden = true;
+    } else {
+      line = 'node scripts/overwrite-cos-image.mjs --url-file="blur-url.txt" --latest --dry-run';
+      btnDownloadUrlFile.hidden = false;
+    }
+
+    cmd.textContent =
+      line + "\n\n" +
+      "# 确认对象键无误后，去掉末尾的 --dry-run 再跑一次";
+
+    btnCopyCmd.disabled = false;
+    copyInfo.textContent = ascii
+      ? "链接是纯 ASCII，可以直接放进命令行。"
+      : "链接含中文，已切换为 --url-file：先点「下载 blur-url.txt」（放在项目根目录），再执行上面的命令。";
+  }
+
+  srcUrl.addEventListener("input", updateCommand);
+
+  function copyText(text, okMessage) {
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      ta.remove();
+      copyInfo.textContent = ok ? okMessage : "复制失败，请手动选中上面的文字复制。";
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        copyInfo.textContent = okMessage;
+      }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  btnCopyCmd.addEventListener("click", function () {
+    copyText(cmd.textContent.split("\n\n")[0], "命令已复制，粘到项目根目录的终端执行。");
+  });
+
+  btnCopyUrl.addEventListener("click", function () {
+    copyText(srcUrl.value.trim(), "链接已复制。");
+  });
+
+  btnDownloadUrlFile.addEventListener("click", function () {
+    // 必须是不带 BOM 的 UTF-8：脚本会先剥 BOM，但没必要制造一个
+    var blob = new Blob([srcUrl.value.trim() + "\n"], { type: "text/plain;charset=utf-8" });
+    downloadBlob(blob, "blur-url.txt");
+    copyInfo.textContent = "已下载 blur-url.txt，放到项目根目录后执行上面的命令。";
+  });
+
+  /* ---------- 初始 ---------- */
+
+  updateStrengthLabel();
+  updateModeButtons();
+  updateCommand();
+  clearError();
+})();
+</script>
+</body>
+</html>
