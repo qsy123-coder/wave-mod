@@ -12,10 +12,17 @@ type DoneItem = { blob: Blob; name: string; url: string };
 
 const PAGE_SIZE = 48;
 
+/**
+ * 每次打开审阅台换一个时间戳：数据万象的缩略图响应带 max-age（对象 no-cache 时是
+ * 30 天），原地覆盖对象**不会**让浏览器重新取图 —— 审阅台正是用来核对覆盖结果的，
+ * 挂着一份旧缩略图等于白看。整页一个常量即可，别每次渲染都变（那样每帧都在重新下载）。
+ */
+const GRID_CACHE_BUST = Date.now();
+
 /** 与 src/lib/cos/shared.ts 同一套数据万象参数：`%3E` 不能省，否则小图会被放大 */
 function thumb(url: string, width = 640) {
   if (!url || !url.includes(".cos.") || url.includes("imageMogr2")) return url;
-  return `${url}${url.includes("?") ? "&" : "?"}imageMogr2/thumbnail/${width}x%3E/format/webp`;
+  return `${url}${url.includes("?") ? "&" : "?"}imageMogr2/thumbnail/${width}x%3E/format/webp&_t=${GRID_CACHE_BUST}`;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
