@@ -74,6 +74,23 @@ const parsed = JSON.parse(readFileSync(jobsPath, "utf8"));
 const jobs = Array.isArray(parsed) ? parsed : parsed.jobs;
 if (!Array.isArray(jobs) || jobs.length === 0) fail("清单里没有 jobs");
 
+/**
+ * 重名直接拒绝：覆盖脚本是「按名字在解压目录里取图」，
+ * 两个 job 同名就会把同一张打码图写进两个不同的对象键 —— 张冠李戴且不报错。
+ * 旧版审阅台只取原图文件名（landscape.webp / preview.webp），很容易重名。
+ */
+const nameCounts = new Map();
+for (const job of jobs) {
+  if (job?.name) nameCounts.set(job.name, (nameCounts.get(job.name) ?? 0) + 1);
+}
+const duplicates = [...nameCounts].filter(([, count]) => count > 1);
+if (duplicates.length > 0) {
+  fail(
+    `清单里有重名文件：${duplicates.map(([name, count]) => `${name} ×${count}`).join("、")}\n` +
+      "   覆盖脚本按文件名取图，重名会把同一张图写进多个对象键。请用新版审阅台重新导出。"
+  );
+}
+
 /** 一条任务的完整校验；返回错误字符串或 null */
 function inspect(job) {
   if (!job?.name || !job?.url) return "缺少 name 或 url";

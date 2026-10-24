@@ -497,7 +497,10 @@ export function BlurEditor({
         setErrorText("导出失败：浏览器没能编码这张图。");
         return;
       }
-      onSave({ blob, name: `${baseNameOf(item.image)}-blur.webp` });
+      // 名字必须带 mod id：预览图大多叫 landscape.webp / preview.webp，
+      // 只取文件名会让整批产物在 zip 里重名 —— 覆盖脚本按名字取文件，
+      // 结果是一张图被写进所有对象键。id 是库里的记录 id，唯一。
+      onSave({ blob, name: `${item.id}-${baseNameOf(item.image)}-blur.webp` });
     } finally {
       setBusy(false);
     }
