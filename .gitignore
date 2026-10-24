@@ -82,3 +82,6 @@ next-env.d.ts
 .git.broken/
 
 .vercel
+
+# 本地临时文件（排查脚本、待上传的密钥/状态，绝不入库）
+.tmp-*

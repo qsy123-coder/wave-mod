@@ -132,7 +132,12 @@ async function flush(): Promise<void> {
       const data = (await response.json()) as {
         counts?: Record<string, EngagementCounts>;
         mine?: Record<string, EngagementMine>;
+        degraded?: boolean;
       };
+
+      // 存储没读到（Supabase 402 / 服务超时）：这份 counts 是基线兜底，对不在基线里的
+      // 新 mod 就是 0。拿它覆盖首屏快照，用户看到的就是「数字突然没了」。
+      if (data.degraded) continue;
 
       for (const id of chunk) {
         const counts = data.counts?.[id];
@@ -188,7 +193,14 @@ export async function toggle(id: string, kind: EngagementKind): Promise<boolean>
     const data = (await response.json()) as {
       counts?: Record<string, EngagementCounts>;
       mine?: Record<string, EngagementMine>;
+      degraded?: boolean;
     };
+
+    // 没落库：回滚乐观更新并让调用方提示，别让用户以为收藏成功了。
+    if (data.degraded) {
+      if (seqOf(id) === mySeq) put(id, previous);
+      return false;
+    }
 
     // 只有「没人抢在我后面又点一下」时才采纳服务端结果
     if (seqOf(id) === mySeq) {
@@ -221,7 +233,9 @@ export function reportView(id: string): void {
   })
     .then(async (response) => {
       if (!response.ok) return;
-      const data = (await response.json()) as { counts?: Record<string, EngagementCounts> };
+      const data = (await response.json()) as { counts?: Record<string, EngagementCounts>; degraded?: boolean };
+      // 没落库就别拿基线值覆盖：保留卡片上的首屏快照
+      if (data.degraded) return;
       const counts = data.counts?.[id];
       const prev = entries.get(id);
       if (!counts || !prev) return;
@@ -305,7 +319,9 @@ export function reportDownload(id: string): void {
   })
     .then(async (response) => {
       if (!response.ok) return;
-      const data = (await response.json()) as { counts?: Record<string, EngagementCounts> };
+      const data = (await response.json()) as { counts?: Record<string, EngagementCounts>; degraded?: boolean };
+      // 没落库时保留乐观 +1，别用基线值把它盖回去
+      if (data.degraded) return;
       const counts = data.counts?.[id];
       const current = entries.get(id);
       if (counts && current) put(id, { ...current, counts, hydrated: true });

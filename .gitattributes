@@ -1,0 +1,4 @@
+# 部署脚本/服务端程序必须是 LF：CRLF 会让 bash 去执行 `set -e`、python 报语法错
+*.sh text eol=lf
+*.py text eol=lf
+deploy/**/*.service text eol=lf

@@ -71,6 +71,18 @@ export const SNAPSHOT_OBJECT_KEY = "snapshots/mods-snapshot.json.gz";
 const BUNDLED_SNAPSHOT_FILE = "mods-snapshot.json.gz";
 
 /**
+ * 远程快照的完整地址覆盖。
+ *
+ * 为什么要覆盖：Vercel 函数（hkg1）直连 COS 广州实测 `fetch failed`（2026-10-24），
+ * 于是降级期每个新实例都要白等一次超时才用打包内快照 —— 详情页首开 5–10 秒。
+ * 改成经香港反代 `/__snapshot/mods-snapshot.json.gz` 转一手（HK→COS 实测 0.7–2.3s），
+ * Vercel→HK 是通的，降级链路立刻恢复。
+ *
+ * 不设这个变量时仍然按 COS_BUCKET / COS_REGION 拼直连地址，本地开发与回滚都不受影响。
+ */
+const REMOTE_SNAPSHOT_URL = process.env.MODS_SNAPSHOT_URL?.trim();
+
+/**
  * 拉远程快照的墙钟上限。
  *
  * 2026-09-29 从首尔服务器实测：**冷连接要 12.77s**（随后两次热连接 0.39s / 1.72s），
@@ -158,11 +170,11 @@ async function loadRemoteRows(): Promise<SnapshotRow[] | null> {
   const bucket = process.env.COS_BUCKET?.trim();
   const region = process.env.COS_REGION?.trim();
 
-  if (!bucket || !region) {
+  if (!REMOTE_SNAPSHOT_URL && (!bucket || !region)) {
     // 只告警一次，不每请求刷屏（与下面几条日志的策略一致）
     if (!remoteConfigWarned) {
       remoteConfigWarned = true;
-      logger.warn("[mods] 未配置 COS_BUCKET / COS_REGION，远程兜底快照不可用（只用打包内那份）");
+      logger.warn("[mods] 未配置 COS_BUCKET / COS_REGION 或 MODS_SNAPSHOT_URL，远程兜底快照不可用（只用打包内那份）");
     }
     return null;
   }
@@ -171,10 +183,15 @@ async function loadRemoteRows(): Promise<SnapshotRow[] | null> {
     return null;
   }
 
+  // 显式覆盖优先；没有覆盖时才按 COS 直连地址拼（并在这里收窄 bucket/region 的类型）
+  const remoteUrl =
+    REMOTE_SNAPSHOT_URL ||
+    (bucket && region ? buildCosPublicUrl({ bucket, region, objectKey: SNAPSHOT_OBJECT_KEY }) : null);
+
+  if (!remoteUrl) return null;
+
   try {
-    const payload = await getCachedRemoteSnapshotPayload(
-      buildCosPublicUrl({ bucket, region, objectKey: SNAPSHOT_OBJECT_KEY }),
-    );
+    const payload = await getCachedRemoteSnapshotPayload(remoteUrl);
 
     // memo 抵掉每请求的 gunzip + JSON.parse（4.7MB，几十毫秒）。用 === 而不是哈希：
     // base64 是扁平字符串，V8 先比长度再 memcmp（约 50µs），比哈希更便宜；

@@ -270,6 +270,74 @@ server {
         error_page 502 503 504 = @maintenance_api;
     }
 
+    # ── 计数服务：同机的 Python 进程，绝不能被共享缓存 ─────────────────────
+    # 应用（Vercel）通过 https://<域名>/__engagement/read 之类调用；
+    # 接口本身还有 X-Wavemod-Key 校验，公网拿到路径也调不动。
+    location /__engagement/ {
+        proxy_pass http://127.0.0.1:8791/;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 30s;
+        # 计数是 per-device 状态，任何一层缓存都会串号
+        proxy_cache off;
+        access_log off;
+    }
+
+    # ── 远程兜底快照：HK 转一手 COS ────────────────────────────────────────
+    # Vercel(hkg1) 直连 COS 广州实测 `fetch failed`，降级期每个冷实例都要白等
+    # 一次 20s 超时才用打包内快照 —— 详情页首开慢的主因。
+    # 这里由香港机去取（实测 0.7–2.3s），Vercel 只跟香港机通信。
+    location = /__snapshot/mods-snapshot.json.gz {
+        proxy_pass https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com;
+        proxy_ssl_server_name on;
+        proxy_ssl_name wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com;
+        proxy_ssl_verify on;
+        proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+
+        proxy_cache wavemod_cache;
+        # 忽略应用带上来的 ?t=：它每次 revalidate 都换时间戳，带上就等于永不命中
+        proxy_cache_key "$host$uri";
+        proxy_cache_valid 200 60s;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+        access_log off;
+    }
+
+    # ── 详情数据：公开、可缓存 ─────────────────────────────────────────────
+    # 2026-10-24 起 /api/mods/<id> 不再合并 per-user 状态（收藏已走设备号计数），
+    # 因此可以在这里缓存。目标是让反复打开同一个详情页不再打 Vercel 函数：
+    # 之前每次都要冷启动 + 3 条 Supabase 查询，首开 5–10 秒。
+    location ~ "^/api/mods/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        proxy_cache wavemod_cache;
+        proxy_cache_key "$host$request_uri";
+        proxy_cache_valid 200 300s;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_cache_bypass $cache_bypass_method;
+        proxy_no_cache $cache_bypass_method;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+
+        add_header X-Cache-Status $upstream_cache_status always;
+        error_page 502 503 504 = @maintenance_api;
+    }
+
     location = /api/home/lower {
         include /etc/nginx/snippets/wavemod-proxy-common.conf;
 

@@ -167,7 +167,8 @@ export async function supabaseReadEngagement(ids: string[], deviceId: string): P
       if (deviceId) mine[id] = { liked: false, favorited: false };
     }
 
-    return { counts, mine };
+    // 前端靠这个标记跳过覆盖首屏快照（否则新 mod 的计数会被 0 盖掉）
+    return { counts, mine, degraded: true };
   }
 }
 
@@ -223,6 +224,7 @@ export async function supabaseWriteEngagement(
     return {
       counts: { [modId]: computeCounts(state, base, modId) },
       mine: { [modId]: computeMine(state, modId, deviceId) },
+      degraded: true,
     };
   }
 }

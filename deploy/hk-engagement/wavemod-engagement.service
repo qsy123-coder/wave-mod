@@ -1,0 +1,21 @@
+[Unit]
+Description=WaveMod guest engagement counter (HK)
+Documentation=file:///opt/wavemod-engagement/service.py
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/wavemod-engagement
+EnvironmentFile=/etc/wavemod-engagement.env
+ExecStart=/usr/bin/python3 -u /opt/wavemod-engagement/service.py
+Restart=always
+RestartSec=2
+
+# 只写状态目录；程序与 /etc 都只读
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ReadWritePaths=/var/lib/wavemod-engagement
+
+[Install]
+WantedBy=multi-user.target

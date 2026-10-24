@@ -41,6 +41,13 @@ export type EngagementMine = {
 export type EngagementReadResult = {
   counts: Record<string, EngagementCounts>;
   mine: Record<string, EngagementMine>;
+  /**
+   * 计数存储没读到/没写进（典型：Supabase 402、HK 服务超时），本次 counts 是基线兜底。
+   *
+   * 前端必须据此**跳过覆盖**：卡片首屏用的是服务端快照里的数，拿一份全是 0 的
+   * 基线去覆盖它，用户看到的就是「数字突然没了」。2026-10-24 的事故正是这样。
+   */
+  degraded?: boolean;
 };
 
 export const engagementActions = ["like", "unlike", "favorite", "unfavorite", "view", "download"] as const;

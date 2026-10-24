@@ -39,9 +39,10 @@ export async function GET(request: NextRequest) {
   }
 
   const deviceId = readDeviceId(request) ?? "";
-  const { counts, mine } = await readEngagement(parsedIds.data, deviceId);
+  const { counts, mine, degraded } = await readEngagement(parsedIds.data, deviceId);
 
-  return NextResponse.json({ counts, mine }, { headers: NO_STORE });
+  // degraded：本次是基线兜底。前端据此保留首屏快照值，不能拿 0 覆盖。
+  return NextResponse.json({ counts, mine, degraded: Boolean(degraded) }, { headers: NO_STORE });
 }
 
 export async function POST(request: NextRequest) {
