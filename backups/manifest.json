@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-23T08:08:10.280Z",
+  "generatedAt": "2026-10-24T07:47:33.784Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,35 +8,35 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20261023-080657.dump",
-    "sha256": "429bf5177b307b9f24dc90f6af8c96ac2b7df34dbf0fb30af438511f9b087914",
-    "sizeBytes": 1110620,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261023-080657",
+    "file": "db/wavemod-20261024-074632.dump",
+    "sha256": "07400c3110ba9d582639c37aa6c10547487df7c324bb078ab31135c46fdd4818",
+    "sizeBytes": 1123580,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261024-074632",
     "tableCounts": {
-      "mods": 5507,
-      "profiles": 135,
-      "favorites": 34,
-      "likes": 10,
-      "comments": 0,
-      "comment_reactions": 0,
-      "ratings": 1,
-      "tutorial_configs": 3,
-      "tutorial_chapters": 12,
-      "tutorial_images": 138,
-      "tutorial_tools": 6
+      "mods": null,
+      "profiles": null,
+      "favorites": null,
+      "likes": null,
+      "comments": null,
+      "comment_reactions": null,
+      "ratings": null,
+      "tutorial_configs": null,
+      "tutorial_chapters": null,
+      "tutorial_images": null,
+      "tutorial_tools": null
     }
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5507,
+    "publishedRows": 5509,
     "refreshedThisRun": false,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 6118,
-    "totalBytes": 404829722,
-    "downloadedThisRun": 173,
+    "remoteCount": 6127,
+    "totalBytes": 405403852,
+    "downloadedThisRun": 9,
     "failedThisRun": 2,
     "failures": [
       {
@@ -24633,6 +24633,12 @@
         "etag": "\"ed1a8470cd26df45e6fad6dde93e9660\""
       },
       {
+        "key": "mods/珂莱塔/1adb87a3-1d8c-4688-a930-1276ff1d11a1/preview-1023.webp",
+        "file": "images/mods/珂莱塔/1adb87a3-1d8c-4688-a930-1276ff1d11a1/preview-1023.webp",
+        "size": 31134,
+        "etag": "\"59242a2bb50306234d5cd922db6efad1\""
+      },
+      {
         "key": "mods/珂莱塔/1adb87a3-1d8c-4688-a930-1276ff1d11a1/preview.webp",
         "file": "images/mods/珂莱塔/1adb87a3-1d8c-4688-a930-1276ff1d11a1/preview.webp",
         "size": 23562,
@@ -25119,6 +25125,12 @@
         "etag": "\"58b5b9fbeef6e0eb7c4e5fd57f53508e\""
       },
       {
+        "key": "mods/珂莱塔/8329671e-34a1-4954-a5ec-401c9fc137c5/preview-1023.webp",
+        "file": "images/mods/珂莱塔/8329671e-34a1-4954-a5ec-401c9fc137c5/preview-1023.webp",
+        "size": 39228,
+        "etag": "\"06f8f3f5c1fa89383ee208763d4cbdb6\""
+      },
+      {
         "key": "mods/珂莱塔/8329671e-34a1-4954-a5ec-401c9fc137c5/preview.webp",
         "file": "images/mods/珂莱塔/8329671e-34a1-4954-a5ec-401c9fc137c5/preview.webp",
         "size": 26450,
@@ -25365,6 +25377,12 @@
         "etag": "\"926b7bb012bbea53e1d8eda59b5b72f4\""
       },
       {
+        "key": "mods/珂莱塔/b8c6fd94-5ca9-4efb-b068-b33679e95404/preview-1023.webp",
+        "file": "images/mods/珂莱塔/b8c6fd94-5ca9-4efb-b068-b33679e95404/preview-1023.webp",
+        "size": 41808,
+        "etag": "\"4d9934c67df61720dbac978c639d3ff9\""
+      },
+      {
         "key": "mods/珂莱塔/b8c6fd94-5ca9-4efb-b068-b33679e95404/preview.webp",
         "file": "images/mods/珂莱塔/b8c6fd94-5ca9-4efb-b068-b33679e95404/preview.webp",
         "size": 27492,
@@ -25509,6 +25527,12 @@
         "etag": "\"fdf6e0d80d256f78f80cbb705d0d58e9\""
       },
       {
+        "key": "mods/珂莱塔/dc502d26-050d-4aef-8546-100f4f7d3d52/preview-1023.webp",
+        "file": "images/mods/珂莱塔/dc502d26-050d-4aef-8546-100f4f7d3d52/preview-1023.webp",
+        "size": 33104,
+        "etag": "\"4f1c6e026c1099271ab7ce67fa85b2e1\""
+      },
+      {
         "key": "mods/珂莱塔/dc502d26-050d-4aef-8546-100f4f7d3d52/preview.webp",
         "file": "images/mods/珂莱塔/dc502d26-050d-4aef-8546-100f4f7d3d52/preview.webp",
         "size": 21914,
@@ -25591,6 +25615,12 @@
         "file": "images/mods/珂莱塔/e853ddd3-d7c0-47d3-9f32-c92dfa5c377e/preview.webp",
         "size": 19996,
         "etag": "\"03f79425510cddb40d44ba010cb032f7\""
+      },
+      {
+        "key": "mods/珂莱塔/e8bbac54-1607-4782-800e-3a5556c14aeb/preview-1023.webp",
+        "file": "images/mods/珂莱塔/e8bbac54-1607-4782-800e-3a5556c14aeb/preview-1023.webp",
+        "size": 37844,
+        "etag": "\"a44138910b8453dfd30aa059a9b9b9c5\""
       },
       {
         "key": "mods/珂莱塔/e8bbac54-1607-4782-800e-3a5556c14aeb/preview.webp",
@@ -32409,6 +32439,12 @@
         "etag": "\"956a6b09386cc573f676f929d5d8919b\""
       },
       {
+        "key": "mods/达妮娅/44b4e722-b87b-40d4-be8b-7f1694790a04/preview.webp",
+        "file": "images/mods/达妮娅/44b4e722-b87b-40d4-be8b-7f1694790a04/preview.webp",
+        "size": 40420,
+        "etag": "\"afad20800edb674b24e909667984f6cf\""
+      },
+      {
         "key": "mods/达妮娅/44d67604-4224-4304-abf1-028aaa009af6/preview.webp",
         "file": "images/mods/达妮娅/44d67604-4224-4304-abf1-028aaa009af6/preview.webp",
         "size": 29898,
@@ -33259,6 +33295,24 @@
         "file": "images/mods/锁暝/317bbc37-17e5-4e50-a8dc-183d2ebf704b/preview.webp",
         "size": 27534,
         "etag": "\"5a3eb51bdbd2d1a88f2daeec59e0772d\""
+      },
+      {
+        "key": "mods/锁暝/33b24c82-b742-486a-900c-54e318afa93d/preview-2.webp",
+        "file": "images/mods/锁暝/33b24c82-b742-486a-900c-54e318afa93d/preview-2.webp",
+        "size": 144952,
+        "etag": "\"22eb0ddc3beab7a42f8abed75f4682b0\""
+      },
+      {
+        "key": "mods/锁暝/33b24c82-b742-486a-900c-54e318afa93d/preview-3.webp",
+        "file": "images/mods/锁暝/33b24c82-b742-486a-900c-54e318afa93d/preview-3.webp",
+        "size": 61420,
+        "etag": "\"d308b93db20ec75e2f97f1b8a6564a0c\""
+      },
+      {
+        "key": "mods/锁暝/33b24c82-b742-486a-900c-54e318afa93d/preview.webp",
+        "file": "images/mods/锁暝/33b24c82-b742-486a-900c-54e318afa93d/preview.webp",
+        "size": 144220,
+        "etag": "\"465daa5a2a46e981344e675e00079e3a\""
       },
       {
         "key": "mods/锁暝/3d5da387-7049-4948-8535-40a9c4b4cb4e/preview.webp",
