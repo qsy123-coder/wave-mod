@@ -311,9 +311,19 @@ def _cos_put(body: bytes) -> None:
         return
 
     now = int(time.time())
-    sign_time = f"{now};{now + 600}"
+    sign_time = f"{now - 60};{now + 600}"
+
+    # COS 签名 v5 分两层（见官方 cos_auth.py）：
+    #   format_str  = "method\nuri\nparams\nheaders\n"
+    #   str_to_sign = "sha1\n{sign_time}\n{sha1(format_str)}\n"
+    #   sign_key    = HMAC-SHA1(secret_key, sign_time)
+    #   signature   = HMAC-SHA1(sign_key, str_to_sign)
+    # 直接把 format_str 喂给最后一层会一直 403 SignatureDoesNotMatch ——
+    # 2026-10-24 踩过：COS 返回的 XML 里 <StringToSign> 就是正确的那串。
+    format_str = f"put\n/{COS_KEY}\n\n\n"
+    format_digest = hashlib.sha1(format_str.encode()).hexdigest()
+    string_to_sign = f"sha1\n{sign_time}\n{format_digest}\n"
     sign_key = hmac.new(secret_key.encode(), sign_time.encode(), hashlib.sha1).hexdigest()
-    string_to_sign = f"put\n/{COS_KEY}\n\n\n"
     signature = hmac.new(sign_key.encode(), string_to_sign.encode(), hashlib.sha1).hexdigest()
     authorization = (
         f"q-sign-algorithm=sha1&q-ak={secret_id}&q-sign-time={sign_time}"
