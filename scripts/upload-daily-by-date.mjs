@@ -29,6 +29,7 @@ import { join, basename, extname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
+import { pathToFileURL } from "node:url";
 import { config } from "dotenv";
 import COS from "cos-nodejs-sdk-v5";
 import sharp from "sharp";
@@ -247,6 +248,10 @@ const EFFECT_BUCKET_PREFIXES = [
   // 与「隐藏心的红方块」同类：不是角色皮肤，key 里也没有横杠可切，
   // 落默认分支会让整串变成前台不存在的假分类。
   "隐藏云景座椅",
+  // 2026-10-24：`隐藏座椅虚化`（W-2026.10.24，隐藏家园座椅 + 去虚化，方便截图摆姿势）。
+  // 与上一条同一族：预览图是角色坐在家园座椅上拍的，改的不是任何角色本体；
+  // key 里没有横杠，落默认分支会切出假分类「隐藏座椅虚化」。
+  "隐藏座椅虚化",
 ];
 
 /**
@@ -1176,7 +1181,13 @@ async function publishSnapshotBestEffort() {
   }
 }
 
-main().catch((err) => {
-  console.error("❌ 脚本执行失败:", err);
-  process.exit(1);
-});
+// 给 scripts/check-mod-keys.mjs 用：重命名后先算一遍分类，别等上传才发现造出新角色
+export { resolveCharacterAndTitle, dedupKey };
+
+// 只有直接运行才跑主流程；被 import 时（自检脚本 / 单测）不能触发上传
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error("❌ 脚本执行失败:", err);
+    process.exit(1);
+  });
+}

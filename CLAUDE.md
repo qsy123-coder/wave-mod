@@ -94,11 +94,60 @@ src/
 D:\BaiduNetdiskDownload\MC-MOD整合包\wMOD全集-每日更新\A_每日更新\W-YYYY.M.D\
   ├─ 分享结果导出-*.csv     → 夸克网盘（主盘，恒有）
   ├─ 分享结果导出-*.xlsx    → 迅雷网盘
-  ├─ *.exe                  → mod 本体
+  ├─ *.exe                  → mod 本体（刚下载时可能是 *.7z / *.zip / *.rar，见下方「Mod 重命名」）
   └─ *.jpeg/.png/.jpg       → 预览图（顶层或「预览图」子目录）
 ```
 
 **开工前先 `ls` 一遍日期目录**，确认没有第三种导出文件被漏掉。
+
+### Mod 重命名（收到裸文件名时先看这里，别再从贴图猜）
+
+用户刚丢进来的包常常是 `suoming_og_nsfw_switch_slot-fx_ver_.rar` / `lupa_fix_.7z` 这种裸英文名。
+**这一步要快**：2026-10-24 那次把时间全花在解包看 DDS 贴图上，其实 mod 页早就写着名字。
+
+**① 查来源（1 分钟）** —— 下载来的文件带 NTFS 备用数据流，里面记着原始 URL：
+
+```powershell
+Get-ChildItem -LiteralPath $dir -File | ForEach-Object {
+  Get-Item -LiteralPath $_.FullName -Stream * | Where-Object Stream -ne ':$DATA' |
+    ForEach-Object { "$($_.FileName) :: " + (Get-Content -LiteralPath $_.FileName -Stream $_.Stream) }
+}
+```
+
+图片多来自 `images.gamebanana.com/img/ss/mods/<id>.jpg`；压缩包本身没有 ADS，
+但**包名就是 GameBanana 的 `_sFile` 名**，一样能对。
+
+**② 用 GameBanana apiv11 反查（无需 key）**
+
+- 搜索：`Util/Search/Results?_sSearchString=<词>&_sModelName=Mod&_nPerpage=20`
+- 最新一批：`Game/20357/Subfeed?_nPage=1&_sSort=new`（鸣潮 game id = 20357，一天的新 mod 就在第一页）
+- 详情：`Mod/<id>/ProfilePage` → `_sName` / `_sVersion` / `_aSubmitter._sName` / `_sText`（热键说明）/ `_aFiles[]._sFile`
+- 命中判定：`_aPreviewMedia._aImages[]._sFile` 或 `_aFiles[]._sFile` 与本地文件名**逐字相同**，不靠猜。
+- 作者别名：`kongxinrumeng` = 空心入梦；`KatTheDev`、`akshhat tandavi` 这类英文昵称照抄。
+
+**③ 定名** `<角色>-<名称>[v版本]（切换键）by <作者>`
+
+- 角色必须是站内既有值（`characterImageMap` / 库内 `character` distinct）；拿不准就查库，**不新建**。
+- 版本号紧贴名称（在切换键、`full`、`by 作者` 之前）；半角 `/` 一律换成全角 `／`（Windows 非法字符）。
+- 多图：主图无后缀，其余 `-1/-2`；`(2)` 这种会被当重名后缀丢掉。
+
+**④ 落地改名（一次做完，别分批）**
+
+- 文件夹 / 包 / 预览图**三者同名**：数据链是「文件夹名 = exe 名 = 分享名 = record.key」。
+- 顺手解包成同名目录（`build.ps1` 直接出 SFX），原始 7z/zip/rar 改名后保留。
+- 预览图放**日期目录顶层**，别新建 `预览图\` —— `build.ps1` 会把那个文件夹也打成 exe。
+- 包内自带的 `preview.jpg` 改名 `screenshot.jpg`，免得 `move_previews.ps1` 再搬一份重复图。
+
+**⑤ 必做自检（30 秒）**
+
+```bash
+node scripts/check-mod-keys.mjs              # 默认取最新 W-* 目录，也可 --dir=W-2026.10.24
+```
+
+打印每条的角色 / 标题 / 去重键，并标出**库里没有的角色**（有 ⚠️ 时退出码非 0）。
+出现 ⚠️ = 上传后会凭空多一个分类：把 key 归一化到既有角色，或在
+`EFFECT_BUCKET_PREFIXES`（非角色包，如 `隐藏座椅虚化`）／`CHARACTER_PREFIX_MAP`（角色包）
+加前缀规则，再跑一次直到 ✅ 全绿。规则改动和重命名一起 commit。
 
 ### 一条命令
 
