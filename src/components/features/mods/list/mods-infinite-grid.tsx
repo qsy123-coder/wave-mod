@@ -537,7 +537,17 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
   // 卡片渲染函数（grid/masonry 共用）
   const renderCard = useCallback(
-    (mod: SiteMod, idx: number, imageSizes: string = DEFAULT_CARD_IMAGE_SIZES) => (
+    (
+      mod: SiteMod,
+      idx: number,
+      imageSizes: string = DEFAULT_CARD_IMAGE_SIZES,
+      /**
+       * 瀑布流算好的比例。卡片必须按**同一份**比例渲染，见 ModCard 的
+       * `imageAspectRatio`：两边各记一份就会漂移，卡片实际高度超出布局预留的高度，
+       * 「下一页加载中」的骨架就会从列的空档里露出来。
+       */
+      aspectRatio?: number,
+    ) => (
       <ModCard
         mod={mod}
         href={gameKey ? `/${gameKey}/mods/${mod.id}` : `/mods/${mod.id}`}
@@ -546,6 +556,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         variant="list"
         className="bg-[var(--neo-panel)] p-2.5"
         imageAspectClassName={isMasonry ? "auto" : "aspect-[5/6] sm:aspect-[4/5]"}
+        imageAspectRatio={aspectRatio}
         // 只 eager 第一页：后面几页若也 eager，会和首屏可见图片抢带宽，
         // 反而让当前屏更慢。后面的页保持 lazy，进入视口前由 2000px 数据预取兜住。
         imagePriority={idx < MODS_PAGE_SIZE}
@@ -666,6 +677,9 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
                           `${Math.round(
                             masonrySpanWidth(placement.span, masonryPack.columnWidth) - MASONRY_CARD_CHROME,
                           )}px`,
+                          // 与 packMasonry 用的是**同一个**兜底值（比例未知按 3/4 算），
+                          // 这样卡片盒子与布局预留的高度逐像素一致。
+                          ratios[mod.id] ?? MASONRY_DEFAULT_RATIO,
                         )}
                       </MotionReveal>
                     </div>

@@ -29,6 +29,16 @@ type ModCardProps = {
   imageSizes?: string;
   imagePriority?: boolean;
   imageFetchPriority?: "auto" | "high" | "low";
+  /**
+   * 瀑布流由**布局方**指定的宽高比，优先级高于卡片自己量到的 `imageRatio`。
+   *
+   * 卡片高度是离线算好的（masonry-packing.ts 的 `masonryCardHeight`），渲染必须用
+   * **同一份比例**；两边各记一份就会漂移。实测（2026-10-25）漂移方向是「布局已知道
+   * 真实比例、卡片还在 3/4」⇒ 卡片比预留的高出一截 ⇒ 溢出的卡片把「下一页加载中」
+   * 的骨架块顶上去，骨架绘制在绝对定位卡片之下，于是从没有卡片挡住的那一列露出来
+   * （用户看到的是「某一列突然变成骨架」）。由布局把关后两边恒等。
+   */
+  imageAspectRatio?: number;
   titleClassName?: string;
   contentClassName?: string;
   titleTag?: "h2" | "h3";
@@ -170,6 +180,7 @@ export function ModCard({
   imageSizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 18vw",
   imagePriority = false,
   imageFetchPriority = imagePriority ? "high" : "auto",
+  imageAspectRatio,
   titleClassName,
   contentClassName,
   titleTag = "h2",
@@ -264,6 +275,16 @@ export function ModCard({
   // 图片是否已就位：用于把加载期间的纯黑占位换成骨架动画
   const [imageLoaded, setImageLoaded] = useState(false);
 
+  /**
+   * 渲染用的比例：**布局给的优先**，其次是自己量到的，最后是 3/4。
+   *
+   * 见 `imageAspectRatio` 的注释：瀑布流里两者必须恒等，否则卡片实际高度会和
+   * 布局预留的高度对不上（骨架块因此会从列的空档里露出来）。非瀑布流（网格版式）
+   * 走固定比例，这里的值用不上。
+   */
+  const renderAspectRatio =
+    imageAspectRatio && imageAspectRatio > 0 ? imageAspectRatio : imageRatio;
+
   const readImageRatio = useCallback((img: HTMLImageElement | null) => {
     if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
       const ratio = img.naturalWidth / img.naturalHeight;
@@ -338,15 +359,24 @@ export function ModCard({
     // 内层预览图不再叠第二层硬阴影：卡片本身已有 neo-card 的边框 + 阴影，
     // 再套一层就是两块黑板叠在一起，这正是「厚阴影难看」的主要来源。
     <div className={cn("relative overflow-hidden border-4 border-black bg-black", mediaClassName)}>
+      {/*
+        ⚠️ 这里**不能**给尺寸加 transition（曾经有过 `transition-[aspect-ratio] duration-300`）。
+        瀑布流的列分配与卡片高度是**离线算好的**（masonry-packing.ts 的 masonryCardHeight），
+        卡片盒子的实际高度必须与它逐像素一致：图片加载后比例从 3/4 跳到真实值时，这一跳必须
+        在同一帧完成。加了过渡的话，卡片真实高度会在 300ms 内停在旧比例的尺寸上，比布局算出来的
+        高出一截 —— 溢出的卡片把「下一页加载中」那块骨架顶上去，骨架块绘制在绝对定位卡片之下，
+        于是从没有卡片挡住的那一列（常常是最左侧）露出来，看起来就是「某一列突然变成骨架」
+        （2026-10-25 用户反馈；实测重叠最高 879px，去掉过渡后归零）。
+      */}
       <div
         className={cn(
-          "relative w-full transition-[aspect-ratio] duration-300",
+          "relative w-full",
           isAutoAspect
             ? "h-auto"
             : "min-h-72 aspect-[4/5] sm:aspect-[3/4] xl:aspect-[4/5]",
           !isAutoAspect && imageAspectClassName,
         )}
-        style={isAutoAspect ? { aspectRatio: imageRatio ? String(imageRatio) : "3/4" } : undefined}
+        style={isAutoAspect ? { aspectRatio: renderAspectRatio ? String(renderAspectRatio) : "3/4" } : undefined}
       >
         {/* 模糊放大背景图，填充 object-contain 产生的空白区域 */}
         {imageError ? (
