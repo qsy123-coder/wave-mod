@@ -353,4 +353,11 @@ if (applied > 0) {
     console.warn("   库内数据已就绪；Supabase 网关被锁时前台会继续读旧快照。");
   }
   await notifyRevalidate({ siteUrl: SITE_URL, secret: process.env.REVALIDATE_SECRET?.trim() });
+
+  // ⚠️ ping 只清上游 Next，清不到香港反代那层：`location = /api/mods` 是
+  // proxy_cache_valid 7200s + 忽略 Cache-Control，按角色筛选的列表还会给旧 JSON 两小时
+  // （2026-10-25 实例：页面 65 张图 0 张新的）。这一步必须补上，否则用户会说「没生效」。
+  const encodedChar = encodeURIComponent(CHARACTER);
+  console.log(`\n🧹 还要清反代缓存，否则列表最多旧 2 小时：`);
+  console.log(`   node scripts/purge-hk-api-cache.mjs --pattern='character=${encodedChar}'`);
 }
