@@ -1,10 +1,10 @@
 /**
- * 用浮窗截图**替换** mod 的封面预览图（images[0]）。
+ * 用浮窗截图**替换** mod 的整组预览图（images 数组）。
  *
  * 与既有脚本的分工：
  *   - add-landscape-previews.mjs：把截图**追加**到图集最前面（新键 landscape.webp），原图留着；
  *   - reupload-mod-image.mjs：**覆盖同一个** preview.webp（URL 不变，因此不改库）；
- *   - 本脚本：同样是把截图当作封面，但**换新键**再改 images[0]。
+ *   - 本脚本：同样是把截图当作封面，但**换新键**再整组替换 images。
  *
  * 为什么不用同键覆盖：现有的 preview.webp 都带 `public, max-age=604800`
  * （见 scripts/add-landscape-previews.mjs 的 COS_IMAGE_CACHE_CONTROL）。带 max-age 的对象
@@ -13,9 +13,18 @@
  * 代价是改库 + 重发兜底快照 + ping，旧对象留成孤儿（几十 KB，且在备份镜像里）。
  *
  * 数据源命名（与 add-landscape-previews.mjs 同口径）：
- *   `弗洛洛-黑化.exe.png`          → title「黑化」   主图
- *   `弗洛洛-黑化.exe-2.png`        → 额外图，本脚本**不处理**（只报数）
+ *   `弗洛洛-黑化.exe.png`          → title「黑化」   主图（images[0]）
+ *   `弗洛洛-黑化.exe-2.png`        → 同一 mod 的第 2 张（images[1]），按图号排序
  *   `…-mosaic.png`                 → 打码版，跳过
+ *
+ * 图集语义：**旧图整组丢弃**（用户口径「原来的都删了」），images 就是源目录里该 mod 的
+ * 全部截图（主图 + -2/-3…）。当前库内所有行都只有 1 张，所以对单图 mod 等价于换封面。
+ *
+ * 两种特殊 title：
+ *   - `尤诺的月环-罪妄月华.png` → 库内 title 是「的月环-罪妄月华」（上传时按角色前缀切掉了角色名），
+ *     所以裸角色前缀（不带 `-`）也要切；
+ *   - 库里 images[0] 还是占位图 `placeholder/mod-placeholder.webp` 的行，没有自己的目录，
+ *     新键落到 `mods/<slugify(character)>/<id>/`（否则多条 mod 会挤在同一个 placeholder 键上）。
  *
  * 用法:
  *   node scripts/replace-previews-from-shots.mjs                       # dry-run
@@ -64,11 +73,25 @@ function normKey(text) {
   return text.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
 }
 
+/** 与 upload-daily-by-date.mjs 同口径（记忆 cos-preview-key-must-slugify） */
+function slugify(name) {
+  return (
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9一-鿿]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 50) || "mod"
+  );
+}
+
 /** 返回 { title, index }；打码图返回 null */
 function parseSourceName(file) {
   let base = basename(file, extname(file));
   if (/mosaic/i.test(base)) return null;
   if (base.startsWith(`${CHARACTER}-`)) base = base.slice(CHARACTER.length + 1);
+  // 「尤诺的月环-罪妄月华」→ 库内 title 是「的月环-罪妄月华」
+  else if (base.startsWith(CHARACTER)) base = base.slice(CHARACTER.length).replace(/^[-_\s]+/, "");
 
   let index = 0;
   const idxMatch = /(?:[-_ ](\d)| ?\((\d)\))$/.exec(base);
@@ -120,11 +143,11 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-/** rowId → { row, file } 主图 */
+/** rowId → { row, shots: [{ file, index }] }；shots 按图号升序，[0] 是封面 */
 const plans = new Map();
 const unmatchedFiles = [];
 const mosaicSkipped = [];
-const extraSkipped = [];
+const dupSkipped = [];
 const matchedRowIds = new Set();
 
 for (const file of files.sort()) {
@@ -139,25 +162,28 @@ for (const file of files.sort()) {
     continue;
   }
   matchedRowIds.add(row.id);
-  if (parsed.index > 0) {
-    extraSkipped.push(`${file}   →   ${row.title}  [额外图 ${parsed.index + 1}]`);
+  let plan = plans.get(row.id);
+  if (!plan) {
+    plan = { row, shots: [] };
+    plans.set(row.id, plan);
+  }
+  if (plan.shots.some((s) => s.index === parsed.index)) {
+    console.log(`⚠️  同一行出现两张图号 ${parsed.index + 1}，保留先出现的：${row.title}`);
+    dupSkipped.push(`${file}   →   ${row.title}  [重复图号]`);
     continue;
   }
-  if (plans.has(row.id)) {
-    console.log(`⚠️  同一行出现两张主图，保留先出现的：${row.title}`);
-    extraSkipped.push(`${file}   →   ${row.title}  [重复主图]`);
-    continue;
-  }
-  plans.set(row.id, { row, file });
+  plan.shots.push({ file, index: parsed.index });
 }
+for (const plan of plans.values()) plan.shots.sort((a, b) => a.index - b.index);
 
 const rowsWithoutShot = rows.filter((r) => !matchedRowIds.has(r.id)).map((r) => `[${r.id}] ${r.title}`);
+const multiShot = [...plans.values()].filter((p) => p.shots.length > 1);
 
-console.log(`\n🖼  源图 ${files.length} 张 → 命中主图 ${plans.size} 条 mod`);
+console.log(`\n🖼  源图 ${files.length} 张 → 命中 ${plans.size} 条 mod（其中多图 ${multiShot.length} 条）`);
 if (mosaicSkipped.length) console.log(`⏭  打码图跳过 ${mosaicSkipped.length} 张`);
-if (extraSkipped.length) {
-  console.log(`⏭  额外图（-2/-3…）本次不处理 ${extraSkipped.length} 张：`);
-  extraSkipped.forEach((x) => console.log(`   - ${x}`));
+if (dupSkipped.length) {
+  console.log(`⏭  重复图号跳过 ${dupSkipped.length} 张：`);
+  dupSkipped.forEach((x) => console.log(`   - ${x}`));
 }
 if (unmatchedFiles.length) {
   console.log(`⚠️  匹配不到库内 title 的 ${unmatchedFiles.length} 张：`);
@@ -222,39 +248,49 @@ async function resolveObjectKey(url) {
 const prepared = [];
 let failedPrep = 0;
 
-for (const { row, file } of plans.values()) {
+for (const { row, shots } of plans.values()) {
   const existingUrl = (row.images ?? [])[0] ?? "";
   const label = `${row.character} | ${row.title}`;
   try {
     const currentKey = await resolveObjectKey(existingUrl);
     if (!currentKey) throw new Error(`无法定位现有对象（库内 URL：${existingUrl || "(无)"}）`);
 
-    // 新键与旧键同目录；新 URL 直接沿用旧 URL 的目录前缀（保留库里原有的编码写法）
+    // 新键与旧键同目录；新 URL 直接沿用旧 URL 的目录前缀（保留库里原有的编码写法）。
+    // 占位图（placeholder/…）没有自己的目录，落到 mods/<slugify(character)>/<id>/，
+    // 否则同一批多条 mod 会全部写同一个 placeholder 键、互相覆盖。
     const slash = existingUrl.lastIndexOf("/");
     if (slash < 0) throw new Error(`库内 URL 形态异常：${existingUrl}`);
-    const dirUrl = existingUrl.slice(0, slash + 1);
-    const dirKey = currentKey.slice(0, currentKey.lastIndexOf("/") + 1);
-    const newKey = `${dirKey}preview-${KEY_SUFFIX}.webp`;
-    const newUrl = `${dirUrl}preview-${KEY_SUFFIX}.webp`;
+    const reuseDir = currentKey.startsWith("mods/");
+    const dirUrl = reuseDir
+      ? existingUrl.slice(0, slash + 1)
+      : `https://${cosBucket}.cos.${cosRegion}/mods/${slugify(CHARACTER)}/${row.id}/`;
+    const dirKey = reuseDir ? currentKey.slice(0, currentKey.lastIndexOf("/") + 1) : `mods/${slugify(CHARACTER)}/${row.id}/`;
+    if (!reuseDir) console.log(`   ℹ️  ${label}：库里是占位图，新键改落 ${dirKey}`);
 
-    const raw = readFileSync(join(SRC_DIR, file));
-    const meta = await sharp(raw).metadata();
-    const buffer = await sharp(raw)
-      .resize({ width: PREVIEW_WIDTH, withoutEnlargement: true })
-      .webp({ quality: WEBP_QUALITY })
-      .toBuffer();
-
-    console.log(
-      `   ${label}\n      ${meta.width}x${meta.height} ${(raw.length / 1024).toFixed(0)}KB → ${(buffer.length / 1024).toFixed(0)}KB webp  ${newKey}`
-    );
-    prepared.push({ row, file, newKey, newUrl, buffer });
+    const urls = [];
+    const buffers = [];
+    for (const shot of shots) {
+      const suffix = shot.index === 0 ? "" : `-${shot.index + 1}`;
+      const raw = readFileSync(join(SRC_DIR, shot.file));
+      const meta = await sharp(raw).metadata();
+      const buffer = await sharp(raw)
+        .resize({ width: PREVIEW_WIDTH, withoutEnlargement: true })
+        .webp({ quality: WEBP_QUALITY })
+        .toBuffer();
+      console.log(
+        `   ${label}\n      ${meta.width}x${meta.height} ${(raw.length / 1024).toFixed(0)}KB → ${(buffer.length / 1024).toFixed(0)}KB webp  ${dirKey}preview-${KEY_SUFFIX}${suffix}.webp`
+      );
+      urls.push(`${dirUrl}preview-${KEY_SUFFIX}${suffix}.webp`);
+      buffers.push(buffer);
+    }
+    prepared.push({ row, urls, buffers, keys: urls.map((u) => `${dirKey}${u.slice(dirUrl.length)}`) });
   } catch (err) {
     failedPrep++;
     console.error(`   ❌ ${label}: ${err.message}`);
   }
 }
 
-console.log(`\n📊 可处理 ${prepared.length} 条，准备失败 ${failedPrep} 条`);
+console.log(`\n📊 可处理 ${prepared.length} 条（共 ${prepared.reduce((n, p) => n + p.keys.length, 0)} 张图），准备失败 ${failedPrep} 条`);
 
 if (!isApply) {
   console.log("\n🔍 DRY-RUN：未上传、未写库。确认无误后加 --apply 执行。");
@@ -267,50 +303,52 @@ if (prepared.length === 0) {
 
 const uploaded = [];
 for (const item of prepared) {
+  const done = [];
   try {
-    await new Promise((res, rej) => {
-      cos.putObject(
-        {
-          Bucket: cosBucket,
-          Region: cosRegion,
-          Key: item.newKey,
-          Body: item.buffer,
-          ContentType: "image/webp",
-          CacheControl: COS_IMAGE_CACHE_CONTROL,
-        },
-        (err) => (err ? rej(new Error(err.message)) : res())
-      );
-    });
+    for (let i = 0; i < item.keys.length; i++) {
+      await new Promise((res, rej) => {
+        cos.putObject(
+          {
+            Bucket: cosBucket,
+            Region: cosRegion,
+            Key: item.keys[i],
+            Body: item.buffers[i],
+            ContentType: "image/webp",
+            CacheControl: COS_IMAGE_CACHE_CONTROL,
+          },
+          (err) => (err ? rej(new Error(err.message)) : res())
+        );
+      });
+      done.push(i);
+    }
     uploaded.push(item);
   } catch (err) {
-    console.error(`   ❌ 上传失败 ${item.row.title}: ${err.message}`);
+    // 多图只传成一部分时不能写库：images 里会出现不存在的键
+    console.error(`   ❌ 上传失败 ${item.row.title}: ${err.message}（已传 ${done.length}/${item.keys.length}）`);
   }
 }
 console.log(`\n☁️  上传成功 ${uploaded.length} / ${prepared.length}`);
 if (uploaded.length === 0) process.exit(1);
 
-// ==================== 写库：只换 images[0] ====================
+// ==================== 写库：整组替换 images ====================
 
 /**
- * images[0] 换成新 URL，其余图按原顺序跟在后面；旧的封面自动从数组里消失（对象留成孤儿）。
- * 用 ordinality 保留第 2 张之后的顺序，不用先读再算。
+ * images 直接换成本批新图（主图 + -2/-3…），**旧图整组丢弃**（用户口径「原来的都删了」）。
+ * 旧对象留成孤儿（几十 KB，且在备份镜像里），不做 cos.deleteObject —— 删 COS 不可逆。
  */
 function buildImagesUpdateSql(items) {
   const values = items
-    .map((u) => `(${dollarQuote(u.row.id)}::uuid, ${dollarQuote(u.newUrl)})`)
+    // 注意写成箭头函数：直接传 dollarQuote 会把 map 的 index 当成 base，标签变成 $0$（psql 语法错）
+    .map((u) => `(${dollarQuote(u.row.id)}::uuid, array[${u.urls.map((x) => dollarQuote(x)).join(", ")}]::text[])`)
     .join(",\n    ");
   return `
-with incoming(id, url) as (
+with incoming(id, urls) as (
   values
     ${values}
 ),
 upd as (
   update mods m
-  set images = array[incoming.url] || (
-    select coalesce(array_agg(u order by ord), '{}'::text[])
-    from unnest(coalesce(m.images, '{}'::text[])) with ordinality as t(u, ord)
-    where ord > 1
-  )
+  set images = incoming.urls
   from incoming
   where m.id = incoming.id
   returning 1
@@ -319,7 +357,7 @@ select json_build_object('updated', (select count(*) from upd))::text;
 `;
 }
 
-console.log(`\n💾 写入 images[0]（${uploaded.length} 条）...`);
+console.log(`\n💾 写入 images（${uploaded.length} 条）...`);
 let applied = 0;
 const BATCH = 50;
 for (let i = 0; i < uploaded.length; i += BATCH) {
