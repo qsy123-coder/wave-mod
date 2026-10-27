@@ -16,6 +16,9 @@
  *   node scripts/add-landscape-previews.mjs                 # dry-run，只列匹配结果
  *   node scripts/add-landscape-previews.mjs --apply         # 转码 + 上传 + 写库 + 发快照 + ping
  *   node scripts/add-landscape-previews.mjs --limit=5 --apply
+ *   node scripts/add-landscape-previews.mjs --char=千咲     # 换角色（源目录默认 …\浮窗截图\<角色>）
+ *
+ * ⚠️ PowerShell 5.1 传中文参数会乱码，中文角色名请写进一个临时启动器脚本再转发 argv。
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -33,9 +36,11 @@ config({ path: resolve(process.cwd(), ".env"), override: true, quiet: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true, quiet: true });
 requireDatabaseUrl();
 
-const SRC_DIR = process.argv.find((a) => a.startsWith("--src="))?.slice(6)
-  ?? String.raw`C:\Users\qsy123\Pictures\JASM\浮窗截图\绯雪`;
-const CHARACTER = "绯雪";
+const cliArgs = process.argv.slice(2);
+const readArg = (name) => cliArgs.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3).trim();
+
+const CHARACTER = readArg("char") || "绯雪";
+const SRC_DIR = readArg("src") || String.raw`C:\Users\qsy123\Pictures\JASM\浮窗截图\${CHARACTER}`;
 const SITE_URL = process.env.WAVE_MOD_SITE_URL?.trim() || "https://go.sunnyrose.xyz";
 
 /** 与 src/lib/cos/shared.ts 的 COS_IMG_HERO 一致：详情大图按 1280 请求，再大也不会被用到 */
@@ -45,7 +50,6 @@ const COS_IMAGE_CACHE_CONTROL = "public, max-age=604800, stale-while-revalidate=
 const KEY_BASE = "landscape";
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 
-const cliArgs = process.argv.slice(2);
 const isApply = cliArgs.includes("--apply");
 const limitArg = cliArgs.find((a) => a.startsWith("--limit="));
 const LIMIT = limitArg ? Number(limitArg.split("=")[1]) : Infinity;
@@ -71,6 +75,9 @@ function parseSourceName(file) {
   let base = basename(file, extname(file));
   if (/mosaic/i.test(base)) return null;
   if (base.startsWith(`${CHARACTER}-`)) base = base.slice(CHARACTER.length + 1);
+  // 「千咲的剪刀-武士刀」→ 库内 title 是「的剪刀-武士刀」（上传时按角色前缀切掉了角色名）；
+  // 「千咲皮肤[蜜桃冰]-简化」→「皮肤[蜜桃冰]-简化」。裸角色前缀（不带 `-`）同样要切。
+  else if (base.startsWith(CHARACTER)) base = base.slice(CHARACTER.length).replace(/^[-_\s]+/, "");
 
   let index = 0;
   const idxMatch = /(?:[-_ ](\d)| ?\((\d)\))$/.exec(base);
@@ -134,7 +141,9 @@ function dirFromRow(row, bucket) {
     const slash = url.indexOf("/", prefix.length);
     const key = slash >= 0 ? url.slice(slash + 1) : "";
     const dir = key.slice(0, key.lastIndexOf("/") + 1);
-    if (dir) return dir;
+    // ⚠️ 占位图 `placeholder/mod-placeholder.webp` 是所有行共用的目录：照它落键会让
+    // 多条 mod 写同一个 landscape.webp、互相覆盖（2026-10-27 千咲「的剪刀-艾莲武器」等踩到）。
+    if (dir && !dir.startsWith("placeholder/")) return dir;
   }
   return `${FALLBACK_PREFIX}${row.id}/`;
 }
@@ -178,6 +187,11 @@ if (skippedMosaic.length) {
 if (unmatched.length) {
   console.log(`⚠️  匹配不到的 ${unmatched.length} 张：`);
   unmatched.forEach((u) => console.log(`   - ${u}`));
+}
+const rowsWithoutShot = rows.filter((r) => !plans.has(r.id));
+if (rowsWithoutShot.length) {
+  console.log(`ℹ️  库里没有对应截图、保持原样的 ${rowsWithoutShot.length} 条：`);
+  rowsWithoutShot.forEach((r) => console.log(`   - [${r.id}] ${r.title}`));
 }
 
 // ==================== COS 客户端 ====================
