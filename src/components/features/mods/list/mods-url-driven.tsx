@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 
+import type { MasonryLayoutHint } from "@/components/features/mods/list/masonry-packing";
 import { ModsListingView } from "@/components/features/mods/list/mods-listing-view";
 import { isDefaultModsFilters, parseModsFilters } from "@/lib/mods-domain/filter-params";
 
@@ -17,6 +18,8 @@ type ModsUrlDrivenProps = {
   defaultView: ReactNode;
   availableCharacters: string[];
   counts: Record<string, number>;
+  /** 角色 → 版式画像（服务端按封面尺寸算好，见 buildLayoutHints） */
+  layoutHints: Record<string, MasonryLayoutHint>;
   openModId?: string;
 };
 
@@ -34,6 +37,7 @@ export function ModsUrlDriven({
   defaultView,
   availableCharacters,
   counts,
+  layoutHints,
   openModId,
 }: ModsUrlDrivenProps) {
   const filters = parseModsFilters(useSearchParams() ?? new URLSearchParams());
@@ -49,6 +53,7 @@ export function ModsUrlDriven({
       counts={counts}
       // 非默认筛选下种子一定不能用，这里直接不给 —— 闸门在 ModsListingView 里还有一道。
       staticSeed={null}
+      layoutHints={layoutHints}
       openModId={openModId}
     />
   );

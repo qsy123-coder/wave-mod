@@ -20,7 +20,7 @@
 
 select json_agg(row_to_json(t) order by t.created_at desc) from (
   select id, title, character, version, game_version, game_key, description,
-         images, video_url, download_url, downloads_count, drive_links, nsfw,
+         images, cover_width, cover_height, video_url, download_url, downloads_count, drive_links, nsfw,
          mod_author_url, views, favorites_count, likes_count, comments_count,
          rating_count, rating_average, is_published, is_featured, featured_order, created_at
   from mods

@@ -3,6 +3,8 @@
 import { useCallback } from "react";
 
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
+import type { MasonryLayoutHint } from "@/components/features/mods/list/masonry-packing";
+import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import type { ModSort, ModsPage } from "@/lib/mods";
 import { isDefaultModsFilters, modsListingKey, type ModsFilters } from "@/lib/mods-domain/filter-params";
@@ -37,6 +39,8 @@ type ModsListingViewProps = {
   counts: Record<string, number>;
   /** 服务端预渲染好的第一页（默认筛选）。非默认筛选时会被忽略，见下方 seed */
   staticSeed: ModsPage | null;
+  /** 角色 → 版式画像；骨架屏据此决定画横卡还是竖卡（见 buildLayoutHints） */
+  layoutHints: Record<string, MasonryLayoutHint>;
   openModId?: string;
 };
 
@@ -45,6 +49,7 @@ export function ModsListingView({
   availableCharacters,
   counts,
   staticSeed,
+  layoutHints,
   openModId,
 }: ModsListingViewProps) {
   const { sort, character, query, direct, preview } = filters;
@@ -116,6 +121,21 @@ export function ModsListingView({
    */
   const seed = isDefaultModsFilters(filters) ? staticSeed : null;
 
+  /**
+   * 骨架屏用哪个角色的版式画像 —— **必须以乐观角色为准**。
+   *
+   * 点侧栏切角色时，骨架是立刻亮的（`pendingCharacter` 驱动），但地址栏要等客户端
+   * 导航把 RSC 拿回来才变（弱网实测这一窗口有 2 秒以上）。这期间 `filters.character`
+   * 还是**旧角色**，拿它去查画像就会画出旧角色的版式：从绯雪切到爱弥斯时，爱弥斯
+   * 底下先闪一整版横屏骨架（2026-10-27 用户报的就是这个）。
+   *
+   * `pendingCharacter` 是侧栏标签（「全部」「Skins」也是），查不到就是 null，
+   * 自动回落到竖屏骨架，不会误用别的角色的结论。
+   */
+  const { pendingCharacter } = useNavigationLoading();
+  const layoutHintKey = pendingCharacter ?? character;
+  const layoutHint = layoutHintKey ? (layoutHints[layoutHintKey] ?? null) : null;
+
   return (
     <>
       <div className="hidden w-[240px] shrink-0 flex-col lg:flex">
@@ -148,6 +168,7 @@ export function ModsListingView({
           activeCharacter={character}
           activeDirect={direct}
           activePreview={preview}
+          layoutHint={layoutHint}
           openModId={openModId}
         />
       </div>

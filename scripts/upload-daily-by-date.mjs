@@ -34,6 +34,7 @@ import { config } from "dotenv";
 import COS from "cos-nodejs-sdk-v5";
 import sharp from "sharp";
 
+import { syncCoverSizes } from "./cover-size.mjs";
 import { resolveDakaIfApplicable } from "./daka-classify.mjs";
 import { resolveReshareAlias } from "./reshare-title-aliases.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
@@ -1154,6 +1155,25 @@ where game_key = ${dollarQuote(GAME_KEY)};
   // 顺序不能反：**先发布快照、再 ping**（理由见 notifyRevalidate 的注释）。
   // --dry-run 天然走不到这里（上面已 return）。
   if (inserted > 0) {
+    // 先补封面尺寸再发快照：快照要带上 cover_width/cover_height，否则新入库的这批
+    // 在瀑布流里又要走「先按 3/4 排一遍再重排」的老路（见 scripts/cover-size.mjs）。
+    // 只处理封面变过的行，正常一天十几条，几秒的事。
+    try {
+      const coverSync = await syncCoverSizes({
+        bucket: cosBucket.trim(),
+        region: cosRegion.trim(),
+        log: (msg) => console.log(msg),
+      });
+      if (coverSync.scanned > 0) {
+        console.log(
+          `🖼  封面尺寸同步：扫描 ${coverSync.scanned}，写入 ${coverSync.updated}，取不到 ${coverSync.skipped}`,
+        );
+      }
+    } catch (err) {
+      // 不影响入库与快照：这一批最多退回兜底比例排版，下次上传会自动补上
+      console.warn(`⚠️  封面尺寸同步失败：${err.message}`);
+    }
+
     await publishSnapshotBestEffort();
     await notifyRevalidate({ siteUrl: SITE_URL, secret: process.env.REVALIDATE_SECRET?.trim() });
   }

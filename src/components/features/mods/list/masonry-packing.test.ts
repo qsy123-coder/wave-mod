@@ -9,6 +9,7 @@ import {
   MASONRY_WIDE_DOMINANT_SHARE,
   MASONRY_WIDE_MAX_HOLE,
   MASONRY_WIDE_RATIO,
+  buildLayoutHints,
   evenColumnsForWideList,
   isWideDominantMasonry,
   masonryCardHeight,
@@ -19,6 +20,95 @@ import {
 
 const PORTRAIT = 9 / 16;
 const LANDSCAPE = 4 / 3;
+
+describe("buildLayoutHints（骨架屏的版式画像）", () => {
+  const mod = (character: string, width: number | null, height: number | null) => ({
+    character,
+    coverWidth: width,
+    coverHeight: height,
+  });
+
+  it("横屏占比过线的角色给出横卡提示，比例取横屏那批的平均值", () => {
+    const mods = [
+      ...Array.from({ length: 10 }, () => mod("绯雪", 2540, 1546)), // ≈1.643
+      ...Array.from({ length: 2 }, () => mod("绯雪", 764, 1212)), // 竖屏
+    ];
+    const hints = buildLayoutHints(mods);
+    expect(hints["绯雪"]?.wideDominant).toBe(true);
+    expect(hints["绯雪"]?.wideRatio).toBeCloseTo(2540 / 1546, 5);
+  });
+
+  // 骨架屏现在按「第一页的真实比例」逐张摆位，所以竖屏为主的分类**同样要有提示**，
+  // 只是 wideDominant 为 false（列数不降、跨列规则不放宽）。
+  it("竖屏为主的角色也有提示（骨架要照第一页的真实比例画）", () => {
+    const mods = Array.from({ length: 20 }, () => mod("千咲", 1302, 1479));
+    const hint = buildLayoutHints(mods)["千咲"];
+    expect(hint).toBeDefined();
+    expect(hint?.wideDominant).toBe(false);
+    expect(hint?.ratios.length).toBeGreaterThan(0);
+    expect(hint?.ratios[0]).toBeCloseTo(1302 / 1479, 5);
+  });
+
+  it("第一页序列按输入顺序、最多 MODS_PAGE_SIZE 条", () => {
+    const mods = [
+      mod("绯雪", 646, 1314), // 0.49 竖
+      mod("绯雪", 2540, 1546), // 1.64 横
+      mod("绯雪", 903, 1291), // 0.70 竖
+      ...Array.from({ length: 20 }, () => mod("绯雪", 2540, 1546)),
+    ];
+    const ratios = buildLayoutHints(mods)["绯雪"]?.ratios ?? [];
+    expect(ratios).toHaveLength(16);
+    expect(ratios[0]).toBeCloseTo(646 / 1314, 5);
+    expect(ratios[1]).toBeCloseTo(2540 / 1546, 5);
+    expect(ratios[2]).toBeCloseTo(903 / 1291, 5);
+  });
+
+  it("取不到尺寸的行不计入占比，但第一页序列里用兜底 3/4 占位", () => {
+    const mods = [
+      ...Array.from({ length: 9 }, () => mod("绯雪", 2540, 1546)),
+      ...Array.from({ length: 30 }, () => mod("绯雪", null, null)),
+    ];
+    const hint = buildLayoutHints(mods)["绯雪"];
+    expect(hint?.wideDominant).toBe(true);
+    expect(Number.isFinite(hint?.wideRatio)).toBe(true);
+    // 前 9 条是真实比例，第 10 条起是兜底值
+    expect(hint?.ratios[9]).toBeCloseTo(3 / 4, 5);
+  });
+
+  it("样本太少时不算横屏为主，但比例序列照样给（骨架仍要逐张对齐）", () => {
+    const mods = Array.from({ length: 4 }, () => mod("绯雪", 2540, 1546));
+    const hint = buildLayoutHints(mods)["绯雪"];
+    expect(hint?.wideDominant).toBe(false);
+    expect(hint?.ratios).toHaveLength(4);
+  });
+
+  it("keyOf 可以给同一个角色登记多个键（原始名 + 归一化名）", () => {
+    const mods = Array.from({ length: 10 }, () => mod("科考摩托", 2540, 1546));
+    const hints = buildLayoutHints(mods, (character) => [character, `${character}-alias`]);
+    expect(hints["科考摩托"]?.wideDominant).toBe(true);
+    expect(hints["科考摩托-alias"]?.wideDominant).toBe(true);
+  });
+
+  it("别名撞上真实分类时不合并样本（反虚化… 归一化也叫 UI）", () => {
+    const mods = [
+      // UI 本身：横屏只有一半，不该被判成横屏为主
+      ...Array.from({ length: 10 }, () => mod("UI", 2540, 1546)),
+      ...Array.from({ length: 10 }, () => mod("UI", 1302, 1479)),
+      // 另一个分类归一化之后也叫 UI，但它自己是横屏为主
+      ...Array.from({ length: 10 }, () => mod("反虚化，ui界面，场景，葫芦，特效等", 2540, 1546)),
+    ];
+    const hints = buildLayoutHints(mods, (character) =>
+      character === "反虚化，ui界面，场景，葫芦，特效等" ? [character, "UI"] : [character],
+    );
+    // UI 按自己的样本算：50% < 55%，不是横屏为主（长名字那类不能污染它）
+    expect(hints["UI"]?.wideDominant).toBe(false);
+    // 第一页序列也必须是 UI 自己的（前 10 条是横图，之后是竖图）
+    expect(hints["UI"]?.ratios[0]).toBeCloseTo(2540 / 1546, 5);
+    expect(hints["UI"]?.ratios[10]).toBeCloseTo(1302 / 1479, 5);
+    // 长名字那一类自己仍然是横屏为主
+    expect(hints["反虚化，ui界面，场景，葫芦，特效等"]?.wideDominant).toBe(true);
+  });
+});
 
 const ids = (count: number) => Array.from({ length: count }, (_, i) => `m${i}`);
 const items = (ratios: number[]) => ratios.map((ratio, i) => ({ id: `m${i}`, ratio }));

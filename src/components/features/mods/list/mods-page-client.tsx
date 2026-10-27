@@ -6,6 +6,7 @@ import { ArrowUp } from "lucide-react";
 import { useSession } from "@/components/features/auth/session-provider";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { ModsInfiniteGrid, type ModsGridStatus } from "@/components/features/mods/list/mods-infinite-grid";
+import type { MasonryLayoutHint } from "@/components/features/mods/list/masonry-packing";
 import { ModsToolbar } from "@/components/features/mods/list/mods-toolbar";
 import { useLayoutPreference, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
@@ -33,6 +34,8 @@ type ModsPageClientProps = {
   /** URL 上的「含直链」/「含预览图」开关（服务端过滤） */
   activeDirect?: boolean;
   activePreview?: boolean;
+  /** 当前角色的版式画像（骨架屏画横卡还是竖卡，见 buildLayoutHints） */
+  layoutHint?: MasonryLayoutHint | null;
   openModId?: string;
 };
 
@@ -50,6 +53,7 @@ export function ModsPageClient({
   activeCharacter,
   activeDirect = false,
   activePreview = false,
+  layoutHint = null,
   openModId: initialModId,
 }: ModsPageClientProps) {
   /**
@@ -245,6 +249,7 @@ export function ModsPageClient({
           isLoggedIn={isLoggedIn}
           layoutMode={layoutMode}
           masonryColumns={masonryColumns}
+          layoutHint={layoutHint}
           onCardClick={openDrawer}
           onStatusChange={handleStatusChange}
         />

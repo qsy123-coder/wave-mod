@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { buildLayoutHints } from "@/components/features/mods/list/masonry-packing";
 import { ModsListingView } from "@/components/features/mods/list/mods-listing-view";
 import { ModsUrlDriven } from "@/components/features/mods/list/mods-url-driven";
 import { BodyScrollLock } from "@/components/layout/body-scroll-lock";
@@ -51,6 +52,20 @@ export async function ModsListing({ openModId }: ModsListingProps) {
   const seed = paginateMods(allMods, 1, MODS_PAGE_SIZE);
 
   /**
+   * 每个角色的「版式画像」：横屏占比够高的角色，骨架屏要画成横卡。
+   *
+   * 在服务端算是因为**骨架屏渲染时客户端还没有任何数据** —— 骨架屏出现的时机正是
+   * 第一页请求还在路上。这里顺手复用已经全量加载的 `allMods`，不多扫一次表。
+   *
+   * 同时登记原始角色名与归一化后的名字：URL 里两种写法都可能出现（见 buildLayoutHints）。
+   */
+  const layoutHints = buildLayoutHints(allMods, (character) => {
+    const raw = character ?? "";
+    const normalized = normalizeCharacterName(raw);
+    return normalized && normalized !== raw ? [raw, normalized] : [raw];
+  });
+
+  /**
    * `/mods/<id>` 进站时预载详情抽屉的头图。
    *
    * 抽屉是客户端组件，图片要等「JS 水合 → `/api/mods/[id]` 返回」才发起请求 ——
@@ -73,6 +88,7 @@ export async function ModsListing({ openModId }: ModsListingProps) {
       availableCharacters={availableCharacters}
       counts={counts}
       staticSeed={seed}
+      layoutHints={layoutHints}
       openModId={openModId}
     />
   );
@@ -90,6 +106,7 @@ export async function ModsListing({ openModId }: ModsListingProps) {
           defaultView={defaultView}
           availableCharacters={availableCharacters}
           counts={counts}
+          layoutHints={layoutHints}
           openModId={openModId}
         />
       </Suspense>

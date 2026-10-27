@@ -11,9 +11,11 @@ import {
   MASONRY_DEFAULT_RATIO,
   evenColumnsForWideList,
   isWideDominantMasonry,
+  masonryCardHeight,
   masonryColumnLeft,
   masonrySpanWidth,
   packMasonry,
+  type MasonryLayoutHint,
 } from "@/components/features/mods/list/masonry-packing";
 import { DESKTOP_DEFAULT_COLUMNS, columnOptionsForWidth, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
@@ -105,6 +107,12 @@ async function fetchModsPage({
  */
 const DEFAULT_CARD_IMAGE_SIZES = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 18vw";
 
+/**
+ * 拿不到角色画像时骨架用的比例（全是竖屏）。
+ * 只要服务端给了 `layoutHint.ratios`（正常情况都会给），就不会走到这里。
+ */
+const DEFAULT_SKELETON_RATIOS = [3 / 4, 4 / 5, 5 / 6, 2 / 3, 3 / 5];
+
 type ModsInfiniteGridProps = {
   character?: string;
   gameKey?: string;
@@ -132,6 +140,13 @@ type ModsInfiniteGridProps = {
   layoutMode?: "grid" | "masonry";
   /** 用户显式选过的列数；`null` / 不给 = 按容器宽度自适应 */
   masonryColumns?: MasonryColumns | null;
+  /**
+   * 当前筛选角色的「版式画像」，由服务端按全库封面尺寸算好下发。
+   *
+   * 骨架屏是在数据到达**之前**画的，那时没有任何比例可用 —— 没有这条提示就只能
+   * 画一版竖屏占位，横屏为主的分类（绯雪等）会明显对不上。见 buildLayoutHints。
+   */
+  layoutHint?: MasonryLayoutHint | null;
 };
 
 /** 网格对外汇报的取数状态 */
@@ -147,7 +162,7 @@ export type ModsGridStatus = {
   effectiveColumns: MasonryColumns | null;
 };
 
-export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns, layoutHint = null }: ModsInfiniteGridProps) {
   // 哨兵节点用 callback ref 存进 state，而不是 useRef。
   //
   // 哨兵是**条件渲染**的（hasNextPage 为假时不渲染），节点会在挂载/卸载之间切换，
@@ -313,7 +328,28 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
     masonryObserverRef.current = null;
     if (!node) return;
 
-    setMasonryWidth(node.clientWidth);
+    /**
+     * 量宽度：拿到 0 就**按帧重试**，别把「首帧还没布局完」当成真实宽度。
+     *
+     * 踩过的坑（2026-10-27）：骨架分支挂载时容器的 clientWidth 还是 0，于是
+     * `masonryWidth` 停在 0、瀑布流永远走「没量到宽度」的等宽兜底分列，骨架就与
+     * 真实卡片对不上；而且 0 → 真实宽度这次变化没被 ResizeObserver 报上来，一直不收敛。
+     */
+    const applyWidth = (): boolean => {
+      const width = node.clientWidth;
+      if (width <= 0) return false;
+      setMasonryWidth((prev) => (Math.abs(prev - width) < 0.5 ? prev : width));
+      return true;
+    };
+
+    if (!applyWidth()) {
+      let tries = 0;
+      const tick = () => {
+        if (!node.isConnected || applyWidth() || ++tries > 30) return;
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
 
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width ?? 0;
@@ -341,10 +377,33 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   const pendingRatiosRef = useRef<Record<string, number>>({});
   const ratioFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * 每张卡的排版比例，**优先级：库内封面尺寸 → 实测比例 → 兜底 3/4**。
+   *
+   * 库内尺寸是第一顺位：它在数据到达时就已知，于是首帧就能排对版式。
+   * 只用实测比例的话，首帧全是 3/4 ⇒ 图片陆续加载后整版重排，横屏为主时列数
+   * 还会 5→4 再跳一次（2026-10-27 用户报的「骨架屏结束后卡片乱跳」）。
+   */
+  const ratioFor = useCallback(
+    (mod: SiteMod): number => {
+      const width = mod.coverWidth ?? 0;
+      const height = mod.coverHeight ?? 0;
+      if (width > 0 && height > 0) return width / height;
+      return ratios[mod.id] ?? MASONRY_DEFAULT_RATIO;
+    },
+    [ratios],
+  );
+
+  /** 已有库内比例的行：实测回调不必再报（报了也改变不了排版，只会多余重渲染） */
+  const hasStoredRatio = useMemo(
+    () => new Set(mods.filter((mod) => (mod.coverWidth ?? 0) > 0 && (mod.coverHeight ?? 0) > 0).map((mod) => mod.id)),
+    [mods],
+  );
+
   /** 打包用的 (id, 比例) 列表；比例未知的按兜底 3/4 算（= 不算横屏） */
   const packItems = useMemo(
-    () => mods.map((mod) => ({ id: mod.id, ratio: ratios[mod.id] ?? MASONRY_DEFAULT_RATIO })),
-    [mods, ratios],
+    () => mods.map((mod) => ({ id: mod.id, ratio: ratioFor(mod) })),
+    [mods, ratioFor],
   );
 
   /**
@@ -354,7 +413,18 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    * 就是「一列从头空到底」）。比例要等图片加载才知道，所以首屏会在 5 → 4 之间重排
    * 一次；换来的是每行两张横屏卡、铺满不留空列。判据见 masonry-packing.ts。
    */
-  const colCount = evenColumnsForWideList(preferredColCount, isWideDominantMasonry(packItems));
+  /**
+   * ⚠️ 服务端下发的角色画像要**一起**参与判定，不能只看已加载的这一页。
+   *
+   * `isWideDominantMasonry(packItems)` 只看当前已加载的条目：绯雪整类 82% 是横屏，
+   * 但「最新」排序的**第一页**只有 ~50%，于是首屏先铺 5 列、往下翻几页占比过线后
+   * 又跳成 4 列 —— 正是用户报的那种「列数会变、卡片乱跳」。角色画像按全库算，
+   * 天然稳定，拿它当先验就能首帧定死列数，也让骨架屏与实际版式一致。
+   */
+  const colCount = evenColumnsForWideList(
+    preferredColCount,
+    isWideDominantMasonry(packItems) || Boolean(layoutHint?.wideDominant),
+  );
 
   /**
    * 把取数状态**镜像**给上层：顶部进度条按它起停，工具栏那句「共 N 个资源」用它的真总数。
@@ -385,6 +455,8 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
   const handleImageRatioChange = useCallback((modId: string, ratio: number) => {
     if (!Number.isFinite(ratio) || ratio <= 0) return;
+    // 库内比例优先，实测值改变不了排版，只会多一次重渲染
+    if (hasStoredRatio.has(modId)) return;
     if (ratiosRef.current[modId] === ratio) return;
     pendingRatiosRef.current[modId] = ratio;
     if (ratioFlushTimerRef.current !== null) return;
@@ -396,7 +468,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       Object.assign(ratiosRef.current, pending);
       setRatios((prev) => ({ ...prev, ...pending }));
     }, 120);
-  }, []);
+  }, [hasStoredRatio]);
 
   useEffect(
     () => () => {
@@ -429,6 +501,8 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         const img = el.querySelector("img");
         const id = el.dataset.modId;
         if (!id || !img || !img.naturalWidth || !img.naturalHeight) return;
+        // 库内比例优先（见 ratioFor），量到了也不写回去
+        if (hasStoredRatio.has(id)) return;
         const ratio = img.naturalWidth / img.naturalHeight;
         if (Number.isFinite(ratio) && ratio > 0) found[id] = ratio;
       });
@@ -461,7 +535,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       root.removeEventListener("load", onLoad, true);
       clearTimeout(timer);
     };
-  }, [isMasonry, mods]);
+  }, [isMasonry, mods, hasStoredRatio]);
 
   /**
    * 瀑布流摆放：横屏（宽高比 > 1.1）横跨两列，其余卡片进当前最矮的列。
@@ -469,8 +543,52 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    */
   const masonryPack = useMemo(() => {
     if (!isMasonry || masonryWidth <= 0) return null;
-    return packMasonry(packItems, colCount, masonryWidth);
-  }, [isMasonry, masonryWidth, packItems, colCount]);
+    // 列数已经按角色画像定死，跨列的「洞上限」判定也要跟着走同一边，
+    // 否则 4 列 + 严格洞过滤会在横屏卡之间反复降级成单列。
+    return packMasonry(packItems, colCount, masonryWidth, layoutHint?.wideDominant || undefined);
+  }, [isMasonry, masonryWidth, packItems, colCount, layoutHint]);
+
+  /**
+   * 「加载下一页」的占位卡：**插进当前各列的空隙里**，而不是在瀑布流下方另铺一块。
+   *
+   * 旧实现是一段 `mt-4 flex gap-4` 的等宽四列块，挂在绝对定位容器**外面** —— 它拿不到
+   * 各列的底部坐标，只能画成规整的方阵；而上一页收尾时列与列本来就参差不齐，于是用户
+   * 看到的是「错落的卡片下面突然接一块整齐的紫块」，中间还夹着空白（2026-10-27 用户反馈）。
+   *
+   * 现在把占位卡当成**追加在真实卡片之后**的条目，交给**同一个** `packMasonry`：
+   *   - 打包是增量的（只往后排），真实卡片的位置一个都不会动；
+   *   - 占位卡接着**每一列自己的底部**往下长，天然落在空隙里；
+   *   - 跨两列、避洞这些规则与真实卡片完全一致，视觉上就是「继续加载」。
+   *
+   * 占位比例：横屏为主的分类按该角色的平均横屏比例排（否则会在横屏区里插竖条），
+   * 其余沿用竖屏混合比例。
+   */
+  const skeletonPlan = useMemo(() => {
+    if (!isMasonry || masonryWidth <= 0 || !isFetchingNextPage) return null;
+
+    // 用该分类第一页的真实比例循环，续下去的那几张才和上面的卡片同一种横竖节奏
+    const baseRatios = layoutHint?.ratios?.length ? layoutHint.ratios : DEFAULT_SKELETON_RATIOS;
+
+    const placeholders = Array.from({ length: MODS_PAGE_SIZE }, (_, i) => ({
+      id: `__skeleton-${i}`,
+      ratio: baseRatios[i % baseRatios.length],
+    }));
+    const ratioById = new Map(placeholders.map((p) => [p.id, p.ratio]));
+
+    const packed = packMasonry(
+      [...packItems, ...placeholders],
+      colCount,
+      masonryWidth,
+      layoutHint?.wideDominant || undefined,
+    );
+
+    return {
+      columnWidth: packed.columnWidth,
+      height: packed.height,
+      placements: packed.placements.filter((placement) => ratioById.has(placement.id)),
+      ratioById,
+    };
+  }, [isMasonry, masonryWidth, isFetchingNextPage, packItems, colCount, layoutHint]);
 
   const modById = useMemo(() => {
     const map = new Map<string, SiteMod>();
@@ -490,7 +608,6 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
     map: new Map(),
   });
 
-  /* eslint-disable react-hooks/refs */
   const fallbackColumns = useMemo(() => {
     if (!isMasonry) return [];
     if (fallbackColMapRef.current.colCount !== colCount) {
@@ -515,7 +632,6 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
     return cols;
   }, [mods, colCount, isMasonry]);
-  /* eslint-enable react-hooks/refs */
 
   // 清理已移出列表的卡片（ref 操作必须在 effect 中）
   useEffect(() => {
@@ -588,17 +704,68 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    * 筛选后、导航落地前就先把骨架亮起来，别让用户觉得点击没反应。
    */
   if (isPending || pendingCharacter !== null || pendingListingLoad) {
-    return isMasonry ? (
-      <section className="flex gap-4">
-        {Array.from({ length: colCount }).map((_, colIdx) => (
-          <div key={colIdx} className="flex flex-1 flex-col gap-4">
-            {Array.from({ length: Math.ceil(MODS_PAGE_SIZE / colCount) }).map((_, si) => (
-              <MasonryCardSkeleton key={si} index={colIdx * 3 + si} />
-            ))}
-          </div>
-        ))}
-      </section>
-    ) : (
+    /**
+     * 瀑布流骨架 = **把第一页的真实比例跑一遍同一个打包器**。
+     *
+     * 只要比例序列对得上，列数、跨列、每张的高度就都和落下来的卡片逐像素一致；
+     * 用「整类平均」「全都横屏」这类近似值画，必然对不上 —— 绯雪整类 82% 是横卡，
+     * 但默认排序的第一页以竖卡为主，骨架就成了两列大横卡、落下来却是一屏竖卡
+     * （2026-10-27 用户两次反馈都是这件事）。
+     */
+    if (isMasonry) {
+      const pendingRatios = layoutHint?.ratios?.length ? layoutHint.ratios : DEFAULT_SKELETON_RATIOS;
+      const placeholders = Array.from({ length: MODS_PAGE_SIZE }, (_, i) => ({
+        id: `__pending-${i}`,
+        ratio: pendingRatios[i % pendingRatios.length],
+      }));
+      const pendingPack =
+        masonryWidth > 0
+          ? packMasonry(placeholders, colCount, masonryWidth, layoutHint?.wideDominant || undefined)
+          : null;
+
+      return (
+        // 内联箭头：每次渲染都重挂一次 ref，顺带重新量宽度（同数据分支的写法）
+        <div ref={(node) => attachMasonryContainer(node)}>
+          {pendingPack ? (
+            <div className="relative" style={{ height: pendingPack.height }}>
+              {pendingPack.placements.map((placement, i) => {
+                const width = masonrySpanWidth(placement.span, pendingPack.columnWidth);
+                const ratio =
+                  placeholders.find((p) => p.id === placement.id)?.ratio ?? MASONRY_DEFAULT_RATIO;
+                return (
+                  <div
+                    key={placement.id}
+                    aria-hidden
+                    className="absolute"
+                    style={{
+                      left: masonryColumnLeft(placement.column, pendingPack.columnWidth),
+                      top: placement.top,
+                      width,
+                      height: masonryCardHeight(width, ratio),
+                    }}
+                  >
+                    <MasonryCardSkeleton index={i} fillHeight />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* 还没量到容器宽度（首帧）：先按等宽列铺竖卡，量到后立刻换成上面的精确版式 */
+            <div className="flex gap-4">
+              {Array.from({ length: colCount }).map((_, colIdx) => (
+                <div key={colIdx} className="flex flex-1 flex-col gap-4">
+                  {Array.from({ length: Math.ceil(MODS_PAGE_SIZE / colCount) }).map((_, si) => (
+                    <MasonryCardSkeleton key={si} index={colIdx * 3 + si} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
       <section className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
         {Array.from({ length: MODS_PAGE_SIZE }).map((_, i) => (
           <ModCardSkeleton key={i} />
@@ -648,7 +815,12 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         >
           {masonryPack ? (
             <>
-              <div className="relative" style={{ height: masonryPack.height }}>
+              {/* 高度要把占位卡也算进去：它们是 absolute 的，不撑开父元素，
+                  不写进 height 的话这一块会被下面的「已经翻到底了」压住。 */}
+              <div
+                className="relative"
+                style={{ height: Math.max(masonryPack.height, skeletonPlan?.height ?? 0) }}
+              >
                 {masonryPack.placements.map((placement) => {
                   const mod = modById.get(placement.id);
                   if (!mod) return null;
@@ -677,9 +849,9 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
                           `${Math.round(
                             masonrySpanWidth(placement.span, masonryPack.columnWidth) - MASONRY_CARD_CHROME,
                           )}px`,
-                          // 与 packMasonry 用的是**同一个**兜底值（比例未知按 3/4 算），
+                          // 必须与 packMasonry 用**同一个**解析（库内 → 实测 → 兜底），
                           // 这样卡片盒子与布局预留的高度逐像素一致。
-                          ratios[mod.id] ?? MASONRY_DEFAULT_RATIO,
+                          ratioFor(mod),
                         )}
                       </MotionReveal>
                     </div>
@@ -687,6 +859,30 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
                 })}
                 {/* 哨兵：必须脱流（absolute），否则会占掉一格。挂在整块底部（= 最高列的
                     底）即可 —— rootMargin 的 800px 足够覆盖各列高度差（理由详见网格分支）。 */}
+                {/* 加载中占位：由 skeletonPlan 接在每列底部，见其注释 */}
+                {skeletonPlan?.placements.map((placement, i) => {
+                  const width = masonrySpanWidth(placement.span, skeletonPlan.columnWidth);
+                  const ratio =
+                    skeletonPlan.ratioById.get(placement.id) ?? MASONRY_DEFAULT_RATIO;
+                  return (
+                    <div
+                      key={placement.id}
+                      aria-hidden
+                      className="absolute"
+                      style={{
+                        left: masonryColumnLeft(placement.column, skeletonPlan.columnWidth),
+                        top: placement.top,
+                        width,
+                        // 高度必须与打包时预留的**逐像素一致**，否则同一列里的占位卡
+                        // 会互相叠住：aspect-ratio 算出来的图高 + 标题条 比预留值多出
+                        // 五六十像素，越往下叠得越狠（2026-10-27 用户截图）。
+                        height: masonryCardHeight(width, ratio),
+                      }}
+                    >
+                      <MasonryCardSkeleton index={i} fillHeight />
+                    </div>
+                  );
+                })}
                 {hasNextPage ? (
                   <div
                     ref={setSentinel}
@@ -695,21 +891,6 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
                   />
                 ) : null}
               </div>
-              {/* 加载中骨架：下一批卡片的文件还没到，算不出绝对坐标，
-                  统一在瀑布流下方铺一组占位卡片 */}
-              {isFetchingNextPage ? (
-                <div className="mt-4 flex gap-4">
-                  {Array.from({ length: colCount }).map((_, colIdx) => (
-                    <div key={colIdx} className="flex flex-1 flex-col gap-4">
-                      {Array.from({ length: Math.ceil(16 / colCount) }).map((_, si) => (
-                        <MotionReveal key={`skel-${si}`} delay={0.05 + si * 0.03} y={10}>
-                          <MasonryCardSkeleton index={colIdx * 3 + si} />
-                        </MotionReveal>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
             </>
           ) : (
             /* 未量到容器宽度（SSR / 水合首帧）的兜底版式 */

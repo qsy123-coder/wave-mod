@@ -176,6 +176,13 @@ export type Database = {
         Row: {
           character: string;
           comments_count: number;
+          /**
+           * 封面原始宽高（images[0]）。瀑布流首帧靠它排版，避免「先按 3/4 竖屏排一遍
+           * 再重排」的抖动。可空：非 COS 源 / 审核封禁 / 尚未回填的行取不到。
+           * 真源是 supabase/add_mod_cover_size.sql。
+           */
+          cover_width?: number | null;
+          cover_height?: number | null;
           created_at: string;
           created_by: string | null;
           description: string;
@@ -206,6 +213,8 @@ export type Database = {
         Insert: {
           character: string;
           comments_count?: number;
+          cover_width?: number | null;
+          cover_height?: number | null;
           created_at?: string;
           created_by?: string | null;
           description: string;
@@ -236,6 +245,8 @@ export type Database = {
         Update: {
           character?: string;
           comments_count?: number;
+          cover_width?: number | null;
+          cover_height?: number | null;
           created_at?: string;
           created_by?: string | null;
           description?: string;

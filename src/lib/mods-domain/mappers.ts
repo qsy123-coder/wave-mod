@@ -22,6 +22,8 @@ export const publicModColumns = `
   game_key,
   description,
   images,
+  cover_width,
+  cover_height,
   video_url,
   download_url,
   downloads_count,
@@ -67,6 +69,10 @@ export function mapMod(row: MappableModRow): SiteMod {
     character: row.character,
     commentsCount: row.comments_count ?? 0,
     coverImage: images[0] ?? fallbackCoverImage,
+    // 瀑布流首帧排版用（见 cover-size.mjs 与 masonry-packing.ts）。
+    // 缺列/缺值时给 null，前端自动退回「实测比例 → 兜底 3/4」的老路径。
+    coverWidth: row.cover_width ?? null,
+    coverHeight: row.cover_height ?? null,
     createdAt: row.created_at,
     description: row.description,
     downloadUrl: row.download_url ?? null,

@@ -8,6 +8,15 @@ export type SiteMod = {
   character: string;
   commentsCount: number;
   coverImage: string;
+  /**
+   * 封面原始宽高（像素），来自 `mods.cover_width/height`。
+   *
+   * 瀑布流用它**在图片加载之前**算出首帧版式：没有它就只能全部按兜底 3/4 竖屏排，
+   * 等图片 load 完再整版重排（2026-10-27 用户报的「骨架屏结束后卡片乱跳」）。
+   * 为 null = 取不到（非 COS 源 / 审核封禁 / 未回填），回退到实测比例。
+   */
+  coverWidth?: number | null;
+  coverHeight?: number | null;
   createdAt: string;
   description: string;
   downloadUrl: string | null;

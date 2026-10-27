@@ -43,32 +43,88 @@ export function FeaturedCarouselSkeleton() {
   );
 }
 
-/** 单个 mod 卡片骨架 — 用于瀑布流/网格占位 */
-export function ModCardSkeleton({ aspectClass = "aspect-[4/5]" }: { aspectClass?: string }) {
+/**
+ * 单个 mod 卡片骨架 — 用于瀑布流/网格占位。
+ *
+ * 三种定尺寸方式，按调用场景选：
+ *   - 默认：`aspectClass`（Tailwind 静态类），网格/首屏骨架用；
+ *   - `aspectRatio`：内联 `aspect-ratio`，Tailwind 生成不了动态比例时用；
+ *   - `fillHeight`：**撑满外层给定的高度**。瀑布流里占位卡是按
+ *     `masonryCardHeight()` 算好坐标绝对定位的，高度必须与那个数字一致 ——
+ *     用 aspect-ratio 自己长高的话，图片区 + 标题条的总高比预留值多出五六十像素，
+ *     每张都往下溢出，同一个列里的占位卡就会**层层叠在一起**（2026-10-27 实测）。
+ */
+export function ModCardSkeleton({
+  aspectClass = "aspect-[4/5]",
+  aspectRatio,
+  fillHeight = false,
+}: {
+  aspectClass?: string;
+  aspectRatio?: number;
+  fillHeight?: boolean;
+}) {
+  const footer = (
+    <div className="shrink-0 space-y-2 px-1 pb-1 pt-3 text-black">
+      <SkeletonBar className="h-6 w-3/4" />
+      <div className="flex gap-2">
+        <SkeletonBar className="h-3 w-12" />
+        <SkeletonBar className="h-3 w-10" />
+      </div>
+    </div>
+  );
+
+  if (fillHeight) {
+    return (
+      <article className="neo-card neo-card-lift flex h-full flex-col bg-[var(--neo-panel)] p-2.5">
+        <div className="relative min-h-0 flex-1 overflow-hidden border-4 border-black bg-black">
+          <div className="size-full animate-pulse bg-[var(--neo-muted)]" />
+          <div className="absolute left-2 top-2 flex gap-1">
+            <SkeletonBar className="h-6 w-14 bg-[var(--neo-secondary)]" />
+            <SkeletonBar className="h-6 w-8 bg-[var(--neo-accent)]" />
+          </div>
+        </div>
+        {footer}
+      </article>
+    );
+  }
+
   return (
     <article className="neo-card neo-card-lift h-full bg-[var(--neo-panel)] p-2.5">
       <div className="relative overflow-hidden border-4 border-black bg-black">
-        <div className={`w-full animate-pulse bg-[var(--neo-muted)] ${aspectClass}`} />
+        <div
+          className={`w-full animate-pulse bg-[var(--neo-muted)] ${aspectRatio ? "" : aspectClass}`}
+          style={aspectRatio ? { aspectRatio: String(aspectRatio) } : undefined}
+        />
         <div className="absolute left-2 top-2 flex gap-1">
           <SkeletonBar className="h-6 w-14 bg-[var(--neo-secondary)]" />
           <SkeletonBar className="h-6 w-8 bg-[var(--neo-accent)]" />
         </div>
       </div>
-      <div className="space-y-2 px-1 pb-1 pt-3 text-black">
-        <SkeletonBar className="h-6 w-3/4" />
-        <div className="flex gap-2">
-          <SkeletonBar className="h-3 w-12" />
-          <SkeletonBar className="h-3 w-10" />
-        </div>
-      </div>
+      {footer}
     </article>
   );
 }
 
-/** 瀑布流骨架卡片 — 随机高度，模拟真实瀑布流 */
+/**
+ * 瀑布流骨架卡片 — 随机高度，模拟真实瀑布流。
+ *
+ * ⚠️ 这五个比例**全是竖屏**。横屏为主的分类（绯雪等）必须由调用方传 `aspectRatio`
+ * （该角色横屏封面的平均比例），否则骨架会画成一整版竖卡、与落下来的横屏大卡对不上
+ * —— 这正是 2026-10-27 用户报的「骨架屏横竖屏不对」。
+ */
 const MASONRY_HEIGHTS = ["aspect-[3/4]", "aspect-[4/5]", "aspect-[5/6]", "aspect-[2/3]", "aspect-[3/5]"];
 
-export function MasonryCardSkeleton({ index }: { index: number }) {
+export function MasonryCardSkeleton({
+  index,
+  aspectRatio,
+  fillHeight = false,
+}: {
+  index: number;
+  aspectRatio?: number;
+  fillHeight?: boolean;
+}) {
+  if (fillHeight) return <ModCardSkeleton fillHeight />;
+  if (aspectRatio) return <ModCardSkeleton aspectRatio={aspectRatio} />;
   const aspect = MASONRY_HEIGHTS[index % MASONRY_HEIGHTS.length];
   return <ModCardSkeleton aspectClass={aspect} />;
 }

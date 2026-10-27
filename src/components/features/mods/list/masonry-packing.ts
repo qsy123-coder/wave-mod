@@ -11,6 +11,8 @@
  * 纯函数、不碰 DOM，单测见 masonry-packing.test.ts。
  */
 
+import { MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
+
 /** 列间距，对应网格的 gap-4 */
 export const MASONRY_GAP = 16;
 
@@ -136,6 +138,126 @@ export function evenColumnsForWideList(columns: number, wideDominant: boolean): 
   return columns - 1;
 }
 
+/**
+ * 某个角色的「版式画像」：骨架屏要在**数据到达之前**就画对，只能靠它。
+ *
+ * 骨架屏渲染时列表还没请求回来（`isPending`），拿不到任何卡片比例 —— 于是只能按
+ * 兜底 3/4 画成一版竖屏占位，与最终横屏大卡对不上（2026-10-27 用户报的
+ * 「马上就要加载出横屏卡的位置，骨架屏却是竖屏动画」）。
+ *
+ * `wideRatio` 是该角色横屏封面的**平均**宽高比，用来给占位卡定高。
+ */
+export type MasonryLayoutHint = {
+  wideDominant: boolean;
+  wideRatio: number;
+  /**
+   * **第一页**（默认排序下前 `MODS_PAGE_SIZE` 条）的封面比例，按顺序排。
+   *
+   * 骨架屏靠它才画得准：整个分类的横屏占比与第一页往往差很多 —— 绯雪整类 82% 横屏，
+   * 但「最新」的第一页只有约一半，甚至以竖卡为主。用整类占比去画骨架，就会出现
+   * 「骨架两列横卡、落下来却是一屏竖卡」（2026-10-27 用户反馈）。
+   *
+   * 缺尺寸的条目按兜底 3/4 占位，保证**位置与数量**都与真实第一页一一对应。
+   */
+  ratios: number[];
+};
+
+/** 骨架屏判定「横屏为主」所需的最少样本数；比真布局的 12 张放宽些，样本少时宁可画老样子 */
+const HINT_MIN_SAMPLES = 8;
+
+/** 版式画像里要保留多少张第一页的比例 —— 与服务端每页条数一致，骨架才能一一对应 */
+const HINT_PAGE_SIZE = MODS_PAGE_SIZE;
+
+/**
+ * 由「全库已发布 mod」算出每个角色的版式画像，服务端算一次、随页面下发。
+ *
+ * 只看**取到封面尺寸**的行（`cover_width/cover_height`）：没尺寸的那些本来就会
+ * 回退到实测比例，把它们计入总数会把占比稀释掉。
+ *
+ * @param keyOf 角色名 → 查表键（默认就是角色名本身）。线上路由里角色名有两种写法
+ *   （原始值 / `normalizeCharacterName` 之后的规范名），调用方用这个把它补齐。
+ */
+export function buildLayoutHints(
+  mods: readonly {
+    character: string;
+    coverHeight?: number | null;
+    coverWidth?: number | null;
+  }[],
+  keyOf: (character: string) => string[] = (character) => [character],
+): Record<string, MasonryLayoutHint> {
+  // ① 先按**原始角色名**聚合。不能直接按 keyOf 聚合：`反虚化，ui界面，场景…`
+  // 归一化之后也叫「UI」，两批混合样本会合成一桶、把 UI 的占比抬过线
+  // （2026-10-27 实测：UI 本身 52%，被拉成"横屏为主"，骨架反而画错）。
+  const stats = new Map<string, { total: number; wide: number; wideRatioSum: number }>();
+  /** 原始角色名 → 默认排序下前 N 条的比例（骨架屏按它逐张摆位） */
+  const firstRatios = new Map<string, number[]>();
+
+  for (const mod of mods) {
+    const raw = mod.character ?? "";
+    if (!raw) continue;
+
+    const width = mod.coverWidth ?? 0;
+    const height = mod.coverHeight ?? 0;
+    const known = width > 0 && height > 0;
+    const ratio = known ? width / height : MASONRY_DEFAULT_RATIO;
+
+    // ① 第一页序列：**顺序即列表顺序**，缺尺寸的用兜底比例占位。
+    const seq = firstRatios.get(raw) ?? [];
+    if (seq.length < HINT_PAGE_SIZE) {
+      seq.push(ratio);
+      firstRatios.set(raw, seq);
+    }
+
+    // ② 全类统计只看有尺寸的（未知的会把占比稀释掉）
+    if (!known) continue;
+    const entry = stats.get(raw) ?? { total: 0, wide: 0, wideRatioSum: 0 };
+    entry.total += 1;
+    if (ratio > MASONRY_WIDE_RATIO) {
+      entry.wide += 1;
+      entry.wideRatioSum += ratio;
+    }
+    stats.set(raw, entry);
+  }
+
+  /**
+   * 每个角色都给提示（哪怕不是横屏为主）：骨架屏要按第一页逐张摆位，
+   * 竖屏为主的分类同样需要这份序列。`wideDominant` 只是额外告诉调用方
+   * 「列数要取偶数、跨列规则放宽」。
+   */
+  const hintFor = (raw: string): MasonryLayoutHint | null => {
+    const ratios = firstRatios.get(raw);
+    if (!ratios || ratios.length === 0) return null;
+    const entry = stats.get(raw);
+    const wideDominant = Boolean(
+      entry && entry.total >= HINT_MIN_SAMPLES && entry.wide / entry.total >= MASONRY_WIDE_DOMINANT_SHARE,
+    );
+    return {
+      wideDominant,
+      // 兜底给一个 5:4 附近的保守值，别让占位卡过分扁
+      wideRatio: entry && entry.wide > 0 ? entry.wideRatioSum / entry.wide : MASONRY_WIDE_RATIO + 0.2,
+      ratios: [...ratios],
+    };
+  };
+
+  const hints: Record<string, MasonryLayoutHint> = {};
+  for (const raw of firstRatios.keys()) {
+    const hint = hintFor(raw);
+    if (hint) hints[raw] = hint;
+  }
+
+  // ② 再补别名键（URL 里可能写的是归一化后的名字）。只在别名**不是**一个真实分类时补，
+  // 否则会盖掉那个分类自己的结论 —— 它已经按自己的样本算过了。
+  for (const raw of stats.keys()) {
+    const hint = hints[raw];
+    if (!hint) continue;
+    for (const alias of keyOf(raw)) {
+      if (!alias || alias === raw || stats.has(alias)) continue;
+      hints[alias] = hint;
+    }
+  }
+  return hints;
+}
+
 /** 单张卡片（含边框和内边距）在给定宽度下的高度 */
 export function masonryCardHeight(width: number, ratio: number): number {
   const safeRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : MASONRY_DEFAULT_RATIO;
@@ -169,6 +291,11 @@ export function packMasonry(
   items: MasonryPackItem[],
   columns: number,
   containerWidth: number,
+  /**
+   * 覆盖「横屏为主」的判定。列表页会把服务端下发的**角色画像**传进来：
+   * 它按全库算，比「当前这一页」稳定得多。不传则按本批 items 现算。
+   */
+  wideDominantOverride?: boolean,
 ): MasonryPackResult {
   if (columns < 1 || !Number.isFinite(containerWidth) || containerWidth <= 0) {
     return { placements: [], height: 0, columnWidth: 0 };
@@ -190,7 +317,8 @@ export function packMasonry(
    * 108 / 144 / 180 / 240 四档，全都会把列底落差从 63px 拉到 4881px（等于又回到
    * 「一列空到底」）。放宽后的洞实测约 416px，比一张卡矮，是这条路的必要代价。
    */
-  const wideDominant = columns >= 3 && isWideDominantMasonry(items);
+  const wideDominant =
+    columns >= 3 && (wideDominantOverride ?? isWideDominantMasonry(items));
 
   /** 单列卡：放进当前最短的列。 */
   const placeSingle = (item: MasonryPackItem) => {

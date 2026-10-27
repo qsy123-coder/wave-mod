@@ -29,6 +29,7 @@ import COS from "cos-nodejs-sdk-v5";
 import { config } from "dotenv";
 import sharp from "sharp";
 
+import { syncCoverSizes } from "./cover-size.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
@@ -328,6 +329,14 @@ console.log(`\n📊 写库完成：成功 ${applied}，失败 ${updates.length -
 
 // 顺序不能反：先发快照、再 ping（见 mods-snapshot-export.mjs 的 notifyRevalidate 注释）
 if (applied > 0) {
+  // 换了封面就得补 cover_width/height，否则快照里的比例还是旧的（见 scripts/cover-size.mjs）
+  try {
+    const coverSync = await syncCoverSizes({ bucket: cosBucket, region: cosRegion, log: (m) => console.log(m) });
+    console.log(`🖼  封面尺寸同步：扫描 ${coverSync.scanned}，写入 ${coverSync.updated}`);
+  } catch (err) {
+    console.warn(`⚠️  封面尺寸同步失败：${err.message}`);
+  }
+
   try {
     await publishSnapshotToCos({
       cos,
