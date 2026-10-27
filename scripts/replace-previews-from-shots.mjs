@@ -261,9 +261,11 @@ for (const { row, shots } of plans.values()) {
     const slash = existingUrl.lastIndexOf("/");
     if (slash < 0) throw new Error(`库内 URL 形态异常：${existingUrl}`);
     const reuseDir = currentKey.startsWith("mods/");
+    // ⚠️ 域名后缀 `.myqcloud.com` 不能漏：漏了就是 `…cos.ap-guangzhou/mods/…`，
+    // COS 对象本身没问题，但前台整片坏图（2026-10-27 尤诺两条占位图行踩到）。
     const dirUrl = reuseDir
       ? existingUrl.slice(0, slash + 1)
-      : `https://${cosBucket}.cos.${cosRegion}/mods/${slugify(CHARACTER)}/${row.id}/`;
+      : `https://${cosBucket}.cos.${cosRegion}.myqcloud.com/mods/${slugify(CHARACTER)}/${row.id}/`;
     const dirKey = reuseDir ? currentKey.slice(0, currentKey.lastIndexOf("/") + 1) : `mods/${slugify(CHARACTER)}/${row.id}/`;
     if (!reuseDir) console.log(`   ℹ️  ${label}：库里是占位图，新键改落 ${dirKey}`);
 
