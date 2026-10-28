@@ -26,12 +26,14 @@ export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get("key") ?? "";
   if (!secretEquals(key, token)) return new NextResponse("Not Found", { status: 404 });
 
-  // 反代会改写 Host，Location 用请求头里的真实域名拼，别用 nextUrl.origin
-  const proto = request.headers.get("x-forwarded-proto") ?? "https";
-  const host = request.headers.get("host");
-  const target = host ? `${proto}://${host}/visits` : new URL("/visits", request.url).toString();
-
-  const response = NextResponse.redirect(target, 303);
+  // 用**相对** Location，不拼绝对地址。
+  // 香港 nginx 在前面、Vercel 在中间，函数拿到的 Host 已经被改写成
+  // `wave-mod.vercel.app` —— 照着它跳，浏览器会离开用户访问的域名，
+  // 而 httpOnly cookie 是挂在原域名上的，跳过去等于立刻失效（2026-10-28 实测踩到）。
+  const response = new NextResponse(null, {
+    status: 303,
+    headers: { Location: "/visits", "Cache-Control": "no-store" },
+  });
   const secure = process.env.NODE_ENV === "production";
 
   response.cookies.set({
