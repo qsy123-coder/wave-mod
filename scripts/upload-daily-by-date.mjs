@@ -1197,7 +1197,38 @@ where game_key = ${dollarQuote(GAME_KEY)};
 
     await publishSnapshotBestEffort();
     await notifyRevalidate({ siteUrl: SITE_URL, secret: process.env.REVALIDATE_SECRET?.trim() });
+    purgeHkCacheBestEffort();
   }
+}
+
+/**
+ * 清香港反代的**整层**缓存。
+ *
+ * 为什么上传后必须有这一步：nginx 的 TTL 2026-10-29 提到 6 小时（见
+ * `deploy/hk-proxy/nginx/wavemod-proxy.conf.template`），而 `/api/revalidate`
+ * 只清得到 Vercel 那一层 —— 香港这台机器照样把旧列表发出去最长 6 小时。
+ * TTL 拉长的前提就是「发布时主动失效」，所以这一步和 ping 是一对，不能只留一个。
+ *
+ * 失败只告警不翻红：数据已经入库，最坏是新 mod 晚 6 小时出现在列表里，
+ * 不该让一次成功的上传显示成失败；但它是那种「终端看着挺绿、前台静悄悄不动」
+ * 的故障，所以告警写足三行，并给出补跑命令。
+ */
+function purgeHkCacheBestEffort() {
+  const result = spawnSync(
+    process.execPath,
+    [resolve(process.cwd(), "scripts/purge-hk-api-cache.mjs"), "--all"],
+    { encoding: "utf8", timeout: 180_000 },
+  );
+
+  if (result.status === 0) {
+    console.log(result.stdout.trim());
+    return;
+  }
+
+  const detail = (result.stderr || result.stdout || "").trim().split("\n").slice(-1)[0] || "未知错误";
+  console.warn(`⚠️  香港反代缓存没清掉：${detail}`);
+  console.warn("   新内容最坏要等 nginx TTL（6 小时）自然过期才出现，补跑：");
+  console.warn("   node scripts/purge-hk-api-cache.mjs --all");
 }
 
 /**

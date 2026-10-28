@@ -225,7 +225,12 @@ server {
         # 提到 2 小时后，重复访问的 URL 回源次数降到 1/4。
         # 内容新鲜度不受影响：新 mod 的失效是 /api/revalidate 清 Vercel 那层，
         # /updates 页仍是 300s；这条只影响「按角色筛选/翻页」的列表最多 2 小时。
-        proxy_cache_valid 200 7200s;
+        #
+        # 2026-10-29 提到 21600s（6 小时）：10-28 的全量日志里这条路由仍回源 3,641 次／天，
+        # 其中 1,923 次（53%）是 STALE。新鲜度不再指望 TTL —— upload-daily-by-date.mjs
+        # 上传完会跑 `purge-hk-api-cache.mjs --all` 把整层缓存清掉，6 小时只是「清理也漏了」
+        # 时的兜底，顺带和站点自己的数据缓存 TTL（同样 6 小时）对齐。
+        proxy_cache_valid 200 21600s;
         proxy_ignore_headers Cache-Control Expires Set-Cookie;
         proxy_cache_bypass $cache_bypass_method $arg_query;
         proxy_no_cache $cache_bypass_method;
@@ -242,7 +247,11 @@ server {
 
         proxy_cache wavemod_cache;
         proxy_cache_key "$host$request_uri";
-        proxy_cache_valid 200 300s;
+        # 2026-10-29 300s → 600s：10-28 日志里这类 URL（一天只被要几十到几百次）
+        # 几乎每次访问都是 STALE —— 5 分钟的 TTL 根本等不到第二次请求，
+        # 于是每次都得回源重渲染一遍。上传后脚本会主动清缓存，多出来的 5 分钟
+        # 不会真的拖慢新内容上线。
+        proxy_cache_valid 200 600s;
         proxy_ignore_headers Cache-Control Expires Set-Cookie;
         proxy_cache_bypass $cache_bypass_method;
         proxy_no_cache $cache_bypass_method;
@@ -259,7 +268,8 @@ server {
 
         proxy_cache wavemod_cache;
         proxy_cache_key "$host$request_uri";
-        proxy_cache_valid 200 600s;
+        # 角色清单只在有新角色出现时变，一天被要上百次却几乎从不变化：10 分钟太短。
+        proxy_cache_valid 200 3600s;
         proxy_ignore_headers Cache-Control Expires Set-Cookie;
         proxy_cache_bypass $cache_bypass_method;
         proxy_no_cache $cache_bypass_method;
@@ -326,7 +336,8 @@ server {
 
         proxy_cache wavemod_cache;
         proxy_cache_key "$host$request_uri";
-        proxy_cache_valid 200 300s;
+        # 300s → 600s，理由同 /api/updates（2026-10-29）
+        proxy_cache_valid 200 600s;
         proxy_ignore_headers Cache-Control Expires Set-Cookie;
         proxy_cache_bypass $cache_bypass_method;
         proxy_no_cache $cache_bypass_method;
@@ -343,7 +354,8 @@ server {
 
         proxy_cache wavemod_cache;
         proxy_cache_key "$host$request_uri";
-        proxy_cache_valid 200 300s;
+        # 300s → 600s，理由同 /api/updates（2026-10-29）
+        proxy_cache_valid 200 600s;
         proxy_ignore_headers Cache-Control Expires Set-Cookie;
         proxy_cache_bypass $cache_bypass_method;
         proxy_no_cache $cache_bypass_method;
@@ -410,7 +422,12 @@ server {
         proxy_cache_key "$host$request_uri";
         # 300s 与站点的 ISR（首页/更新页 revalidate=300）对齐；60s 时每个 URL 每分钟
         # 都要回源一次，而回源就是一次 Vercel 函数调用。
-        proxy_cache_valid 200 301 302 300s;
+        #
+        # 2026-10-29 提到 600s：10-28 日志里 /mods 回源 2,357 次（STALE 1,887）、
+        # /updates 1,966 次（STALE 1,564）—— 一天只被要两千次的页面，300 秒的 TTL
+        # 注定每次都要重渲染。上传后脚本会主动清缓存，这 10 分钟不会真的拖慢更新；
+        # 回源仍然是「先发旧内容、后台刷新」，访客不会等。
+        proxy_cache_valid 200 301 302 600s;
         proxy_ignore_headers Cache-Control Expires;
 
         proxy_cache_bypass $cache_bypass_method $cache_bypass_cookie;

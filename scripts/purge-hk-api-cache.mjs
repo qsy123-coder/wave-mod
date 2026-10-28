@@ -16,9 +16,13 @@
  * 用法:
  *   node scripts/purge-hk-api-cache.mjs --pattern='character=%E5%BC%97%E6%B4%9B%E6%B4%9B' --dry-run
  *   node scripts/purge-hk-api-cache.mjs --pattern='character=%E5%BC%97%E6%B4%9B%E6%B4%9B'
+ *   node scripts/purge-hk-api-cache.mjs --all --dry-run    # 整层缓存（每日上传后自动跑）
  *
  * 参数:
- *   --pattern=<子串>  要匹配的缓存键片段（URL 编码后的形式），必填
+ *   --pattern=<子串>  要匹配的缓存键片段（URL 编码后的形式）；与 --all 二选一
+ *   --all             清空整个缓存目录。**每日上传脚本用这个**：TTL 已经拉到 6 小时，
+ *                     没有主动失效的话新 mod 在列表里会晚到 6 小时才出现。
+ *                     清空是安全的 —— 下一次请求 MISS，自然回源重建，不需要 reload。
  *   --ssh=<用户@主机> 默认 root@45.135.119.204
  *   --port=<端口>     默认 28822
  *   --key=<私钥路径>  默认 C:\Users\qsy123\.ssh\id_ed25519
@@ -42,19 +46,30 @@ const port = readArg("--port")?.trim() || "28822";
 const key = readArg("--key")?.trim() || String.raw`C:\Users\qsy123\.ssh\id_ed25519`;
 const cacheDir = readArg("--cache")?.trim() || "/var/cache/nginx/wavemod";
 const isDryRun = process.argv.includes("--dry-run");
+const purgeAll = process.argv.includes("--all");
 
-if (!pattern) {
-  console.error("❌ 需要 --pattern=<缓存键里的 URL 片段>");
+if (!pattern && !purgeAll) {
+  console.error("❌ 需要 --pattern=<缓存键里的 URL 片段>，或用 --all 清空整层缓存");
   process.exit(1);
 }
-/** 单引号包裹并转义，防止子串里的 & 被远端 shell 当成后台执行 */
-const quoted = `'${pattern.replace(/'/g, "'\\''")}'`;
 
-const remote = [
-  `grep -rl --binary-files=text ${quoted} ${cacheDir} > /tmp/wavemod-purge.txt || true`,
-  `n=$(wc -l < /tmp/wavemod-purge.txt)`,
-  isDryRun ? `echo "命中 $n 条"` : `xargs -r rm -f < /tmp/wavemod-purge.txt; echo "已清理 $n 条"`,
-].join("; ");
+let remote;
+if (purgeAll) {
+  // 只删文件，保留目录结构：nginx 启动时按 levels=1:2 建好了子目录，删掉要 reload 才恢复
+  remote = [
+    `if [ ! -d ${cacheDir} ]; then echo "缓存目录不存在"; exit 0; fi`,
+    `n=$(find ${cacheDir} -type f | wc -l)`,
+    isDryRun ? `echo "可清理 $n 条"` : `find ${cacheDir} -type f -delete; echo "已清空 $n 条"`,
+  ].join("; ");
+} else {
+  /** 单引号包裹并转义，防止子串里的 & 被远端 shell 当成后台执行 */
+  const quoted = `'${pattern.replace(/'/g, "'\\''")}'`;
+  remote = [
+    `grep -rl --binary-files=text ${quoted} ${cacheDir} > /tmp/wavemod-purge.txt || true`,
+    `n=$(wc -l < /tmp/wavemod-purge.txt)`,
+    isDryRun ? `echo "命中 $n 条"` : `xargs -r rm -f < /tmp/wavemod-purge.txt; echo "已清理 $n 条"`,
+  ].join("; ");
+}
 
 function runOnce() {
   return execFileSync(
@@ -79,4 +94,5 @@ for (let attempt = 1; attempt <= 3; attempt += 1) {
   }
 }
 
-console.log(`🧹 香港反代 /api/mods 缓存：${out.trim()}${isDryRun ? "（dry-run，未删除）" : ""}`);
+const scope = purgeAll ? "整层缓存" : `/api/mods 缓存（${pattern}）`;
+console.log(`🧹 香港反代 ${scope}：${out.trim()}${isDryRun ? "（dry-run，未删除）" : ""}`);
