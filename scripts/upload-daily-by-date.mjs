@@ -659,6 +659,21 @@ const IMAGE_KEY_ALIASES = new Map([
   ["清宵-盛世云岚v1.1(1)by辉映星辰允如光", "清宵-盛世云岚v1.1(0)by辉映星辰允如光"],
 ]);
 
+/**
+ * 预览图覆盖：**不传本地图**，首图直接复用站内已有 mod 的图片 URL。
+ *
+ * 键 = 规范名（canonicalKey），值 = 要复用的 COS 图片 URL。
+ * 2026-10-29 用户要求：`心(含大招)-胧嫣2.0（内附切换）` 复用站内 2026-10-18 那条
+ * `心(含大招)-胧嫣（【】）`（同为心月狐）的封面 —— 本地那张只有 585×1303，旧封面
+ * 1000×750 更清楚。只在首次入库时生效：之后同 key 重跑会被去重跳过，不会再读这里。
+ */
+const IMAGE_URL_OVERRIDES = new Map([
+  [
+    "心(含大招)-胧嫣2.0（内附切换）",
+    "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/mods/心月狐/051efd2a-a8ae-4486-ba93-5089a04b70bb/preview-hd.webp",
+  ],
+]);
+
 function indexFilesInto(byBase, dir) {
   if (!existsSync(dir)) return;
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -994,9 +1009,15 @@ where game_key = ${dollarQuote(GAME_KEY)};
 
       // 多图：首图 → preview.webp，第 2 张起 → preview-2.webp / preview-3.webp …
       // images 数组的顺序就是站内顺序（images[0] 是封面，见 mappers.ts）。
-      const imageEntries = lookupImages(imageIndex, canonicalKey);
+      // 覆盖表命中的条目直接复用站内图片 URL，不读、不传本地预览图
+      const overrideUrl = IMAGE_URL_OVERRIDES.get(canonicalKey);
+      const imageEntries = overrideUrl ? [] : lookupImages(imageIndex, canonicalKey);
       const imageUrls = [];
-      if (imageEntries.length === 0) {
+      if (overrideUrl) {
+        imageUrls.push(overrideUrl);
+        matchedImage++;
+        console.log(`   🖼  ${dateLabel} ${character} | ${title}  (复用站内图)`);
+      } else if (imageEntries.length === 0) {
         imageUrls.push(PLACEHOLDER_IMAGE_URL);
         placeholder++;
         placeholderKeys.push(`${dateLabel} · ${character} | ${title}`);
