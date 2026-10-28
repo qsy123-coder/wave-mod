@@ -25,9 +25,25 @@ POST /read       {ids:[uuid…], deviceId?}
                  → {counts:{id:{likes,favorites,views,downloads}}, mine:{id:{liked,favorited}}}
 POST /apply      {modId, action, deviceId, day:"YYYY-MM-DD"}
                  → {increments:{likes,favorites,views,downloads}, mine:{liked,favorited}}
+POST /visit      {deviceId, day:"YYYY-MM-DD"}   → {ok, uv, pv}
+GET  /visits?days=30&today=YYYY-MM-DD
+                 → {days:[{date,uv,pv}]}   （升序，只含当天及之前）
 GET  /favorited?deviceId=…  → {ids:[…]}   （最近收藏在前）
 GET  /export                → 完整 state（备份/迁移用）
-GET  /health                → {ok, mods, updatedAt, bytes}
+GET  /health                → {ok, mods, visitsDays, updatedAt, bytes}
+
+站点访问统计（visits）
+--------------------
+与 mod 浏览量的关键区别：mod 的 viewDays 只留 2 天，天然出不了历史曲线，
+所以这里单独一段**永久保留的每日聚合**：
+
+  - 当天 / 昨天：{pv, devices:[设备号 hash…]} —— UV = devices 长度，实时去重
+  - 前天及更早：{pv, uv}                      —— 冻结，丢掉设备列表
+
+昨天也保留列表，是为了接住跨零点的迟到请求（详见 _freeze_visits）。
+冻结本身是必须的：永久保留设备列表的话，状态文件会按「天数 × 访客数」增长，
+而这份文件每次写入都要整份重写。冻结后每天只占两个整数。
+设备号先做 sha256 截断再存，这里不保留任何可直接反查的设备标识。
 
 ⚠️ 只监听 127.0.0.1，由 nginx 的 `/__engagement/` 反代；不要直接暴露端口。
 """
@@ -65,12 +81,17 @@ ACTIONS = {"like", "unlike", "favorite", "unfavorite", "view", "download"}
 # 浏览/下载去重表只保留最近两天（与 store.ts 的 VIEW_DAY_KEEP 一致）
 DAY_KEEP = 2
 
+# 站点访问统计：每日聚合**永久保留**，这里只是一个防呆上限（10 年）
+VISIT_DAYS_MAX = 3650
+# 单次 /visits 最多返回多少天
+VISIT_READ_MAX = 3650
+
 # COS 镜像：同一份状态每 5 分钟最多传一次，失败只记日志
 COS_MIN_INTERVAL = 300
 COS_KEY = "engagement/live.json"
 
 _lock = threading.RLock()
-_state = {"version": 1, "mods": {}}
+_state = {"version": 1, "mods": {}, "visits": {}}
 _updated_at = 0
 _last_backup_at = 0
 _last_mirror_at = 0
@@ -145,6 +166,30 @@ def _sanitize_entry(value) -> dict:
     return entry
 
 
+def _sanitize_visits(value) -> dict:
+    """每日访问聚合。两种形态都要认：当天的 {pv, devices}、历史日的 {pv, uv}。"""
+    visits: dict[str, dict] = {}
+    if not isinstance(value, dict):
+        return visits
+
+    for day, entry in value.items():
+        if not isinstance(day, str) or not DAY_RE.match(day) or not isinstance(entry, dict):
+            continue
+        pv = _count(entry.get("pv"))
+        devices = entry.get("devices")
+        if isinstance(devices, list):
+            visits[day] = {"pv": pv, "devices": _str_list(devices)}
+        else:
+            visits[day] = {"pv": pv, "uv": _count(entry.get("uv"))}
+
+    # 只留最近 VISIT_DAYS_MAX 天，防止人工塞进来的脏数据无限增长
+    if len(visits) > VISIT_DAYS_MAX:
+        for day in sorted(visits)[: len(visits) - VISIT_DAYS_MAX]:
+            del visits[day]
+
+    return visits
+
+
 def load_state() -> None:
     global _state, _updated_at
     try:
@@ -158,7 +203,8 @@ def load_state() -> None:
         raise SystemExit(f"状态文件无法解析，拒绝以空状态启动（{STATE_PATH}）: {error}")
 
     mods = raw.get("mods") if isinstance(raw, dict) else None
-    state = {"version": 1, "mods": {}}
+    visits = raw.get("visits") if isinstance(raw, dict) else None
+    state = {"version": 1, "mods": {}, "visits": _sanitize_visits(visits)}
     if isinstance(mods, dict):
         for mod_id, value in mods.items():
             if isinstance(mod_id, str) and MOD_ID_RE.match(mod_id):
@@ -238,6 +284,77 @@ def _prune_all(today: str) -> None:
     for entry in _state["mods"].values():
         _prune(entry["viewDays"], today)
         _prune(entry["downloadDays"], today)
+
+
+# ---------------------------------------------------------------------------
+# 站点访问统计（visits）
+#
+# 与上面的 mod 计数是两套完全独立的数据：这里按「天」聚合全站 UV/PV，
+# 不关心是哪个 mod 被看。设备号先 hash 再存，落盘里没有可直接反查的标识。
+# ---------------------------------------------------------------------------
+def _device_hash(device_id: str) -> str:
+    return hashlib.sha256(device_id.encode("utf-8")).hexdigest()[:16]
+
+
+def _freeze_visits(today: str) -> None:
+    """把**前天及更早**的设备列表折算成 uv 后丢弃；同时守住天数上限。
+
+    今天和昨天都保留设备列表：跨零点后飞回来的迟到请求仍然带着昨天的 day，
+    昨天若已冻结，这些浏览就只能加 PV、补不了 UV。保留两天就能覆盖这种迟到，
+    和 mod 浏览去重表的 DAY_KEEP=2 是同一个理由。
+    """
+    visits = _state["visits"]
+    previous = (date.fromisoformat(today) - timedelta(days=1)).isoformat()
+    for day, entry in visits.items():
+        if day in (today, previous):
+            continue
+        devices = entry.get("devices")
+        if isinstance(devices, list):
+            entry["uv"] = len(devices)
+            entry.pop("devices", None)
+
+    if len(visits) > VISIT_DAYS_MAX:
+        for day in sorted(visits)[: len(visits) - VISIT_DAYS_MAX]:
+            del visits[day]
+
+
+def apply_visit(device_id: str, day: str, today: str | None = None) -> dict:
+    """记录一次页面浏览：PV 每次都 +1，UV 按设备号当天去重。
+
+    `day` 是这次浏览归属的日期，`today` 是**真实**的当前日，两者必须分开：
+    跨零点后飞回来的迟到请求会带着昨天的 `day`，如果拿它去冻结，
+    会把今天还在收集的设备列表提前折算掉，今天的 UV 从此少算。
+    """
+    current = today or day
+
+    entry = _state["visits"].setdefault(day, {"pv": 0, "devices": []})
+    entry["pv"] = _count(entry.get("pv")) + 1
+
+    devices = entry.get("devices")
+    if isinstance(devices, list):
+        digest = _device_hash(device_id)
+        if digest not in devices:
+            devices.append(digest)
+
+    _freeze_visits(current)
+
+    # 冻结可能刚把这条变成 {pv, uv}，所以读最终形态再返回
+    final = _state["visits"].get(day, entry)
+    uv = len(final["devices"]) if isinstance(final.get("devices"), list) else _count(final.get("uv"))
+    return {"uv": uv, "pv": _count(final.get("pv"))}
+
+
+def visits_payload(days: int, today: str) -> list[dict]:
+    """返回 [today-days+1, today] 区间内**有数据**的日期（升序）；补零由调用方做。"""
+    start = (date.fromisoformat(today) - timedelta(days=days - 1)).isoformat()
+    rows = []
+    for day, entry in sorted(_state["visits"].items()):
+        if day < start or day > today:
+            continue
+        devices = entry.get("devices")
+        uv = len(devices) if isinstance(devices, list) else _count(entry.get("uv"))
+        rows.append({"date": day, "uv": uv, "pv": _count(entry.get("pv"))})
+    return rows
 
 
 def apply_action(action: str, mod_id: str, device_id: str, day: str) -> dict:
@@ -423,10 +540,28 @@ class Handler(BaseHTTPRequestHandler):
                 payload = {
                     "ok": True,
                     "mods": len(_state["mods"]),
+                    "visitsDays": len(_state["visits"]),
                     "updatedAt": _updated_at,
                     "bytes": size,
                 }
             _json_response(self, 200, payload)
+            return
+
+        if parsed.path == "/visits":
+            days_raw = (query.get("days") or ["30"])[0]
+            today = (query.get("today") or [""])[0]
+            try:
+                days = int(days_raw)
+            except ValueError:
+                _json_response(self, 400, {"error": "bad days"})
+                return
+            if days < 1 or days > VISIT_READ_MAX or not DAY_RE.match(today):
+                _json_response(self, 400, {"error": "bad days/today"})
+                return
+
+            with _lock:
+                days_payload = visits_payload(days, today)
+            _json_response(self, 200, {"days": days_payload})
             return
 
         if parsed.path == "/export":
@@ -517,6 +652,32 @@ class Handler(BaseHTTPRequestHandler):
                 mine = _mine(entry, device_id)
             _mirror_async()
             _json_response(self, 200, {"increments": increments, "mine": mine})
+            return
+
+        if self.path == "/visit":
+            device_id = payload.get("deviceId")
+            day = payload.get("day")
+            today = payload.get("today") or day
+
+            if not isinstance(device_id, str) or not DEVICE_RE.match(device_id):
+                _json_response(self, 400, {"error": "bad deviceId"})
+                return
+            if not isinstance(day, str) or not DAY_RE.match(day):
+                _json_response(self, 400, {"error": "bad day"})
+                return
+            if not isinstance(today, str) or not DAY_RE.match(today):
+                _json_response(self, 400, {"error": "bad today"})
+                return
+
+            with _lock:
+                counts = apply_visit(device_id, day, today)
+                try:
+                    _save_locked()
+                except OSError as error:
+                    # 与互动计数同一条原则：内存已更新，本次浏览仍算数，但必须留痕
+                    print(f"[engagement-service] 访问统计写盘失败（本次只在内存生效）: {error}", flush=True)
+            _mirror_async()
+            _json_response(self, 200, {"ok": True, **counts})
             return
 
         _json_response(self, 404, {"error": "not found"})

@@ -8,6 +8,7 @@ import { NavigationLoader } from "@/components/layout/navigation-loader";
 import { PageLoadingOverlay } from "@/components/layout/page-loading-overlay";
 import { RouteChangeListener } from "@/components/layout/route-change-listener";
 import { ThemeProvider } from "@/components/layout/theme-provider";
+import { VisitBeacon } from "@/components/layout/visit-beacon";
 import { Toaster } from "@/components/ui/sonner";
 import { getCosPublicBaseUrl } from "@/lib/cos/shared";
 import { getCosPublicHost } from "@/lib/cos/server-config";
@@ -112,6 +113,8 @@ export default function RootLayout({
               <Suspense fallback={null}>
                 <NavigationLoader />
               </Suspense>
+              {/* 全站访问打点：只在浏览器侧发一次请求，失败静默（见组件注释） */}
+              <VisitBeacon />
               <Toaster position="top-center" richColors />
             </ClientProviders>
           </LayoutStyleProvider>
