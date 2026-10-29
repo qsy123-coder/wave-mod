@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy, Download, LoaderCircle, X } from "lucide-react";
 import Image from "next/image";
 
-import { copyToClipboard } from "@/lib/clipboard";
+import { copyToClipboard, copyToClipboardSync } from "@/lib/clipboard";
 import { driveCopyTip, driveMobileTip } from "@/lib/cloud-drive";
 import { reportDownload } from "@/lib/engagement/client";
 import { driveOpenHref } from "@/lib/drive-client";
@@ -133,19 +133,17 @@ export function DownloadButton({
    * 客户端协议，打开的是 https 分享页 —— 装了 App 的系统会由 Universal Link /
    * App Link 接管成 App，没装就在网页里输提取码。
    *
-   * ⚠️ 这里**不拦** `<a>` 的默认跳转：原生导航才拿得到 App Link 的接管，
-   * 而且新标签页会保住当前详情页，回来后还能看到提示卡。
+   * ⚠️ 两个必须一起成立的约束：
+   * 1. 复制要**同步**完成（copyToClipboardSync）。用异步的 clipboard API 时，
+   *    `<a>` 一跳转、新标签页抢走焦点，写入就被 Chromium 以 NotAllowedError 拒了
+   *    （无头实测复现过），用户拿到的就是空剪贴板。
+   * 2. **不拦** `<a>` 的默认跳转：原生导航才拿得到 App Link 的接管。
    */
   const handleMobileOpen = (drive: DriveLink) => {
     // 打开分享页即视为一次下载动作（与改造前直接跳转的口径一致）
     reportDownload(modId);
-    void copyToClipboard(drive.url)
-      .then((ok) => {
-        setCopiedDrive({ platform: drive.platform, device: "mobile", launched: false, opened: true, copied: ok });
-      })
-      .catch(() => {
-        setCopiedDrive({ platform: drive.platform, device: "mobile", launched: false, opened: true, copied: false });
-      });
+    const ok = copyToClipboardSync(drive.url);
+    setCopiedDrive({ platform: drive.platform, device: "mobile", launched: false, opened: true, copied: ok });
   };
 
   /** 手机端（链接缺 scheme 等脏数据）：没法跳，只复制并说明原因 */
