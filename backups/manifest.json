@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-28T09:10:48.659Z",
+  "generatedAt": "2026-10-29T09:09:35.204Z",
   "source": {
     "projectRef": "xqwzgcxwdwpmkdbmzmve",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,10 +8,10 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20261028-090952.dump",
-    "sha256": "5c8d4e17b513d04f05765259900dd964a9044fc4893e3dbe3fb7c4299a152157",
-    "sizeBytes": 1177853,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261028-090952",
+    "file": "db/wavemod-20261029-090844.dump",
+    "sha256": "b37a9c4cd3ded6650561e448ef6abcad0ac70293392116da0c8376b210844d57",
+    "sizeBytes": 1178646,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261029-090844",
     "tableCounts": {
       "mods": null,
       "profiles": null,
@@ -28,15 +28,15 @@
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5545,
-    "refreshedThisRun": false,
+    "publishedRows": 5550,
+    "refreshedThisRun": true,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 6654,
-    "totalBytes": 456454782,
-    "downloadedThisRun": 379,
+    "remoteCount": 6659,
+    "totalBytes": 456623728,
+    "downloadedThisRun": 5,
     "failedThisRun": 2,
     "failures": [
       {
@@ -17811,6 +17811,18 @@
         "etag": "\"0f67b42e36204a3a372d61a56957d6dc\""
       },
       {
+        "key": "mods/女漂/dde59392-c1e7-4eef-a9ee-8df639bff01c/preview-2.webp",
+        "file": "images/mods/女漂/dde59392-c1e7-4eef-a9ee-8df639bff01c/preview-2.webp",
+        "size": 34336,
+        "etag": "\"711267593f3cddc765072e49668ee22b\""
+      },
+      {
+        "key": "mods/女漂/dde59392-c1e7-4eef-a9ee-8df639bff01c/preview.webp",
+        "file": "images/mods/女漂/dde59392-c1e7-4eef-a9ee-8df639bff01c/preview.webp",
+        "size": 37262,
+        "etag": "\"bf97da33e9a483996223092522ce796d\""
+      },
+      {
         "key": "mods/女漂/df55d423-2cae-498b-9755-d06def30bb50/preview.webp",
         "file": "images/mods/女漂/df55d423-2cae-498b-9755-d06def30bb50/preview.webp",
         "size": 16088,
@@ -27687,6 +27699,12 @@
         "etag": "\"3805c75995d6cf8a291aeab419fac421\""
       },
       {
+        "key": "mods/珂莱塔/897b819d-1682-44a9-85db-fbf2f92b4e88/preview.webp",
+        "file": "images/mods/珂莱塔/897b819d-1682-44a9-85db-fbf2f92b4e88/preview.webp",
+        "size": 29050,
+        "etag": "\"ece2eb14e738e38c429dfcbd648cc22a\""
+      },
+      {
         "key": "mods/珂莱塔/899ff33c-f1b0-46c3-956c-6ca41633e440/preview.webp",
         "file": "images/mods/珂莱塔/899ff33c-f1b0-46c3-956c-6ca41633e440/preview.webp",
         "size": 22120,
@@ -31351,6 +31369,12 @@
         "file": "images/mods/维里奈/2a887486-5656-4cac-a945-73b6d4623ff0/preview.webp",
         "size": 23398,
         "etag": "\"9dec09f058fe85b8dad698aad6cafcee\""
+      },
+      {
+        "key": "mods/维里奈/2c7e1dbb-f502-49f5-8c86-b1db8760cecc/preview.webp",
+        "file": "images/mods/维里奈/2c7e1dbb-f502-49f5-8c86-b1db8760cecc/preview.webp",
+        "size": 29336,
+        "etag": "\"db3cf82d1ba5acf38c701531bd6f6468\""
       },
       {
         "key": "mods/维里奈/3210bc9e-0616-477d-b1ab-8b5639eff029/preview.webp",
@@ -36415,6 +36439,12 @@
         "file": "images/mods/锁暝/8948a346-afc5-4c18-8b44-489f659d0ad2/preview.webp",
         "size": 48418,
         "etag": "\"557ed675ff4a3d239dda4cb39ae3ad46\""
+      },
+      {
+        "key": "mods/锁暝/8f24f684-a26c-4e16-844b-71057cfc3c81/preview.webp",
+        "file": "images/mods/锁暝/8f24f684-a26c-4e16-844b-71057cfc3c81/preview.webp",
+        "size": 38962,
+        "etag": "\"73ecf16909f651912e40124971223988\""
       },
       {
         "key": "mods/锁暝/93fa96b6-79cd-45bb-9589-ff0b61fb2f4d/preview.webp",
