@@ -20,10 +20,15 @@ import { MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
  *
  * 现在那部分由客户端的 SessionProvider 补齐（见 hero-carousel.tsx）。
  *
- * revalidate 300 与 `/api/updates`、`/api/home/lower` 已有的 300 秒缓存一致：
- * 首页顶部的「近期上新」横条与日期标签由 `Date.now()` 派生，必须保持接近实时。
+ * revalidate 1800（2026-10-29 从 300 上调）：首页顶部的「近期上新」横条与日期标签
+ * 由 `Date.now()` 派生，300 秒意味着**只要有人在访问就一直在重渲染** —— 12 小时实测
+ * 142 次调用（≈ 12h ÷ 300s）、每次 204ms 活动 CPU，是 Vercel 额度的第二大开销。
+ * 提到 1800 后重渲染降到 1/6，代价只是日期标签最多滞后 30 分钟。
+ *
+ * 内容本身不受影响：上传脚本写完库会 ping `/api/revalidate`，那里调的
+ * `revalidatePublicModCaches()` 明确 `revalidatePath("/")`（见 lib/mod-cache.ts）。
  */
-export const revalidate = 300;
+export const revalidate = 1800;
 
 // ─── Scroll-Snap 容器 ───────────────────────────────────────────
 

@@ -13,9 +13,10 @@ import { UpdatesGrid } from "./updates-grid";
 // getCurrentUser() 算出登录态并逐层传给卡片/抽屉。登录态现在由客户端的
 // SessionProvider 补齐（见 updates-grid.tsx），因此改成按时间重验证。
 //
-// revalidate 300 与 `/api/updates`、`/api/home/lower` 已有的 300 秒缓存一致：
-// 「今日更新」的日期标签由 `Date.now()` 派生，必须保持接近实时。
-export const revalidate = 300;
+// revalidate 1800（2026-10-29 从 300 上调，与首页同口径）：「今日更新」的日期标签
+// 由 `Date.now()` 派生，300 秒等于每次访问都重渲染一次。上传后有
+// `revalidatePublicModCaches()` 的 `revalidatePath("/updates")` 兜底，内容不会迟。
+export const revalidate = 1800;
 
 const DAYS = 14;
 
