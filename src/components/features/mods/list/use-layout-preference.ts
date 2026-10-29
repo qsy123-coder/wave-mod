@@ -59,6 +59,27 @@ export function defaultColumnsForWidth(width: number): MasonryColumns {
   return width < MOBILE_BREAKPOINT ? MOBILE_DEFAULT_COLUMNS : DESKTOP_DEFAULT_COLUMNS;
 }
 
+/**
+ * 最终采用的列数：显式给的列数 → 按当前宽度校验 → 都不是就用兜底值。
+ *
+ * `width === null` 表示**还没量到视口**（SSR 与服务端流式直出的那一版）。这时必须
+ * 直接采信显式列数：它是页面写死的版式（手机首页就是 2 列），不是用户偏好，
+ * 拿桌面档位去校验它会把 2 列挡成 5 列 —— 表现就是「HTML 里已经是 5 列卡片，
+ * 水合后才跳回 2 列」（2026-10-29 用户报的手机首页多列）。
+ *
+ * 量到宽度之后仍然要校验：localStorage 里存的 6 列偏好不能铺到 390px 的屏幕上。
+ */
+export function resolvePreferredColumns(
+  selected: MasonryColumns | null | undefined,
+  width: number | null,
+  fallback: MasonryColumns,
+): MasonryColumns {
+  if (selected && (width === null || columnOptionsForWidth(width).includes(selected))) {
+    return selected;
+  }
+  return fallback;
+}
+
 function readPreference(): LayoutMode {
   if (typeof window === "undefined") return "masonry";
   const stored = window.localStorage.getItem(STORAGE_KEY);

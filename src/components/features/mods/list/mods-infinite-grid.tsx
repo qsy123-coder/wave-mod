@@ -17,7 +17,7 @@ import {
   packMasonry,
   type MasonryLayoutHint,
 } from "@/components/features/mods/list/masonry-packing";
-import { DESKTOP_DEFAULT_COLUMNS, columnOptionsForWidth, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
+import { DESKTOP_DEFAULT_COLUMNS, defaultColumnsForWidth, resolvePreferredColumns, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
@@ -282,11 +282,14 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   // 6 列原样铺到 390px 屏上（2026-10-19 用户反馈「手机端还是会出现一行 6 个」）。
   // 所以每次 resize 都按当前宽度算允许集合，越档的偏好退回自适应值。
   //
+  // 但「还没量到视口」（width === null，见 resolvePreferredColumns）是例外：
+  // 那时直接采信显式列数，否则手机首页写死的 2 列会被桌面档位挡掉、SSR 直出 5 列。
+  //
   // 用**视口宽度**判定，而不是绑在网格容器上的 ResizeObserver：加载中渲染的是骨架
   // 分支，真正的网格容器还没挂上，观察器建不起来 —— 骨架会先按 5 列铺开，数据到达
   // 后才跳成 2 列。视口与容器在手机上只差两侧 padding，对 640px 这个断点没有影响。
-  const [autoColState, setAutoColState] = useState<{ width: number; count: MasonryColumns }>({
-    width: Number.POSITIVE_INFINITY,
+  const [autoColState, setAutoColState] = useState<{ width: number | null; count: MasonryColumns }>({
+    width: null,
     count: DESKTOP_DEFAULT_COLUMNS,
   });
 
@@ -306,11 +309,15 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   /**
    * 用户显式选过 / 按屏幕宽度自适应得到的列数。
    * 还没过「横屏为主降列」那道关 —— 那个要等图片比例，见下面的 `colCount`。
+   *
+   * `width === null`（SSR / 水合首帧）时按 resolvePreferredColumns 的口径直接
+   * 采信显式值，手机首页因此从 HTML 第一版起就是 2 列，不再先铺 5 列再跳。
    */
-  const preferredColCount =
-    masonryColumns && columnOptionsForWidth(autoColState.width).includes(masonryColumns)
-      ? masonryColumns
-      : autoColState.count;
+  const preferredColCount = resolvePreferredColumns(
+    masonryColumns,
+    autoColState.width,
+    autoColState.count,
+  );
 
   /**
    * ---- 量容器宽度 ----

@@ -266,7 +266,9 @@ function MobileHomeFeedContent({
           initialMods={character === null && sort === "latest" ? initialMods : undefined}
           initialTotalCount={character === null && sort === "latest" ? initialTotalCount : undefined}
           layoutMode="masonry"
-          // 手机端固定 2 列：不传的话网格在水合首帧会按桌面 5 列铺骨架，随后才跳成 2 列。
+          // 手机端固定 2 列。必须传：网格量不到视口时（SSR / 水合首帧）会直接采信
+          // 这个值（见 resolvePreferredColumns）。不传的话 HTML 第一版会按桌面口径
+          // 铺 5 列卡片 / 骨架，等水合后才跳成 2 列（2026-10-29 用户报的就是这个）。
           masonryColumns={2}
           isLoggedIn={isLoggedIn}
           onCardClick={setOpenModId}
