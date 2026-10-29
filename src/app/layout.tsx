@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 
 import { ClientProviders } from "@/components/layout/client-providers";
@@ -45,6 +45,22 @@ if(OK.indexOf(t)<0){try{var l=window.localStorage.getItem(LEGACY);if(OK.indexOf(
 if(OK.indexOf(t)<0)t=DEFAULT;
 if(t!==DEFAULT){var d=document.documentElement;d.classList.remove.apply(d.classList,OK);d.classList.add(t);}
 }catch(e){}})();`;
+
+/**
+ * 手机端默认按 75% 缩放打开（用户 2026-10-29 要求，实测这个比例观感最好）。
+ *
+ * `initial-scale` 就是浏览器的「页面缩放」初始值，和用户在浏览器里调 75% 是同一件事：
+ * 同一块屏幕能放下更多内容，卡片、字号整体小一档。桌面端不受影响 —— 浏览器只把
+ * viewport meta 用在移动端（桌面缩放仍由用户自己控制）。
+ *
+ * 只设初始值，**不锁死**：`maximumScale` 保留 5、`userScalable` 保持默认 true，
+ * 需要看细节时仍可双指放大（锁死缩放是明确的无障碍问题）。
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 0.75,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
   // 让各页可以写相对 canonical / OG 地址（Next 会用它拼成绝对地址）。
