@@ -1,0 +1,22 @@
+[Unit]
+Description=WaveMod edge API (engagement + visits served from HK, no Vercel)
+Documentation=file:///opt/wavemod-edge-api/server.mjs
+After=network.target wavemod-engagement.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/wavemod-edge-api
+EnvironmentFile=/etc/wavemod-edge-api.env
+ExecStart=/usr/bin/node /opt/wavemod-edge-api/server.mjs
+Restart=always
+RestartSec=2
+
+# 只读程序目录 + 只读 /etc；它自己不写任何文件（状态都在 engagement 服务那边）
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/wavemod-edge-api
+
+[Install]
+WantedBy=multi-user.target

@@ -24,6 +24,10 @@
 /.open-next/
 /out/
 
+# 香港边缘接口的打包产物（node scripts/build-hk-edge-api.mjs 生成）。
+# 520KB 的单文件，装机前现打就行，没必要进 git。
+/deploy/hk-edge-api/dist/
+
 # production
 /build
 

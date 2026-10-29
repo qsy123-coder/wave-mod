@@ -298,6 +298,56 @@ server {
         access_log off;
     }
 
+    # ── 互动计数 / 访问打点：直接打本机 Node 服务，不进 Vercel ───────────────
+    # 2026-10-29：这两条占了 Vercel 函数调用的 65%、活动 CPU 的 29%
+    # （面板 12h 实测：engagement 2.3K 次 / visits 1.3K 次），
+    # 而它们天生不可缓存 —— `mine` 是 per-device、打点是 POST，调 TTL 全白费。
+    # 落点是同机的 wavemod-edge-api（源码 deploy/hk-edge-api），它复用应用里
+    # 同一份协议层与展示口径，再打 127.0.0.1:8791 的计数服务。
+    #
+    # 兜底：本机进程挂掉就退回 Vercel（error_page → @edge_vercel）。
+    # 宁可多花一点额度，也不能让全站点赞 / 浏览记录打不开。
+    location = /api/engagement {
+        proxy_pass http://127.0.0.1:8792;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
+        # per-device 状态，任何一层缓存都会串号
+        proxy_cache off;
+
+        add_header X-Served-By "edge-local" always;
+        add_header Strict-Transport-Security "max-age=15552000" always;
+        error_page 502 503 504 = @edge_vercel;
+    }
+
+    location = /api/visits {
+        proxy_pass http://127.0.0.1:8792;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
+        proxy_cache off;
+
+        add_header X-Served-By "edge-local" always;
+        add_header Strict-Transport-Security "max-age=15552000" always;
+        error_page 502 503 504 = @edge_vercel;
+    }
+
+    # 上面两个接口共用的 Vercel 兜底：片段里已带代理到 upstream 的全套指令
+    location @edge_vercel {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+        proxy_cache off;
+    }
+
     # ── 远程兜底快照：HK 转一手 COS ────────────────────────────────────────
     # Vercel(hkg1) 直连 COS 广州实测 `fetch failed`，降级期每个冷实例都要白等
     # 一次 20s 超时才用打包内快照 —— 详情页首开慢的主因。
