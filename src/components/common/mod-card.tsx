@@ -240,7 +240,22 @@ export function ModCard({
 
   const titleAndDescription = (
     <>
-      <TitleTag className={cn(styles.title, TITLE_TEXT_OUTLINE, titleClassName)}>{displayTitle}</TitleTag>
+      {/*
+       * 手机端卡片只留预览图（用户 2026-10-29 要求）：名称与收藏按钮都收进详情页。
+       *
+       * ⚠️ `split` 版式例外：那种卡片的名称**本身就是唯一的链接**（媒体不包 Link），
+       * 隐藏后手机上整张卡就点不进去了，所以保留名称。
+       */}
+      <TitleTag
+        className={cn(
+          styles.title,
+          TITLE_TEXT_OUTLINE,
+          titleClassName,
+          !canUseInnerLinks && "max-md:hidden",
+        )}
+      >
+        {displayTitle}
+      </TitleTag>
     </>
   );
 
@@ -465,7 +480,8 @@ export function ModCard({
       {topRightContent ? <div className={cn("z-20 max-sm:hidden", mediaTopRightClassName)}>{topRightContent}</div> : null}
       {mediaBottomLeft}
 
-      <CardFavoriteButton isFavorited={mine.favorited} onToggle={favorite} />
+      {/* 手机端不显示卡片收藏（用户 2026-10-29）：收藏入口只留在详情页 */}
+      <CardFavoriteButton isFavorited={mine.favorited} onToggle={favorite} className="max-md:hidden" />
 
       <div className={cn(styles.content, contentClassName)}>
         <div className="max-w-sm space-y-1.5">

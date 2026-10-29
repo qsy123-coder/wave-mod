@@ -14,9 +14,14 @@ type Props = {
   isFavorited: boolean;
   onToggle: () => Promise<boolean>;
   inline?: boolean;
+  /**
+   * 追加类名。卡片用它按断点隐藏 —— 手机端卡片只留预览图，
+   * 收藏按钮与名称都收进详情页（用户 2026-10-29 要求）。
+   */
+  className?: string;
 };
 
-export function CardFavoriteButton({ isFavorited, onToggle, inline }: Props) {
+export function CardFavoriteButton({ isFavorited, onToggle, inline, className }: Props) {
   const sharedClass = inline
     ? "inline-flex items-center gap-0.5 border-[2px] border-black bg-[var(--neo-panel)] px-1 py-0.5 shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5"
     : "absolute bottom-12 right-2 z-20 inline-flex items-center gap-0.5 border-[2px] border-black bg-[var(--neo-panel)] px-1 py-0.5 shadow-[1px_1px_0px_0px_#000] transition hover:-translate-y-0.5";
@@ -36,7 +41,7 @@ export function CardFavoriteButton({ isFavorited, onToggle, inline }: Props) {
       role="button"
       tabIndex={0}
       aria-pressed={isFavorited}
-      className={`${sharedClass} cursor-pointer`}
+      className={`${sharedClass} cursor-pointer ${className ?? ""}`}
       onClick={handleClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

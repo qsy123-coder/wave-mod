@@ -113,7 +113,7 @@ function PhoneMasonrySkeleton({ rows = 3 }: { rows?: number }) {
               <div
                 className={`animate-pulse bg-black/10 ${row % 2 === 0 ? "aspect-[3/4]" : "aspect-[4/5]"}`}
               />
-              <div className="mt-2 h-3 w-3/4 animate-pulse bg-black/10" />
+              {/* 手机端卡片只剩预览图，不再画标题条（见 ModCard 的 max-md:hidden） */}
             </div>
           ))}
         </div>

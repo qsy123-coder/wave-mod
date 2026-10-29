@@ -401,7 +401,7 @@ export function MobileHomeFeedSkeleton() {
             {Array.from({ length: 3 }).map((_, row) => (
               <div key={row} className="border-2 border-black bg-white p-2">
                 <div className="aspect-[3/4] animate-pulse bg-black/10" />
-                <div className="mt-2 h-3 w-3/4 animate-pulse bg-black/10" />
+                {/* 不再画标题条：手机端卡片只剩预览图（见 ModCard 的 max-md:hidden） */}
               </div>
             ))}
           </div>

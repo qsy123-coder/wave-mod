@@ -63,8 +63,9 @@ export function ModCardSkeleton({
   aspectRatio?: number;
   fillHeight?: boolean;
 }) {
+  // 手机端卡片只留预览图（名称与收藏都收进详情页，见 ModCard），骨架也跟着不画文字条
   const footer = (
-    <div className="shrink-0 space-y-2 px-1 pb-1 pt-3 text-black">
+    <div className="shrink-0 space-y-2 px-1 pb-1 pt-3 text-black max-md:hidden">
       <SkeletonBar className="h-6 w-3/4" />
       <div className="flex gap-2">
         <SkeletonBar className="h-3 w-12" />
