@@ -19,7 +19,10 @@ import { basename, extname, join, resolve } from "node:path";
 import { dedupKey, resolveCharacterAndTitle } from "./upload-daily-by-date.mjs";
 import { psqlJson } from "./psql-db.mjs";
 
-const BASE = String.raw`D:\BaiduNetdiskDownload\MC-MOD整合包\wMOD全集-每日更新\A_每日更新`;
+// 数据盘位置随机器不同（旧机 D:，2026-10-29 重装系统后为 F:），用环境变量覆盖默认值。
+const BASE =
+  process.env.WAVE_MOD_DAILY_BASE?.trim() ||
+  String.raw`F:\BaiduNetdiskDownload\MC-MOD整合包\wMOD全集-每日更新\A_每日更新`;
 const MOD_EXTS = new Set([".exe", ".7z", ".zip", ".rar"]);
 const IMG_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 const SKIP_DIRS = new Set(["预览图"]);
@@ -72,9 +75,15 @@ const modKeys = new Set();
 const imageBases = [];
 
 for (const { kind, name } of names) {
+  // 目录名本身就是 key，**不能**走 extname()：`莫宁-月光幻影v3.4fix by …`
+  // 的小圆点会被当成扩展名，截成 `莫宁-月光幻影v3`（多出一条假 key）。
+  if (kind === "dir") {
+    modKeys.add(name);
+    continue;
+  }
   const ext = extname(name).toLowerCase();
-  if (kind === "dir" || (kind === "file" && MOD_EXTS.has(ext))) {
-    modKeys.add(basename(name, extname(name)));
+  if (MOD_EXTS.has(ext)) {
+    modKeys.add(basename(name, ext));
   } else if (IMG_EXTS.has(ext)) {
     imageBases.push(basename(name, ext));
   }

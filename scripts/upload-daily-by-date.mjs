@@ -37,6 +37,7 @@ import sharp from "sharp";
 import { syncCoverSizes } from "./cover-size.mjs";
 import { resolveDakaIfApplicable } from "./daka-classify.mjs";
 import { resolveReshareAlias } from "./reshare-title-aliases.mjs";
+import { parseXunleiTxt } from "./xunlei-txt-parse.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
@@ -65,7 +66,10 @@ const filterDates = datesArg
 
 // ==================== 配置 ====================
 
-const BASE = String.raw`D:\BaiduNetdiskDownload\MC-MOD整合包\wMOD全集-每日更新\A_每日更新`;
+// 数据盘位置随机器不同（旧机 D:，2026-10-29 重装系统后为 F:），用环境变量覆盖默认值。
+const BASE =
+  process.env.WAVE_MOD_DAILY_BASE?.trim() ||
+  String.raw`F:\BaiduNetdiskDownload\MC-MOD整合包\wMOD全集-每日更新\A_每日更新`;
 
 const PLACEHOLDER_IMAGE_URL =
   "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/placeholder/mod-placeholder.webp";
@@ -485,13 +489,44 @@ function loadXunleiIndex() {
       const stripped = stripRenameSuffix(key);
       if (stripped !== key && !day.index.has(stripped)) day.index.set(stripped, entry);
     }
-    return byDay;
+    return loadXunleiTxtIndex(byDay);
   } catch (err) {
     console.warn(`⚠️  迅雷导出解析异常：${err.message}，本次只写夸克链接`);
     return new Map();
   } finally {
     rmSync(outPath, { force: true });
   }
+}
+
+/**
+ * 迅雷分享导出有时不是 xlsx，而是手动抄下来的 txt（2026-10-29 那批就是）：
+ *   `分享文件：xxx.exe` / `链接：https://pan.xunlei.com/s/...` / `提取码：abcd`
+ * 只认 xlsx 会让整批迅雷**静默漏掉**（CLAUDE.md 点名过的事故），所以在 txt 里补一遍。
+ *
+ * 合并规则：txt 只填空位，不覆盖 xlsx —— 导出表才是正式来源，txt 是手抄备份；
+ * 两边都有同名时保留 xlsx 的那条。`exported` 只统计真正新增的条目。
+ */
+function loadXunleiTxtIndex(byDay) {
+  let dayNames;
+  try { dayNames = readdirSync(BASE); } catch { return byDay; }
+  for (const dayName of dayNames) {
+    if (!/^W-\d{4}\.\d{1,2}\.\d{1,2}$/.test(dayName)) continue;
+    const dir = join(BASE, dayName);
+    let files;
+    try { files = readdirSync(dir); } catch { continue; }
+    for (const file of files.filter((f) => /\.txt$/i.test(f))) {
+      let text;
+      try { text = readFileSync(join(dir, file), "utf8"); } catch { continue; }
+      for (const { name, link, pwd } of parseXunleiTxt(text)) {
+        if (!byDay.has(dayName)) byDay.set(dayName, { index: new Map(), exported: 0 });
+        const day = byDay.get(dayName);
+        if (day.index.has(name)) continue;
+        day.index.set(name, { link, pwd });
+        day.exported++;
+      }
+    }
+  }
+  return byDay;
 }
 
 /** 按 exe 文件名取迅雷链接；精确匹配落空再退一步去掉重名后缀 */

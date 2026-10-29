@@ -41,6 +41,7 @@ import COS from "cos-nodejs-sdk-v5";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 import { resolveReshareAlias } from "./reshare-title-aliases.mjs";
+import { parseXunleiTxt } from "./xunlei-txt-parse.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
@@ -174,6 +175,15 @@ function loadXunleiIndex(dir) {
       if (!link.startsWith("http")) continue; // 表头行
       const key = String(r.name ?? "").replace(/\.exe$/i, "").trim();
       if (key) index.set(key, { link, pwd: r.pwd || "" });
+    }
+    // 手抄 txt（2026-10-29 那批迅雷导出只有 txt，没有 xlsx）：只补空位，
+    // xlsx 是正式导出，同名时以它为准。与 upload-daily-by-date.mjs 同源逻辑。
+    for (const file of readdirSync(dir).filter((f) => /\.txt$/i.test(f))) {
+      let text;
+      try { text = readFileSync(join(dir, file), "utf8"); } catch { continue; }
+      for (const { name, link, pwd } of parseXunleiTxt(text)) {
+        if (!index.has(name)) index.set(name, { link, pwd });
+      }
     }
     return index;
   } catch (err) {
