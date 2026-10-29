@@ -35,6 +35,61 @@ export type DriveCopyTipOptions = {
 export const DRIVE_WEB_WARNING =
   "网页端打开则可能限速、需要反复登录。";
 
+/**
+ * 手机端的核心操作提醒（用户 2026-10-29 明确要求）：分享页里直接下载通常受限，
+ * 必须先「转存」（保存到自己的网盘）再从自己的网盘下载。
+ *
+ * 这句只讲步骤、不承诺任何系统行为 —— 手机上是否跳 App 取决于装没装、认领没认领 App Link。
+ */
+export const DRIVE_MOBILE_TRANSFER_HINT =
+  "先在 App 里把文件「转存」到自己的网盘，再从自己的网盘下载。";
+
+/** 「夸克网盘」→「夸克」：手机端文案里「夸克网盘 App」读起来太绕 */
+function driveAppName(platform: string): string {
+  const trimmed = platform.trim().replace(/\s*网盘$/, "");
+  return trimmed || platform;
+}
+
+export type DriveMobileTipOptions = {
+  /** 链接这次有没有真的复制成功 —— 没成功就绝不能说「已复制」 */
+  copied: boolean;
+  /**
+   * 有没有去打开分享页。手机端没有可靠的客户端协议（见 drive-client.ts 的说明），
+   * 打开的是 https 分享页：装了 App 的系统会由 Universal Link / App Link 接管成 App，
+   * 所以文案只说「打开分享页」，不保证「正在打开 App」。
+   */
+  opened: boolean;
+};
+
+/**
+ * 手机端「复制 + 打开」后的提示。
+ *
+ * 与桌面端的 {@link driveCopyTip} 是两套口径：桌面是「唤起客户端读剪贴板」，
+ * 手机是「打开分享页 → 在 App 里转存 → 从自己的网盘下载」。
+ * 不含教程图 —— public/tips/ 那两张是桌面客户端截图，手机上照着做不了。
+ */
+export function driveMobileTip(platform: string, options: DriveMobileTipOptions): DriveCopyTip {
+  const app = driveAppName(platform);
+
+  if (!options.copied) {
+    return {
+      advice: options.opened
+        ? `链接复制失败，已为你打开${platform}分享页，可在页面里手动复制`
+        : `链接复制失败，请打开${app} App 手动粘贴链接`,
+      warning: DRIVE_MOBILE_TRANSFER_HINT,
+      tipImage: null,
+    };
+  }
+
+  return {
+    advice: options.opened
+      ? `已复制${platform}链接，正在打开分享页（装了 App 会自动跳到 App）`
+      : `已复制${platform}链接，请打开${app} App 粘贴`,
+    warning: DRIVE_MOBILE_TRANSFER_HINT,
+    tipImage: null,
+  };
+}
+
 /** 按平台名（宽松匹配中英文）返回提示文案与教程图 */
 export function driveCopyTip(
   platform: string,

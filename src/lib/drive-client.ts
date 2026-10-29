@@ -45,11 +45,13 @@ function base64(input: string): string {
 }
 
 /**
- * 手机端「打开网盘」按钮跳哪儿：直接把 https 分享页交给浏览器。
+ * 手机端「复制并打开」按钮跳哪儿：https 分享页。
  *
  * 和桌面的「复制 + 唤起客户端」是两条路：手机上没有 qklink/thunder 的稳定保证，
  * 而 pan.quark.cn / pan.xunlei.com 的分享页装了 App 时会被 Universal Link / App Link
  * 接管，没装也能在网页里输提取码 —— 比编一个私有协议稳。
+ * 2026-10-29 起手机端按钮是「先把链接复制到剪贴板，再走这个地址」，
+ * 两条路都在（跳转失败时用户还能去 App 里粘贴）。
  *
  * 只认 http(s)：drive_links 的值是后台手填的，`pan.quark.cn/s/x` 这种缺 scheme 的
  * 脏数据如果直接进 `<a href>`，浏览器会当成站内相对路径。返回 null 时调用方退回复制按钮。

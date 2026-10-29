@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DRIVE_WEB_WARNING, driveCopyTip } from "./cloud-drive";
+import { DRIVE_MOBILE_TRANSFER_HINT, DRIVE_WEB_WARNING, driveCopyTip, driveMobileTip } from "./cloud-drive";
 
 describe("driveCopyTip", () => {
   it("迅雷：提示在客户端搜索框粘贴，并给出教程图", () => {
@@ -95,5 +95,57 @@ describe("driveCopyTip：这个网盘本会话已唤起过，这次只复制不�
     const tip = driveCopyTip("百度网盘", { client: "already-open" });
     expect(tip.advice).not.toContain("已经打开过");
     expect(tip.advice).not.toContain("正在尝试打开");
+  });
+});
+
+describe("driveMobileTip：手机端复制链接后打开分享页", () => {
+  it("复制成功且已打开分享页：说明会跳到 App，并提醒先转存", () => {
+    const tip = driveMobileTip("夸克网盘", { copied: true, opened: true });
+    expect(tip.advice).toContain("已复制");
+    expect(tip.advice).toContain("分享页");
+    expect(tip.advice).toContain("App");
+    expect(tip.warning).toBe(DRIVE_MOBILE_TRANSFER_HINT);
+    expect(tip.warning).toContain("转存");
+    expect(tip.warning).toContain("自己的网盘");
+  });
+
+  it("复制失败就不许说「已复制」—— 页面还是照样打开的，如实说", () => {
+    const tip = driveMobileTip("迅雷网盘", { copied: false, opened: true });
+    expect(tip.advice).not.toContain("已复制");
+    expect(tip.advice).toContain("复制失败");
+    expect(tip.advice).toContain("分享页");
+    expect(tip.warning).toBe(DRIVE_MOBILE_TRANSFER_HINT);
+  });
+
+  it("脏链接打不开分享页：让用户自己打开 App 粘贴，且不许说「正在打开」", () => {
+    const tip = driveMobileTip("夸克网盘", { copied: true, opened: false });
+    expect(tip.advice).toContain("已复制");
+    expect(tip.advice).toContain("夸克 App");
+    expect(tip.advice).toContain("粘贴");
+    expect(tip.advice).not.toContain("正在打开");
+    expect(tip.warning).toBe(DRIVE_MOBILE_TRANSFER_HINT);
+  });
+
+  it("手机上不塞桌面客户端教程图（public/tips/ 是 PC 截图，照着做不了）", () => {
+    for (const platform of ["夸克网盘", "迅雷网盘", "百度网盘"]) {
+      for (const copied of [true, false]) {
+        for (const opened of [true, false]) {
+          expect(driveMobileTip(platform, { copied, opened }).tipImage).toBeNull();
+        }
+      }
+    }
+  });
+
+  it("不沿用桌面口径的「唤起客户端 / 剪贴板弹框」说法", () => {
+    const tip = driveMobileTip("夸克网盘", { copied: true, opened: true });
+    expect(tip.advice).not.toContain("正在尝试打开");
+    expect(tip.advice).not.toContain("剪贴板");
+    expect(tip.warning).not.toBe(DRIVE_WEB_WARNING);
+  });
+
+  it("其它网盘同样给转存提示（百度网盘这类没有桌面客户端也照常说）", () => {
+    const tip = driveMobileTip("百度网盘", { copied: true, opened: true });
+    expect(tip.advice).toContain("已复制");
+    expect(tip.warning).toBe(DRIVE_MOBILE_TRANSFER_HINT);
   });
 });

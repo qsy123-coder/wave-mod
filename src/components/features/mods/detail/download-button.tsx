@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Copy, Download, ExternalLink, LoaderCircle, X } from "lucide-react";
+import { Check, Copy, Download, LoaderCircle, X } from "lucide-react";
 import Image from "next/image";
 
 import { copyToClipboard } from "@/lib/clipboard";
-import { driveCopyTip } from "@/lib/cloud-drive";
+import { driveCopyTip, driveMobileTip } from "@/lib/cloud-drive";
 import { reportDownload } from "@/lib/engagement/client";
 import { driveOpenHref } from "@/lib/drive-client";
 import { launchDriveClient } from "@/lib/drive-client-launch";
@@ -39,18 +39,45 @@ export function DownloadButton({
   unzipCode,
 }: DownloadButtonProps) {
   const [isPending, setIsPending] = useState(false);
-  // 记下「这一次复制有没有真的去唤起客户端」：这个网盘本会话已唤起过时会跳过，
-  // 文案得跟着变（否则会对着用户说「正在尝试打开」而其实没开）
-  const [copiedDrive, setCopiedDrive] = useState<{ platform: string; launched: boolean } | null>(null);
+  /**
+   * 最近一次「复制网盘链接」的结果。桌面与手机是两条路，文案也分两套：
+   *
+   * - `device: "desktop"` —— 复制 + 唤起客户端，`launched` 记这次唤起有没有真的发生；
+   * - `device: "mobile"`  —— 复制 + 打开分享页（见下方 handleMobileOpen），
+   *   装了 App 的系统会接管 https 链接；`opened` 记有没有可跳的地址，`copied` 记复制成败。
+   *
+   * 两者都要记 `copied`：手机端复制失败时照样会打开分享页，不能装作复制成功。
+   */
+  const [copiedDrive, setCopiedDrive] = useState<{
+    platform: string;
+    device: "desktop" | "mobile";
+    launched: boolean;
+    opened: boolean;
+    copied: boolean;
+  } | null>(null);
   const [showTip, setShowTip] = useState(false);
   // 直链失败时的提示。非空即渲染 —— 绝不再静默返回，见 download-result.ts 的说明。
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
   const hasDownload = Boolean(downloadUrl?.trim());
   // 只有迅雷/夸克有「粘贴链接」教程图，其它网盘不展示「?」（文案与图见 lib/cloud-drive.ts）
   // client 传的是「这次真的唤起了没有」—— 同网盘再点就是 already-open，文案不能说会打开
-  const tip = copiedDrive
-    ? driveCopyTip(copiedDrive.platform, { client: copiedDrive.launched ? "launch" : "already-open" })
-    : null;
+  const tip =
+    copiedDrive?.device === "desktop"
+      ? driveCopyTip(copiedDrive.platform, {
+          client: copiedDrive.launched ? "launch" : "already-open",
+        })
+      : null;
+  const mobileTip =
+    copiedDrive?.device === "mobile"
+      ? driveMobileTip(copiedDrive.platform, {
+          copied: copiedDrive.copied,
+          opened: copiedDrive.opened,
+        })
+      : null;
+  // 宽屏用桌面口径、窄屏用手机口径；另一套为空时退回有内容的那套，
+  // 免得用户在跨断点缩放后对着一张空提示卡发愣。
+  const tipText = tip ?? mobileTip;
+  const mobileTipText = mobileTip ?? tip;
   const tipImage = tip?.tipImage ?? null;
 
   // 复制到另一个网盘时收起教程弹层
@@ -86,6 +113,7 @@ export function DownloadButton({
     }
   };
 
+  /** 桌面端：复制链接 + 尽量唤起客户端 */
   const handleCopy = async (drive: DriveLink) => {
     const ok = await copyToClipboard(drive.url);
     // 复制失败就不唤起：客户端被拉起来了却读不到剪贴板，比不唤起更让人困惑
@@ -95,7 +123,36 @@ export function DownloadButton({
     // 把对应客户端拉起来（它自己会读剪贴板弹转存框）。同一条链接本会话已唤起过就跳过，
     // 免得反复把它切到前台。返回值决定文案口径 —— 见 lib/drive-client-launch.ts
     const launched = launchDriveClient(drive.platform, drive.url);
-    setCopiedDrive({ platform: drive.platform, launched });
+    setCopiedDrive({ platform: drive.platform, device: "desktop", launched, opened: false, copied: true });
+  };
+
+  /**
+   * 手机端（链接可跳时）：复制到剪贴板 + 由 `<a>` 自己打开分享页。
+   *
+   * 和 PC 是同一个动作顺序「先复制、再打开对应的网盘」，只是手机上没有可靠的
+   * 客户端协议，打开的是 https 分享页 —— 装了 App 的系统会由 Universal Link /
+   * App Link 接管成 App，没装就在网页里输提取码。
+   *
+   * ⚠️ 这里**不拦** `<a>` 的默认跳转：原生导航才拿得到 App Link 的接管，
+   * 而且新标签页会保住当前详情页，回来后还能看到提示卡。
+   */
+  const handleMobileOpen = (drive: DriveLink) => {
+    // 打开分享页即视为一次下载动作（与改造前直接跳转的口径一致）
+    reportDownload(modId);
+    void copyToClipboard(drive.url)
+      .then((ok) => {
+        setCopiedDrive({ platform: drive.platform, device: "mobile", launched: false, opened: true, copied: ok });
+      })
+      .catch(() => {
+        setCopiedDrive({ platform: drive.platform, device: "mobile", launched: false, opened: true, copied: false });
+      });
+  };
+
+  /** 手机端（链接缺 scheme 等脏数据）：没法跳，只复制并说明原因 */
+  const handleMobileCopy = async (drive: DriveLink) => {
+    const ok = await copyToClipboard(drive.url);
+    if (ok) reportDownload(modId);
+    setCopiedDrive({ platform: drive.platform, device: "mobile", launched: false, opened: false, copied: ok });
   };
 
   const dismissCopied = () => {
@@ -108,9 +165,10 @@ export function DownloadButton({
   const driveButtonBase = `w-full items-center justify-center gap-2 border-4 border-black font-black uppercase text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${compact ? "h-11 px-3 text-[11px] tracking-[0.12em]" : "h-14 px-5 text-sm tracking-[0.16em]"}`;
   const driveButtonClass = (copied: boolean) =>
     `${driveButtonBase} ${copied ? "bg-[#86efac]" : "bg-[#C4B5FD]"}`;
-  // 手机端直接跳分享页：装了网盘 App 的系统会接管 https 链接，没装也能在网页里输提取码。
+  // 手机端按钮 = 复制链接 + 打开分享页（见 handleMobileOpen）。装了网盘 App 的系统
+  // 会接管 https 链接，没装也能在网页里输提取码。
   // 用 CSS 断点而不是 JS 判断 UA —— 服务端与客户端首屏渲染一致，不会水合错位。
-  const driveOpenClass = `inline-flex sm:hidden ${driveButtonBase} bg-[#FFD93D]`;
+  const driveMobileClass = `inline-flex sm:hidden ${driveButtonBase} bg-[#FFD93D]`;
 
   /**
    * 复制后的「怎么用」提示层。两种版式共用，所以抽成节点而不是复制一份 JSX。
@@ -143,8 +201,15 @@ export function DownloadButton({
             </button>
             <div className="space-y-2 pr-7">
               <p className="text-[13px] font-black leading-5 text-black">
-                {tip?.advice}
-                ；{tip?.warning}
+                {/* 宽屏：桌面口径（复制 + 唤起客户端）；窄屏：手机口径（复制 + 打开分享页） */}
+                <span className="hidden sm:inline">
+                  {tipText?.advice}
+                  ；{tipText?.warning}
+                </span>
+                <span className="sm:hidden">
+                  {mobileTipText?.advice}
+                  ；{mobileTipText?.warning}
+                </span>
                 {tipImage ? (
                   <button
                     type="button"
@@ -156,7 +221,8 @@ export function DownloadButton({
                     onBlur={() => setShowTip(false)}
                     // 触屏没有 hover：点一下也能看，再点收起
                     onClick={() => setShowTip((prev) => !prev)}
-                    className="ml-1.5 inline-flex size-[18px] -translate-y-[1px] cursor-help items-center justify-center rounded-full border-2 border-black bg-[#FFD93D] text-[10px] font-black leading-none text-black shadow-[1px_1px_0px_0px_#000] transition hover:bg-[#fff3c4] active:translate-y-0 active:shadow-none"
+                    // 教程图是桌面客户端截图：手机上照着做不了，只给宽屏看
+                    className="ml-1.5 hidden size-[18px] -translate-y-[1px] cursor-help items-center justify-center rounded-full border-2 border-black bg-[#FFD93D] text-[10px] font-black leading-none text-black shadow-[1px_1px_0px_0px_#000] transition hover:bg-[#fff3c4] active:translate-y-0 active:shadow-none sm:inline-flex"
                   >
                     ?
                   </button>
@@ -223,31 +289,43 @@ export function DownloadButton({
     return (
       <div className="relative flex flex-1 items-stretch gap-2">
         {driveLinks.map((drive) => {
-          const copied = copiedDrive?.platform === drive.platform;
+          const copied = copiedDrive?.platform === drive.platform && copiedDrive.copied;
           const openHref = driveOpenHref(drive.url);
           // 底栏很窄，按钮上去掉「网盘」后缀（夸克网盘 → 夸克），aria/title 里保留全称
           const shortLabel = drive.platform.replace(/网盘$/, "");
+          const unzipHint = unzipCode ? `，解压密码 ${unzipCode}` : "";
 
           return (
             <div key={`${drive.platform}-${drive.url}`} className="flex flex-1">
-              {/* 手机端优先直接跳分享页；链接缺 scheme 等脏数据没法跳，就退回复制 */}
+              {/* 手机端：复制链接 + 打开分享页（与 PC 同一个动作顺序）。
+                  链接缺 scheme 等脏数据没法跳，就退化成只复制。 */}
               {openHref ? (
                 <a
                   href={openHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`打开${drive.platform}分享页${unzipCode ? `，解压密码 ${unzipCode}` : ""}`}
+                  aria-label={`复制并打开${drive.platform}分享页${unzipHint}`}
                   className={`inline-flex sm:hidden ${barClass(copied, "drive")}`}
-                  onClick={() => reportDownload(modId)}
+                  onClick={() => handleMobileOpen(drive)}
                 >
-                  <ExternalLink className="size-3.5 shrink-0" />
-                  {barLabel(`打开${shortLabel}`)}
+                  {copied ? <Check className="size-3.5 shrink-0" /> : <Copy className="size-3.5 shrink-0" />}
+                  {barLabel(copied ? "已复制" : `复制${shortLabel}`)}
                 </a>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleMobileCopy(drive)}
+                  aria-label={`复制${drive.platform}链接${unzipHint}`}
+                  className={`inline-flex sm:hidden ${barClass(copied, "drive")}`}
+                >
+                  {copied ? <Check className="size-3.5 shrink-0" /> : <Copy className="size-3.5 shrink-0" />}
+                  {barLabel(copied ? "已复制" : `复制${shortLabel}`)}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => handleCopy(drive)}
-                className={`${openHref ? "hidden sm:inline-flex" : "inline-flex"} ${barClass(copied, "drive")}`}
+                onClick={() => void handleCopy(drive)}
+                className={`hidden sm:inline-flex ${barClass(copied, "drive")}`}
                 title={copied ? `已复制 ${drive.platform} 链接` : `复制 ${drive.platform} 链接（会尝试唤起客户端）`}
               >
                 {copied ? <Check className="size-3.5 shrink-0" /> : <Copy className="size-3.5 shrink-0" />}
@@ -311,8 +389,8 @@ export function DownloadButton({
       {driveLinks.length > 0 ? (
         <div className={`${hasDownload ? "mt-2 " : ""}${driveLinks.length > 1 ? "grid grid-cols-2 gap-2" : "space-y-1.5"}`}>
           {driveLinks.map((drive) => {
-            const copied = copiedDrive?.platform === drive.platform;
-            // 手机端优先直接跳分享页；链接缺 scheme 等脏数据没法跳，就退回复制
+            const copied = copiedDrive?.platform === drive.platform && copiedDrive.copied;
+            // 手机端：复制链接 + 打开分享页；链接缺 scheme 等脏数据没法跳，就退化成只复制
             const openHref = driveOpenHref(drive.url);
             return (
               <div key={`${drive.platform}-${drive.url}`}>
@@ -321,17 +399,17 @@ export function DownloadButton({
                     href={openHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`打开${drive.platform}分享页`}
-                    className={driveOpenClass}
-                    onClick={() => reportDownload(modId)}
+                    aria-label={`复制并打开${drive.platform}分享页`}
+                    className={driveMobileClass}
+                    onClick={() => handleMobileOpen(drive)}
                   >
-                    <ExternalLink className="size-4" />
-                    打开{drive.platform}
+                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copied ? `已复制 · ${drive.platform}` : `复制链接 · ${drive.platform}`}
                   </a>
                 ) : (
                   <button
                     type="button"
-                    onClick={() => handleCopy(drive)}
+                    onClick={() => void handleMobileCopy(drive)}
                     className={`inline-flex sm:hidden ${driveButtonClass(copied)}`}
                   >
                     {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
@@ -341,7 +419,7 @@ export function DownloadButton({
                 {/* 桌面端保持原样：复制到剪贴板并唤起客户端 */}
                 <button
                   type="button"
-                  onClick={() => handleCopy(drive)}
+                  onClick={() => void handleCopy(drive)}
                   className={`hidden sm:inline-flex ${driveButtonClass(copied)}`}
                 >
                   {copied ? <Check className="size-4" /> : <Copy className="size-4" />}

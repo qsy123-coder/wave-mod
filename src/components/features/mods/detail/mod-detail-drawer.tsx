@@ -362,10 +362,14 @@ export function ModDetailDrawer({
             固定在弹窗底部，不随内容滚动；下载按钮按用户要求统一收进这一行。 */}
         <div className="shrink-0 border-t-4 border-black bg-[#fff8ef] px-2.5 py-2">
           {/* 手机上按钮里放不下这行字（会把收藏挤出屏幕），所以单独占一行；
-              sm 以上仍写在按钮第二行，见 download-button.tsx 的 barLabel。 */}
+              sm 以上仍写在按钮第二行，见 download-button.tsx 的 barLabel。
+              后半句是手机端专属提示（用户 2026-10-29 要求）：分享页直接下载常不可用，
+              要把文件「转存」到自己的网盘再下载 —— 点了网盘按钮就会离开本页，这句得先看到。 */}
           {mod ? (
-            <p className="mb-1.5 text-[10px] font-black leading-none text-black/70 sm:hidden">
-              解压密码 x77syq
+            <p className="mb-1.5 flex flex-wrap items-baseline gap-x-1.5 text-[10px] font-black leading-tight text-black/70 sm:hidden">
+              <span>解压密码 x77syq</span>
+              <span aria-hidden="true">·</span>
+              <span>手机端先「转存」到自己网盘再下载</span>
             </p>
           ) : null}
           <div className="flex items-stretch gap-2">
