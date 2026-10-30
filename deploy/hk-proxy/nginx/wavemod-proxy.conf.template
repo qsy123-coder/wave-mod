@@ -445,7 +445,11 @@ server {
     }
 
     # ── 后台与登录：不缓存 ─────────────────────────────────────────────────
-    location ~ ^/(admin|auth|login|favorites) {
+    # ⚠️ `visits` 必须留在这里：它是按 `wavemod-visits` cookie 渲染的站长统计页，
+    # 走 `location /` 会被缓存 600 秒，且 `proxy_ignore_headers Cache-Control` 会无视
+    # Next 的 `private, no-store` —— 2026-10-30 实测匿名请求因此拿到过完整统计（HIT）。
+    # 代码侧 `src/middleware.ts` 兜了一层 Set-Cookie 信号，但这里才是根治。
+    location ~ ^/(admin|auth|login|favorites|visits) {
         include /etc/nginx/snippets/wavemod-proxy-common.conf;
 
         proxy_cache off;
