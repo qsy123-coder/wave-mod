@@ -25,6 +25,11 @@
  * 改完 drive_links **必须**重发兜底快照 + ping：drive_links 在快照列清单里
  * （scripts/mods-snapshot.sql），网关被锁时前台读的就是快照；不重发等于没改。
  *
+ * **还要清香港反代的缓存**（2026-10-30 补）：`/api/mods` 在 nginx 上是
+ * `proxy_cache_valid` 长 TTL、且 `proxy_ignore_headers Cache-Control`，
+ * `revalidateTag` 只清得掉上游 Next 那一层 —— 不清 nginx 的话，改完这一条
+ * 前台卡片照样挂着**旧链接**最长一个 TTL（表现正是「换了分享、站上还是老的」）。
+ *
  * 用法:
  *   node scripts/update-drive-links-from-reshare.mjs --dir=<重分享目录>            # dry-run
  *   node scripts/update-drive-links-from-reshare.mjs --dir=<重分享目录> --apply    # 写库
@@ -416,6 +421,35 @@ console.log(`\n📊 完成：成功 ${applied}，失败 ${failed}`);
 if (applied > 0) {
   await publishSnapshotBestEffort();
   await notifyRevalidate({ siteUrl: SITE_URL, secret: process.env.REVALIDATE_SECRET?.trim() });
+  purgeHkCacheBestEffort();
+}
+
+/**
+ * 清香港反代 `/api/mods` 的整层缓存。
+ *
+ * 与 upload-daily-by-date.mjs 里同名函数同源：nginx 对 `/api/mods` 是长 TTL 的
+ * `proxy_cache` 且忽略 `Cache-Control`，`/api/revalidate` 打不到这一层。
+ * 只改一条链接也必须清 —— 这条 mod 会出现在首页、/mods、角色筛选、榜单等多个
+ * 查询串下，逐个 pattern 清不如整层清（998 条实测秒级，回源重建无副作用）。
+ *
+ * 失败只告警不翻红：库与快照都已经对了，最坏是 nginx 把旧 JSON 留到 TTL 到期；
+ * 但这是「终端全绿、前台纹丝不动」的静默故障，所以把补跑命令打出来。
+ */
+function purgeHkCacheBestEffort() {
+  const result = spawnSync(
+    process.execPath,
+    [resolve(process.cwd(), "scripts/purge-hk-api-cache.mjs"), "--all"],
+    { encoding: "utf8", timeout: 180_000 },
+  );
+
+  if (result.status === 0) {
+    console.log(result.stdout.trim());
+    return;
+  }
+
+  const detail = (result.stderr || result.stdout || "").trim().split("\n").slice(-1)[0] || "未知错误";
+  console.warn(`⚠️  香港反代缓存没清掉：${detail}`);
+  console.warn("   前台可能继续显示旧链接，补跑：node scripts/purge-hk-api-cache.mjs --all");
 }
 
 /**
