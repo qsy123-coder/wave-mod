@@ -540,3 +540,94 @@ describe("packMasonry 不留大洞", () => {
     expect(maxHole(ratios, 2, 360)).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
   });
 });
+
+/**
+ * 2026-10-30 用户报的「角色分类页中间一大块空白」。
+ *
+ * 起因是「横屏为主」时取消了洞上限：某些分类里有个别超长竖图（比例 0.3 上下，
+ * 一张卡近 800px 高），它落进某一列后，跨列卡在那一对上取 `max(bottom)`，另一列就
+ * 被永久留下几百上千像素的洞 —— 后续单列卡只会去更矮的列，没人回头填。
+ *
+ * 现在任何列数都受同一个洞上限约束、并用暂存机制等齐平，这里钉住「不留大洞」
+ * 与「不会因此把某一列饿死」两件事。
+ */
+describe("多列避洞（2026-10-30 角色分类页空白）", () => {
+  const maxHole = (ratios: number[], columns: number, containerWidth: number) => {
+    const result = packMasonry(items(ratios), columns, containerWidth);
+    const byColumn = new Map<number, { top: number; height: number }[]>();
+
+    for (const placement of result.placements) {
+      const ratio = ratios[Number(placement.id.slice(1))]!;
+      const width = masonrySpanWidth(placement.span, result.columnWidth);
+      const height = masonryCardHeight(width, ratio);
+      for (let column = placement.column; column < placement.column + placement.span; column += 1) {
+        const list = byColumn.get(column) ?? [];
+        list.push({ top: placement.top, height });
+        byColumn.set(column, list);
+      }
+    }
+
+    let worst = 0;
+    for (const list of byColumn.values()) {
+      list.sort((a, b) => a.top - b.top);
+      for (let i = 1; i < list.length; i += 1) {
+        worst = Math.max(worst, list[i]!.top - (list[i - 1]!.top + list[i - 1]!.height) - MASONRY_GAP);
+      }
+    }
+    return { worst, usedColumns: byColumn.size };
+  };
+
+  // 超长竖图（0.3）+ 一连串横图：旧实现在这里会留下半屏空白
+  const TALL_AND_WIDE = [
+    0.6, 0.62, 0.58, 0.6, 0.59, 0.61, 0.57, 0.3, 0.6, 1.9, 1.6, 1.4, 1.6, 1.6, 1.4, 1.7,
+    0.55, 1.6, 1.6, 0.5, 1.6, 1.5, 0.6, 1.6,
+  ];
+
+  it("4 列：超长竖图后面接一串横图，也不留超过阈值的洞", () => {
+    const { worst } = maxHole(TALL_AND_WIDE, 4, 1128);
+    expect(worst).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
+  });
+
+  it("5 列（横屏未过半）同样不留大洞", () => {
+    const { worst } = maxHole(TALL_AND_WIDE, 5, 1128);
+    expect(worst).toBeLessThanOrEqual(MASONRY_WIDE_MAX_HOLE + 1e-6);
+  });
+
+  it("降级不会把某一列空到底", () => {
+    const { usedColumns } = maxHole(TALL_AND_WIDE, 4, 1128);
+    expect(usedColumns).toBe(4);
+  });
+
+  it("该跨的横图照样跨 —— 连续横图里的大部分仍然横跨两列", () => {
+    const result = packMasonry(items(TALL_AND_WIDE), 4, 1128);
+    const wideCount = TALL_AND_WIDE.filter((ratio) => ratio > MASONRY_WIDE_RATIO).length;
+    const spanning = result.placements.filter((placement) => placement.span === 2).length;
+    expect(spanning).toBeGreaterThan(wideCount / 2);
+  });
+
+  it("暂存只挪纵坐标，不改变输出顺序，也不会让同列卡片重叠", () => {
+    const result = packMasonry(items(TALL_AND_WIDE), 4, 1128);
+    expect(result.placements.map((placement) => placement.id)).toEqual(
+      TALL_AND_WIDE.map((_, i) => `m${i}`),
+    );
+
+    const byColumn = new Map<number, { top: number; bottom: number }[]>();
+    for (const placement of result.placements) {
+      const height = masonryCardHeight(
+        masonrySpanWidth(placement.span, result.columnWidth),
+        TALL_AND_WIDE[Number(placement.id.slice(1))]!,
+      );
+      for (let column = placement.column; column < placement.column + placement.span; column += 1) {
+        const list = byColumn.get(column) ?? [];
+        list.push({ top: placement.top, bottom: placement.top + height });
+        byColumn.set(column, list);
+      }
+    }
+    for (const list of byColumn.values()) {
+      list.sort((a, b) => a.top - b.top);
+      for (let i = 1; i < list.length; i += 1) {
+        expect(list[i]!.top).toBeGreaterThanOrEqual(list[i - 1]!.bottom - 1e-6);
+      }
+    }
+  });
+});

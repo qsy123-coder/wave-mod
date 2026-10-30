@@ -550,10 +550,10 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    */
   const masonryPack = useMemo(() => {
     if (!isMasonry || masonryWidth <= 0) return null;
-    // 列数已经按角色画像定死，跨列的「洞上限」判定也要跟着走同一边，
-    // 否则 4 列 + 严格洞过滤会在横屏卡之间反复降级成单列。
-    return packMasonry(packItems, colCount, masonryWidth, layoutHint?.wideDominant || undefined);
-  }, [isMasonry, masonryWidth, packItems, colCount, layoutHint]);
+    // 避洞规则对所有列数一视同仁（见 masonry-packing.ts 的 MASONRY_WIDE_MAX_HOLE），
+    // 这里不需要再传「横屏为主」开关 —— 它只决定列数（见 colCount）。
+    return packMasonry(packItems, colCount, masonryWidth);
+  }, [isMasonry, masonryWidth, packItems, colCount]);
 
   /**
    * 「加载下一页」的占位卡：**插进当前各列的空隙里**，而不是在瀑布流下方另铺一块。
@@ -582,12 +582,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
     }));
     const ratioById = new Map(placeholders.map((p) => [p.id, p.ratio]));
 
-    const packed = packMasonry(
-      [...packItems, ...placeholders],
-      colCount,
-      masonryWidth,
-      layoutHint?.wideDominant || undefined,
-    );
+    const packed = packMasonry([...packItems, ...placeholders], colCount, masonryWidth);
 
     return {
       columnWidth: packed.columnWidth,
@@ -727,7 +722,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       }));
       const pendingPack =
         masonryWidth > 0
-          ? packMasonry(placeholders, colCount, masonryWidth, layoutHint?.wideDominant || undefined)
+          ? packMasonry(placeholders, colCount, masonryWidth)
           : null;
 
       return (

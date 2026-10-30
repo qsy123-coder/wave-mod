@@ -39,10 +39,17 @@ export const MASONRY_CARD_CHROME = 36;
 export const MASONRY_WIDE_RATIO = 1.2;
 
 /**
- * 2 列布局里，两列底部高度差不超过它就认为「齐平」，横屏卡可以安全地跨列摆放。
+ * 一对列「够齐平」的判据：底部高度差不超过它。
+ *
+ * 两个用途：
+ *   1. 2 列布局里，两列底部高度差不超过它就认为「齐平」，横屏卡可以安全地跨列摆放；
+ *   2. 3 列及以上，暂存的横屏卡等到某一对列满足它就立刻放行（见 packMasonry）。
  *
  * 为什么需要一个容忍值：两列底部很难精确相等（每张卡高度由图片比例决定），
  * 追求 0 会让横屏卡无限延后。24px 小于一张卡的最小高度，肉眼上看不出洞。
+ *
+ * 注意它比 `MASONRY_WIDE_MAX_HOLE` 严得多：24px 是「可以去跨」，72px 是「跨了也还
+ * 能接受」—— 暂存期的等待目标用前者，等不到时降级的门槛用后者。
  */
 export const MASONRY_HOLE_TOLERANCE = 24;
 
@@ -60,19 +67,27 @@ export const MASONRY_MAX_WIDE_DELAY = 3;
  * 跨列卡的顶边必须取两列的 `max(bottom)`，较短那列从自己的底到这个顶之间就是洞。
  * 旧版只有「最多延后 3 张」的补救，等不到齐平时照样硬放 —— 2026-10-20 实测手机端
  * 出现过 562px 的洞（接近一整屏），比「横图小一号」难看得多，所以这里封顶。
+ *
+ * ⚠️ **所有列数都受这条约束**（2 列、3 列及以上都一样），没有「横屏为主就放宽」的例外。
+ * 2026-10-30 用户报的角色分类页正是栽在放开了这条：那一类里有个别封面是超长竖图
+ * （比例 0.3 上下、一张卡就 800px 高），它落进某一列后，跨列卡在那一对上取
+ * `max(bottom)` 就把另一列**永久**留下几百上千像素的洞 —— 洞里不会再有卡片落进来
+ * （后续单列卡只会去更矮的列），整页看着就是「中间一块大空白」。
+ *
+ * 放宽当初是为了治「整列空到底」（见 MASONRY_WIDE_DOMINANT_SHARE 的历史注释），
+ * 现在改由 `packMasonry` 里的「暂存 → 等齐平 → 放行」机制负责：跨列卡先让位，
+ * 等单列卡把某一对列填平再跨，等不到（`MASONRY_MAX_WIDE_DELAY` 张后）就降级成单列。
+ * 既不留洞，也不会把某一对列喂得过胖。
  */
 export const MASONRY_WIDE_MAX_HOLE = 72;
 
 /**
- * 横屏卡占比达到它就切到「横屏为主」的版式。
+ * 横屏卡占比达到它就切到「横屏为主」的版式：**列数取偶数**（5 → 4，见
+ * `evenColumnsForWideList`）。跨两列的卡在偶数列里正好两两铺满整行，奇数列必然剩
+ * 一列没东西可放。
  *
  * 背景（2026-10-23 绯雪分类）：整类 163/198 张换成横版封面后，5 列里跨两列的卡
  * 只能两两成对铺（0-1、2-3），第 5 列永远填不满 —— 用户看到的是「一列空着」。
- * 横屏为主时改两件事（见 packMasonry 与 evenColumnsForWideList）：
- *   1. 列数取偶数（5 → 4），跨列卡正好铺满整行；
- *   2. 取消 `MASONRY_WIDE_MAX_HOLE` 的硬过滤 —— 那个值是为「混排」定的，
- *      横屏为主时它会锁死在一对列上（那对列底部恒等，其它列判据永远超阈值），
- *      剩余列被饿死后整页高得离谱。
  *
  * 阈值 0.55。曾经是 0.65，但 2026-10-23 实测绯雪的**第一页**只有 58%
  * （整类 82%，分页顺序不是均匀抽样），刚好卡在 0.65 之下，于是 5 列布局原样保留：
@@ -81,7 +96,9 @@ export const MASONRY_WIDE_MAX_HOLE = 72;
  *
  * 为什么不再往下压到 0.5：正好 50% 的混合样本在 5 列下只有 232px 落差（不到一张卡），
  * 强行切 4 列反而变成 458px。0.55 只吃掉「横屏明显过半」这一类。
- * （偶数列总高比奇数列大是正常的：列宽变大、每张卡都更高，换来的是没有空洞。）
+ * （偶数列总高比奇数列大是正常的：列宽变大、每张卡都更高，换来的是没有空列。）
+ *
+ * ⚠️ 这个判据**只决定列数**，不再影响跨列卡的避洞规则 —— 避洞对所有列数一视同仁。
  */
 export const MASONRY_WIDE_DOMINANT_SHARE = 0.55;
 
@@ -282,20 +299,20 @@ export function masonrySpanWidth(span: 1 | 2, columnWidth: number): number {
  * 顺序与输入一致（不做 dense 重排），追加下一页时已有卡片只会在列内下沉，
  * 不会被后来的内容插到上面。
  *
- * **2 列的避洞规则**：2 列下横屏卡 = 独占一整行，直接摆放会在较短那列留下
- * 一个洞。这里把横屏卡先暂存，让后续单列卡把两列填平（高度差 ≤ 容忍值）再放，
- * 最多延后 `MASONRY_MAX_WIDE_DELAY` 张。输出顺序仍按输入 id 排列，延后只影响
- * 纵坐标，不影响列表顺序。
+ * **避洞规则（所有列数通用）**：横屏卡跨两列时，顶边必须取这一对列里较深的
+ * `max(bottom)`，较短那列就留下一个洞，而且**没人会回头填它**。所以：
+ *   - 这一对的落差 > `MASONRY_WIDE_MAX_HOLE` ⇒ 先**暂存**这张卡，让后续单列卡
+ *     把某一对列填平（落差 ≤ `MASONRY_HOLE_TOLERANCE`）再放；
+ *   - 最多延后 `MASONRY_MAX_WIDE_DELAY` 张，等不到就**降级成单列卡**（图小一号，
+ *     但不留洞）；连着来两张横屏卡时暂存没有意义，前一张直接按这个规则落地。
+ * 输出顺序仍按输入 id 排列，延后只影响纵坐标，不影响列表顺序。
+ *
+ * 2 列额外有一条「预测下一张单列卡会把两列差撑大就提前放掉」的优化，见下面的分支。
  */
 export function packMasonry(
   items: MasonryPackItem[],
   columns: number,
   containerWidth: number,
-  /**
-   * 覆盖「横屏为主」的判定。列表页会把服务端下发的**角色画像**传进来：
-   * 它按全库算，比「当前这一页」稳定得多。不传则按本批 items 现算。
-   */
-  wideDominantOverride?: boolean,
 ): MasonryPackResult {
   if (columns < 1 || !Number.isFinite(containerWidth) || containerWidth <= 0) {
     return { placements: [], height: 0, columnWidth: 0 };
@@ -305,20 +322,6 @@ export function packMasonry(
   // 每列当前的底部纵坐标（最后一张卡下沿 + 间距）
   const bottoms = new Array<number>(columns).fill(0);
   const placements: MasonryPlacement[] = [];
-  /**
-   * 横屏为主 **且列数够多** ⇒ 放宽 `MASONRY_WIDE_MAX_HOLE`（理由见该常量的注释）：
-   * 跨列卡把一对列的底部压成相等以后，那对列永远是「最齐平」的一对，硬过滤会让
-   * 后面所有横屏卡死守在这里，其余列再也长不高。
-   *
-   * 2 列不走这条：那里只有一对列，放宽等于「不齐也硬跨」，正是 2026-10-20 那个
-   * 562px 大洞的来源。2 列靠上面那段 hold/flush 机制填平，实测洞更小、总高更矮。
-   *
-   * ⚠️ 别再给这条路加「洞上限」：2026-10-23 用绯雪 198 条真实比例扫过
-   * 108 / 144 / 180 / 240 四档，全都会把列底落差从 63px 拉到 4881px（等于又回到
-   * 「一列空到底」）。放宽后的洞实测约 416px，比一张卡矮，是这条路的必要代价。
-   */
-  const wideDominant =
-    columns >= 3 && (wideDominantOverride ?? isWideDominantMasonry(items));
 
   /** 单列卡：放进当前最短的列。 */
   const placeSingle = (item: MasonryPackItem) => {
@@ -347,8 +350,7 @@ export function packMasonry(
    * 挑选横屏卡要压住的那一对相邻列。
    *
    * **先看「这一对有多深」，再看两列差**：优先放到当前最低的一对列上，同样深浅时再挑
-   * 更齐平的一对、最后取靠左的。两列差超过 `MASONRY_WIDE_MAX_HOLE` 的对直接排除
-   * （放进去会在较短那列留下停得下一张卡的大洞）。
+   * 更齐平的一对、最后取靠左的。
    *
    * 为什么不能只按「两列差最小」挑（2026-10-22 尤诺分类的 bug）：
    * 跨列卡摆完之后它压住的两列底部**必然相等**，于是这一对的差值恒为 0，永远是最小值；
@@ -357,44 +359,39 @@ export function packMasonry(
    * 改按「最低的一对」选，横图会在各对列之间轮转，整块瀑布流的高度也更均衡。
    *
    * ⚠️ **只从偶数下标起跨**（0-1、2-3、4-5），不跨 1-2 / 3-4（2026-10-23 绯雪）：
-   * 一旦第一张横图落在 1-2 这种奇数起点，0 列和 1 列的高度差立刻超过
-   * `MASONRY_WIDE_MAX_HOLE`，「0-1」这对就再也进不了候选；同理 2-3、4-5 也被挤掉，
+   * 一旦第一张横图落在 1-2 这种奇数起点，0 列和 1 列的高度差立刻变大，
    * 之后所有横图只能在 1-2 / 3-4 之间来回 —— **最左和最右两种列永远拿不到横图**，
    * 只剩零星单列卡。6 列实测：首尾两列各停在 ~870px，中间四列 4400px。
    * 偶数起点保证「每一对都从干净的两列开始」，边列也能正常长高。
+   *
+   * ⚠️ 这里**不**按 `MASONRY_WIDE_MAX_HOLE` 预先过滤：过滤掉所有候选就等于「没有候选」，
+   * 而调用方需要知道「最浅的那一对差多少」才能决定是等一等还是降级。判据留给调用方。
+   * 返回的 `gap` = 这一对两列的内部落差 —— 跨列卡会把它**原样变成一个洞**。
    */
   const findPlacementPair = () => {
     let best: { column: number; gap: number; deepest: number } | null = null;
     for (let column = 0; column <= columns - 2; column += 2) {
       const gap = Math.abs(bottoms[column] - bottoms[column + 1]);
-      // 混排时超过阈值的一对列不能放（会在浅的那列留一个停得下整张卡的洞）；
-      // 横屏为主时这条会锁死选位，见 wideDominant 的注释
-      if (!wideDominant && gap > MASONRY_WIDE_MAX_HOLE) continue;
-
       const deepest = Math.max(bottoms[column], bottoms[column + 1]);
       // 亚像素比较留容差：底部差几百分之一像素不该让选位在两次重排间跳来跳去
       const shallower = !best || deepest < best.deepest - 0.5;
       const moreLevel =
-        !wideDominant && best !== null && Math.abs(deepest - best.deepest) <= 0.5 && gap < best.gap - 0.5;
-      /**
-       * 横屏为主时的并列处理：两对列一样深就挑**洞更大**的那对。
-       * 洞大意味着那一列落后了，正是该补的地方；挑洞小的（混排口径）会一直
-       * 挑到同一对列上，落后的列永远追不回来。
-       */
-      const fillsMore =
-        wideDominant && best !== null && Math.abs(deepest - best.deepest) <= 0.5 && gap > best.gap + 0.5;
-      if (shallower || moreLevel || fillsMore) best = { column, gap, deepest };
+        best !== null && Math.abs(deepest - best.deepest) <= 0.5 && gap < best.gap - 0.5;
+      if (shallower || moreLevel) best = { column, gap, deepest };
     }
     return best;
   };
 
   /**
-   * 横屏卡：只有存在一对足够齐平的列时才跨两列，否则**降级成单列卡**。
-   * 宁可这张图小一号，也不要在列里留一个能停下一张卡的大洞。
+   * 横屏卡：只有存在一对落差在 `MASONRY_WIDE_MAX_HOLE` 以内的列时才跨两列，
+   * 否则**降级成单列卡**。宁可这张图小一号，也不要在列里留一个能停下一张卡的大洞。
+   *
+   * 这里判断的是**当前**能不能跨；想把「现在跨不了、等几张单列卡就能跨」拖回来时，
+   * 用下面的 hold/flush 机制把它暂存起来。
    */
   const placeWideOrSingle = (item: MasonryPackItem) => {
     const pair = findPlacementPair();
-    if (pair) placeWide(item, pair.column);
+    if (pair && pair.gap <= MASONRY_WIDE_MAX_HOLE) placeWide(item, pair.column);
     else placeSingle(item);
   };
 
@@ -455,12 +452,59 @@ export function packMasonry(
     }
 
     flushHeld();
+  } else if (columns < 2) {
+    // 1 列：没有跨列可言，按输入顺序往下堆即可（走暂存反而会让卡片跳到队尾）。
+    for (const item of items) placeSingle(item);
   } else {
-    // 1 列：没有跨列可言；3 列及以上：横屏卡跨两列但不独占整行，同样受「不留大洞」约束。
+    /**
+     * 3 列及以上：**和 2 列同一套「暂存 → 等齐平 → 放行」机制**（2026-10-30 起）。
+     *
+     * 以前这里是「挑最浅的一对，差多少都硬跨」：跨列卡顶边取 `max(bottom)`，较短那列
+     * 的落差就原样变成一个洞，而且**永久空着** —— 后续单列卡只会去更矮的列，没人回头
+     * 填它。常态下洞只有一两百像素还能忍，一旦某一列落进一张超长竖图（实测有的封面
+     * 比例 0.3 上下、一张卡 800px 高），洞就变成半屏，用户看到的是「中间一大块空白」。
+     *
+     * 现在跨列卡先看这一对列的落差：超过 `MASONRY_WIDE_MAX_HOLE` 就暂存，让后面的
+     * 单列卡把某一对列填平再跨；`MASONRY_MAX_WIDE_DELAY` 张还等不到，就降级成单列。
+     * 代价与 2 列一致：横图在「最新」排序里可能后移 1–3 张（2026-10-19 用户认可）。
+     */
+    let held: MasonryPackItem | null = null;
+    let deferred = 0;
+
+    /** 放掉暂存的横屏卡：现在是齐平的（或等够了）就跨，否则降级成单列。 */
+    const flushHeld = () => {
+      if (!held) return;
+      placeWideOrSingle(held);
+      held = null;
+      deferred = 0;
+    };
+
+    /** 已经有一对列足够齐平、可以立刻跨列了吗 */
+    const hasLevelPair = () => {
+      const pair = findPlacementPair();
+      return Boolean(pair && pair.gap <= MASONRY_HOLE_TOLERANCE);
+    };
+
     for (const item of items) {
-      if (columns >= 2 && item.ratio > MASONRY_WIDE_RATIO) placeWideOrSingle(item);
-      else placeSingle(item);
+      if (item.ratio <= MASONRY_WIDE_RATIO) {
+        placeSingle(item);
+        if (held) {
+          deferred += 1;
+          if (deferred >= MASONRY_MAX_WIDE_DELAY || hasLevelPair()) flushHeld();
+        }
+        continue;
+      }
+
+      // 连着两张横屏卡时，暂存没有意义（能填洞的只有单列卡），先把上一张放掉，
+      // 保持两张横屏卡的前后顺序。
+      flushHeld();
+
+      const pair = findPlacementPair();
+      if (pair && pair.gap <= MASONRY_WIDE_MAX_HOLE) placeWide(item, pair.column);
+      else held = item;
     }
+
+    flushHeld();
   }
 
   // 延后会让 placements 的顺序与输入不同；按输入顺序重排，保证输出稳定。
