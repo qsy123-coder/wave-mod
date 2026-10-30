@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseXunleiTxt } from "./xunlei-txt-parse.mjs";
+import { parseXunleiTxt, withXunleiPwd } from "./xunlei-txt-parse.mjs";
 
 /** 与迅雷 App「复制分享」一致的排版：块之间空一行，末尾还有一行提示语 */
 const SAMPLE = [
@@ -53,5 +53,38 @@ describe("parseXunleiTxt", () => {
   it("重复调用不受 lastIndex 影响（正则带 g 标志）", () => {
     expect(parseXunleiTxt(SAMPLE)).toHaveLength(2);
     expect(parseXunleiTxt(SAMPLE)).toHaveLength(2);
+  });
+});
+
+describe("withXunleiPwd", () => {
+  it("裸链接拼成打开即自动填码的形式（与库内历史记录同形态）", () => {
+    expect(
+      withXunleiPwd("https://pan.xunlei.com/s/VP57Z3dR67IWEBi0txIibs4kA1", "3rhw")
+    ).toBe("https://pan.xunlei.com/s/VP57Z3dR67IWEBi0txIibs4kA1?pwd=3rhw#");
+  });
+
+  it("已带 pwd 的链接原样返回（导出表才是正式来源，不覆盖它的提取码）", () => {
+    const url = "https://pan.xunlei.com/s/VP14jvqskeCZmEOcfqNLqhwQA1?pwd=k99r#";
+    expect(withXunleiPwd(url, "zzzz")).toBe(url);
+  });
+
+  it("提取码为空 / 非迅雷域名时原样返回，不拼假链接", () => {
+    expect(withXunleiPwd("https://pan.xunlei.com/s/AAA", "")).toBe(
+      "https://pan.xunlei.com/s/AAA"
+    );
+    expect(withXunleiPwd("https://pan.quark.cn/s/AAA", "3rhw")).toBe(
+      "https://pan.quark.cn/s/AAA"
+    );
+  });
+
+  it("链接带其它查询参数时用 & 续接，且吃掉末尾多余的 #", () => {
+    expect(withXunleiPwd("https://pan.xunlei.com/s/AAA?from=app#", "abcd")).toBe(
+      "https://pan.xunlei.com/s/AAA?from=app&pwd=abcd#"
+    );
+  });
+
+  it("txt 解析出的 name/link/pwd 直接串起来就能落库", () => {
+    const [first] = parseXunleiTxt(SAMPLE);
+    expect(withXunleiPwd(first.link, first.pwd)).toMatch(/\?pwd=3rhw#$/);
   });
 });

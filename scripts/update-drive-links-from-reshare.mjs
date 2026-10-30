@@ -41,7 +41,7 @@ import COS from "cos-nodejs-sdk-v5";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 import { resolveReshareAlias } from "./reshare-title-aliases.mjs";
-import { parseXunleiTxt } from "./xunlei-txt-parse.mjs";
+import { parseXunleiTxt, withXunleiPwd } from "./xunlei-txt-parse.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true });
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
@@ -309,7 +309,9 @@ for (const key of allKeys) {
 
   const row = hits[0];
   const quark = quarkByKey.get(key) ?? null;
-  const xunlei = xunleiByKey.get(key)?.link ?? null;
+  // txt 来源的链接不带提取码，拼成自动填码形态再写（xlsx 来源自带 ?pwd=，原样返回）
+  const xunleiEntry = xunleiByKey.get(key);
+  const xunlei = xunleiEntry ? withXunleiPwd(xunleiEntry.link, xunleiEntry.pwd) : null;
   const afterLinks = mergeDriveLinks(row.drive_links, { quark, xunlei });
   const before = linkSummary(row.drive_links);
   const after = linkSummary(afterLinks);

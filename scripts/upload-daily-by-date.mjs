@@ -37,7 +37,7 @@ import sharp from "sharp";
 import { syncCoverSizes } from "./cover-size.mjs";
 import { resolveDakaIfApplicable } from "./daka-classify.mjs";
 import { resolveReshareAlias } from "./reshare-title-aliases.mjs";
-import { parseXunleiTxt } from "./xunlei-txt-parse.mjs";
+import { parseXunleiTxt, withXunleiPwd } from "./xunlei-txt-parse.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
@@ -1097,7 +1097,9 @@ where game_key = ${dollarQuote(GAME_KEY)};
       // 夸克恒有（来自 CSV）；迅雷有就一起写进去，免得事后还得跑第二个脚本补
       const driveLinks = [{ platform: "夸克网盘", url: record.url }];
       if (xunlei) {
-        driveLinks.push({ platform: "迅雷网盘", url: xunlei.link });
+        // 手抄 txt 的链接不带提取码，这里统一拼成「打开即自动填码」的形式，
+        // 与 xlsx 导出表（链接列自带 ?pwd=）落库的形态保持一致
+        driveLinks.push({ platform: "迅雷网盘", url: withXunleiPwd(xunlei.link, xunlei.pwd) });
         xunleiAttached++;
       }
 

@@ -35,3 +35,26 @@ export function parseXunleiTxt(text) {
   }
   return out;
 }
+
+/**
+ * 把提取码拼进分享链接，变成**打开即自动填码**的形式：
+ *   https://pan.xunlei.com/s/VP57…A1  + 3rhw
+ *   → https://pan.xunlei.com/s/VP57…A1?pwd=3rhw#
+ *
+ * 为什么要拼：xlsx 导出表里的「分享链接」列本身就带 `?pwd=…`（迅雷「复制带提取码的链接」），
+ * 库里 5000+ 条历史记录全是这个形态；只有手抄 txt 是「链接」和「提取码」分开两行。
+ * 2026-10-29 那批 txt 直接写裸链接，前台点开还要手输提取码 —— 用户当天就发现了。
+ * 2026-10-30 用无头 Chrome 验证过：带对的 pwd 能直接渲染出文件列表，
+ * 不带或带错的 pwd 都停在「请输入提取码」。
+ *
+ * 已经是带 `?pwd=` 的链接原样返回（不重复拼、不覆盖导出表里的正式提取码）；
+ * 非迅雷域名 / 提取码为空也原样返回，免得给脏数据拼出个假链接。
+ */
+export function withXunleiPwd(link, pwd) {
+  const url = String(link ?? "").trim();
+  const code = String(pwd ?? "").trim();
+  if (!code || !/^https?:\/\/(?:[\w-]+\.)*xunlei\.com\/s\//i.test(url)) return url;
+  const base = url.replace(/#+$/, "");
+  if (/[?&]pwd=/i.test(base)) return url;
+  return `${base}${base.includes("?") ? "&" : "?"}pwd=${encodeURIComponent(code)}#`;
+}
