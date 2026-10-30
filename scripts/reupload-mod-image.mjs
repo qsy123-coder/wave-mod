@@ -115,7 +115,8 @@ function bareUrl(url) {
 
 // 同一个 select 两处用：--id 直查行，否则按 --key 走本批次的分类规则定位 (character, title)
 const ROW_COLUMNS =
-  "json_build_object('id', id, 'character', character, 'title', title, 'images', images)";
+  "json_build_object('id', id, 'character', character, 'title', title, 'images', images, " +
+  "'cover_width', cover_width, 'cover_height', cover_height)";
 
 let rows;
 if (explicitId) {
@@ -167,6 +168,17 @@ console.log(`   源图: ${imagePath}  (${(readFileSync(imagePath).length / 1024)
 const { buffer, origBytes, webpBytes } = await convertToWebP(imagePath);
 console.log(`   转换: ${(origBytes / 1024).toFixed(0)}KB → ${(webpBytes / 1024).toFixed(0)}KB webp`);
 
+// 封面尺寸必须跟着换：瀑布流按 cover_width/cover_height 预留卡位（见 mods-infinite-grid
+// 的 ratioFor），比例不对会留一大块空洞、或整张卡被挤成一格「网格」。
+// 旧图 560x747 竖图换成 1000x533 横图却不改这两列，就是 2026-10-30 用户报的那个现象。
+const meta = await sharp(buffer).metadata();
+const coverWidth = meta.width ?? null;
+const coverHeight = meta.height ?? null;
+console.log(
+  `   尺寸: ${coverWidth}x${coverHeight}` +
+    (row.cover_width ? `（库内 ${row.cover_width}x${row.cover_height}）` : "（库内未记录）"),
+);
+
 if (isDryRun) {
   console.log("\n🔍 DRY-RUN：未上传。去掉 --dry-run 执行。");
   process.exit(0);
@@ -207,30 +219,49 @@ console.log(`\n✅ 已覆盖 ${objectKey}`);
 console.log(`   图片 URL: ${currentUrl}`);
 console.log(`         →  ${newUrl}`);
 
-if (newUrl === currentUrl) {
-  console.log("   内容与版本都没变，跳过改库/快照/ping。");
+const urlChanged = newUrl !== currentUrl;
+const dimsChanged = coverWidth !== row.cover_width || coverHeight !== row.cover_height;
+
+if (!urlChanged && !dimsChanged) {
+  console.log("   内容、版本、封面尺寸都没变，跳过改库/快照/ping。");
   process.exit(0);
 }
 
-// 改库：只换 images[0]，其余图原样保留
-const nextImages = [newUrl, ...(row.images ?? []).slice(1)];
+// 改库：images[0]（URL 变了才换）+ 封面尺寸。其余图原样保留。
+const nextImages = urlChanged ? [newUrl, ...(row.images ?? []).slice(1)] : row.images;
 await psqlJson(`
 with incoming as (
-  select j.id, j.images
-  from jsonb_populate_recordset(null::mods, ${dollarQuote(JSON.stringify([{ id: row.id, images: nextImages }]))}::jsonb) j
+  select j.id, j.images, j.cover_width, j.cover_height, j.cover_source
+  from jsonb_populate_recordset(null::mods, ${dollarQuote(
+    JSON.stringify([
+      {
+        id: row.id,
+        images: nextImages,
+        cover_width: coverWidth,
+        cover_height: coverHeight,
+        // cover_source = 「尺寸是按哪张图量的」（见 scripts/cover-size.mjs）。
+        // 不跟着写会让 syncCoverSizes 把这一行当成待测量，白白再下载一次。
+        cover_source: nextImages?.[0] ?? null,
+      },
+    ]),
+  )}::jsonb) j
 ),
 upd as (
   update mods
-  set images = incoming.images, updated_at = now()
+  set images = incoming.images,
+      cover_width = incoming.cover_width,
+      cover_height = incoming.cover_height,
+      cover_source = incoming.cover_source,
+      updated_at = now()
   from incoming
   where mods.id = incoming.id
   returning 1
 )
 select json_build_object('updated', (select count(*) from upd))::text;
 `);
-console.log("   🗄  已更新库内 images[0]");
+console.log(`   🗄  已更新库内 ${urlChanged ? "images[0]、" : ""}cover ${coverWidth}x${coverHeight}`);
 
-// URL 变了 ⇒ 首页/列表/详情/快照都要换，否则前台一半新一半旧
+// 图片 URL 或封面比例变了 ⇒ 首页/列表/详情/快照都要换，否则前台一半新一半旧
 await publishSnapshotBestEffort();
 await notifyRevalidate({
   siteUrl: process.env.WAVE_MOD_SITE_URL?.trim() || "https://go.sunnyrose.xyz",
