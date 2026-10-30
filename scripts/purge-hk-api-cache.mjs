@@ -33,6 +33,9 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 function readArg(name) {
   const prefix = `${name}=`;
@@ -40,10 +43,22 @@ function readArg(name) {
   return hit?.slice(prefix.length);
 }
 
+/**
+ * 默认私钥。2026-10-29 重装系统后旧的 `C:\Users\qsy123\.ssh\id_ed25519` 没了，
+ * 2026-10-30 在腾讯云控制台重新绑定了 `~/.ssh/wavemod_hk` 并把公钥写进
+ * `/root/.ssh/authorized_keys`。优先用新钥匙，找不到才回退旧路径。
+ * `--key=` 与 `WAVE_MOD_HK_KEY` 都能覆盖。
+ */
+function defaultKeyPath() {
+  const legacy = String.raw`C:\Users\qsy123\.ssh\id_ed25519`;
+  const current = join(homedir(), ".ssh", "wavemod_hk");
+  return existsSync(current) ? current : legacy;
+}
+
 const pattern = readArg("--pattern")?.trim();
 const host = readArg("--ssh")?.trim() || "root@45.135.119.204";
 const port = readArg("--port")?.trim() || "28822";
-const key = readArg("--key")?.trim() || String.raw`C:\Users\qsy123\.ssh\id_ed25519`;
+const key = readArg("--key")?.trim() || process.env.WAVE_MOD_HK_KEY?.trim() || defaultKeyPath();
 const cacheDir = readArg("--cache")?.trim() || "/var/cache/nginx/wavemod";
 const isDryRun = process.argv.includes("--dry-run");
 const purgeAll = process.argv.includes("--all");
