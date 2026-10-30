@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import type { GameConfig } from "@/config/games";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { ModGridSkeleton } from "@/components/layout/data-skeletons";
+import { sortCharactersByRelease } from "@/lib/constants/character-release";
 import { getAvailableCharacters, getPublicMods, getPublicModsPage, normalizeCharacterName, parseCharacterFilter, parseModFlag, parseModQuery, parseModSort, type ModSort } from "@/lib/mods";
 
 async function getCharacterCounts(gameKey: string): Promise<Record<string, number>> {
@@ -89,7 +90,10 @@ async function DefaultGameModsPageContent({ game, searchParams }: DefaultGameMod
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
 
   // 构造侧边栏角色列表
-  const sidebarCharacters = availableCharacters.map((name) => ({
+  // 顺序：按鸣潮角色首发日期倒序（新角色在前），非角色分类（UI / 武器 / 怪物 …）
+  // 压在最后。用户 2026-10-31 要求「全部角色分类」面板按发布日期排。排序是纯展示层
+  // 的事，getAvailableCharacters 仍返回拼音序（首页横条等其它入口沿用那份缓存）。
+  const sidebarCharacters = sortCharactersByRelease(availableCharacters).map((name) => ({
     label: name,
     href: buildModsHref(game, currentSort, name, currentQuery, currentFlags),
     count: counts[name] ?? 0,

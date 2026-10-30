@@ -5,6 +5,7 @@ import { ModsListingView } from "@/components/features/mods/list/mods-listing-vi
 import { ModsUrlDriven } from "@/components/features/mods/list/mods-url-driven";
 import { BodyScrollLock } from "@/components/layout/body-scroll-lock";
 import { COS_IMG_HERO, withCosImageTransform } from "@/lib/cos/shared";
+import { sortCharactersByRelease } from "@/lib/constants/character-release";
 import { getCharacterSuggestions, getPublicMods, normalizeCharacterName, paginateMods } from "@/lib/mods";
 import { DEFAULT_MODS_FILTERS, MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
 
@@ -36,12 +37,19 @@ type ModsListingProps = {
  * ```
  */
 export async function ModsListing({ openModId }: ModsListingProps) {
-  const [availableCharacters, allMods] = await Promise.all([
+  const [rawCharacters, allMods] = await Promise.all([
     getCharacterSuggestions(),
     // 这一份就是「默认筛选」（sort=latest、无角色/搜索/开关）的结果，
     // 排序口径与客户端翻页请求 /api/mods?sort=latest 完全一致。
     getPublicMods(undefined, { sort: DEFAULT_MODS_FILTERS.sort }),
   ]);
+
+  /**
+   * 侧栏 / 「全部角色分类」抽屉的顺序：按鸣潮角色首发日期倒序（新角色在前）。
+   * 用户 2026-10-31 要求。排序只在这一层做 —— `getCharacterSuggestions` 还喂着
+   * 后台的角色下拉框，那边保持拼音序更顺手（见 character-release.ts 的注释）。
+   */
+  const availableCharacters = sortCharactersByRelease(rawCharacters);
 
   const counts: Record<string, number> = {};
   for (const mod of allMods) {

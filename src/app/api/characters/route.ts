@@ -1,4 +1,5 @@
 import { getDefaultGame } from "@/config/games";
+import { sortCharactersByRelease } from "@/lib/constants/character-release";
 import { getAvailableCharacters } from "@/lib/mods";
 
 /**
@@ -33,7 +34,9 @@ export async function GET(request: Request) {
   const characters = await getAvailableCharacters(gameKey);
 
   return Response.json(
-    { characters },
+    // 手机端「全部角色分类」网格与角色分类页侧栏用同一套顺序：按鸣潮首发日期倒序，
+    // 新角色在前；非角色分类压后（见 lib/constants/character-release.ts）。
+    { characters: sortCharactersByRelease(characters) },
     {
       headers: {
         "Cache-Control": `public, s-maxage=${CDN_CACHE_SECONDS}, stale-while-revalidate=3600`,
