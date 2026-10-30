@@ -9,6 +9,9 @@
  *      编号图按数字升序排后面。COS 键：preview.webp / preview-2.webp / preview-3.webp …
  *   2. 每条记录显式设置 created_at = 该目录日期中午(上海时区)，保证每日更新页
  *      按 9.4 / 9.5 / 9.6 分组，而不会全部落到"今天"。
+ *      **库内已存在的记录同样会重新上架**（用户 2026-10-30 要求：「不管库里有没有，
+ *      每次上传都要在每日更新里显示」）：去重命中时不新增行，只把那一行的 created_at
+ *      推到本目录日期（只往前推）。去重键 `character|title` 不受影响。
  *   3. **一键吃下当天所有网盘**：目录里有什么盘就写什么盘，不再分两个脚本跑。
  *      · `分享结果导出-*.csv`  → 夸克（parseQuarkCsv，主盘，恒有）
  *      · `分享结果导出-*.xlsx` → 迅雷（loadXunleiIndex）
@@ -846,6 +849,22 @@ function noonShanghaiISO({ y, m, d }) {
   return `${padded}T04:00:00.000Z`;
 }
 
+/** 日期目录 → 定长 `YYYY-MM-DD`，用于字符串比较（`2026-10-9` 与 `2026-10-10` 不能直接比） */
+function paddedDayKey({ y, m, d }) {
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/**
+ * 库内 `created_at` → 上海日历日 `YYYY-MM-DD`。
+ * 与 `src/lib/mods-domain/daily.ts` 的 `toDateKey` 同一口径：每日更新按上海日期分组，
+ * 所以这里也必须用 +08 换算后的日期来比较，否则 00:00–08:00 入库的记录会差一天。
+ */
+function shanghaiDayKey(iso) {
+  const t = typeof iso === "string" ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(t)) return "";
+  return new Date(t + 8 * 3600_000).toISOString().slice(0, 10);
+}
+
 // ==================== 入库 SQL 生成 ====================
 
 /** 与 results 里的字段一一对应；其余列（计数器、updated_at 等）交给库表默认值 */
@@ -905,6 +924,31 @@ select json_build_object('inserted', (select count(*) from ins))::text;
 `;
 }
 
+/**
+ * 重新上架：把库内已存在的行 `created_at` 推到本目录日期（只改这一列 + updated_at）。
+ *
+ * 与插入共用 `jsonb_populate_recordset(null::mods, …)`：让 Postgres 按真实列类型解析
+ * 时间串，不必手工拼字面量；只取 id 与 created_at 两列参与赋值，其余列保持原值。
+ */
+function buildRedateSql(batch) {
+  const rows = batch.map((r) => ({ id: r.id, created_at: r.createdAt }));
+  return `
+with incoming as (
+  select j.id, j.created_at
+  from jsonb_populate_recordset(null::mods, ${dollarQuote(JSON.stringify(rows))}::jsonb) j
+),
+upd as (
+  update mods
+  set created_at = incoming.created_at,
+      updated_at = now()
+  from incoming
+  where mods.id = incoming.id
+  returning 1
+)
+select json_build_object('updated', (select count(*) from upd))::text;
+`;
+}
+
 // ==================== 主流程 ====================
 
 async function main() {
@@ -945,8 +989,10 @@ async function main() {
   const existing = await psqlJson(`
 select coalesce(
   json_agg(json_build_object(
+    'id', id,
     'title', title,
     'character', character,
+    'created_at', created_at,
     'xunlei', coalesce(drive_links @> '[{"platform":"迅雷网盘"}]'::jsonb, false)
   )),
   '[]'::json
@@ -960,6 +1006,9 @@ where game_key = ${dollarQuote(GAME_KEY)};
     process.exit(1);
   }
   const existingSet = new Set(existing.map((m) => dedupKey(m.character, m.title)));
+  // 去重键 → 库内那一行。命中时要把它的 created_at 推到本目录日期（重新上架），
+  // 需要 id 才能定位；顺带拿到原 created_at 判断「是否已经在更晚的日期上」。
+  const existingByKey = new Map(existing.map((m) => [dedupKey(m.character, m.title), m]));
   // 库内已经有迅雷链接的记录，用来过滤下面的回填提醒（只提醒真缺的那些）
   const existingHasXunlei = new Set(
     existing.filter((m) => m.xunlei).map((m) => dedupKey(m.character, m.title))
@@ -975,6 +1024,8 @@ where game_key = ${dollarQuote(GAME_KEY)};
   const results = [];
   const placeholderKeys = [];
   const skipDupKeys = [];
+  // 库内已存在、但要「重新上架」到本目录日期的行（只推 created_at，不新增记录）
+  const redated = [];
   const charCount = {};
   let matchedImage = 0;
   let placeholder = 0;
@@ -1039,6 +1090,24 @@ where game_key = ${dollarQuote(GAME_KEY)};
       if (existingSet.has(dkey)) {
         skipDup++;
         skipDupKeys.push(`${dateLabel} · ${character} | ${title}`);
+        // 2026-10-30 用户要求：**不管库里有没有，这一天上传的东西都要出现在「每日更新」**。
+        // 做法是把库内那一行的 created_at 推到本目录日期 —— 本项目的 created_at 一直是
+        // 「归属哪一天上传」的语义（见文件头第 2 条、noonShanghaiISO），不新增行，
+        // 去重键 `character|title` 也不变，所以不会重复入库。
+        // 只往前推：单跑一个老目录（--dates=2026.10.19）时不能把已经在更晚日期上架过的
+        // 记录挪回过去，否则「最新」和每日更新都会倒退。
+        const hit = existingByKey.get(dkey);
+        const fromDay = hit ? shanghaiDayKey(hit.created_at) : "";
+        if (hit && fromDay && fromDay < paddedDayKey(dir.date)) {
+          redated.push({
+            id: hit.id,
+            character,
+            title,
+            fromDay,
+            toDay: paddedDayKey(dir.date),
+            createdAt: created_at,
+          });
+        }
         // 库内已有这条，本轮不会写库。只在「这次拿到了迅雷链接」且「库里那条还没有」
         // 时才提醒 —— 否则每次都把已经补好的记录再列一遍，提醒就没人看了。
         if (xunlei && !existingHasXunlei.has(dkey)) xunleiBacklog.push(`${dateLabel} · ${character} | ${title}`);
@@ -1184,8 +1253,14 @@ where game_key = ${dollarQuote(GAME_KEY)};
     placeholderKeys.forEach((k) => console.log(`   - ${k}`));
   }
 
+  // 只报「这次真的会把日期推前」的，已经在该日期上的不重复刷屏（重跑要幂等）
+  if (redated.length) {
+    console.log(`\n🔁 重新上架（库内已存在，created_at 推到本目录日期）: ${redated.length} 条`);
+    redated.forEach((r) => console.log(`   - ${r.toDay} · ${r.character} | ${r.title}（原 ${r.fromDay}）`));
+  }
+
   if (isDryRun) {
-    console.log(`\n🔍 DRY-RUN: 跳过入库，共 ${results.length} 条记录`);
+    console.log(`\n🔍 DRY-RUN: 跳过入库，共 ${results.length} 条记录，重新上架 ${redated.length} 条`);
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`⏱ 耗时 ${elapsed}s`);
     return;
@@ -1212,6 +1287,21 @@ where game_key = ${dollarQuote(GAME_KEY)};
     }
   }
 
+  // 重新上架：只把 created_at 推到本目录日期，让它在「每日更新」里出现在这一天。
+  // 不新增行、不改其它列 —— 链接/封面各有各的脚本（update-drive-links-from-reshare /
+  // reupload-mod-image），这里只解决「上传了、库里也有，但每日更新里看不见」。
+  let reDated = 0;
+  for (let i = 0; i < redated.length; i += BATCH_SIZE) {
+    const batch = redated.slice(i, i + BATCH_SIZE);
+    try {
+      const outcome = await psqlJson(buildRedateSql(batch));
+      reDated += Number(outcome?.updated ?? 0);
+    } catch (err) {
+      console.error(`   ❌ 重新上架批次失败: ${err.message}`);
+    }
+  }
+  if (redated.length) console.log(`🔁 重新上架: 成功 ${reDated}/${redated.length} 条`);
+
   const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
   console.log(`\n📊 完成: 成功 ${inserted} 条, 失败 ${failed} 条 (耗时 ${elapsed} 分钟)`);
 
@@ -1219,7 +1309,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
   // 失败不影响脚本退出码：数据已经入库了，最坏是等一个 TTL 自然到期。
   // 顺序不能反：**先发布快照、再 ping**（理由见 notifyRevalidate 的注释）。
   // --dry-run 天然走不到这里（上面已 return）。
-  if (inserted > 0) {
+  if (inserted > 0 || reDated > 0) {
     // 先补封面尺寸再发快照：快照要带上 cover_width/cover_height，否则新入库的这批
     // 在瀑布流里又要走「先按 3/4 排一遍再重排」的老路（见 scripts/cover-size.mjs）。
     // 只处理封面变过的行，正常一天十几条，几秒的事。
