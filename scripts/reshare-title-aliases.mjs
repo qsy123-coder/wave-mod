@@ -28,9 +28,9 @@ export const RESHARE_ALIASES = new Map([
     "珂莱塔-吸血鬼-白-斑点袜（上下左右）og 狩野樱",
     { character: "珂莱塔", title: "吸血鬼-白-斑点袜 og 狩野樱（上下左右切换）" },
   ],
-  // 莫宁 2026-08-10 入库（重分享于 2026-10-29）：库内 title 没有角色前缀，
-  // 重分享名带了 `莫宁-`。逐字匹配对不上 ⇒ 旧链接会一直挂在前台（见头注释）。
-  ["莫宁-月光幻影v3.4fix by Alunoop（ctrl+4567890切换）", { character: "莫宁", title: "月光幻影v3.4fix by Alunoop（ctrl+4567890切换）" }],
+  // 莫宁 月光幻影 的别名条目已于 2026-10-30 撤掉：用户要求 title 原样使用文件名，
+  // 库内那一行已改名成 `莫宁-月光幻影v3.4fix …`（见 upload-daily-by-date.mjs
+  // resolveCharacterAndTitle 的莫宁分支）。别名指向旧写法会让两处都对不上。
 ]);
 
 /** key 命中别名表时返回 `{ character, title }`，否则返回 `null`（不抛错）。 */

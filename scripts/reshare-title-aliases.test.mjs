@@ -30,10 +30,10 @@ describe("resolveReshareAlias", () => {
       character: "珂莱塔",
       title: "吸血鬼-白-斑点袜 og 狩野樱（上下左右切换）",
     });
-    expect(resolveReshareAlias("莫宁-月光幻影v3.4fix by Alunoop（ctrl+4567890切换）")).toEqual({
-      character: "莫宁",
-      title: "月光幻影v3.4fix by Alunoop（ctrl+4567890切换）",
-    });
+  });
+
+  it("莫宁 月光幻影 不再是别名：库内 title 已改成文件名原样（2026-10-30）", () => {
+    expect(resolveReshareAlias("莫宁-月光幻影v3.4fix by Alunoop（ctrl+4567890切换）")).toBeNull();
   });
 
   it("未登记的 key 返回 null，不做模糊猜测", () => {

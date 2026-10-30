@@ -657,6 +657,13 @@ function resolveCharacterAndTitle(key) {
   if (key.startsWith("爱弥斯饰品")) {
     return { character: "爱弥斯", title: key };
   }
+  // 莫宁：2026-10-30 用户要求「以后严格用每日更新文件夹里的文件名称」——
+  // title 原样保留「莫宁-」前缀，不再剥成 `月光幻影v3.4fix …`。
+  // 去重键不受影响：dedupKey 两侧都会剥掉开头的角色前缀（见 dedupKey 注释），
+  // 所以库内 100 条无前缀的旧写法仍能对上，不会重复入库。
+  if (key.startsWith("莫宁-")) {
+    return { character: "莫宁", title: key };
+  }
   // 角色类：前缀=角色，title 去前缀
   // 但「XX皮肤」类前缀（女漂皮肤/琳奈皮肤）保留完整 title——那是皮肤标题的一部分
   for (const { prefix, character } of CHARACTER_PREFIX_MAP) {
