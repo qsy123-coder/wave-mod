@@ -9,8 +9,17 @@
  * ⚠️ 对象键**从库内那一行的 images[0] 反推**，不自己拼：
  *   1. 保证覆盖的正是前台在读的那张（拼错前缀就会「传成功了但没人看它」）；
  *   2. 键里含 slugify(character) 与行 id 两段易变逻辑，重算一份就是第二处真源。
- * 因此本脚本**不改库、不发快照、不 ping** —— URL 没变，前台不需要任何通知。
- * 只有浏览器/图片优化器那边的缓存要等（见 --no-cache 说明）。
+ *
+ * ## 为什么写完要改库 + 发快照 + ping（2026-10-30）
+ *
+ * 前台所有图都带数据万象的 `?imageMogr2/thumbnail/<w>x>/format/webp`，那个响应是
+ * `Cache-Control: max-age=2592000`（30 天），而且**卡片用 800/1000、详情用 1280，
+ * srcset 还有 640/960/1920 各自一条**。只覆盖对象、URL 不变 ⇒ 浏览器里那些派生 URL
+ * 一条都不会失效，表现就是「卡片是新的、详情页还是旧的」—— 换个宽度就是另一条缓存。
+ *
+ * 所以覆盖后给 images[0] 拼上 `?v=<对象 ETag>`：URL 一变，所有宽度的派生 URL 全部
+ * 换新，浏览器/CDN 自然重新拉。用 ETag 而不是时间戳：同一张图重传得到同一个 v，
+ * 幂等，不会把每次重传都变成一次全站缓存失效。
  *
  * 用法:
  *   node scripts/reupload-mod-image.mjs --key="卡提希娅-大卡-艾男漂草（567890=【】p切换）" --dry-run
@@ -23,12 +32,15 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 
 import COS from "cos-nodejs-sdk-v5";
 import { config } from "dotenv";
 import sharp from "sharp";
 
 import { resolveDakaTarget } from "./daka-classify.mjs";
+import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson } from "./psql-db.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true, quiet: true });
@@ -84,15 +96,21 @@ async function convertToWebP(imagePath) {
 
 /**
  * 从库里的图片 URL 反推 COS 对象键。
- * 只认本桶的 https URL；带查询串的一律拒（说明不是裸对象地址）。
+ * 只认本桶的 https URL。查询串要**剥掉**——本脚本自己会拼 `?v=<etag>`（见头注释），
+ * 带着它去 putObject 会写到一个叫 `preview.webp?v=…` 的怪键上。
  */
 function objectKeyFromUrl(url, bucket) {
   const prefix = `https://${bucket}.cos.`;
   if (!url?.startsWith(prefix)) return null;
   const slash = url.indexOf("/", prefix.length);
   if (slash < 0) return null;
-  const objectKey = url.slice(slash + 1);
-  return objectKey.includes("?") ? null : objectKey;
+  const objectKey = url.slice(slash + 1).split("?")[0];
+  return objectKey || null;
+}
+
+/** 去掉查询串后的裸对象地址（用来拼新的 `?v=`）。 */
+function bareUrl(url) {
+  return String(url).split("?")[0];
 }
 
 // 同一个 select 两处用：--id 直查行，否则按 --key 走本批次的分类规则定位 (character, title)
@@ -159,7 +177,7 @@ const cos = new COS({
   SecretKey: process.env.COS_SECRET_KEY?.trim(),
 });
 
-await new Promise((resolvePromise, rejectPromise) => {
+const etag = await new Promise((resolvePromise, rejectPromise) => {
   cos.putObject(
     {
       Bucket: cosBucket,
@@ -170,14 +188,76 @@ await new Promise((resolvePromise, rejectPromise) => {
       // 覆盖写同一个键，必须让浏览器/图片优化器**别用缓存里的旧图**：
       // no-cache 是「每次用前先校验」，内容换了 ETag 就变 → 立刻拿到新图；
       // 不设的话浏览器会按启发式规则缓存旧图，用户会觉得「你根本没传上去」。
+      // ⚠️ 这条只管**裸对象**；带 imageMogr2 的派生图另有 30 天缓存，见头注释。
       CacheControl: "no-cache",
     },
-    (err) => {
+    (err, data) => {
       if (err) rejectPromise(new Error(`COS 上传失败: ${err.message}`));
-      else resolvePromise();
+      else resolvePromise(String(data?.ETag ?? "").replace(/"/g, "").trim());
     }
   );
 });
 
+// 版本串优先用 COS 回的 ETag（内容指纹）：同一张图重传得到同一个 URL，幂等；
+// 拿不到 ETag 时退回 webp 字节数，至少不会每次重传都换一个 URL。
+const version = (etag || `s${webpBytes}`).slice(0, 16);
+const newUrl = `${bareUrl(currentUrl)}?v=${version}`;
+
 console.log(`\n✅ 已覆盖 ${objectKey}`);
-console.log("   URL 没变，所以不用发快照、也不用 ping。");
+console.log(`   图片 URL: ${currentUrl}`);
+console.log(`         →  ${newUrl}`);
+
+if (newUrl === currentUrl) {
+  console.log("   内容与版本都没变，跳过改库/快照/ping。");
+  process.exit(0);
+}
+
+// 改库：只换 images[0]，其余图原样保留
+const nextImages = [newUrl, ...(row.images ?? []).slice(1)];
+await psqlJson(`
+with incoming as (
+  select j.id, j.images
+  from jsonb_populate_recordset(null::mods, ${dollarQuote(JSON.stringify([{ id: row.id, images: nextImages }]))}::jsonb) j
+),
+upd as (
+  update mods
+  set images = incoming.images, updated_at = now()
+  from incoming
+  where mods.id = incoming.id
+  returning 1
+)
+select json_build_object('updated', (select count(*) from upd))::text;
+`);
+console.log("   🗄  已更新库内 images[0]");
+
+// URL 变了 ⇒ 首页/列表/详情/快照都要换，否则前台一半新一半旧
+await publishSnapshotBestEffort();
+await notifyRevalidate({
+  siteUrl: process.env.WAVE_MOD_SITE_URL?.trim() || "https://go.sunnyrose.xyz",
+  secret: process.env.REVALIDATE_SECRET?.trim(),
+});
+
+// 香港反代同样缓存了带旧 URL 的列表 JSON，不清理的话最长一个 TTL 都发不出来
+const purge = spawnSync(process.execPath, [resolve(process.cwd(), "scripts/purge-hk-api-cache.mjs"), "--all"], {
+  encoding: "utf8",
+  timeout: 180_000,
+});
+console.log(purge.status === 0 ? purge.stdout.trim() : `⚠️  清香港反代缓存失败：${(purge.stderr || purge.stdout || "").trim()}`);
+
+/** 导出兜底快照并发到 COS。失败只告警：库已经对了，最坏是锁定期前台读旧快照。 */
+async function publishSnapshotBestEffort() {
+  try {
+    await publishSnapshotToCos({
+      cos,
+      bucket: cosBucket,
+      region: cosRegion,
+      databaseUrl: process.env.DATABASE_URL?.trim(),
+      sqlPath: resolve(process.cwd(), "scripts/mods-snapshot.sql"),
+      outPath: resolve(process.cwd(), SNAPSHOT_REL_PATH),
+      rawPath: join(tmpdir(), "wavemod-snapshot-raw.json"),
+    });
+  } catch (err) {
+    console.warn(`⚠️  兜底快照发布失败: ${err.message}`);
+    console.warn("   库内数据已就绪；但若 Supabase 网关被锁，前台仍会显示旧快照内容。");
+  }
+}
