@@ -449,9 +449,10 @@ function stripRenameSuffix(key) {
 
 /**
  * 扫描 BASE 下各日期目录里的迅雷分享导出（`分享结果导出-*.xlsx`），
- * 返回 Map<日期目录名, { index: Map<去 .exe 的分享名, { link, pwd }>, exported: number }>。
- * `exported` 是该目录导出的**原始条数**：index 里可能因为重名后缀别名而比它多，
- * 覆盖表要拿它当分母，否则别名会让「导出条数」虚高、误报漏盘。
+ * 返回 Map<日期目录名, { index: Map<去 .exe 的分享名, { link, pwd }>, exported: number, files: Set }>。
+ * `exported` 是该目录导出的**文件数**（按去掉 `(N)` 重名后缀归一后去重）：
+ * index 里因为别名而比它多，覆盖表要拿它当分母，否则别名会让「导出条数」虚高、误报漏盘；
+ * 同一个文件被分享两次（`xx` 与 `xx(1)`）也只算一个，否则分母同样虚高、天天误报。
  *
  * 为什么调 scripts/parse-daily-xunlei-xlsx.ps1 而不是在 Node 里解 xlsx：
  * 项目没声明任何 zip 依赖（`jszip` 实际已解析不到，scripts/parse-daily-xunlei.mjs
@@ -485,9 +486,16 @@ function loadXunleiIndex() {
       if (!link.startsWith("http")) continue; // 表头行
       const key = String(r.name ?? "").replace(/\.exe$/i, "").trim();
       if (!key) continue;
-      if (!byDay.has(r.day)) byDay.set(r.day, { index: new Map(), exported: 0 });
+      if (!byDay.has(r.day)) byDay.set(r.day, { index: new Map(), exported: 0, files: new Set() });
       const day = byDay.get(r.day);
-      day.exported++;
+      // `files` 按「去掉重名后缀的名字」去重：同一个文件分享两次（`xx` 与 `xx(1)`）
+      // 在覆盖表里只该算一个文件，否则分母虚高、天天误报漏盘。
+      // `exported` 与 `files.size` 同时+1，保持下游只看 `exported` 的口径。
+      const norm = stripRenameSuffix(key);
+      if (!day.files.has(norm)) {
+        day.files.add(norm);
+        day.exported++;
+      }
       const entry = { link, pwd: r.pwd || "" };
       // 同一天同名只可能是重复导出，后写入的覆盖前者即可
       day.index.set(key, entry);
@@ -513,7 +521,8 @@ function loadXunleiIndex() {
  * 只认 xlsx 会让整批迅雷**静默漏掉**（CLAUDE.md 点名过的事故），所以在 txt 里补一遍。
  *
  * 合并规则：txt 只填空位，不覆盖 xlsx —— 导出表才是正式来源，txt 是手抄备份；
- * 两边都有同名时保留 xlsx 的那条。`exported` 只统计真正新增的条目。
+ * 两边都有同名时保留 xlsx 的那条。`exported` 只统计该文件不在 `files` 里的条目
+ * （同一文件在 txt 里出现两次只算一个）。
  */
 function loadXunleiTxtIndex(byDay) {
   let dayNames;
@@ -527,11 +536,20 @@ function loadXunleiTxtIndex(byDay) {
       let text;
       try { text = readFileSync(join(dir, file), "utf8"); } catch { continue; }
       for (const { name, link, pwd } of parseXunleiTxt(text)) {
-        if (!byDay.has(dayName)) byDay.set(dayName, { index: new Map(), exported: 0 });
+        if (!byDay.has(dayName)) byDay.set(dayName, { index: new Map(), exported: 0, files: new Set() });
         const day = byDay.get(dayName);
-        if (day.index.has(name)) continue;
-        day.index.set(name, { link, pwd });
-        day.exported++;
+        const entry = { link, pwd };
+        const norm = stripRenameSuffix(name);
+        // 与 xlsx 侧同口径：`files` 去重，同一文件重复分享不计两条导出
+        if (!day.files.has(norm)) {
+          day.files.add(norm);
+          day.exported++;
+        }
+        // 只填空位，不覆盖 xlsx 的正式导出
+        if (!day.index.has(name)) day.index.set(name, entry);
+        // 手抄 txt 同样带迅雷的 `(1)` 重名后缀（2026-10-31：本名共享 + 重名共享两条，
+        // 只登记原样名会让 5 条链接静默丢失）。与 xlsx 侧同一套别名规则。
+        if (norm !== name && !day.index.has(norm)) day.index.set(norm, entry);
       }
     }
   }
