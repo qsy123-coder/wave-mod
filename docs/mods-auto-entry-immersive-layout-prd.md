@@ -3,7 +3,7 @@
 **Version**: 1.0
 **Date**: 2026-10-31
 **Author**: Product / Claude
-**Status**: 待用户确认（确认后才进入实现）
+**Status**: 已实现（2026-10-31，提交 ae70511b；CI 与线上均已验证）
 
 ---
 
