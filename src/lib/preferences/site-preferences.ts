@@ -13,6 +13,16 @@
 export const AUTO_OPEN_MODS_STORAGE_KEY = "wavemod-auto-open-mods";
 export const IMMERSIVE_MODS_STORAGE_KEY = "wavemod-mods-immersive";
 
+/**
+ * 沉浸切换时右栏宽度的变化量 = 侧栏 240px + 父容器布局 gap 24px。
+ *
+ * 网格用它把「切换前宽度」换算成目标宽度，先按目标宽度排一次版，再用 transform
+ * 把目标布局映射回旧布局的形状做缩放过渡（见 mods-infinite-grid 的 FLIP 逻辑）。
+ * 侧栏宽度见 `mods-listing-view.tsx` 的 `lg:w-[240px]`，gap 见
+ * `(site)/mods/layout.tsx` 的 `gap-6`；改这两处时同步改这个常量。
+ */
+export const MODS_SIDEBAR_LAYOUT_SHIFT = 264;
+
 /** 存储值只认 `"1"`；其余（含 null / 脏数据）一律视为关闭。 */
 export function parseStoredFlag(value: string | null): boolean {
   return value === "1";

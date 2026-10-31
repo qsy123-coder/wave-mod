@@ -142,21 +142,22 @@
 
 初值 `false`，挂载后从 localStorage 读取（与 `use-layout-preference.ts` 同一 hydration 安全模式），因此不会产生 hydration mismatch。
 
-**侧栏收起（`mods-listing-view.tsx`）**
+**侧栏收起与主内容区展开（`mods-listing-view.tsx` + `mods-infinite-grid.tsx`）**
 
-- **宽度连续过渡，主内容区跟着一起平滑变宽**：
-  - 外层：展开 `lg:w-[240px]`；收起 `lg:w-0 lg:-mr-6`（`-mr-6` 抵消父容器 `gap-6` 留下的 24px）；
-  - 外层常驻 `transition-[width,margin-right] duration-300 ease-out`；
-  - 内层面板**固定 `w-[240px]`**，用 `-translate-x-full opacity-0` 滑出/滑入，
-    常驻 `transition-[translate,opacity] duration-300` + `will-change`。
+- 侧栏外层**瞬时切换宽度**：展开 `lg:w-[240px]`，收起 `lg:w-0 lg:-mr-6`
+  （`-mr-6` 抵消父容器 `gap-6` 留下的 24px）。面板固定 `w-[240px]`，
+  用 `translate` + `opacity` 滑出/滑入（合成层）。
+- 主内容区**不做逐帧宽度重排**，改用网格的 **FLIP 缩放**：
+  1. `setImmersive` 同时写入 `layoutShift`（key + delta，delta = 侧栏 240 + gap 24 = 264）；
+  2. 网格在 `useLayoutEffect` 里用「切换前宽度 + delta」作为目标宽度排一次版；
+  3. 给网格容器加 `translateX(delta) scale(切换前宽度/目标宽度)`，把新布局
+     在视觉上映射成旧布局；下一帧过渡到 `none`（300ms）。
+  - 整段动画只有 `transform`，不重排任何卡片；视觉上是卡片区平滑缩放展开/收窄。
 - 收起时加 `inert` + `aria-hidden` + `pointer-events-none`，避免 Tab 键焦点跑进看不见的链接。
-- **为什么面板必须固定 240px**：第一版让面板宽度跟着外层一起变，外层每缩小 1px
-  都会重新布局侧栏里 65 个条目，实测 21.4ms/帧、9/32 帧掉帧。面板固定后，
-  侧栏子树只依赖自己的宽度，宽度过渡时浏览器只需重排右栏卡片 ——
-  2026-10-31 实测（1440×900、瀑布流、**开启 GPU**）：平均 7.7ms（收起）/ 10.1ms（展开），
-  仅首帧偶发一次 40ms 左右的重排。
-  - 注：无头 Chrome 加 `--disable-gpu` 时同一版本测得 21ms/帧，那是软件渲染的数字，
-    不代表真实浏览器；判断帧率必须用带 GPU 的环境。
+- `prefers-reduced-motion` 下跳过 FLIP，直接按目标宽度切换。
+- **为什么不用逐帧宽度过渡**：卡片区每帧都要重排列宽、卡片位置与文字换行，
+  真实浏览器里仍有细微抖动；FLIP 实测（1440×900、瀑布流、开启 GPU）
+  平均 4.6ms/帧、0 帧 > 33ms。
 - **沉浸模式下「全部角色」按钮仍可用**：它会随侧栏面板滑走，所以 `/mods` 工具栏补一个
   同款入口（`data-character-picker-trigger`），打开的是**同一个**
   `CharacterPickerDrawer`。抽屉状态因此上提到 `mods-listing-view`；后台 / 游戏分站
@@ -294,23 +295,24 @@
 - **Tailwind v4 的 `translate` 工具类写的是 `translate` 属性**，过渡必须写 `transition-[translate,opacity]`；写 `transform` 会变成瞬移（实测修正）。
 - 项目的 `components/ui/dropdown-menu.tsx` 是自研普通 `<button>`，**不支持 Radix 的 `onSelect`**；顶栏开关改用 `onClick` + `DropdownMenuCheckboxItem`（实测修正）。
 
-### 第二轮优化（2026-10-31，用户反馈「动画还是太卡」+「全部角色按钮也要显示」）
+### 第二轮优化（2026-10-31，用户反馈「主内容区变大过渡不流畅」+「全部角色按钮也要显示」）
 
-- 逐帧测量定位：卡顿来自**侧栏宽度过渡**（侧栏面板宽度跟着外层一起变，65 个条目逐帧重排），
-  不是瀑布流重算。原方案平均帧 21.4ms，9/32 帧 > 33ms。
-- 中间试过「宽度瞬跳 + 面板位移」：帧率 60fps，但主内容区在一帧内跳变，用户反馈「特别卡」。
-- **最终方案：宽度连续 300ms 过渡，但面板固定 `w-[240px]`**。侧栏子树不再依赖外层宽度，
-  逐帧只重排右栏卡片；同时面板用 `translate` + `opacity` 滑出/滑入。
-  开启 GPU 的 Chrome 实测平均 7.7ms（收起）/ 10.1ms（展开），仅首帧偶发一次 ~40ms 重排。
-  （`--disable-gpu` 的无头 Chrome 同一版本测得 21ms/帧，不能作为真实浏览器帧率依据。）
+- 逐帧测量定位：最初卡顿来自侧栏宽度过渡（面板宽度跟着外层变，65 个条目逐帧重排）；
+  中间试过「宽度瞬跳 + 面板位移」（60fps 但卡片区跳变）和「宽度连续过渡 + 面板固定」
+  （真实浏览器仍有细微抖动）。
+- **最终方案：FLIP 缩放**。`setImmersive` 同时写入 `layoutShift`（delta = 264）；
+  网格在 `useLayoutEffect` 里按目标宽度排一次版，并立刻把新布局
+  `translateX(delta) scale(旧宽/新宽)` 映射回旧布局，下一帧过渡到 `none`。
+  整段动画只有合成层 `transform`，卡片不逐帧重排。
+  开启 GPU 的 Chrome 实测平均 **4.6ms/帧、0 帧 > 33ms**。
 - 外壳 height/margin 仍不做逐帧插值：用 `duration-0` + `transition-delay` 让展开侧的复位
   等导航栏落位，避免顶部露出空隙。
 - 沉浸模式下「全部角色」按钮：抽屉状态上提到 `mods-listing-view`，工具栏增加同款入口；
   `CharacterSidebar` 保留受控/自管两种模式，后台与游戏分站行为不变。
-- 实测：中段侧栏宽度 240→36→0 连续变化、面板同步滑出；抽屉从工具栏打开 67 个分类格，
-  点选后 URL 变为 `/mods?character=…` 且抽屉关闭；展开恢复 240px，无控制台错误。
+- 实测：t≈60ms 网格 transform 为中间缩放假（收起 scale≈0.90 / 展开 scale≈1.19），
+  t≈180ms 过渡完成；工具栏抽屉打开 67 个分类格，点选后正常跳转并关闭；无控制台错误。
 - 备注：也试过浏览器原生 View Transitions（整页/命名分组），中间帧新旧界面重影明显，
-  自定义 `clip-path` 在伪元素上不生效，已放弃并回退。
+  自定义 `clip-path` 在伪元素上不生效，已放弃。
 
 ---
 

@@ -67,16 +67,16 @@ export function ModsListingView({
   const sidebarCollapsed = immersive && isDesktop;
 
   /**
-   * 侧栏收起：**宽度平滑过渡**，让主内容区跟着连续变宽，而不是瞬间跳过去。
+   * 侧栏收起时主内容区怎么变宽：**不在侧栏上做宽度过渡**。
    *
    * 历史取舍：
-   *   - 第一版把宽度和外壳高度都做 300ms 过渡，但侧栏内容宽度跟着外层一起变，
-   *     65 个条目每帧重排 → 21.4ms/帧、9/32 帧掉帧；
-   *   - 第二版把宽度瞬间让位 + 面板位移，帧率 60fps，但卡片区一帧内跳变，
-   *     观感上「主内容区很卡」；
-   *   - 现在：宽度恢复 300ms 过渡，但面板固定 `w-[240px]` —— 面板内容只依赖
-   *     自己的宽度，外层宽度变化不再重排侧栏条目。卡片区连续重排，开启 GPU 的
-   *     Chrome 实测约 8–10ms/帧，且展开/收起过程中没有任何一帧的跳变。
+   *   - 第一版把宽度和外壳高度都做 300ms 过渡，侧栏 65 个条目每帧重排 → 21.4ms/帧；
+   *   - 第二版把宽度瞬间让位，帧率 60fps，但卡片区一帧内跳变，用户反馈「特别卡」；
+   *   - 第三版宽度连续过渡（面板固定 240px），卡片区逐帧重排，真实浏览器仍有细微抖动；
+   *   - 现在：侧栏宽度**瞬时切换**，卡片区的展开/收窄交给网格的 FLIP 缩放
+   *     （见 mods-infinite-grid）：布局只算一次，用 transform 把新布局映射回旧布局
+   *     的形状再过渡到 1，整段动画只有合成层的 scale/translate。
+   * 侧栏面板自己仍用 `translate` + `opacity` 滑出/滑入，导航栏上滑。
    */
 
   /**
@@ -215,7 +215,8 @@ export function ModsListingView({
         inert={sidebarCollapsed || undefined}
         className={cn(
           "relative z-20 hidden min-w-0 shrink-0 flex-col lg:flex",
-          "transition-[width,margin-right] duration-300 ease-out motion-reduce:transition-none",
+          // 宽度不做 CSS 过渡：卡片区的展开/收窄由网格的 FLIP transform 负责
+          // （见 mods-infinite-grid）。这里只让面板用 transform 滑出/滑入。
           sidebarCollapsed ? "lg:w-0 lg:-mr-6" : "lg:w-[240px]",
           sidebarCollapsed && "pointer-events-none",
         )}

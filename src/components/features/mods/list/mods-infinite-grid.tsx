@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
 import { CardDownloadAction } from "@/components/features/mods/detail/card-download-action";
@@ -21,8 +21,12 @@ import { DESKTOP_DEFAULT_COLUMNS, defaultColumnsForWidth, resolvePreferredColumn
 import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
+import { useSitePreferences } from "@/components/layout/site-preferences-provider";
 import type { ModSort, ModsPage, SiteMod } from "@/lib/mods";
 import { MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
+
+/** SSR 阶段没有 useLayoutEffect；用它同步捕获切换前的宽度，避免被 ResizeObserver 抢先 */
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /**
  * 往上找最近的滚动容器：列表是在它里面滚的，不是整个窗口。
@@ -330,6 +334,83 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   const [masonryWidth, setMasonryWidth] = useState(0);
   const masonryObserverRef = useRef<ResizeObserver | null>(null);
 
+  /**
+   * ---- 沉浸切换的 FLIP 缩放 ----
+   *
+   * 直接给容器做宽度过渡，每帧都会重新排每张卡片（列宽、位置、文字换行），
+   * 即使 60fps 也会有细微抖动，用户感知是「主内容区变大不顺」。
+   *
+   * 这里改成 **布局只算一次 + transform 映射**：
+   *   1. 切换时先按「旧宽度 + delta」算出目标宽度，用目标宽度排一次版
+   *      （在 useLayoutEffect 里，保证在浏览器绘制前完成）；
+   *   2. 立刻给网格加 `translateX(delta) scale(旧宽/新宽)`，把「新布局」
+   *      在视觉上映射成「旧布局」的大小和位置；
+   *   3. 下一帧把 transform 过渡到 none —— 整段动画只有合成层的 scale/translate，
+   *      不重排任何卡片；视觉上就是卡片区平滑地放大/缩小到新布局。
+   *
+   * `transition 300ms` 结束后清掉 flip，恢复使用 ResizeObserver 量到的真实宽度。
+   */
+  const { layoutShift } = useSitePreferences();
+  const [flip, setFlip] = useState<{
+    key: number;
+    originWidth: number;
+    targetWidth: number;
+    started: boolean;
+  } | null>(null);
+  const lastFlipKeyRef = useRef<number | null>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    if (!layoutShift || masonryWidth <= 0) return;
+    if (lastFlipKeyRef.current === layoutShift.key) return;
+    lastFlipKeyRef.current = layoutShift.key;
+    // 用户要求减少动效时不做缩放：直接按目标宽度切换（侧栏/导航栏自己也会瞬时切换）
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const targetWidth = masonryWidth + layoutShift.delta;
+    if (targetWidth <= 0) return;
+    setFlip({ key: layoutShift.key, originWidth: masonryWidth, targetWidth, started: false });
+  }, [layoutShift, masonryWidth]);
+
+  useEffect(() => {
+    if (!flip || flip.started) return;
+    // 两个 rAF：先让「起始 transform + 目标布局」绘制一帧，再切换到过渡
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        setFlip((prev) => (prev && prev.key === flip.key ? { ...prev, started: true } : prev));
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [flip]);
+
+  useEffect(() => {
+    if (!flip?.started) return;
+    const timer = window.setTimeout(() => setFlip(null), 340);
+    return () => window.clearTimeout(timer);
+  }, [flip?.started]);
+
+  /** 排版宽度：切换瞬间用目标宽度，其余时间用实测宽度（量宽本身仍用 masonryWidth） */
+  const layoutWidth = flip?.targetWidth ?? masonryWidth;
+
+  /**
+   * 挂在网格容器上的 FLIP 样式。
+   * 起始帧 = 把目标布局缩放/平移到旧布局的位置；随后过渡到 none。
+   */
+  const flipStyle: CSSProperties | undefined = flip
+    ? {
+        transform: flip.started
+          ? "none"
+          : `translateX(${flip.targetWidth - flip.originWidth}px) scale(${flip.originWidth / flip.targetWidth})`,
+        transformOrigin: "top left",
+        transition: flip.started
+          ? "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)"
+          : "none",
+        willChange: "transform",
+      }
+    : undefined;
+
   const attachMasonryContainer = useCallback((node: HTMLDivElement | null) => {
     masonryObserverRef.current?.disconnect();
     masonryObserverRef.current = null;
@@ -549,11 +630,11 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    * 高度公式见 masonry-packing.ts —— 卡片高度只由「列宽 + 图片比例」决定。
    */
   const masonryPack = useMemo(() => {
-    if (!isMasonry || masonryWidth <= 0) return null;
+    if (!isMasonry || layoutWidth <= 0) return null;
     // 避洞规则对所有列数一视同仁（见 masonry-packing.ts 的 MASONRY_WIDE_MAX_HOLE），
     // 这里不需要再传「横屏为主」开关 —— 它只决定列数（见 colCount）。
-    return packMasonry(packItems, colCount, masonryWidth);
-  }, [isMasonry, masonryWidth, packItems, colCount]);
+    return packMasonry(packItems, colCount, layoutWidth);
+  }, [isMasonry, layoutWidth, packItems, colCount]);
 
   /**
    * 「加载下一页」的占位卡：**插进当前各列的空隙里**，而不是在瀑布流下方另铺一块。
@@ -571,7 +652,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    * 其余沿用竖屏混合比例。
    */
   const skeletonPlan = useMemo(() => {
-    if (!isMasonry || masonryWidth <= 0 || !isFetchingNextPage) return null;
+    if (!isMasonry || layoutWidth <= 0 || !isFetchingNextPage) return null;
 
     // 用该分类第一页的真实比例循环，续下去的那几张才和上面的卡片同一种横竖节奏
     const baseRatios = layoutHint?.ratios?.length ? layoutHint.ratios : DEFAULT_SKELETON_RATIOS;
@@ -582,7 +663,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
     }));
     const ratioById = new Map(placeholders.map((p) => [p.id, p.ratio]));
 
-    const packed = packMasonry([...packItems, ...placeholders], colCount, masonryWidth);
+    const packed = packMasonry([...packItems, ...placeholders], colCount, layoutWidth);
 
     return {
       columnWidth: packed.columnWidth,
@@ -590,7 +671,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       placements: packed.placements.filter((placement) => ratioById.has(placement.id)),
       ratioById,
     };
-  }, [isMasonry, masonryWidth, isFetchingNextPage, packItems, colCount, layoutHint]);
+  }, [isMasonry, layoutWidth, isFetchingNextPage, packItems, colCount, layoutHint]);
 
   const modById = useMemo(() => {
     const map = new Map<string, SiteMod>();
@@ -721,13 +802,13 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         ratio: pendingRatios[i % pendingRatios.length],
       }));
       const pendingPack =
-        masonryWidth > 0
-          ? packMasonry(placeholders, colCount, masonryWidth)
+        layoutWidth > 0
+          ? packMasonry(placeholders, colCount, layoutWidth)
           : null;
 
       return (
         // 内联箭头：每次渲染都重挂一次 ref，顺带重新量宽度（同数据分支的写法）
-        <div ref={(node) => attachMasonryContainer(node)}>
+        <div ref={(node) => attachMasonryContainer(node)} style={flipStyle}>
           {pendingPack ? (
             <div className="relative" style={{ height: pendingPack.height }}>
               {pendingPack.placements.map((placement, i) => {
@@ -814,6 +895,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
             attachMasonryContainer(node);
             masonryRootRef.current = node;
           }}
+          style={flipStyle}
         >
           {masonryPack ? (
             <>
