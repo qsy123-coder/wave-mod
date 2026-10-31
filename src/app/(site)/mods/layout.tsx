@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { ModsShell } from "@/components/features/mods/list/mods-shell";
 import { NavigationLoadingProvider } from "@/components/layout/navigation-loading-context";
 import { NavigationProgress } from "@/components/layout/navigation-progress";
 
@@ -18,7 +19,7 @@ export default function ModsLayout({ children }: { children: React.ReactNode }) 
         往上跑并出现在导航栏下面」。
         用 dvh 而不是 vh：移动端 vh 是不含地址栏的最大高度，同样会多出一截。
       */}
-      <div className="flex h-[calc(100dvh-var(--site-header-h))] flex-col overflow-hidden">
+      <ModsShell>
         {/*
           底部不再留 py-3 的褐色空隙：那一条 12px 的底色正好落在滚动容器与视口边界的交界处，
           卡片滑到那里就被硬切一刀，白底 + 褐色形成一个"没做完"的难看横线。
@@ -33,7 +34,7 @@ export default function ModsLayout({ children }: { children: React.ReactNode }) 
           aria-hidden
           className="pointer-events-none fixed inset-x-0 bottom-0 z-40 h-3 border-t-4 border-black bg-[var(--neo-nav)]"
         />
-      </div>
+      </ModsShell>
     </NavigationLoadingProvider>
   );
 }

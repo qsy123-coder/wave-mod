@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2, BookOpen, ChevronDown, UserRound } from "lucide-react";
+import { Heart, Home, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2, BookOpen, ChevronDown, UserRound } from "lucide-react";
 
 import { getEnabledGames } from "@/config/games";
 import { signOutUser } from "@/actions/auth/auth-actions";
@@ -12,7 +12,9 @@ import { useNavigationLoading } from "@/components/layout/navigation-loading-con
 import { MobileCharacterNav } from "@/components/layout/mobile-character-nav";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { SiteSearchForm } from "@/components/layout/site-search-form";
+import { useSitePreferences } from "@/components/layout/site-preferences-provider";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { useIsDesktop } from "@/components/layout/use-is-desktop";
 import { LayoutStyleToggle } from "@/components/layout/layout-style-toggle";
 import {
   Sheet,
@@ -24,6 +26,7 @@ import {
 } from "@/components/ui/sheet";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -34,6 +37,8 @@ import { siteConfig } from "@/lib/constants/site";
 import { GALLERY_BACK_KEY } from "@/lib/constants/gallery-nav";
 import { LOGIN_BACK_KEY } from "@/lib/constants/auth-nav";
 import { isCurrentNavigationUrl, isPlainLeftClick } from "@/lib/navigation-url";
+import { isImmersiveActive } from "@/lib/preferences/site-preferences";
+import { cn } from "@/lib/utils";
 
 type SiteHeaderClientProps = {
   /** 顶部附加条（首页"近期上新"滚动通知），渲染在导航行上方 */
@@ -101,6 +106,9 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
   // 管理入口同理：`isAdmin` 只有在查询回来后才会为 true，因此它由 false 变 true 时会有
   // 一次出现动画；受害者只有管理员本人（ADMIN_EMAIL / ADMIN_PHONES 里那一个账号）。
   const { isLoggedIn, isAdmin } = useSession();
+  // 站点偏好：直达分类（账户下拉里的勾选项）与沉浸布局（/mods 收起导航栏）
+  const { autoOpenMods, setAutoOpenMods, immersive } = useSitePreferences();
+  const isDesktop = useIsDesktop();
   const [mobileOpen, setMobileOpen] = useState(false);
   // 手机抽屉里的「全部角色分类」默认收起：60+ 个格子铺开会把后面的入口全推到
   // 几屏之外。展开时才让 MobileCharacterNav 去拉清单（open 即 enabled）。
@@ -132,6 +140,13 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
     return () => ro.disconnect();
   }, []);
   const pathname = usePathname();
+  /**
+   * 沉浸布局真正生效时才收起 header。
+   *
+   * 判据必须包含「当前在 /mods」：状态是持久化的，用户从 /mods 点去教程页时
+   * header 要立刻回来，否则导航入口就消失了。
+   */
+  const headerImmersive = isImmersiveActive({ immersive, isDesktop, pathname });
   const { startPageLoading } = useNavigationLoading();
   const isZzzRoute = pathname.startsWith("/zenless-zone-zero");
   const isAdminRoute = pathname.startsWith("/admin");
@@ -203,7 +218,20 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
   };
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-50 border-b-4 border-black" style={{ background: "var(--neo-nav)" }} onClick={handleHeaderNavClick}>
+    <header
+      ref={headerRef}
+      className={cn(
+        // Tailwind v4 的 translate 工具类写的是 **`translate` 属性**（不是 `transform`），
+        // 所以过渡属性必须写 `translate,opacity`；写 `transform` 会变成瞬移。
+        "sticky top-0 z-50 border-b-4 border-black transition-[translate,opacity] duration-300 ease-out motion-reduce:transition-none",
+        headerImmersive && "-translate-y-full opacity-0 pointer-events-none",
+      )}
+      style={{ background: "var(--neo-nav)" }}
+      onClick={handleHeaderNavClick}
+      // 收起到视口外后不能再被 Tab 聚焦（`display` 没变，必须显式 inert）
+      inert={headerImmersive || undefined}
+      aria-hidden={headerImmersive || undefined}
+    >
       {topBar}
       <div ref={navRowRef} className="mx-auto flex w-full max-w-[1680px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
         {/* 左侧组：Logo + 游戏切换 + 导航 */}
@@ -388,6 +416,23 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                       收藏
                     </Link>
                   </DropdownMenuItem>
+                  {/*
+                    直达角色分类：与 /mods 工具栏的「直达分类」是同一个状态
+                    （同一个 Provider + 同一个 localStorage key）。关掉之后访问首页
+                    才会正常看到首页；开着时只能在 /mods 关回来。
+
+                    ⚠️ 用 onClick 而不是 onSelect：项目的 dropdown-menu 是自研的普通
+                    <button>（见 components/ui/dropdown-menu.tsx），Radix 的 onSelect
+                    在这里会被当成普通属性丢掉，点击毫无反应（2026-10-31 实测）。
+                  */}
+                  <DropdownMenuCheckboxItem
+                    checked={autoOpenMods}
+                    onClick={() => setAutoOpenMods(!autoOpenMods)}
+                    className={DROPDOWN_ITEM_CLASS}
+                  >
+                    <Home className="size-3.5" />
+                    直达角色分类
+                  </DropdownMenuCheckboxItem>
                   {/* 管理员专属入口：与后台守卫同源判定，非管理员不渲染 */}
                   {isAdmin ? (
                     <>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Columns2, LayoutGrid, Search, Sparkles, X } from "lucide-react";
+import { ChevronDown, Columns2, Home, LayoutGrid, Maximize2, Minimize2, Search, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -9,6 +9,7 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import { columnOptionsForWidth, defaultColumnsForWidth, type MasonryColumns } from "@/components/features/mods/list/use-layout-preference";
 import { useDebouncedValue } from "@/components/features/mods/list/use-debounced-value";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
+import { useSitePreferences } from "@/components/layout/site-preferences-provider";
 import type { ModSort, ModsPage } from "@/lib/mods";
 import { modsListingKey, type ModsFilters } from "@/lib/mods-domain/filter-params";
 import { parseModQuery } from "@/lib/mods-domain/sorting";
@@ -62,6 +63,11 @@ type ModsToolbarProps = {
    */
   effectiveMasonryColumns?: MasonryColumns | null;
   onMasonryColumnsChange?: (cols: MasonryColumns) => void;
+  /**
+   * 是否显示「直达分类 / 沉浸布局」两个站点偏好开关。
+   * **只有主站 `/mods` 传 true**：分站复用同一份工具栏，不该提供直达主站首页的开关。
+   */
+  showSitePreferences?: boolean;
   onFilterChange?: () => void;
 };
 
@@ -163,10 +169,13 @@ export function ModsToolbar({
   masonryColumns = null,
   effectiveMasonryColumns = null,
   onMasonryColumnsChange,
+  showSitePreferences = false,
   onFilterChange,
 }: ModsToolbarProps) {
   const router = useRouter();
   const { setPendingListingLoad } = useNavigationLoading();
+  // 直达分类 / 沉浸布局的状态与顶栏账户下拉共用（同一 Provider、同一 localStorage）
+  const { autoOpenMods, setAutoOpenMods, immersive, setImmersive } = useSitePreferences();
   // `/` 快捷键要用；输入框本身不依赖它做任何事
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
@@ -902,6 +911,53 @@ export function ModsToolbar({
             <Columns2 className="size-4" />
           </button>
         </div>
+        </div>
+      ) : null}
+
+      {/*
+        站点偏好：直达分类 / 沉浸布局（仅主站 /mods）。
+        - 直达分类开 = 访问首页直接进这里（首页绘制前就换页）；
+        - 沉浸 = 收起左侧角色栏与顶部导航栏，把空间还给卡片。
+        两处状态与顶栏账户下拉共用同一个 Provider，改一处另一处立即同步。
+      */}
+      {showSitePreferences ? (
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            data-pref="auto-open"
+            onClick={() => setAutoOpenMods(!autoOpenMods)}
+            aria-pressed={autoOpenMods}
+            title="开启后，进入首页会直接打开角色分类页"
+            className={cn(
+              "inline-flex items-center gap-1 border-4 border-black px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]",
+              autoOpenMods ? "border-white bg-black text-white" : "bg-white text-black",
+            )}
+          >
+            <Home className="size-3.5 shrink-0" strokeWidth={2.5} />
+            直达分类
+          </button>
+          {/*
+            手机上不提供沉浸：导航栏是手机上唯一入口，藏起来就没有出口了
+            （侧栏在手机上本来就是 hidden）。只做 CSS 隐藏，SSR 与客户端一致。
+          */}
+          <button
+            type="button"
+            data-pref="immersive"
+            onClick={() => setImmersive(!immersive)}
+            aria-pressed={immersive}
+            title={immersive ? "退出沉浸布局（恢复侧栏与导航栏）" : "沉浸布局（隐藏侧栏与导航栏）"}
+            className={cn(
+              "hidden items-center gap-1 border-4 border-black px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] lg:inline-flex",
+              immersive ? "border-white bg-black text-white" : "bg-white text-black",
+            )}
+          >
+            {immersive ? (
+              <Minimize2 className="size-3.5 shrink-0" strokeWidth={2.5} />
+            ) : (
+              <Maximize2 className="size-3.5 shrink-0" strokeWidth={2.5} />
+            )}
+            沉浸
+          </button>
         </div>
       ) : null}
 

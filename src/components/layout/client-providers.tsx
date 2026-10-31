@@ -6,6 +6,7 @@ import { useState, Suspense } from "react";
 import { AuthHashSessionBridge } from "@/components/features/auth/auth-hash-session-bridge";
 import { SessionProvider } from "@/components/features/auth/session-provider";
 import { LastGameVisitBridge } from "@/components/features/games/last-game-visit-bridge";
+import { SitePreferencesProvider } from "@/components/layout/site-preferences-provider";
 
 type ClientProvidersProps = {
   children: React.ReactNode;
@@ -36,7 +37,8 @@ export function ClientProviders({ children }: ClientProvidersProps) {
         <Suspense fallback={null}>
           <LastGameVisitBridge />
         </Suspense>
-        {children}
+        {/* 顶栏、/mods 外壳与侧栏共用这一份偏好状态（直达分类 / 沉浸布局） */}
+        <SitePreferencesProvider>{children}</SitePreferencesProvider>
       </SessionProvider>
     </QueryClientProvider>
   );

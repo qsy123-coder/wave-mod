@@ -1,8 +1,10 @@
 import { Suspense } from "react";
 
 import { DailyTicker } from "@/components/common/daily-ticker";
+import { HomeAutoRedirect } from "@/components/features/home/home-auto-redirect";
 import { SiteHeader } from "@/components/layout/site-header";
 import { getDailyUpdates } from "@/lib/mods";
+import { buildAutoOpenModsScript } from "@/lib/preferences/site-preferences";
 
 // 近期新上的角色（最近 3 天发布过 mod 的角色名，去重）——仅首页顶部滚动通知使用
 async function HomeTopBar() {
@@ -24,6 +26,14 @@ async function HomeTopBar() {
 export default function HomeLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[var(--neo-dark)] bg-[radial-gradient(circle,var(--neo-canvas-dot)_1.5px,transparent_1.6px),linear-gradient(to_right,var(--neo-canvas-line)_1px,transparent_1px),linear-gradient(to_bottom,var(--neo-canvas-line)_1px,transparent_1px)] bg-[size:24px_24px,44px_44px,44px_44px]">
+      {/*
+        直达角色分类的**前绘制**跳转。
+        必须是同步内联脚本：浏览器解析到这里时 body 内容还没画出来，开启偏好后
+        用户看不到首页 Hero/轮播，只看到地址栏已经是 /mods（原理与根 layout 的
+        主题脚本相同）。站内客户端导航不会执行它，由 HomeAutoRedirect 兜底。
+      */}
+      <script dangerouslySetInnerHTML={{ __html: buildAutoOpenModsScript() }} />
+      <HomeAutoRedirect />
       {/* 通知条嵌在 sticky header 首行：桌面显示，移动端隐藏。
           以前整块 header 还套了一层 <Suspense fallback={<SiteHeaderSkeleton />}>，
           现在去掉了 —— 登录态搬到客户端后 header 不再挂起，而留着那层会让预渲染结果

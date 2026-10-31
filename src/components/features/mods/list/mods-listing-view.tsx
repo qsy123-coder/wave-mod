@@ -5,11 +5,14 @@ import { useCallback } from "react";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import type { MasonryLayoutHint } from "@/components/features/mods/list/masonry-packing";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
+import { useSitePreferences } from "@/components/layout/site-preferences-provider";
+import { useIsDesktop } from "@/components/layout/use-is-desktop";
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import type { ModSort, ModsPage } from "@/lib/mods";
 import { isDefaultModsFilters, modsListingKey, type ModsFilters } from "@/lib/mods-domain/filter-params";
 import { buildModsFilterHref } from "@/lib/navigation-url";
 import { recallScrollPosition, rememberScrollPosition } from "@/lib/scroll-memory";
+import { cn } from "@/lib/utils";
 
 /**
  * 列表页的**呈现层**。筛选条件从 props 进来（服务端给默认值、客户端从 URL 读），
@@ -53,6 +56,14 @@ export function ModsListingView({
   openModId,
 }: ModsListingViewProps) {
   const { sort, character, query, direct, preview } = filters;
+
+  /**
+   * 沉浸布局：侧栏收起（仅桌面）。状态由顶栏/工具栏共用的 Provider 提供，
+   * 这里只负责把「收起」翻译成宽度/位移动画。
+   */
+  const { immersive } = useSitePreferences();
+  const isDesktop = useIsDesktop();
+  const sidebarCollapsed = immersive && isDesktop;
 
   /**
    * 侧栏的滚动位置要跨分类导航保住 —— 换筛选条件时 Suspense 边界会把整棵列表换掉，
@@ -138,7 +149,26 @@ export function ModsListingView({
 
   return (
     <>
-      <div className="hidden w-[240px] shrink-0 flex-col lg:flex">
+      {/*
+        侧栏收起：
+        - `w-0` 把宽度收掉，`-mr-6` 抵消父容器 `gap-6` 在零宽元素旁仍占的 24px；
+        - `overflow-hidden` 在宽度动画期间裁掉内部内容，避免横向溢出；
+        - 收起后加 `inert`，Tab 不会跑进看不见的分类链接（`display:none` 之外
+          还要这一步：宽度为 0 的元素依然可能被键盘聚焦）。
+        - 收起动效只在 `lg:` 生效；手机上本来就是 `hidden`。
+      */}
+      <div
+        data-mods-sidebar
+        aria-hidden={sidebarCollapsed || undefined}
+        inert={sidebarCollapsed || undefined}
+        className={cn(
+          "hidden min-w-0 shrink-0 flex-col overflow-hidden lg:flex",
+          "transition-[width,margin,opacity] duration-300 ease-out motion-reduce:transition-none",
+          sidebarCollapsed
+            ? "lg:-mr-6 lg:w-0 lg:pointer-events-none lg:opacity-0"
+            : "lg:w-[240px] lg:opacity-100",
+        )}
+      >
         <div
           ref={attachSidebarScroll}
           onScroll={(event) => rememberScrollPosition(SIDEBAR_SCROLL_KEY, event.currentTarget.scrollTop)}
@@ -169,6 +199,7 @@ export function ModsListingView({
           activeDirect={direct}
           activePreview={preview}
           layoutHint={layoutHint}
+          showSitePreferences
           openModId={openModId}
         />
       </div>
