@@ -1,23 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
-  MODS_SIDEBAR_LAYOUT_SHIFT,
   readAutoOpenMods,
   readImmersiveMods,
   writeAutoOpenMods,
   writeImmersiveMods,
 } from "@/lib/preferences/site-preferences";
-
-/**
- * 一次沉浸切换的布局标记。
- *
- * `key` 每次切换自增；`delta` 是右栏宽度的变化量（收起 +264，展开 -264）。
- * 瀑布流据此先按目标宽度排一次版，再用 transform 做缩放过渡。
- * 只由 `setImmersive` 产生；初始化时从 localStorage 恢复不产生，避免挂载时多算一次。
- */
-type LayoutShift = { key: number; delta: number };
 
 type SitePreferencesContextValue = {
   /** 访问 `/` 时是否直接打开角色分类页 */
@@ -26,8 +16,6 @@ type SitePreferencesContextValue = {
   /** `/mods` 是否隐藏左侧栏与顶部导航栏（仅桌面端真正生效） */
   immersive: boolean;
   setImmersive: (value: boolean) => void;
-  /** 最近一次沉浸切换的布局变化；网格用它在切换帧预排目标宽度 */
-  layoutShift: LayoutShift | null;
 };
 
 const SitePreferencesContext = createContext<SitePreferencesContextValue | null>(null);
@@ -48,8 +36,6 @@ const SitePreferencesContext = createContext<SitePreferencesContextValue | null>
 export function SitePreferencesProvider({ children }: { children: ReactNode }) {
   const [autoOpenMods, setAutoOpenModsState] = useState(false);
   const [immersive, setImmersiveState] = useState(false);
-  const [layoutShift, setLayoutShift] = useState<LayoutShift | null>(null);
-  const layoutShiftKeyRef = useRef(0);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration 后读取本机偏好（与服务端标记一致）
@@ -65,17 +51,11 @@ export function SitePreferencesProvider({ children }: { children: ReactNode }) {
   const setImmersive = useCallback((value: boolean) => {
     setImmersiveState(value);
     writeImmersiveMods(value);
-    // 与 immersive 同一次批处理，网格才能在同一帧拿到目标宽度
-    layoutShiftKeyRef.current += 1;
-    setLayoutShift({
-      key: layoutShiftKeyRef.current,
-      delta: value ? MODS_SIDEBAR_LAYOUT_SHIFT : -MODS_SIDEBAR_LAYOUT_SHIFT,
-    });
   }, []);
 
   const contextValue = useMemo<SitePreferencesContextValue>(
-    () => ({ autoOpenMods, setAutoOpenMods, immersive, setImmersive, layoutShift }),
-    [autoOpenMods, setAutoOpenMods, immersive, setImmersive, layoutShift],
+    () => ({ autoOpenMods, setAutoOpenMods, immersive, setImmersive }),
+    [autoOpenMods, setAutoOpenMods, immersive, setImmersive],
   );
 
   return (

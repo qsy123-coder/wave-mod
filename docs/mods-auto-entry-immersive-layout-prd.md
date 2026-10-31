@@ -145,19 +145,24 @@
 **侧栏收起与主内容区展开（`mods-listing-view.tsx` + `mods-infinite-grid.tsx`）**
 
 - 侧栏外层**瞬时切换宽度**：展开 `lg:w-[240px]`，收起 `lg:w-0 lg:-mr-6`
-  （`-mr-6` 抵消父容器 `gap-6` 留下的 24px）。面板固定 `w-[240px]`，
-  用 `translate` + `opacity` 滑出/滑入（合成层）。
+  （`-mr-6` 抵消父容器 `gap-6` 留下的 24px）。面板固定 `w-[240px]`：
+  - 收起：`translate` + `opacity` 滑出并淡出（300ms）；
+  - 展开：**直接出现在原位**（不做位移/淡入）—— 从屏幕外滑 240px 或半透明淡入
+    都会让左栏先露出空带/透出卡片，用户会看到「缩小时不顺」。
 - 主内容区**不做逐帧宽度重排**，改用网格的 **FLIP 缩放**：
-  1. `setImmersive` 同时写入 `layoutShift`（key + delta，delta = 侧栏 240 + gap 24 = 264）；
+  1. `mods-listing-view` 在 `useLayoutEffect` 里检测沉浸状态变化，产生 `layoutShift`
+     （key + delta，delta = 侧栏 240 + gap 24 = 264），作为 prop 传给网格；
   2. 网格在 `useLayoutEffect` 里用「切换前宽度 + delta」作为目标宽度排一次版；
   3. 给网格容器加 `translateX(delta) scale(切换前宽度/目标宽度)`，把新布局
-     在视觉上映射成旧布局；下一帧过渡到 `none`（300ms）。
-  - 整段动画只有 `transform`，不重排任何卡片；视觉上是卡片区平滑缩放展开/收窄。
+     在视觉上映射成旧布局；下一帧过渡到 `none`（300ms，与侧栏/导航栏同 easing）。
+  - 整段动画只有 `transform`，不重排任何卡片；视觉上是卡片区平滑缩放展开/收窄；
+  - **所有动画在同一帧开始**（侧栏占位、导航栏下移、外壳高度、网格缩放），
+    不存在「左侧/上方先结束、网格最后被拽一下」的时序。
 - 收起时加 `inert` + `aria-hidden` + `pointer-events-none`，避免 Tab 键焦点跑进看不见的链接。
 - `prefers-reduced-motion` 下跳过 FLIP，直接按目标宽度切换。
 - **为什么不用逐帧宽度过渡**：卡片区每帧都要重排列宽、卡片位置与文字换行，
-  真实浏览器里仍有细微抖动；FLIP 实测（1440×900、瀑布流、开启 GPU）
-  平均 4.6ms/帧、0 帧 > 33ms。
+  真实浏览器里仍有细微抖动。最终版实测（1440×900、瀑布流、开启 GPU）：
+  含外壳过渡平均 **7.4–7.8ms/帧**，仅首帧偶发 1–2 帧 > 33ms。
 - **沉浸模式下「全部角色」按钮仍可用**：它会随侧栏面板滑走，所以 `/mods` 工具栏补一个
   同款入口（`data-character-picker-trigger`），打开的是**同一个**
   `CharacterPickerDrawer`。抽屉状态因此上提到 `mods-listing-view`；后台 / 游戏分站
@@ -180,17 +185,20 @@
 - 抽取为客户端组件 `ModsShell`，按沉浸状态二选一（不要在同一个元素上叠加普通类 + `lg:` 覆盖，避免 Tailwind 生成顺序带来的不确定性）：
   - 普通：`h-[calc(100dvh-var(--site-header-h))]`
   - 沉浸（且桌面）：`h-[100dvh] -mt-[var(--site-header-h)]`
-- 外壳**不做 height/margin 插值**，用 `transition-[height,margin-top] duration-0` + `transition-delay` 控制切换时机：
-  - 收起（目标状态 `delay-0`）：外壳立刻补满视口，此时导航栏还盖在顶部，随后导航栏滑走把内容「揭」出来；
-  - 展开（目标状态 `lg:delay-300`）：外壳先保持满屏，等导航栏滑下来盖住顶部后再缩回 ——
-    否则导航栏还在半空时顶部会露出一条背景空隙。
+- 外壳**与导航栏同步做 300ms `height` / `margin-top` 过渡**（同一 easing）：
+  - 导航栏 `translateY` 从 -100% → 0，底边 = 76 × progress；
+  - 外壳 `margin-top` 从 -76px → 0，顶边 = header 文档流占位 76 + margin = 76 × progress，
+    与导航栏底边始终重合，不会露缝；
+  - 高度同步 `100dvh ⇄ 100dvh-76`，底边始终停在视口底部。
+- ⚠️ 不要改回「delay 300ms 再跳」：那会让导航栏/侧栏动画结束后，网格区域再整体
+  下跳/上跳 76px（2026-10-31 用户明确反馈「左侧和上面先完成，网格被卡下来」）。
 - `/mods` 上 `BodyScrollLock` 已锁 body 滚动、`ConditionalFooter` 已返回 null，负 margin 不会引起窗口滚动或页脚被顶出。
 - `--site-header-h` 由 header 的 ResizeObserver 实测写入，位移不改变它，所以负 margin 拿到的是真实高度；`/mods` 的 header 没有顶部通知条，高度就是导航行高度。
 
 **为什么用「负 margin + 高度补满」而不是给 header 动画 `height`**：
 
 - `height: auto → 0` 无法过渡（auto 不可插值），要做就得把 header 高度钉成像素，影响顶部通知条动态开关，牵一发动全身；
-- 负 margin + `100dvh` 只改 `/mods` 自己的外壳，不必改 header 的测量逻辑；再配合延迟跳变，切换过程被导航栏的位移遮住。
+- 负 margin + `100dvh` 只改 `/mods` 自己的外壳，不必改 header 的测量逻辑；两者同 easing 过渡即可保持贴合。
 
 ### 3. 手机端与降级
 
@@ -300,17 +308,19 @@
 - 逐帧测量定位：最初卡顿来自侧栏宽度过渡（面板宽度跟着外层变，65 个条目逐帧重排）；
   中间试过「宽度瞬跳 + 面板位移」（60fps 但卡片区跳变）和「宽度连续过渡 + 面板固定」
   （真实浏览器仍有细微抖动）。
-- **最终方案：FLIP 缩放**。`setImmersive` 同时写入 `layoutShift`（delta = 264）；
-  网格在 `useLayoutEffect` 里按目标宽度排一次版，并立刻把新布局
+- **最终方案：FLIP 缩放 + 所有动画同帧开始**。`mods-listing-view` 在 `useLayoutEffect`
+  里产生 `layoutShift`（delta = 264）；网格按目标宽度排一次版，并立刻把新布局
   `translateX(delta) scale(旧宽/新宽)` 映射回旧布局，下一帧过渡到 `none`。
   整段动画只有合成层 `transform`，卡片不逐帧重排。
-  开启 GPU 的 Chrome 实测平均 **4.6ms/帧、0 帧 > 33ms**。
-- 外壳 height/margin 仍不做逐帧插值：用 `duration-0` + `transition-delay` 让展开侧的复位
-  等导航栏落位，避免顶部露出空隙。
+- **展开时侧栏面板直接出现在原位**（不做位移/淡入）：从屏幕外滑入或半透明都会先露出
+  240px 空带；收起仍保留滑出+淡出。
+- **外壳 height/margin 与导航栏同 easing 做 300ms 过渡**：导航栏底边 = 外壳顶边，
+  底边恒在视口底部。不要改回延迟跳变（会导致左侧/上方先结束、网格最后被拽一下）。
 - 沉浸模式下「全部角色」按钮：抽屉状态上提到 `mods-listing-view`，工具栏增加同款入口；
   `CharacterSidebar` 保留受控/自管两种模式，后台与游戏分站行为不变。
-- 实测：t≈60ms 网格 transform 为中间缩放假（收起 scale≈0.90 / 展开 scale≈1.19），
-  t≈180ms 过渡完成；工具栏抽屉打开 67 个分类格，点选后正常跳转并关闭；无控制台错误。
+- 实测（开启 GPU）：含外壳过渡平均 **7.4–7.8ms/帧**，仅首帧偶发 1–2 帧 > 33ms；
+  t≈50ms 时导航栏底边与外壳顶边重合（32 vs 34，rounding）；展开时侧栏已占位、
+  网格处于中间缩放；工具栏抽屉打开 67 个分类格，点选后正常跳转并关闭；无控制台错误。
 - 备注：也试过浏览器原生 View Transitions（整页/命名分组），中间帧新旧界面重影明显，
   自定义 `clip-path` 在伪元素上不生效，已放弃。
 

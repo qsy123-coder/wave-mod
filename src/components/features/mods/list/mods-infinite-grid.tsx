@@ -21,7 +21,6 @@ import { DESKTOP_DEFAULT_COLUMNS, defaultColumnsForWidth, resolvePreferredColumn
 import { MasonryCardSkeleton, ModCardSkeleton } from "@/components/layout/data-skeletons";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
-import { useSitePreferences } from "@/components/layout/site-preferences-provider";
 import type { ModSort, ModsPage, SiteMod } from "@/lib/mods";
 import { MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
 
@@ -151,6 +150,11 @@ type ModsInfiniteGridProps = {
    * 画一版竖屏占位，横屏为主的分类（绯雪等）会明显对不上。见 buildLayoutHints。
    */
   layoutHint?: MasonryLayoutHint | null;
+  /**
+   * 沉浸切换的布局变化（FLIP 预排目标宽度）。
+   * 由 mods-listing-view 协调：收起时立即触发；展开时等面板滑入后才触发。
+   */
+  layoutShift?: { key: number; delta: number } | null;
 };
 
 /** 网格对外汇报的取数状态 */
@@ -166,7 +170,7 @@ export type ModsGridStatus = {
   effectiveColumns: MasonryColumns | null;
 };
 
-export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns, layoutHint = null }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns, layoutHint = null, layoutShift = null }: ModsInfiniteGridProps) {
   // 哨兵节点用 callback ref 存进 state，而不是 useRef。
   //
   // 哨兵是**条件渲染**的（hasNextPage 为假时不渲染），节点会在挂载/卸载之间切换，
@@ -350,7 +354,6 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    *
    * `transition 300ms` 结束后清掉 flip，恢复使用 ResizeObserver 量到的真实宽度。
    */
-  const { layoutShift } = useSitePreferences();
   const [flip, setFlip] = useState<{
     key: number;
     originWidth: number;
@@ -372,17 +375,12 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
 
   useEffect(() => {
     if (!flip || flip.started) return;
-    // 两个 rAF：先让「起始 transform + 目标布局」绘制一帧，再切换到过渡
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        setFlip((prev) => (prev && prev.key === flip.key ? { ...prev, started: true } : prev));
-      });
+    // 一个 rAF：先让「起始 transform + 目标布局」绘制一帧，再切换到过渡。
+    // 不用两个 —— 那会让网格比侧栏/导航栏晚 ~16ms 启动，看起来像「慢半拍」。
+    const raf = requestAnimationFrame(() => {
+      setFlip((prev) => (prev && prev.key === flip.key ? { ...prev, started: true } : prev));
     });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
+    return () => cancelAnimationFrame(raf);
   }, [flip]);
 
   useEffect(() => {
@@ -405,7 +403,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
           : `translateX(${flip.targetWidth - flip.originWidth}px) scale(${flip.originWidth / flip.targetWidth})`,
         transformOrigin: "top left",
         transition: flip.started
-          ? "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)"
+          ? "transform 300ms cubic-bezier(0, 0, 0.2, 1)"
           : "none",
         willChange: "transform",
       }

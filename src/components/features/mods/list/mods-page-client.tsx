@@ -36,6 +36,8 @@ type ModsPageClientProps = {
   activePreview?: boolean;
   /** 当前角色的版式画像（骨架屏画横卡还是竖卡，见 buildLayoutHints） */
   layoutHint?: MasonryLayoutHint | null;
+  /** 沉浸切换的网格布局变化（FLIP 预排目标宽度），由 mods-listing-view 协调 */
+  layoutShift?: { key: number; delta: number } | null;
   /**
    * 是否显示「直达分类 / 沉浸布局」两个站点偏好开关。
    * 只有主站 `/mods` 开；游戏分站复用同一份工具栏，但不能改主站入口行为。
@@ -65,6 +67,7 @@ export function ModsPageClient({
   activeDirect = false,
   activePreview = false,
   layoutHint = null,
+  layoutShift = null,
   showSitePreferences = false,
   showCharacterPickerTrigger = false,
   onOpenCharacterPicker,
@@ -267,6 +270,7 @@ export function ModsPageClient({
           layoutMode={layoutMode}
           masonryColumns={masonryColumns}
           layoutHint={layoutHint}
+          layoutShift={layoutShift}
           onCardClick={openDrawer}
           onStatusChange={handleStatusChange}
         />

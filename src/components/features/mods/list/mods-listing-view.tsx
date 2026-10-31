@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 
 import { CharacterSidebar, handleCardClick } from "@/components/features/mods/list/character-sidebar";
 import { CharacterPickerDrawer } from "@/components/features/mods/list/character-picker-drawer";
@@ -12,8 +12,12 @@ import { ModsPageClient } from "@/components/features/mods/list/mods-page-client
 import type { ModSort, ModsPage } from "@/lib/mods";
 import { isDefaultModsFilters, modsListingKey, type ModsFilters } from "@/lib/mods-domain/filter-params";
 import { buildModsFilterHref, isPlainLeftClick } from "@/lib/navigation-url";
+import { MODS_SIDEBAR_LAYOUT_SHIFT } from "@/lib/preferences/site-preferences";
 import { recallScrollPosition, rememberScrollPosition } from "@/lib/scroll-memory";
 import { cn } from "@/lib/utils";
+
+/** SSR 阶段没有 useLayoutEffect */
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /**
  * 列表页的**呈现层**。筛选条件从 props 进来（服务端给默认值、客户端从 URL 读），
@@ -60,24 +64,34 @@ export function ModsListingView({
 
   /**
    * 沉浸布局：侧栏收起（仅桌面）。状态由顶栏/工具栏共用的 Provider 提供，
-   * 这里只负责把「收起」翻译成宽度/位移动画。
+   * 这里负责把「收起/展开」翻译成**两段**动画。
+   *
+   * 历史取舍：
+   *   - 宽度逐帧过渡：侧栏 65 个条目/卡片每帧重排，卡顿；
+   *   - 宽度瞬间让位 + 面板位移：帧率 60fps，但卡片区一帧内跳变；
+   *   - 宽度连续过渡 + 面板固定：真实浏览器仍有细微抖动；
+   *   - 现在：侧栏宽度**瞬时切换**，卡片区的展开/收窄由网格的 FLIP 缩放负责
+   *     （见 mods-infinite-grid），整段动画只有合成层的 scale/translate。
+   * 侧栏面板自己仍用 `translate` + `opacity` 滑出/滑入，导航栏与外壳同步位移。
    */
   const { immersive } = useSitePreferences();
   const isDesktop = useIsDesktop();
   const sidebarCollapsed = immersive && isDesktop;
 
-  /**
-   * 侧栏收起时主内容区怎么变宽：**不在侧栏上做宽度过渡**。
-   *
-   * 历史取舍：
-   *   - 第一版把宽度和外壳高度都做 300ms 过渡，侧栏 65 个条目每帧重排 → 21.4ms/帧；
-   *   - 第二版把宽度瞬间让位，帧率 60fps，但卡片区一帧内跳变，用户反馈「特别卡」；
-   *   - 第三版宽度连续过渡（面板固定 240px），卡片区逐帧重排，真实浏览器仍有细微抖动；
-   *   - 现在：侧栏宽度**瞬时切换**，卡片区的展开/收窄交给网格的 FLIP 缩放
-   *     （见 mods-infinite-grid）：布局只算一次，用 transform 把新布局映射回旧布局
-   *     的形状再过渡到 1，整段动画只有合成层的 scale/translate。
-   * 侧栏面板自己仍用 `translate` + `opacity` 滑出/滑入，导航栏上滑。
-   */
+  const [gridShift, setGridShift] = useState<{ key: number; delta: number } | null>(null);
+  const shiftKeyRef = useRef(0);
+  const lastCollapsedRef = useRef(sidebarCollapsed);
+
+  useIsomorphicLayoutEffect(() => {
+    if (lastCollapsedRef.current === sidebarCollapsed) return;
+    lastCollapsedRef.current = sidebarCollapsed;
+    // 收起 +264、展开 -264；网格在同一帧按目标宽度预排，再用 transform 映射回旧布局
+    shiftKeyRef.current += 1;
+    setGridShift({
+      key: shiftKeyRef.current,
+      delta: sidebarCollapsed ? MODS_SIDEBAR_LAYOUT_SHIFT : -MODS_SIDEBAR_LAYOUT_SHIFT,
+    });
+  }, [sidebarCollapsed]);
 
   /**
    * 「全部角色分类」抽屉的状态放在这一层，而不是留在 CharacterSidebar 里：
@@ -215,8 +229,7 @@ export function ModsListingView({
         inert={sidebarCollapsed || undefined}
         className={cn(
           "relative z-20 hidden min-w-0 shrink-0 flex-col lg:flex",
-          // 宽度不做 CSS 过渡：卡片区的展开/收窄由网格的 FLIP transform 负责
-          // （见 mods-infinite-grid）。这里只让面板用 transform 滑出/滑入。
+          // 宽度瞬时切换；卡片区的缩放由网格 FLIP 负责。
           sidebarCollapsed ? "lg:w-0 lg:-mr-6" : "lg:w-[240px]",
           sidebarCollapsed && "pointer-events-none",
         )}
@@ -226,9 +239,14 @@ export function ModsListingView({
           onScroll={(event) => rememberScrollPosition(SIDEBAR_SCROLL_KEY, event.currentTarget.scrollTop)}
           className={cn(
             "flex w-[240px] flex-1 flex-col overflow-y-auto pb-3 pr-1",
-            "transition-[translate,opacity] duration-300 ease-out motion-reduce:transition-none",
             "will-change-[translate,opacity]",
-            sidebarCollapsed ? "-translate-x-full opacity-0" : "translate-x-0 opacity-100",
+            // 收起：面板滑出并淡出（300ms）。
+            // 展开：**直接出现在原位**，不做位移/淡入 —— 任何从屏幕外滑入或半透明
+            // 都会让左栏先露出 240px 空带（用户反馈「缩小时不顺」）。内容区、
+            // 导航栏、外壳同时开始动画，侧栏在 t=0 就占好位、盖住旧内容。
+            sidebarCollapsed
+              ? "-translate-x-full opacity-0 transition-[translate,opacity] duration-300 ease-out motion-reduce:transition-none"
+              : "translate-x-0 opacity-100",
           )}
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
@@ -258,6 +276,7 @@ export function ModsListingView({
           activeDirect={direct}
           activePreview={preview}
           layoutHint={layoutHint}
+          layoutShift={gridShift}
           showSitePreferences
           showCharacterPickerTrigger={sidebarCollapsed}
           onOpenCharacterPicker={openCharacterPicker}

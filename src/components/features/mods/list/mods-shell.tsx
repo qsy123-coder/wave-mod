@@ -16,14 +16,18 @@ import { cn } from "@/lib/utils";
  *     所以这里用「高度补满 100dvh + 负 margin-top 抵消 header 高度」；
  *   - `--site-header-h` 是 header 用 ResizeObserver 实测写入的，位移不改它。
  *
- * **不在这里做 height/margin-top 的插值动画。** 这两个属性逐帧变化会让整块应用壳
- * （含网格与工具栏）每帧重新布局，实测和侧栏宽度过渡叠在一起掉到 ~45fps。这里用
- * `duration-0` + `transition-delay` 控制切换时机：
- *   - 收起（目标状态 `delay-0`）：外壳立刻补满视口，此刻导航栏还盖在顶部 76px 上；
- *     随后导航栏用 `translate` 滑走，把内容「揭」出来 —— 切换被导航栏遮住；
- *   - 展开（目标状态 `lg:delay-300`）：外壳先保持满屏，等导航栏滑下来盖住顶部之后
- *     才缩回 `100dvh - header`。若立刻缩回，导航栏还在半空，顶部会露出一条空隙。
- * 全程每帧只有 header 的 transform/opacity 与侧栏面板的位移，走合成层。
+ * **高度/负 margin 与导航栏同步做 300ms 过渡。** 两者使用同一 easing：
+ *   - 导航栏 translateY 从 -100% → 0，底边从 0 → 76px；
+ *   - 外壳 margin-top 从 -76px → 0，顶边 = 76px（文档流里的 header 占位）+ margin
+ *     = 76 × progress，正好等于导航栏底边 —— 全程贴合，不会露缝；
+ *   - 高度同步从 100dvh → 100dvh-76，底边始终停在视口底部。
+ *
+ * ⚠️ 以前这里用「delay 300ms 再跳」来避免露缝，结果是导航栏/侧栏动画都结束后
+ * 网格区域才整体下跳 76px，用户明确反馈「左侧和上面先完成，网格被卡下来」。
+ * 不要再改回延迟跳变。
+ *
+ * 水平方向的放大/缩小由网格自己的 FLIP transform 负责（见 mods-infinite-grid），
+ * 外壳只处理这 76px 的垂直变化，不会重排卡片。
  *
  * 之所以抽成客户端组件：沉浸状态来自 Context，而 layout 本身是服务端组件。
  * `(site)/mods/layout.tsx` 只把它当成一层外壳，内部结构原样保留。
@@ -38,10 +42,10 @@ export function ModsShell({ children }: { children: ReactNode }) {
     <div
       data-mods-shell
       className={cn(
-        "flex flex-col overflow-hidden transition-[height,margin-top] duration-0",
+        "flex flex-col overflow-hidden transition-[height,margin-top] duration-300 ease-out motion-reduce:transition-none",
         active
-          ? "h-[100dvh] mt-[calc(var(--site-header-h)*-1)] delay-0"
-          : "h-[calc(100dvh-var(--site-header-h))] mt-0 lg:delay-300 lg:motion-reduce:delay-0",
+          ? "h-[100dvh] mt-[calc(var(--site-header-h)*-1)]"
+          : "h-[calc(100dvh-var(--site-header-h))] mt-0",
       )}
     >
       {children}
