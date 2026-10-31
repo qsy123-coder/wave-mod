@@ -160,6 +160,53 @@ curl -sI https://go.sunnyrose.xyz/api/mods?sort=new | grep -i x-cache-status   #
 > 「这台设备赞没赞过」，共享缓存会把 A 的状态发给 B。配置里已显式关闭，
 > 不要再加回去。
 
+## 6.1 Vercel Security Checkpoint：访客看到「外观资源加载失败」（2026-10-31）
+
+### 现象
+
+页面本身能打开，点开某条 mod 的详情抽屉却显示
+**「外观资源加载失败，请稍后重试。」**（`mod-detail-drawer.tsx` 的通用错误分支），
+换设备/刷新依旧；同一条 mod 的 HTML 页面仍是 200。
+
+### 根因
+
+Vercel 的自动 DDoS 缓解（`sys_dos_mitigation`）把**香港反代的出口 IP**
+`45.135.119.204` 整段判成攻击源，对它下发了 15 分钟左右的 Challenge。
+于是所有回源请求（页面、`/api/mods/<id>`）都拿到 **403 + 约 17KB 的
+"Vercel Security Checkpoint" HTML**。页面 HTML 往往已被 nginx 缓存所以照常打开，
+而详情抽屉的 `fetch('/api/mods/<id>')` 拿到 403 → 非 404 → 走通用错误文案。
+
+关键点：**这不是数据问题，也不是某条 mod 坏了**。DB 里 `is_published`、API 返回都正常。
+
+### 怎么确认（3 条命令）
+
+```bash
+# 1) 香港机访问日志：403 且 urt≈0、body≈17417/17425，就是挑战页
+ssh -i ~/.ssh/wavemod_hk -p 28822 root@45.135.119.204 \
+  "grep -a ' /api/mods/' /var/log/nginx/wavemod.access.log | tail -30"
+
+# 2) 谁被挑战、什么时候结束
+vercel firewall persistent-actions list   # System Rule Challenge 45.135.119.204
+vercel firewall overview                 # Rules 里出现 sys_dos_mitigation
+
+# 3) 挑战窗口结束后直连验证
+curl -s -o /dev/null -w '%{http_code}\n' \
+  https://go.sunnyrose.xyz/api/mods/07a91e64-0106-492d-b7d2-7cade4fbf25d
+```
+
+### 处置
+
+- **等**：这类 Challenge 窗口约 15 分钟，结束后自动恢复（2026-10-31 那次为
+  02:53–03:08 UTC）。
+- **已加的兜底**（commit `453f2f90`）：所有带 `proxy_cache` 的 location 的
+  `proxy_cache_use_stale` 都加了 `http_403` —— 挑战期间把盘里的旧 200 发给访客，
+  没有缓存条目的 URL 仍透传 403。
+- **Hobby 没有 IP Bypass**：`vercel firewall system-bypass add <ip>` 会返回 402
+  （Pro/Enterprise 才有）。若挑战持续、且新 URL 也被挡住，只能临时
+  `vercel firewall system-mitigations pause`（立即生效，24 小时后自动恢复）。
+- 不要为了「修复」去改 title / `character` / 重新上传：那会让去重键错位，
+  详见 CLAUDE.md 的每日上传硬规则。
+
 ## 7. 已知问题（切换前必须知道）
 
 ### 7.1 Vercel 到广州 COS 不通（2026-10-19，计数部分已解决）
