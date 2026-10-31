@@ -41,6 +41,12 @@ type ModsPageClientProps = {
    * 只有主站 `/mods` 开；游戏分站复用同一份工具栏，但不能改主站入口行为。
    */
   showSitePreferences?: boolean;
+  /**
+   * 沉浸收起侧栏后，工具栏要补一个「全部角色」入口 —— 它打开的是侧栏原本那个
+   * 同一个「全部角色分类」抽屉（状态在 mods-listing-view）。
+   */
+  showCharacterPickerTrigger?: boolean;
+  onOpenCharacterPicker?: (trigger: HTMLElement) => void;
   openModId?: string;
 };
 
@@ -60,6 +66,8 @@ export function ModsPageClient({
   activePreview = false,
   layoutHint = null,
   showSitePreferences = false,
+  showCharacterPickerTrigger = false,
+  onOpenCharacterPicker,
   openModId: initialModId,
 }: ModsPageClientProps) {
   /**
@@ -205,6 +213,8 @@ export function ModsPageClient({
         effectiveMasonryColumns={effectiveColumns}
         onMasonryColumnsChange={setMasonryColumns}
         showSitePreferences={showSitePreferences}
+        showCharacterPickerTrigger={showCharacterPickerTrigger}
+        onOpenCharacterPicker={onOpenCharacterPicker}
       />
 
       <div

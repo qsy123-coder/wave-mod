@@ -223,7 +223,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
       className={cn(
         // Tailwind v4 的 translate 工具类写的是 **`translate` 属性**（不是 `transform`），
         // 所以过渡属性必须写 `translate,opacity`；写 `transform` 会变成瞬移。
-        "sticky top-0 z-50 border-b-4 border-black transition-[translate,opacity] duration-300 ease-out motion-reduce:transition-none",
+        "sticky top-0 z-50 border-b-4 border-black transition-[translate,opacity] duration-300 ease-out motion-reduce:transition-none will-change-[translate,opacity]",
         headerImmersive && "-translate-y-full opacity-0 pointer-events-none",
       )}
       style={{ background: "var(--neo-nav)" }}

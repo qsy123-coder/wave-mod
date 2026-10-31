@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useRef, useState, type MouseEvent } from "react";
 
-import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
+import { CharacterSidebar, handleCardClick } from "@/components/features/mods/list/character-sidebar";
+import { CharacterPickerDrawer } from "@/components/features/mods/list/character-picker-drawer";
 import type { MasonryLayoutHint } from "@/components/features/mods/list/masonry-packing";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import { useSitePreferences } from "@/components/layout/site-preferences-provider";
@@ -10,7 +11,7 @@ import { useIsDesktop } from "@/components/layout/use-is-desktop";
 import { ModsPageClient } from "@/components/features/mods/list/mods-page-client";
 import type { ModSort, ModsPage } from "@/lib/mods";
 import { isDefaultModsFilters, modsListingKey, type ModsFilters } from "@/lib/mods-domain/filter-params";
-import { buildModsFilterHref } from "@/lib/navigation-url";
+import { buildModsFilterHref, isPlainLeftClick } from "@/lib/navigation-url";
 import { recallScrollPosition, rememberScrollPosition } from "@/lib/scroll-memory";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +67,26 @@ export function ModsListingView({
   const sidebarCollapsed = immersive && isDesktop;
 
   /**
+   * 「面板是否占布局宽度」不在 React 里做状态机，交给 CSS 的 transition-delay：
+   *
+   * - 收起（目标状态带 `delay-0`）：宽度立刻变 0，卡片区马上变宽；
+   * - 展开（目标状态带 `lg:delay-300`）：宽度先保持 0，等面板用 transform 滑进来，
+   *   300ms 后才占回 240px —— 避免卡片先在 300ms 里被挤窄、面板随后才盖上来。
+   *
+   * 关键在于**宽度不做插值**（duration-0）：宽度每变 1px 都会重新布局侧栏里的
+   * 65 个条目，实测掉到 ~45fps（9/32 帧超过 33ms）。这样整段动画每帧只有
+   * transform/opacity，宽度只在两端各跳一次。
+   */
+
+  /**
+   * 「全部角色分类」抽屉的状态放在这一层，而不是留在 CharacterSidebar 里：
+   * 沉浸时侧栏整个滑出视口，工具栏还要一个同样的入口，两处必须打开同一个抽屉。
+   */
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerTriggerRef = useRef<HTMLElement | null>(null);
+  const { pendingCharacter, setPendingCharacter } = useNavigationLoading();
+
+  /**
    * 侧栏的滚动位置要跨分类导航保住 —— 换筛选条件时 Suspense 边界会把整棵列表换掉，
    * 这个 `overflow-y-auto` 容器是新建节点、scrollTop 天然归零（用户看到的就是
    * 「点一下分类，侧栏跳回最上面」）。记忆只活在当前标签页里，刷新后从头开始。
@@ -118,6 +139,36 @@ export function ModsListingView({
         })),
     );
 
+  const allHref = hrefFor({ character: undefined });
+
+  /**
+   * 抽屉开合与「点选后关闭」统一在这一层处理：侧栏按钮和工具栏按钮共用。
+   * 传入触发元素是为了关闭时把焦点还到用户刚点的那个按钮上。
+   */
+  const openCharacterPicker = useCallback((trigger: HTMLElement) => {
+    pickerTriggerRef.current = trigger;
+    setPickerOpen(true);
+  }, []);
+
+  const handlePickerOpenChange = useCallback((next: boolean) => {
+    setPickerOpen(next);
+    if (!next) pickerTriggerRef.current?.focus();
+  }, []);
+
+  const handlePickerItemClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>, href: string, isActive: boolean) => {
+      // 修饰键 / 中键 = 新标签页打开：用户还留在本页，抽屉不该消失
+      if (!isPlainLeftClick(event)) return;
+
+      const label =
+        href === allHref ? "全部" : sidebarCharacters.find((c) => c.href === href)?.label ?? "";
+      handleCardClick(event, href, isActive, label, setPendingCharacter);
+      setPickerOpen(false);
+      pickerTriggerRef.current?.focus();
+    },
+    [allHref, sidebarCharacters, setPendingCharacter],
+  );
+
   const sortHrefs: Record<string, string> = {};
   for (const opt of sortOptions) {
     sortHrefs[opt.value] = hrefFor({ sort: opt.value });
@@ -143,44 +194,52 @@ export function ModsListingView({
    * `pendingCharacter` 是侧栏标签（「全部」「Skins」也是），查不到就是 null，
    * 自动回落到竖屏骨架，不会误用别的角色的结论。
    */
-  const { pendingCharacter } = useNavigationLoading();
   const layoutHintKey = pendingCharacter ?? character;
   const layoutHint = layoutHintKey ? (layoutHints[layoutHintKey] ?? null) : null;
 
   return (
     <>
       {/*
-        侧栏收起：
-        - `w-0` 把宽度收掉，`-mr-6` 抵消父容器 `gap-6` 在零宽元素旁仍占的 24px；
-        - `overflow-hidden` 在宽度动画期间裁掉内部内容，避免横向溢出；
-        - 收起后加 `inert`，Tab 不会跑进看不见的分类链接（`display:none` 之外
-          还要这一步：宽度为 0 的元素依然可能被键盘聚焦）。
-        - 收起动效只在 `lg:` 生效；手机上本来就是 `hidden`。
+        侧栏收起（仅桌面）：
+        - **布局瞬间让位**：`w-0` + `-mr-6` 抵消父容器 `gap-6`。不给宽度加过渡 ——
+          宽度逐帧变化会重新布局侧栏里的 65 个条目，实测掉到 ~45fps；
+        - 面板本体用 `translate` + `opacity` 滑出/滑入，只走合成层，不触发侧栏内容重排；
+        - 内层固定 `w-[240px]`：外层宽度收成 0 后，面板仍完整存在、可以滑出视口；
+        - `relative z-20`：滑出过程中面板要盖在卡片上（父容器 `overflow-hidden` 负责裁掉视口外的部分）；
+        - 收起后加 `inert`，Tab 不会跑进看不见的分类链接（宽度为 0 也仍可能被聚焦）。
       */}
       <div
         data-mods-sidebar
         aria-hidden={sidebarCollapsed || undefined}
         inert={sidebarCollapsed || undefined}
         className={cn(
-          "hidden min-w-0 shrink-0 flex-col overflow-hidden lg:flex",
-          "transition-[width,margin,opacity] duration-300 ease-out motion-reduce:transition-none",
+          "relative z-20 hidden min-w-0 shrink-0 flex-col lg:flex",
+          "transition-[width,margin-right] duration-0",
           sidebarCollapsed
-            ? "lg:-mr-6 lg:w-0 lg:pointer-events-none lg:opacity-0"
-            : "lg:w-[240px] lg:opacity-100",
+            ? "lg:w-0 lg:-mr-6 delay-0"
+            : "lg:w-[240px] lg:delay-300 lg:motion-reduce:delay-0",
+          sidebarCollapsed && "pointer-events-none",
         )}
       >
         <div
           ref={attachSidebarScroll}
           onScroll={(event) => rememberScrollPosition(SIDEBAR_SCROLL_KEY, event.currentTarget.scrollTop)}
-          className="flex-1 overflow-y-auto pb-3 pr-1"
+          className={cn(
+            "flex w-[240px] flex-1 flex-col overflow-y-auto pb-3 pr-1",
+            "transition-[translate,opacity] duration-300 ease-out motion-reduce:transition-none",
+            "will-change-[translate,opacity]",
+            sidebarCollapsed ? "-translate-x-full opacity-0" : "translate-x-0 opacity-100",
+          )}
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           <CharacterSidebar
             allLabel="全部"
-            allHref={hrefFor({ character: undefined })}
+            allHref={allHref}
             allCount={totalCount}
             isAllActive={!character}
             characters={sidebarCharacters}
+            pickerOpen={pickerOpen}
+            onOpenPicker={openCharacterPicker}
           />
         </div>
       </div>
@@ -200,7 +259,25 @@ export function ModsListingView({
           activePreview={preview}
           layoutHint={layoutHint}
           showSitePreferences
+          showCharacterPickerTrigger={sidebarCollapsed}
+          onOpenCharacterPicker={openCharacterPicker}
           openModId={openModId}
+        />
+        {/*
+          「全部角色分类」抽屉挂在这里（右栏内部、紧贴网格）：
+          - 沉浸收起侧栏后，工具栏的「全部角色」按钮与原来的侧栏按钮打开同一个抽屉；
+          - Sheet 的遮罩与面板都是 fixed，放进这个 overflow-hidden 的右栏不会影响布局；
+          - 不放在最外层 flex 行里：Sheet 自带一个 data-slot="sheet" 的普通 div，
+            作为 flex 子项会多出一个 gap-6 的间距，挤压卡片区。
+        */}
+        <CharacterPickerDrawer
+          open={pickerOpen}
+          onOpenChange={handlePickerOpenChange}
+          allLabel="全部"
+          allHref={allHref}
+          isAllActive={!character}
+          items={sidebarCharacters}
+          onItemClick={handlePickerItemClick}
         />
       </div>
     </>

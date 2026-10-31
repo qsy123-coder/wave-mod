@@ -68,6 +68,12 @@ type ModsToolbarProps = {
    * **只有主站 `/mods` 传 true**：分站复用同一份工具栏，不该提供直达主站首页的开关。
    */
   showSitePreferences?: boolean;
+  /**
+   * 沉浸收起侧栏后，在工具栏补「全部角色」入口。它为 true 时由调用方同时给
+   * onOpenCharacterPicker —— 打开的是侧栏原本那个「全部角色分类」抽屉。
+   */
+  showCharacterPickerTrigger?: boolean;
+  onOpenCharacterPicker?: (trigger: HTMLElement) => void;
   onFilterChange?: () => void;
 };
 
@@ -170,6 +176,8 @@ export function ModsToolbar({
   effectiveMasonryColumns = null,
   onMasonryColumnsChange,
   showSitePreferences = false,
+  showCharacterPickerTrigger = false,
+  onOpenCharacterPicker,
   onFilterChange,
 }: ModsToolbarProps) {
   const router = useRouter();
@@ -922,6 +930,23 @@ export function ModsToolbar({
       */}
       {showSitePreferences ? (
         <div className="flex items-center gap-1.5">
+          {/*
+            沉浸收起侧栏后，原侧栏顶部的「全部角色」按钮随面板一起滑走；这里补一个
+            同款入口，打开的是**同一个**「全部角色分类」抽屉（状态在 mods-listing-view）。
+          */}
+          {showCharacterPickerTrigger && onOpenCharacterPicker ? (
+            <button
+              type="button"
+              data-character-picker-trigger
+              onClick={(event) => onOpenCharacterPicker(event.currentTarget)}
+              aria-haspopup="dialog"
+              title="打开全部角色分类"
+              className="inline-flex items-center gap-1 border-4 border-black bg-[var(--neo-accent)] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-black shadow-[4px_4px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000]"
+            >
+              <span aria-hidden>▦</span>
+              全部角色
+            </button>
+          ) : null}
           <button
             type="button"
             data-pref="auto-open"

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { cn } from "@/lib/utils";
 import { getCharacterImagePath } from "@/lib/constants/character-images";
 import { isCurrentNavigationUrl, isPlainLeftClick } from "@/lib/navigation-url";
@@ -23,6 +23,16 @@ type CharacterSidebarProps = {
   isAllActive: boolean;
   characters: CharacterSidebarItem[];
   className?: string;
+  /**
+   * 抽屉是否开着（只用于按钮的 aria-expanded）。
+   *
+   * 这两个 prop 是**可选**的：
+   *   - 给了 onOpenPicker = 受控模式（主站 /mods）：抽屉由调用方渲染，
+   *     因为沉浸收起侧栏后，工具栏还要一个入口打开同一个抽屉；
+   *   - 没给 = 自管模式（后台、游戏分站）：保持原来「按钮 + 抽屉都在组件内」的行为。
+   */
+  pickerOpen?: boolean;
+  onOpenPicker?: (trigger: HTMLElement) => void;
 };
 
 const tagColors = [
@@ -52,7 +62,7 @@ const tagColors = [
  * 所以这里写的是**另一个**状态 `pendingCharacter`，由网格加算进加载态，两边互不打架。
  * 被 preventDefault 拦掉的分支不能写：那次点击不导航，写了只能等看门狗兜底。
  */
-function handleCardClick(
+export function handleCardClick(
   event: MouseEvent<HTMLAnchorElement>,
   href: string,
   alreadyActive: boolean,
@@ -78,14 +88,48 @@ export function CharacterSidebar({
   isAllActive,
   characters,
   className,
+  pickerOpen,
+  onOpenPicker,
 }: CharacterSidebarProps) {
   // 筛选条件直接来自 URL（mods-url-driven.tsx）：URL 一变，侧边栏高亮、筛选条、
   // 网格的 queryKey 全都跟着变，所以筛选本身不需要任何本地状态，也不用手工起进度条
   // （顶部进度条由网格的取数状态驱动，见 mods-page-client 的 handleStatusChange）。
-  // 下面这个 pickerOpen 是抽屉自己的开合，与筛选无关。
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const { pendingCharacter, setPendingCharacter } = useNavigationLoading();
+
+  /**
+   * 自管模式下的抽屉状态（后台 / 游戏分站）。
+   * 主站 /mods 传了 onOpenPicker，这两个 state 不会被用到，但 hook 必须无条件调用。
+   */
+  const [uncontrolledPickerOpen, setUncontrolledPickerOpen] = useState(false);
+  const uncontrolledTriggerRef = useRef<HTMLElement | null>(null);
+  const isPickerControlled = onOpenPicker !== undefined;
+  const resolvedPickerOpen = isPickerControlled ? pickerOpen ?? false : uncontrolledPickerOpen;
+
+  const openPicker = (trigger: HTMLElement) => {
+    if (onOpenPicker) {
+      onOpenPicker(trigger);
+      return;
+    }
+    uncontrolledTriggerRef.current = trigger;
+    setUncontrolledPickerOpen(true);
+  };
+
+  const closeUncontrolledPicker = () => {
+    setUncontrolledPickerOpen(false);
+    uncontrolledTriggerRef.current?.focus();
+  };
+
+  /** 自管模式下点选抽屉里的分类：乐观值 + 关抽屉，与主站受控模式同一套语义 */
+  const handleUncontrolledItemClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    href: string,
+    isActive: boolean,
+  ) => {
+    if (!isPlainLeftClick(event)) return;
+    const label = href === allHref ? allLabel : characters.find((c) => c.href === href)?.label ?? "";
+    handleCardClick(event, href, isActive, label, setPendingCharacter);
+    closeUncontrolledPicker();
+  };
 
   /**
    * 导航落地就把乐观值清掉。
@@ -101,41 +145,6 @@ export function CharacterSidebar({
       characters.some((c) => c.isActive && c.label === pendingCharacter);
     if (landed) setPendingCharacter(null);
   }, [allLabel, characters, isAllActive, pendingCharacter, setPendingCharacter]);
-
-  /**
-   * 四条关闭路径（点遮罩 / Esc / 右上 ✕ / 点选角色）都汇到这里，统一回收焦点。
-   *
-   * useCallback 是必需的，不只是优化：抽屉里 Esc 的 useEffect 依赖 onOpenChange，
-   * 引用不稳定的话每次渲染都会把 window 上的监听重挂一遍。
-   */
-  const handlePickerOpenChange = useCallback((next: boolean) => {
-    setPickerOpen(next);
-    if (!next) triggerRef.current?.focus();
-  }, []);
-
-  /**
-   * 点选网格里的分类：先复用侧栏既有的「原地踏步」短路，再显式关闭抽屉。
-   *
-   * 必须显式关 —— 抽屉是 Client 组件，next/link 的客户端导航不会卸载它，
-   * 指望「页面变了抽屉自然没了」是错的。
-   *
-   * 带修饰键的点击（Ctrl/Cmd/中键 → 新标签页）直接放行且**不关**：用户还留在本页，
-   * 抽屉不该消失。
-   */
-  const handlePickerItemClick = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>, href: string, isActive: boolean) => {
-      if (!isPlainLeftClick(event)) return;
-
-      // 抽屉里的格子只回调 (event, href, isActive)，标签得自己按 href 反查 ——
-      // 这样不用为了一个 label 去改 character-picker-drawer 的接口。
-      const label =
-        href === allHref ? allLabel : characters.find((c) => c.href === href)?.label ?? "";
-
-      handleCardClick(event, href, isActive, label, setPendingCharacter);
-      handlePickerOpenChange(false);
-    },
-    [allHref, allLabel, characters, handlePickerOpenChange, setPendingCharacter]
-  );
 
   const specialCategories = characters.filter((c) =>
     ["Skins", "Other/Misc", "UI"].includes(c.label)
@@ -159,11 +168,10 @@ export function CharacterSidebar({
          * 只给 bg-white 会变成白底白字、整颗按钮看不见（2026-10-19 用户反馈）。
          */}
         <button
-          ref={triggerRef}
           type="button"
-          onClick={() => setPickerOpen(true)}
+          onClick={(event) => openPicker(event.currentTarget)}
           aria-haspopup="dialog"
-          aria-expanded={pickerOpen}
+          aria-expanded={resolvedPickerOpen}
           className="sticky top-0 z-10 flex items-center justify-center gap-1.5 border-[3px] border-black bg-white px-2.5 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[3px_3px_0px_0px_#000] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
         >
           <span aria-hidden>▦</span>
@@ -262,24 +270,25 @@ export function CharacterSidebar({
             );
           })}
         </div>
-      </aside>
-
+    </aside>
       {/*
-       * 抽屉挂在 aside **之外**、与它同级：Sheet 自带一个 `<div data-slot="sheet">` 包裹层，
-       * 放进 aside 会被它的 `flex-col gap-1.5` 当成一个 flex 项、多撑出 6px 间隙，
-       * 破坏「除新按钮外逐像素一致」这条回归要求。
-       *
-       * items 的顺序（特殊分类 → 角色）与 aside 里的视觉顺序一致，「全部」由抽屉补作第一格。
-       */}
-      <CharacterPickerDrawer
-        open={pickerOpen}
-        onOpenChange={handlePickerOpenChange}
-        allLabel={allLabel}
-        allHref={allHref}
-        isAllActive={isAllActive}
-        items={[...specialCategories, ...characterItems]}
-        onItemClick={handlePickerItemClick}
-      />
+        自管模式（后台 / 游戏分站）：抽屉挂在 aside 之外，保持原来行为。
+        主站 /mods 是受控模式，抽屉由 mods-listing-view 渲染（工具栏入口要共用）。
+      */}
+      {!isPickerControlled ? (
+        <CharacterPickerDrawer
+          open={uncontrolledPickerOpen}
+          onOpenChange={(next) => {
+            if (next) setUncontrolledPickerOpen(true);
+            else closeUncontrolledPicker();
+          }}
+          allLabel={allLabel}
+          allHref={allHref}
+          isAllActive={isAllActive}
+          items={characters}
+          onItemClick={handleUncontrolledItemClick}
+        />
+      ) : null}
     </>
   );
 }

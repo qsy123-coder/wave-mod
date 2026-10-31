@@ -78,6 +78,8 @@
   - 顶部导航栏上滑离开视口，`/mods` 外壳同步上提、高度补满 `100dvh`；
   - 动画约 300ms，结束后卡片区铺满视口，无空白条、无横向/纵向多余滚动条。
 - [ ] 再点一次（按钮位置不变）恢复原布局，同样有动画。
+- [ ] 沉浸状态下侧栏里的「全部角色」按钮仍有入口：工具栏出现同款「全部角色」按钮，
+      点击打开同一个全部角色分类抽屉，选中角色能正常跳转并关闭抽屉。
 - [ ] 状态存入 localStorage；刷新 `/mods` 后保持（首次硬加载允许看到一次收起动画，视为入场动画）。
 - [ ] 离开 `/mods`（如点侧栏/工具栏外的链接进入教程页）时导航栏立即恢复，沉浸状态只作用于 `/mods` 与 `/mods/*`。
 - [ ] 窗口缩到 `< 1024px` 时自动失效：导航栏可见、侧栏保持原手机形态；状态仍保留，回到桌面宽度后恢复。
@@ -142,12 +144,21 @@
 
 **侧栏收起（`mods-listing-view.tsx`）**
 
-- 外层从 `hidden w-[240px] shrink-0 flex-col lg:flex` 改为带过渡的容器：
-  - 展开：`lg:w-[240px]`
-  - 收起：`lg:w-0 lg:-mr-6 lg:opacity-0`（`-mr-6` 抵消父容器 `gap-6` 留下的 24px）
-  - 常驻：`min-w-0 overflow-hidden transition-[width,margin,opacity] duration-300 ease-out`
-- 收起时加 `inert` + `aria-hidden`，避免 Tab 键焦点跑进看不见的链接。
-- 交互热区：收起后 `pointer-events-none`。
+- **布局瞬间让位，面板用合成层滑出**：
+  - 外层：展开 `lg:w-[240px]`；收起 `lg:w-0 lg:-mr-6`（`-mr-6` 抵消父容器 `gap-6` 留下的 24px）；
+  - 外层常驻 `transition-[width,margin-right] duration-0`，用 `transition-delay` 控制两端：
+    - 收起（目标状态 `delay-0`）：宽度立刻变 0，卡片区马上变宽；
+    - 展开（目标状态 `lg:delay-300`）：宽度先保持 0，等面板滑进来后再占回 240px。
+  - 内层面板固定 `w-[240px]`，用 `-translate-x-full opacity-0` 滑出/滑入，常驻
+    `transition-[translate,opacity] duration-300` + `will-change`。
+- 收起时加 `inert` + `aria-hidden` + `pointer-events-none`，避免 Tab 键焦点跑进看不见的链接。
+- **为什么不给宽度做插值动画**：宽度每变 1px 都会重新布局侧栏里的 65 个条目。
+  2026-10-31 实测（1440×900，瀑布流）：宽度过渡版本平均帧 21.4ms、9/32 帧超过 33ms；
+  改成「0 时长跳变 + transform/opacity」后稳定 16.7ms、0 帧掉帧。
+- **沉浸模式下「全部角色」按钮仍可用**：它会随侧栏面板滑走，所以 `/mods` 工具栏补一个
+  同款入口（`data-character-picker-trigger`），打开的是**同一个**
+  `CharacterPickerDrawer`。抽屉状态因此上提到 `mods-listing-view`；后台 / 游戏分站
+  不传 `onOpenPicker`，`CharacterSidebar` 回落到组件内自管模式，行为不变。
 
 **导航栏收起（`site-header-client.tsx`）**
 
@@ -166,14 +177,17 @@
 - 抽取为客户端组件 `ModsShell`，按沉浸状态二选一（不要在同一个元素上叠加普通类 + `lg:` 覆盖，避免 Tailwind 生成顺序带来的不确定性）：
   - 普通：`h-[calc(100dvh-var(--site-header-h))]`
   - 沉浸（且桌面）：`h-[100dvh] -mt-[var(--site-header-h)]`
-- 常驻 `transition-[height,margin-top] duration-300 ease-out`。
+- 外壳**不做 height/margin 插值**，用 `transition-[height,margin-top] duration-0` + `transition-delay` 控制切换时机：
+  - 收起（目标状态 `delay-0`）：外壳立刻补满视口，此时导航栏还盖在顶部，随后导航栏滑走把内容「揭」出来；
+  - 展开（目标状态 `lg:delay-300`）：外壳先保持满屏，等导航栏滑下来盖住顶部后再缩回 ——
+    否则导航栏还在半空时顶部会露出一条背景空隙。
 - `/mods` 上 `BodyScrollLock` 已锁 body 滚动、`ConditionalFooter` 已返回 null，负 margin 不会引起窗口滚动或页脚被顶出。
 - `--site-header-h` 由 header 的 ResizeObserver 实测写入，位移不改变它，所以负 margin 拿到的是真实高度；`/mods` 的 header 没有顶部通知条，高度就是导航行高度。
 
 **为什么用「负 margin + 高度补满」而不是给 header 动画 `height`**：
 
 - `height: auto → 0` 无法过渡（auto 不可插值），要做就得把 header 高度钉成像素，影响顶部通知条动态开关，牵一发动全身；
-- 负 margin + `100dvh` 只改 `/mods` 自己的外壳，动画对象都是可插值的长度，且不改 header 的测量逻辑。
+- 负 margin + `100dvh` 只改 `/mods` 自己的外壳，不必改 header 的测量逻辑；再配合延迟跳变，切换过程被导航栏的位移遮住。
 
 ### 3. 手机端与降级
 
@@ -277,6 +291,19 @@
 - 站内客户端导航不会执行 `<script>`，补了 `HomeAutoRedirect`（读 Provider 状态后 `router.replace("/mods")`）。
 - **Tailwind v4 的 `translate` 工具类写的是 `translate` 属性**，过渡必须写 `transition-[translate,opacity]`；写 `transform` 会变成瞬移（实测修正）。
 - 项目的 `components/ui/dropdown-menu.tsx` 是自研普通 `<button>`，**不支持 Radix 的 `onSelect`**；顶栏开关改用 `onClick` + `DropdownMenuCheckboxItem`（实测修正）。
+
+### 第二轮优化（2026-10-31，用户反馈「动画还是太卡」+「全部角色按钮也要显示」）
+
+- 逐帧测量定位：卡顿来自**侧栏宽度过渡**（逐帧重排 65 个条目），不是瀑布流重算。
+  - 原方案（宽度 + 外壳高度都做 300ms 过渡）：平均帧 21.4ms，9/32 帧 > 33ms；
+  - 仅禁侧栏宽度过渡：17.1ms；两者都禁：16.7ms。
+- 改为：侧栏宽度**0 时长跳变**，面板用 `translate` + `opacity` 滑出/滑入；
+  外壳 height/margin 同样 0 时长跳变，用 `transition-delay` 让展开侧的复位等导航栏落位。
+  最终实测：**所有场景 16.7ms/帧，0 帧 > 33ms**。
+- 沉浸模式下「全部角色」按钮：抽屉状态上提到 `mods-listing-view`，工具栏增加同款入口；
+  `CharacterSidebar` 保留受控/自管两种模式，后台与游戏分站行为不变。
+- 实测：抽屉从工具栏打开 67 个分类格，点选后 URL 变为 `/mods?character=…` 且抽屉关闭；
+  展开时中段外壳保持 `top:0/height:900`，导航栏落位后才缩回 `top:76/height:824`，无顶部空隙。
 
 ---
 
