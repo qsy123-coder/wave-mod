@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mod 命名工坊</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <h1>Mod 命名工坊</h1>
+      <span class="tag">P0 · 改名不写库</span>
+      <div class="spacer"></div>
+      <label class="field">
+        <span>日期目录</span>
+        <select id="dir-select"></select>
+      </label>
+      <button id="btn-reload" class="ghost">重新扫描</button>
+    </header>
+
+    <p id="meta-line" class="meta"></p>
+    <p id="banner" class="banner" hidden></p>
+
+    <main id="sources"></main>
+
+    <footer class="bar sticky">
+      <div id="stats" class="stats"></div>
+      <div class="spacer"></div>
+      <button id="btn-undo" class="ghost" disabled>撤销上一批</button>
+      <button id="btn-apply" class="primary" disabled>应用已选</button>
+    </footer>
+
+    <section id="journals" class="journals" hidden></section>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

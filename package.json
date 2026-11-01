@@ -12,7 +12,8 @@
     "cf:deploy": "npm run cf:build && npx wrangler deploy",
     "vc:deploy": "vercel deploy",
     "backup": "node scripts/backup-to-github.mjs",
-    "restore": "node scripts/restore-from-backup.mjs"
+    "restore": "node scripts/restore-from-backup.mjs",
+    "rename-ui": "node tools/mod-rename/server.mjs"
   },
   "dependencies": {
     "@alicloud/credentials": "^2.4.4",
