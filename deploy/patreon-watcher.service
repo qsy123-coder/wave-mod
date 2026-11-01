@@ -1,0 +1,27 @@
+[Unit]
+Description=Patreon Watcher - patreon.com 作者发帖更新监测
+Documentation=file:///home/ubuntu/kekehxl-watcher/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/kekehxl-watcher
+# 必须跑服务器：本机（中国家宽）连 patreon.com 直接 TCP 超时。
+# 走 api.patreon.com（不被 Cloudflare 拦），纯 HTTP，无需浏览器。
+ExecStart=/usr/bin/python3 /home/ubuntu/kekehxl-watcher/run_patreon_forever.py
+Restart=always
+RestartSec=30
+# 日志
+StandardOutput=append:/home/ubuntu/kekehxl-watcher/patreon-watcher.log
+StandardError=append:/home/ubuntu/kekehxl-watcher/patreon-watcher.log
+# 资源与安全
+Nice=10
+MemoryMax=300M
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

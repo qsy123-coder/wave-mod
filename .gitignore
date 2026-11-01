@@ -1,0 +1,34 @@
+# ===== 真实配置（推送 token / 站点密码 / 服务器地址）=====
+config.ini
+config.arca.ini
+config.afdian.ini
+config.gb.ini
+config.nexus.ini
+config.patreon.ini
+patreon_session.txt
+
+# ===== 含服务器地址 / SSH 密钥名的本机部署脚本 =====
+local/sync.ps1
+local/install_sync_task.ps1
+
+# ===== 运行状态 / 下载队列 / 产物 =====
+state.*.json
+state.*.json.lock
+state.*.json.run.lock
+*.lock
+*.part
+out/
+status/
+deploy/state_rebuilt/
+
+# ===== 日志 =====
+*.log
+*.log.*
+
+# ===== 缓存 / 系统 =====
+__pycache__/
+*.pyc
+.venv/
+.env
+.DS_Store
+Thumbs.db

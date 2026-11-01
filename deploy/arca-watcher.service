@@ -1,0 +1,26 @@
+[Unit]
+Description=arca.live Mod Watcher - 명조 엔드필드 모딩 채널 监测
+Documentation=file:///home/ubuntu/kekehxl-watcher/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/kekehxl-watcher
+# 该站有 Cloudflare 反爬且不下发可复用 cookie，必须走真实浏览器；
+# xvfb-run 提供虚拟显示，让 chromium 以 headful 模式运行
+ExecStart=/usr/bin/xvfb-run -a /usr/bin/python3 /home/ubuntu/kekehxl-watcher/run_arca_forever.py
+Restart=always
+RestartSec=60
+StandardOutput=append:/home/ubuntu/kekehxl-watcher/arca-watcher.log
+StandardError=append:/home/ubuntu/kekehxl-watcher/arca-watcher.log
+# 资源限制：本机仅 1.9G 内存且承载着用户自有站点，必须限制 cgroup 防止 OOM 波及
+Nice=10
+MemoryMax=900M
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

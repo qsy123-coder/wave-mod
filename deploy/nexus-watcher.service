@@ -1,0 +1,26 @@
+[Unit]
+Description=Nexus Mods Watcher - nexusmods.com 鸣潮分区每日更新监测
+Documentation=file:///home/ubuntu/kekehxl-watcher/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/kekehxl-watcher
+# 走官方 API（api.nexusmods.com 不被 Cloudflare 拦），纯 HTTP，无需浏览器
+ExecStart=/usr/bin/python3 /home/ubuntu/kekehxl-watcher/run_nexus_forever.py
+Restart=always
+RestartSec=30
+# 日志
+StandardOutput=append:/home/ubuntu/kekehxl-watcher/nexus-watcher.log
+StandardError=append:/home/ubuntu/kekehxl-watcher/nexus-watcher.log
+# 资源与安全
+Nice=10
+MemoryMax=300M
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

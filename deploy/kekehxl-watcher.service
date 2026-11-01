@@ -1,0 +1,25 @@
+[Unit]
+Description=Kekehxl Mod Watcher - www.mowink.org 每日更新监测
+Documentation=file:///home/ubuntu/kekehxl-watcher/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/kekehxl-watcher
+ExecStart=/usr/bin/python3 /home/ubuntu/kekehxl-watcher/run_forever.py
+Restart=always
+RestartSec=30
+# 日志
+StandardOutput=append:/home/ubuntu/kekehxl-watcher/watcher.log
+StandardError=append:/home/ubuntu/kekehxl-watcher/watcher.log
+# 资源与安全
+Nice=10
+MemoryMax=400M
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
