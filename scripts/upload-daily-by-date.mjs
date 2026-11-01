@@ -41,6 +41,14 @@ import { syncCoverSizes } from "./cover-size.mjs";
 import { resolveDakaIfApplicable } from "./daka-classify.mjs";
 import { resolveReshareAlias } from "./reshare-title-aliases.mjs";
 import { parseXunleiTxt, withXunleiPwd } from "./xunlei-txt-parse.mjs";
+import { parseQuarkCsvText } from "./quark-csv-parse.mjs";
+import {
+  dedupKey,
+  extractVersion,
+  resolveCanonicalKey,
+  resolveCharacterAndTitle,
+  stripRenameSuffix,
+} from "./daily-classify.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
@@ -93,213 +101,6 @@ const XXMI_GUIDE = [
 
 const SKIP_PREFIXES = [];
 
-/** 角色前缀 → 标准角色名，title 去前缀 */
-const CHARACTER_PREFIX_MAP = [
-  { prefix: "清宵", character: "清宵" },
-  { prefix: "清霄", character: "清宵" }, // 变体归一化
-  { prefix: "玄翎", character: "玄翎" },
-  { prefix: "洛瑟菈", character: "洛瑟菈" },
-  { prefix: "穗穗", character: "穗穗" },
-  { prefix: "相里要", character: "相里要" },
-  { prefix: "达妮娅", character: "达妮娅" },
-  { prefix: "女漂皮肤", character: "女漂" }, // 「女漂皮肤{星火永明]-…」归女漂
-  { prefix: "琳奈皮肤", character: "琳奈" }, // 「琳奈皮肤[薄荷糖]-…」归琳奈
-  // 「千咲皮肤{蜜桃冰]-丰汝肥屯…」——`{`/`]` 是 `[`/`]` 的笔误变体，
-  // 故用前缀而非全等别名匹配；库内先例 `千咲 | 千咲皮肤[蜜桃冰]-蜜桃啵啵冰v1.1` 同样保留完整 title
-  { prefix: "千咲皮肤", character: "千咲" },
-  // 裸「千咲-」：库内 164 条中 162 条为无前缀写法（`千咲 | 丰汝肥屯（上下）by slap`、
-  // `千咲 | 原版切换（x）by JR7`），仅 2 条「千咲皮肤[蜜桃冰]-…」保留全 title——那是上面一条管的。
-  // ⚠️ 必须排在「千咲皮肤」之后，否则 `千咲皮肤[蜜桃冰]-…` 会被剥成 `皮肤[蜜桃冰]-…`。
-  { prefix: "千咲", character: "千咲" },
-  // 卡提希娅：库内 160 条中 157 条为无前缀写法（`卡提希娅 | 小卡-曲线优美`、
-  // `卡提希娅 | 大卡-时韵 Mk3（；)og狩野樱`），仅 3 条保留前缀（加进本表前入库的遗留）。
-  { prefix: "卡提希娅", character: "卡提希娅" },
-  // 以下 4 个角色此前不在表内，会落到默认分支把「角色-」前缀原样留在 title 里
-  // （如 `莫宁 | 莫宁-丰汝肥屯（上下左右）by mingchen`），与库内惯例不符：
-  //   卜灵 22/22 无前缀、莫宁 99/100 无前缀、琳奈除「琳奈皮肤[薄荷糖]-」家族外均无前缀。
-  // 补进来后统一剥离，title 只留皮肤名。
-  // ⚠️ `琳奈` 必须排在 `琳奈皮肤` 之后，否则 `琳奈皮肤[薄荷糖]-…` 会被剥成
-  //    `皮肤[薄荷糖]-…`，与库内 3 条既有写法冲突。
-  { prefix: "琳奈", character: "琳奈" },
-  { prefix: "莫宁", character: "莫宁" },
-  { prefix: "卜灵", character: "卜灵" },
-  { prefix: "景燃", character: "景燃" },
-  // 绯雪：库内 26 条中 24 条为无前缀写法（`绯雪 | 心月狐 by kuzan`、`绯雪 | 原版切换（x）by JR7`），
-  // 仅 2026-09-12 / 09-16 两条保留前缀——那是加进本表前入库的遗留。
-  // 补进来后统一剥离，与主流写法对齐；dedupKey 会把已有前缀式记录归一化，不会重复入库。
-  { prefix: "绯雪", character: "绯雪" },
-  // 丽贝卡：库内 16 条 title **无一**带「丽贝卡-」前缀（`丽贝卡 | 丰汝肥屯 by big aingsa`、
-  // `丽贝卡 | 原版切换v1.0（0） by 晨星`）。不加这条，W-2026.9.22 的
-  // `丽贝卡-洁薇塔（90）by woju` 会落默认分支，title 原样留下冗余前缀，与惯例不符。
-  { prefix: "丽贝卡", character: "丽贝卡" },
-  // 奥古斯塔：库内 144 条中仅 2 条带前缀（且其中一条是错别字「奥古斯特-多种发型」），
-  // 其余 142 条均为剥离写法（`奥古斯塔 | 北极风暴`、`奥古斯塔 | 爱琴海 by 辉映星辰允如光`）。
-  { prefix: "奥古斯塔", character: "奥古斯塔" },
-  // 爱弥斯：库内 217 条中 206 条为无前缀写法（`爱弥斯 | 丰汝肥屯（上下）by slap`、
-  // `爱弥斯 | 蕾米的礼物 by PebbleRox`），仅 11 条保留前缀——其中 10 条是
-  // 2026-09-23 起每日脚本落默认分支留下的（`爱弥斯-誓约（0）by 晨星`、
-  // `爱弥斯-心月狐（【）by woju`、`爱弥斯-薄荷-海盐金平糖（num123）`、
-  // `爱弥斯-英雄`、`爱弥斯-水晶（【）`、`爱弥斯-辣妹（F5)by Arelewd` 等），
-  // 另 1 条是「爱弥斯饰品」keepFull 先例（见下方 resolveCharacterAndTitle 的饰品护栏）。
-  // 补进来后统一剥离，与主流写法对齐；dedupKey 会把两侧的「角色-」前缀都归一化
-  // （见其函数注释），故 9.26 之前入库的带前缀记录不会被当新增重复插入。
-  { prefix: "爱弥斯", character: "爱弥斯" },
-  // 露帕：库内 104 条 **无一** 带「露帕-」前缀（`露帕 | 夏日泳装 by woju`、
-  // `露帕 | 泳装4.0 by zlevir`）。2026-10-24 起文件名按惯例写成 `露帕-…`，
-  // 不剥的话 title 会把前缀原样留下。去重键不受影响（dedupKey 本来就会剥 title 前缀）。
-  { prefix: "露帕", character: "露帕" },
-  // 心月狐：库内 character='心月狐' **0 条**（2026-10-01 的 W-2026.10.1 是首批），
-  // 没有任何历史写法要对齐，直接按全站惯例剥掉「心月狐-」前缀。
-  // 加在第一批之前是为了别再复制爱弥斯那段的由来——那批落默认分支保留前缀的记录
-  // 后来全成了「遗留写法」，还得靠 dedupKey 前缀归一化去兜。
-  // ⚠️ 去重键不受影响：dedupKey 会把 title 开头的「角色-」归一化掉，
-  // 加不加这条算出的 `心月狐|xxx` 完全一致，所以不会造成重复入库。
-  { prefix: "心月狐", character: "心月狐" },
-];
-
-/**
- * UI 类：整包 UI，title 保留完整 key
- *   - 任意「<角色>全ui…」（库内既有约定：`UI | 吟霖全ui-动态nsfw-v2.2.6`、`UI | 椿全ui-…`），
- *     含裸「全ui…」开头（`UI | 全ui背景-美图v3.5`）——故 `.*?` 允许零个前缀字符。
- *   - 「编队界面-…」「编队图片-…」（`UI | 编队界面-狐妻猫咪内衣-新增穗穗/清宵`）
- *   - 「加载界面-…」「隐藏UID…」——2026-10-01 补。这两个前缀一直没进本表，
- *     库内既有同族记录 character **全部**是 `UI`（当初怎么落进去的未考证）：
- *       `UI | 加载界面-动态静态随机美图-v3.6更新`、`UI | 加载界面-随机nsfw-v3.5`
- *       `UI | 隐藏UID UI 雾-v3.6（f11 f9切换）`、`UI | 隐藏UID UI 雾-v3.5fix（f11 f9切换）`
- *     （仅 v3.5 那一条落在历史 bucket「反虚化，ui界面…」，v3.6 起都是 UI。）
- *     W-2026.10.1 的 v3.7 两条若不加，就会落默认分支，被 `key.split(/[-－]/)[0]` 切成
- *     站内**不存在**的假分类「加载界面」和「隐藏UID UI 雾」，前台凭空多两个角色分类。
- *     两条标题都保留完整 key，与上面 v3.6 的写法逐字对齐。
- *   - 「抽卡界面」——2026-10-09 补。必须带 `.*?`：那天的文件名是
- *     `全女角色抽卡界面-半果v3.7 by susu酒`，前缀是「全女角色抽卡界面」，
- *     写裸前缀「抽卡界面」匹配不到 ⇒ 落默认分支切出假分类「全女角色抽卡界面」。
- *     库内同系列两条先例（`UI | 全女角色抽卡界面-半果v3.6`、`v3.6fix`，2026-09-03）
- *     存的正是 `UI`、title 保留完整 key，与这里一致。
- * 这里不写死角色清单——否则遇到清单外的角色（如「椿」）会落到默认分支，
- * 切出 `椿全ui` 这类站内不存在的假分类。
- */
-const UI_FULL_KEY_RE = /^(?:.*?全ui|编队界面|编队图片|加载界面|隐藏UID|.*?抽卡界面)/;
-
-/**
- * 武器皮：`<武器名>-<皮肤名>`，整包归 `武器`，title 保留完整 key。
- * 库内先例：`武器 | 千古-赛琳娜武器 by _eldarC`、`武器 | 停驻之烟-QBZ-97`。
- */
-const WEAPON_PREFIXES = ["浩境粼光"];
-
-/** 与 src/lib/mods-domain/sorting.ts 的 CHARACTER_ALIASES 保持一致（避免造出站内不存在的分类） */
-const CHARACTER_ALIASES = {
-  "陆赫斯": "路赫斯",
-  "反虚化，ui界面，场景，葫芦，特效等": "UI",
-  "千咲皮肤[蜜桃冰]": "千咲",
-  "科考摩托": "滑翔翼,翱翔翼,科考摩托",
-  // 文件名常用简称「心-」写心月狐的 mod（2026-10-02 批次，预览图确认与
-  // 「心月狐-点绛唇v0.5」同角色：白发狐耳 + 同款点绛唇红旗袍，用户已确认）。
-  // 不加这条会落默认分支，让前台凭空多出一个「心」分类。
-  "心": "心月狐",
-  // 库内「背包 编队 商城 用户界面-nsfw v2.5.2~2.5.5」4 条先例均归 UI
-  "背包 编队 商城 用户界面": "UI",
-  // 「心(含大招)-…」（W-2026.10.9 起）：前缀写成了「心(含大招)」而非裸「心」，
-  // 上面那条全等别名匹配不到 ⇒ 落默认分支、被 `key.split(/[-－]/)[0]` 切成假分类。
-  // 同批的 `心-大招状态-原版切换（p）by monsoon` 命中裸「心」正确落 心月狐，
-  // 两条是同一角色的同一套东西，这里必须并回去。
-  // 括号形状有全角/半角/混排多种写法（10-09 全角、10-10 半角与混排），追不及，
-  // 故别名只登记半角形式，查表前由 canonicalizeParens 折叠成同一形式。
-  "心(含大招)": "心月狐",
-  // 与「千咲皮肤[蜜桃冰]」同一规则：饰品名带后缀 → 归基础角色，title 保留完整 key
-  "爱弥斯饰品[雪绒豹豹]": "爱弥斯",
-};
-
-/** 前缀 → UI 分类（如「索拉指南-长离动态nsfw」整包皮肤归 UI，title 去前缀） */
-const UI_PREFIXES = ["索拉指南"];
-
-/**
- * 特效类（「去角色轮廓」「去葫芦和葫芦光」）：整包归库内那串**历史 bucket**
- * 「反虚化，ui界面，场景，葫芦，特效等」，**title 保留完整 key**。
- *
- * 「去葫芦和葫芦光」是库内 `去葫芦和葫芦光v3.5`（2026-08-10，同 bucket）的版本更新，
- * 2026-10-02 的 v3.7 必须落同一个 bucket：落默认分支会把整串当角色名，
- * 造出前台不存在的「去葫芦和葫芦光v3.7」分类。
- *
- * 「RabbitFX反虚化」同理：库内 5 条历史版本（v74/v75/v80/v81/v82，均为该 bucket）
- * 的 key 都带这个前缀。2026-10-03 的 v8.3.2 若不拦，key 里没有横杠
- * ⇒ 默认分支的 `key.split(/[-－]/)[0]` 会把整串当角色名，
- * 前台凭空多出「RabbitFX反虚化+发光前置v8.3.2(内附说明）」这个分类。
- *
- * 「鼠标指针」是从老上传器 upload-fifth.mjs 的 `UI_MISC_PREFIXES` 漏搬的一条：
- * 库内 10 条同系列记录（`鼠标指针-赞妮弗洛洛尤诺一体化v1.05/v1.1/v1.15/v1.8.1/
- * v1.8.2`、`鼠标指针-赞妮`、`鼠标指针-弗洛洛`、`鼠标指针-尤诺` 等，2026-08-10 与
- * 2026-09-03 两批）全部存在这个 bucket 原文下。2026-10-05 的 v1.8.8 是切到本脚本后
- * 第一次撞上该前缀，不拦就会凭空造出新分类「鼠标指针」。
- *
- * 「隐藏心的红方块」是 2026-10-09 补的：`隐藏心的红方块和清宵飞剑` 整条文件名**没有横杠**，
- * 默认分支的 `key.split(/[-－]/)[0]` 切不开 ⇒ 把整串当角色名，前台多出同名新分类。
- * 它是「去掉游戏内某些视觉元素」的通用特效包（隐藏心大招的红方块 + 清宵的飞剑），
- * 同时涉及两个角色，塞进任一单个角色名下都不对，与 `去葫芦和葫芦光`（去葫芦光）同类，
- * 故归本 bucket。用**前缀**而非全等，将来出 v1.1 之类也不会再漏。
- *
- * 为什么写这串原文、而不是直接写 `UI`：去重键是 `character|title`，而库内 21 条同
- * bucket 的记录（2026-09-03 批次，`去角色轮廓v3.6` 本体就在其中）存的正是这串原文——
- * 前台 getAvailableCharacters / applyModQueryFilters 都会过 normalizeCharacterName
- * 把它归一成 UI 展示，所以两者在站上是同一个分类。
- * 若这里返回 `UI`，与库内那条算不出同一个键 ⇒ 重分享会被当成新增再插一遍，
- * 同一张卡在前台出现两次；而落默认分支更糟：`去角色轮廓v3.6` 会变成
- * normalizeCharacterName 认不出的新值，前台凭空多一个角色分类。
- */
-const EFFECT_BUCKET = "反虚化，ui界面，场景，葫芦，特效等";
-const EFFECT_BUCKET_PREFIXES = [
-  "去角色轮廓",
-  "去葫芦和葫芦光",
-  "RabbitFX反虚化",
-  "鼠标指针",
-  "隐藏心的红方块",
-  // 2026-10-24：`隐藏云景座椅`（GameBanana 731411，隐藏家园那把椅子的座位，方便截图）。
-  // 与「隐藏心的红方块」同类：不是角色皮肤，key 里也没有横杠可切，
-  // 落默认分支会让整串变成前台不存在的假分类。
-  "隐藏云景座椅",
-  // 2026-10-24：`隐藏座椅虚化`（W-2026.10.24，隐藏家园座椅 + 去虚化，方便截图摆姿势）。
-  // 与上一条同一族：预览图是角色坐在家园座椅上拍的，改的不是任何角色本体；
-  // key 里没有横杠，落默认分支会切出假分类「隐藏座椅虚化」。
-  "隐藏座椅虚化",
-  // 2026-10-30：`油腻高光特效-任意角色（＊-+）by neerajksah`（GameBanana 733773，
-  // Matcap 式油腻/高光皮肤贴图，可套在任意角色 mod 上；替代 KatTheDev 的 KatFXMatcap）。
-  // 不针对任何单个角色，横杠后面是「任意角色」——落默认分支会把「油腻高光特效」
-  // 当成新角色分类。与 鼠标指针 / 隐藏座椅虚化 同族，整 key 保留。
-  // 注：热键是 `*`，Windows 文件名非法，按项目惯例换全角 `＊`。
-  "油腻高光特效",
-];
-
-/**
- * 「爱弥斯的机甲」「爱弥斯大招」整包 → 独立分类「爱弥斯的机甲」，**title 保留完整 key**。
- *
- * 该分类由用户于 2026-09-20 明确要求新建（突破 CLAUDE.md「不得新增 character 值」的默认约束）。
- * title 保留完整 key 的理由：upload-fifth.mjs 当年就是以 keepFull 方式把「爱弥斯的机甲-*」
- * 归到 爱弥斯 的，库内 3 条先例（丰汝肥屯 by slap / 赦罪者大卡v2 / 时韵大卡-守岸人光辉头v4）
- * 的 title 同样带前缀，沿用可保持一致。
- *
- * `爱弥斯大招` 单列一条：`爱弥斯大招的隧者-Aion by ZelbertYQ`（W-2026.9.20）若走默认分支，
- * 会被 `key.split(/[-－]/)[0]` 切成站内不存在的假分类「爱弥斯大招的隧者」。
- */
-const AEMEATH_MECH_PREFIXES = ["爱弥斯的机甲", "爱弥斯大招"];
-
-/**
- * 「周本*」→ 独立分类「怪物」，**title 保留完整 key**。
- *
- * 该分类由用户于 2026-10-17 明确要求新建（再次突破 CLAUDE.md「不得新增 character 值」
- * 的默认约束）。首条是 W-2026.10.16 的 `周本心月狐-艳色灼人 by 晨星`：改的是**周本 Boss
- * 模型**，不是可操作角色「心月狐」的本体皮肤，故不并回 心月狐（同「爱弥斯的机甲」的思路）。
- *
- * 用裸前缀「周本」而不是写死「周本心月狐」：以后再来「周本XX」自动落到同一个桶，
- * 否则每条都会走默认分支、被 `key.split(/[-－]/)[0]` 切出各自站内不存在的假分类。
- *
- * title 保留完整 key，理由与副作用：
- *   - 库里没有「周本」先例（character / title 均 0 条），没有历史写法要对齐；
- *     保留完整 key 才看得出这条改的是哪只怪物（keepFull 同 EFFECT_BUCKET / 爱弥斯饰品）。
- *   - 由此去重键 = `怪物|周本心月狐-艳色灼人 by 晨星`。dedupKey 只归一化 title 开头的
- *     「角色-」前缀，而 title 开头是「周本」不是「怪物」，不会被剥 ⇒ 键稳定。
- *
- * 放在默认分支之前是硬要求：落默认分支就会造出前台不存在的「周本心月狐」分类。
- */
-const MONSTER_PREFIXES = ["周本"];
 
 // ==================== 数据库连接 ====================
 
@@ -362,90 +163,12 @@ function slugify(name) {
 // ==================== CSV 解析（夸克，含多行引号字段） ====================
 
 function parseQuarkCsv(filePath) {
-  const raw = readFileSync(filePath, "utf-8");
-  const records = [];
-  let i = 0;
-  const lines = raw.split(/\r?\n/);
-  if (lines[0]?.startsWith("创建分享状态")) i = 1;
-
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    if (!line) { i++; continue; }
-    const firstComma = line.indexOf(",");
-    if (firstComma === -1) { i++; continue; }
-    let rest = line.slice(firstComma + 1);
-
-    let shareName;
-    if (rest.startsWith('"')) {
-      const endQuote = rest.indexOf('",', 1);
-      if (endQuote === -1) { i++; continue; }
-      shareName = rest.slice(1, endQuote);
-      rest = rest.slice(endQuote + 2);
-    } else {
-      const nextComma = rest.indexOf(",");
-      if (nextComma === -1) { i++; continue; }
-      shareName = rest.slice(0, nextComma);
-      rest = rest.slice(nextComma + 1);
-    }
-
-    let shareContent = "";
-    if (rest.startsWith('"')) {
-      rest = rest.slice(1);
-      const contentLines = [];
-      while (i < lines.length) {
-        const cl = rest;
-        const endIdx = cl.indexOf('",');
-        if (endIdx !== -1) {
-          contentLines.push(cl.slice(0, endIdx));
-          rest = cl.slice(endIdx + 2);
-          break;
-        }
-        if (cl.endsWith('"')) {
-          contentLines.push(cl.slice(0, -1));
-          i++;
-          rest = lines[i]?.trim() || "";
-          break;
-        }
-        contentLines.push(cl);
-        i++;
-        if (i >= lines.length) break;
-        rest = lines[i];
-      }
-      shareContent = contentLines.join("\n");
-    } else {
-      const nextComma = rest.indexOf(",");
-      if (nextComma !== -1) {
-        shareContent = rest.slice(0, nextComma);
-        rest = rest.slice(nextComma + 1);
-      } else {
-        shareContent = rest;
-        rest = "";
-      }
-    }
-
-    const remainingParts = rest.split(",");
-    const urlMatch = shareContent.match(/https?:\/\/pan\.quark\.cn\/s\/[a-zA-Z0-9]+(?:\?pwd=[^&\s]+)?/);
-    const url = urlMatch ? urlMatch[0] : "";
-    const filename = shareName.trim();
-    const key = filename.replace(/\.exe$/i, "");
-    if (key && url) records.push({ key, filename, url, code: remainingParts[0]?.trim() || "" });
-    i++;
-  }
-  return records;
+  return parseQuarkCsvText(readFileSync(filePath, "utf-8"));
 }
+
 
 // ==================== 迅雷分享导出（同一日期目录里的 .xlsx） ====================
 
-/**
- * 去掉分享名末尾的「重名后缀」`(1)` / `（2）`。
- *
- * 迅雷上传同名文件时会自动改名追加 `(N)`，而库内 title 取自夸克侧本名，
- * 两边文件名于是对不上（实例：`丽贝卡-洁薇塔（90）by woju(1).exe`）。
- * 只认行尾这一个后缀，`小卡-校园JK2.0（内附切换）` 这类名字里的括号不受影响。
- */
-function stripRenameSuffix(key) {
-  return String(key).replace(/[(（]\d+[)）]$/, "").trim();
-}
 
 /**
  * 扫描 BASE 下各日期目录里的迅雷分享导出（`分享结果导出-*.xlsx`），
@@ -568,142 +291,8 @@ function lookupXunlei(dayIndex, key) {
  * 全角/半角括号折叠：「心(含大招)」「心（含大招）」「心(含大招）」是同一个前缀。
  * 与 src/lib/mods-domain/sorting.ts 的同名函数保持一致。
  */
-function canonicalizeParens(value) {
-  return value.replace(/（/g, "(").replace(/）/g, ")");
-}
 
-function normalizeCharacter(character) {
-  return CHARACTER_ALIASES[character] ?? CHARACTER_ALIASES[canonicalizeParens(character)] ?? character;
-}
 
-/**
- * 去重键：`character|title`，但把 title 开头重复的「角色-」前缀归一化掉。
- *
- * 为什么需要：title 的前缀剥离规则会随 CHARACTER_PREFIX_MAP 增补而变。
- * 若某个角色事后才被加进表里，它早先入库的 `莫宁 | 莫宁-卡提希娅（上下）…`
- * 会与新解析出的 `莫宁 | 卡提希娅（上下）…` 不相等，全量运行时被当成新记录重复插入。
- * 两侧都过一遍这个函数，新旧写法即可互相匹配。
- * （库内 3 条先例：莫宁-卡提希娅 / 景燃-焚狱 / 景燃-猫咪）
- */
-function dedupKey(character, title) {
-  const c = String(character ?? "").trim();
-  let t = String(title ?? "").trim();
-  if (c && t.startsWith(c)) t = t.slice(c.length).replace(/^[-－\s]+/, "").trim();
-  return `${c}|${t}`;
-}
-
-/**
- * 网盘导出名 → 本地规范名的桥接表（键 = CSV/xlsx 导出名，值 = 本地 exe / 预览图名）。
- *
- * 实例（W-2026.10.1）：夸克 CSV 与迅雷 xlsx 都把这条导出成
- * `心月狐-切换版by weiwuxc888.exe`，而目录里的 exe 与预览图叫
- * `心月狐-大招体型切换版by weiwuxc888`，库里那条（2026-10-01 入库，夸克链接
- * …/73f2225eb2e0 与 CSV 逐字一致）存的也是后者。
- * 不桥接的两个后果：①去重键算成 `心月狐|切换版…`，与库内 `心月狐|大招体型切换版…`
- * 不等 ⇒ 全量重跑会把同一条 mod 再插一遍（前台多一张重复卡）；
- * ②预览图 base 对不上，只能落占位图。
- *
- * 只改分类解析与预览图查找 —— **迅雷链接查找仍用原始 key**：xlsx 侧导出的也是短名，
- * 拿桥接后的长名去查会查不到（见主循环里 lookupXunlei 的调用点）。
- */
-const KEY_ALIASES = new Map([
-  ["心月狐-切换版by weiwuxc888", "心月狐-大招体型切换版by weiwuxc888"],
-  // W-2026.10.27：夸克/迅雷导出名是 `锁暝特效更改-深黑`（「锁暝」后没有横杠），
-  // 落默认分支会把整串当角色名，凭空多出「锁暝特效更改」这个分类。
-  // 本地已按惯例改名为 `锁暝-特效更改-深黑`（库内 锁暝 17 条 title **全部**保留
-  // 「锁暝-」前缀；特效类同族先例见 `安可 | 特效修改-…`、`赞妮 | 特效修改-…`）。
-  // 不改导出名是因为分享链接已发出去了，只能桥接。迅雷侧仍按原名查（见主循环）。
-  ["锁暝特效更改-深黑", "锁暝-特效更改-深黑"],
-]);
-
-function resolveCharacterAndTitle(key) {
-  // 特例：`尤诺的月环-XXX` → 尤诺，title 保留「的月环-XXX」
-  // （库内 2026-08-10 批次共 7 条同格式先例；不能加裸前缀「尤诺」，
-  //   否则会把 `尤诺-姓感内衣（下）…` 这类完整 key 的 title 切掉，导致重复入库）
-  if (key.startsWith("尤诺的月环")) {
-    return { character: "尤诺", title: key.slice("尤诺".length) };
-  }
-  // 重分享的老 mod：分享名换个写法（前缀/作者位置/切换键写法），而库内 title 是旧写法。
-  // 不归一会让全量重跑把它们当新增再插一遍 —— 与改分类踩的是同一个坑，见别名表注释。
-  const reshare = resolveReshareAlias(key);
-  if (reshare) return reshare;
-  // 独立分类：爱弥斯的机甲 / 爱弥斯大招 → 「爱弥斯的机甲」，title 保留完整 key
-  for (const p of AEMEATH_MECH_PREFIXES) {
-    if (key.startsWith(p)) {
-      return { character: "爱弥斯的机甲", title: key };
-    }
-  }
-  // 独立分类：周本 Boss（`周本心月狐-…`）→ 「怪物」，title 保留完整 key
-  for (const p of MONSTER_PREFIXES) {
-    if (key.startsWith(p)) {
-      return { character: "怪物", title: key };
-    }
-  }
-  // 大卡：「卡提希娅-大卡-*」与「大卡提希娅的剑/武器-*」归 芙露德莉斯。
-  //
-  // 为什么必须在这里拦：库里两条日期目录来的大卡 mod（2026-09-05 神之御装、
-  // 2026-09-21 休闲服装）已被 2026-09-21 的改分类迁移成 character=芙露德莉斯。
-  // 若不拦，它们会落下面的 卡提希娅 前缀分支，算出去重键 `卡提希娅|大卡-XXX`，
-  // 与库内 `芙露德莉斯|大卡-XXX` 不等 ⇒ **全量重跑会把它们当新增再插一遍**。
-  // 规则复用 daka-classify.mjs（有单测锁住），不在这里重写一份。
-  //
-  // 放在 UI_FULL_KEY_RE 之前：那是个宽松正则（`.*?全ui` 可匹配任意前缀），
-  // 而这里是精确前缀，更具体的规则优先。
-  const daka = resolveDakaIfApplicable(key);
-  if (daka) return daka;
-
-  // UI 类：整包 UI（<角色>全ui / 编队界面 / 编队图片），title 保留完整 key
-  if (UI_FULL_KEY_RE.test(key)) {
-    return { character: "UI", title: key };
-  }
-  // UI 类：前缀直匹配（如索拉指南-长离动态nsfw），title 去前缀
-  for (const p of UI_PREFIXES) {
-    if (key.startsWith(p)) {
-      const title = key.slice(p.length).replace(/^[-－\s]+/, "").trim() || key;
-      return { character: "UI", title };
-    }
-  }
-  // 武器皮：整包归 武器，title 保留完整 key
-  for (const p of WEAPON_PREFIXES) {
-    if (key.startsWith(p)) {
-      return { character: "武器", title: key };
-    }
-  }
-  // 特效类：整包归库内历史 bucket（前台归一成 UI），title 保留完整 key。
-  // 必须在默认分支之前 —— 默认分支会把 `去角色轮廓v3.6` 整串当角色名，凭空造出新分类。
-  for (const p of EFFECT_BUCKET_PREFIXES) {
-    if (key.startsWith(p)) {
-      return { character: EFFECT_BUCKET, title: key };
-    }
-  }
-  // 饰品类：`爱弥斯饰品[XX]-…` → 爱弥斯，**title 保留完整 key**。
-  // 库内先例 `爱弥斯 | 爱弥斯饰品[雪绒豹豹]-爱弥斯团子`（落默认分支才保住完整 key），
-  // 与 src/lib/mods-domain/sorting.ts 的 CHARACTER_ALIASES 同规则。
-  // 必须排在裸「爱弥斯」前缀分支之前：否则 title 会被剥成 `饰品[XX]-…`，
-  // 与库内既有写法冲突（同「千咲皮肤」/「琳奈皮肤」的坑）。
-  if (key.startsWith("爱弥斯饰品")) {
-    return { character: "爱弥斯", title: key };
-  }
-  // 莫宁：2026-10-30 用户要求「以后严格用每日更新文件夹里的文件名称」——
-  // title 原样保留「莫宁-」前缀，不再剥成 `月光幻影v3.4fix …`。
-  // 去重键不受影响：dedupKey 两侧都会剥掉开头的角色前缀（见 dedupKey 注释），
-  // 所以库内 100 条无前缀的旧写法仍能对上，不会重复入库。
-  if (key.startsWith("莫宁-")) {
-    return { character: "莫宁", title: key };
-  }
-  // 角色类：前缀=角色，title 去前缀
-  // 但「XX皮肤」类前缀（女漂皮肤/琳奈皮肤）保留完整 title——那是皮肤标题的一部分
-  for (const { prefix, character } of CHARACTER_PREFIX_MAP) {
-    if (key.startsWith(prefix)) {
-      let title = key.slice(prefix.length).replace(/^[-－\s]+/, "").trim();
-      // 「XX皮肤」类前缀，皮肤名是标题一部分 → 完整保留 title
-      if (prefix.includes("皮肤")) title = key;
-      if (!title) title = key;
-      return { character: normalizeCharacter(character), title };
-    }
-  }
-  return { character: normalizeCharacter(key.split(/[-－]/)[0] || key), title: key };
-}
 
 // ==================== 图片索引（目录顶层 + 预览图 子目录，png 优先） ====================
 
@@ -1103,7 +692,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
     for (const record of unique) {
       // 导出名 → 本地规范名（见 KEY_ALIASES）。分类与预览图走规范名，
       // 迅雷链接仍按导出名查（xlsx 侧的键就是导出名）。
-      const canonicalKey = KEY_ALIASES.get(record.key) ?? record.key;
+      const canonicalKey = resolveCanonicalKey(record.key);
       const { character, title } = resolveCharacterAndTitle(canonicalKey);
       const xunlei = lookupXunlei(xunleiDay?.index, record.key);
       // 覆盖表按「查到了链接」计数，不看这条最后有没有入库 —— 否则重跑（全被去重跳过）
@@ -1139,8 +728,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
       }
 
       const modId = randomUUID();
-      const versionMatch = title.match(/v(\d+[\d.]*)/i);
-      const version = versionMatch ? `v${versionMatch[1]}` : DEFAULT_VERSION;
+      const version = extractVersion(title);
 
       // 多图：首图 → preview.webp，第 2 张起 → preview-2.webp / preview-3.webp …
       // images 数组的顺序就是站内顺序（images[0] 是封面，见 mappers.ts）。
