@@ -2,3 +2,5 @@
 *.sh text eol=lf
 *.py text eol=lf
 deploy/**/*.service text eol=lf
+# Windows batch files must stay CRLF or cmd.exe misparses them.
+*.bat text eol=crlf
