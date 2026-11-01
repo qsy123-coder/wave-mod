@@ -480,12 +480,17 @@ W-YYYY.M.D/
 
 - `/admin/mods` 的卡片封面可点击（左下角有「打码」提示），点击直接打开同一个打码弹窗；
   标题仍是编辑页链接，不改变原有编辑入口。
-- 原图通过 `/api/admin/fetch-image` 同源代理读取：
-  - 只允许 `https` + `*.myqcloud.com` + `.cos.` 的腾讯云 COS 地址，防 SSRF；
+- 原图读取：**优先浏览器直连 COS**（CORS 已允许 `go.sunnyrose.xyz`）；
+  直连失败才走 `/api/admin/fetch-image` 同源代理。
+  - 代理只允许 `https` + `*.myqcloud.com` + `.cos.` 的腾讯云 COS 地址，防 SSRF；
   - 路由加入 `src/proxy.ts` 的 Basic Auth matcher。
+  - 为什么不只用代理：Vercel hkg1 → 广州 COS 有已知超时（hk-proxy-runbook 7.1），
+    生产实测代理会返回 502，nginx 再映射成 503；浏览器直连不受影响。
 - 打码后：
   - 新图上传 COS，**每次用新的随机前缀**（避免复用对象键时 `max-age=604800` 缓存旧图）；
   - `replaceModImageAction` 只替换 `images[0]`，其它图片不变；
   - 失效公开缓存并 `router.refresh()` 更新卡片。
 - 本地 E2E：单条上传测试 mod → 在管理列表点封面 → 拖框打码 → 应用 →
   DB `images[0]` 变为新 COS URL；测试行已删除。
+- **生产 E2E**（`de34dbf6`）：同样流程通过，封面 URL 已替换；
+  浏览器直连 COS 成功，未再触发代理 503。
