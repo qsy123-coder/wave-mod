@@ -47,6 +47,7 @@ function normalizeSelection(start: { x: number; y: number }, end: { x: number; y
 
 export function CensorDialog({ open, file, onOpenChange, onApply }: CensorDialogProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [effect, setEffect] = useState<CensorEffect>("mosaic");
   const [strength, setStrength] = useState(14);
@@ -56,6 +57,7 @@ export function CensorDialog({ open, file, onOpenChange, onApply }: CensorDialog
   const imageRef = useRef<HTMLImageElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -66,6 +68,7 @@ export function CensorDialog({ open, file, onOpenChange, onApply }: CensorDialog
 
     const url = URL.createObjectURL(file);
     setImageUrl(url);
+    setImageLoaded(false);
     setSelection(null);
     setEffect("mosaic");
     setStrength(14);
@@ -80,6 +83,49 @@ export function CensorDialog({ open, file, onOpenChange, onApply }: CensorDialog
       dragStartRef.current = null;
     }
   }, [open]);
+
+  /**
+   * 选区内的实时效果预览：把马赛克/模糊画到覆盖在选区上方的 canvas。
+   * 没有这块，用户拖完只看到一个半透明框，会以为「马赛克没出来」。
+   */
+  useEffect(() => {
+    const image = imageRef.current;
+    const canvas = previewCanvasRef.current;
+
+    if (!image || !canvas || !imageLoaded || !selection) return;
+    if (selection.w <= 0 || selection.h <= 0) return;
+
+    const naturalWidth = image.naturalWidth;
+    const naturalHeight = image.naturalHeight;
+    const sx = Math.max(0, Math.round(selection.x * naturalWidth));
+    const sy = Math.max(0, Math.round(selection.y * naturalHeight));
+    const sw = Math.max(1, Math.round(selection.w * naturalWidth));
+    const sh = Math.max(1, Math.round(selection.h * naturalHeight));
+
+    canvas.width = sw;
+    canvas.height = sh;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    if (effect === "mosaic") {
+      const block = Math.max(4, Math.round(strength));
+      const tw = Math.max(1, Math.round(sw / block));
+      const th = Math.max(1, Math.round(sh / block));
+      const temp = document.createElement("canvas");
+      temp.width = tw;
+      temp.height = th;
+      const tempCtx = temp.getContext("2d");
+      if (!tempCtx) return;
+      tempCtx.drawImage(image, sx, sy, sw, sh, 0, 0, tw, th);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(temp, 0, 0, tw, th, 0, 0, sw, sh);
+    } else {
+      ctx.filter = `blur(${Math.max(4, Math.round(strength))}px)`;
+      ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
+      ctx.filter = "none";
+    }
+  }, [effect, imageLoaded, imageUrl, selection, strength]);
 
   const pointFromEvent = (event: React.PointerEvent) => {
     const rect = wrapperRef.current?.getBoundingClientRect();
@@ -254,18 +300,31 @@ export function CensorDialog({ open, file, onOpenChange, onApply }: CensorDialog
                   src={imageUrl}
                   alt="待打码预览图"
                   draggable={false}
+                  onLoad={() => setImageLoaded(true)}
                   className="block max-h-[60vh] max-w-full"
                 />
                 {selection && selection.w > 0 && selection.h > 0 ? (
-                  <div
-                    className="pointer-events-none absolute border-4 border-white bg-white/25 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
-                    style={{
-                      left: `${selection.x * 100}%`,
-                      top: `${selection.y * 100}%`,
-                      width: `${selection.w * 100}%`,
-                      height: `${selection.h * 100}%`,
-                    }}
-                  />
+                  <>
+                    <canvas
+                      ref={previewCanvasRef}
+                      className="pointer-events-none absolute"
+                      style={{
+                        left: `${selection.x * 100}%`,
+                        top: `${selection.y * 100}%`,
+                        width: `${selection.w * 100}%`,
+                        height: `${selection.h * 100}%`,
+                      }}
+                    />
+                    <div
+                      className="pointer-events-none absolute border-4 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
+                      style={{
+                        left: `${selection.x * 100}%`,
+                        top: `${selection.y * 100}%`,
+                        width: `${selection.w * 100}%`,
+                        height: `${selection.h * 100}%`,
+                      }}
+                    />
+                  </>
                 ) : null}
               </div>
             ) : (
