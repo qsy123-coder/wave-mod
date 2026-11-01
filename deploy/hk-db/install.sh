@@ -178,7 +178,7 @@ chmod 640 /etc/nginx/.htpasswd.wavemod
 
 echo "== 7/8 每日备份 =="
 install -m 0755 "${SCRIPT_DIR}/backup.sh" /usr/local/bin/wavemod-db-backup
-install -d -m 0750 /var/backups/wavemod
+install -d -m 0750 -o root -g postgres /var/backups/wavemod
 cat > /etc/cron.d/wavemod-db-backup <<EOF
 # 每天 03:10 本地全量备份，保留 30 份
 10 3 * * * root DB_NAME=${DB_NAME} /usr/local/bin/wavemod-db-backup >> /var/log/wavemod-db-backup.log 2>&1
