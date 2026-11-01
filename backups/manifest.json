@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-01T07:51:06.153Z",
+  "generatedAt": "2026-11-01T07:56:23.678Z",
   "source": {
     "projectRef": "db",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,10 +8,10 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20261101-075025.dump",
-    "sha256": "83dbcc8c31abf827f81925782186132b691aea19ef89b533f9c20ce86b73865f",
+    "file": "db/wavemod-20261101-075454.dump",
+    "sha256": "fa0f23e3110934a64e2e39c9126e9f1fa53da6b7e665edad192a1aa349acfafb",
     "sizeBytes": 1166219,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261101-075025",
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261101-075454",
     "tableCounts": {
       "mods": 5578,
       "profiles": 136,
@@ -28,12 +28,15 @@
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "error": "导出快照连续失败 2 次，最后一次：psql 退出码 3: psql:/home/runner/work/wave-mod/wave-mod/scripts/mods-snapshot.sql:28: ERROR:  relation \"mods\" does not exist\nLINE 6:   from mods\n               ^"
+    "publishedRows": 5578,
+    "refreshedThisRun": false,
+    "cosKey": "snapshots/mods-snapshot.json.gz",
+    "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
     "remoteCount": 6699,
     "totalBytes": 458480494,
-    "downloadedThisRun": 42,
+    "downloadedThisRun": 0,
     "failedThisRun": 2,
     "failures": [
       {
