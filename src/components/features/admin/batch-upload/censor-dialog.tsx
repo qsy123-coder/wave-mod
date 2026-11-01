@@ -55,6 +55,7 @@ export function CensorDialog({ open, file, onOpenChange, onApply }: CensorDialog
 
   const imageRef = useRef<HTMLImageElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -83,6 +84,7 @@ export function CensorDialog({ open, file, onOpenChange, onApply }: CensorDialog
   const pointFromEvent = (event: React.PointerEvent) => {
     const rect = wrapperRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
+    // 拖到图片外的黑色留白也接受：clamp 到 0–1，选区贴着图片边缘
     return {
       x: clamp01((event.clientX - rect.left) / rect.width),
       y: clamp01((event.clientY - rect.top) / rect.height),
@@ -236,16 +238,16 @@ export function CensorDialog({ open, file, onOpenChange, onApply }: CensorDialog
             </Button>
           </div>
 
-          <div className="flex justify-center overflow-auto border-4 border-black bg-[#3a2418] p-3">
+          <div
+            ref={viewerRef}
+            className="flex cursor-crosshair justify-center overflow-auto border-4 border-black bg-[#3a2418] p-3 select-none touch-none"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+          >
             {imageUrl ? (
-              <div
-                ref={wrapperRef}
-                className="relative inline-block max-w-full cursor-crosshair select-none touch-none"
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-              >
+              <div ref={wrapperRef} className="relative inline-block max-w-full select-none">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   ref={imageRef}
@@ -270,9 +272,15 @@ export function CensorDialog({ open, file, onOpenChange, onApply }: CensorDialog
               <p className="p-8 text-sm font-black text-white">没有可编辑的图片</p>
             )}
           </div>
+
+          <p className="text-xs font-black text-black/70">
+            {selection
+              ? "已选区域：点底部「应用打码」生效（可先在图上继续调整）"
+              : "在图片或黑色留白里按住鼠标拖出矩形；拖完点底部「应用打码」"}
+          </p>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 -mx-5 mt-2 border-t-4 border-black bg-[var(--neo-panel)] px-5 py-3">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
