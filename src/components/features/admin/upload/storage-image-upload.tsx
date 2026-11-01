@@ -5,14 +5,7 @@ import { ImagePlus, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import COS from "cos-js-sdk-v5";
 
-import { createClient } from "@/lib/supabase/client";
-import {
-  STORAGE_BUCKET,
-  STORAGE_IMAGE_CONTENT_TYPES,
-  STORAGE_MAX_IMAGE_BYTES,
-  buildStoragePath,
-  formatStorageFileSize,
-} from "@/lib/storage/shared";
+import { STORAGE_IMAGE_CONTENT_TYPES } from "@/lib/storage/shared";
 import {
   COS_IMAGE_CACHE_CONTROL,
   COS_IMAGE_CONTENT_TYPES,
@@ -162,30 +155,6 @@ function uploadToCos(file: File, sign: CosSignResult, onProgress?: (pct: number)
   });
 }
 
-/**
- * 上传单张图片到 Supabase Storage（备份）
- */
-async function uploadToSupabase(file: File, character: string, uploadSeed: string, index: number) {
-  const contentType = file.type || "image/webp";
-  const supabase = createClient();
-  const path = buildStoragePath(character, `${uploadSeed}-${index + 1}`, file.name);
-
-  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
-    cacheControl: "31536000",
-    contentType,
-    upsert: true,
-  });
-
-  if (error) {
-    // 备份上传失败仅警告，不阻断主流程
-    console.warn("[storage-image-upload] Supabase 备份上传失败：", error.message);
-    return null;
-  }
-
-  const { data: publicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-  return publicUrlData.publicUrl;
-}
-
 export function StorageImageUpload({ defaultCharacter, onUploaded }: StorageImageUploadProps) {
   const [uploadSeed, setUploadSeed] = useState(() => crypto.randomUUID());
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -210,42 +179,23 @@ export function StorageImageUpload({ defaultCharacter, onUploaded }: StorageImag
       for (const [index, file] of fileList.entries()) {
         // 0. 转为 WebP（PNG/JPEG → WebP，GIF/已有 WebP 跳过）
         const converted = await convertToWebP(file, 0.85);
-        let url: string | null = null;
 
-        // 1. 尝试上传到 COS（主存储）
-        try {
-          const sign = await getCosSign({
-            character,
-            contentType: converted.type || "image/webp",
-            fileSize: converted.size,
-            filename: converted.name,
-            modId: uploadSeed,
-          });
-          url = await uploadToCos(converted, sign, (pct) => {
-            // COS 上传进度（约占每张图进度的 90%，留 10% 给 Supabase 备份）
-            const perFileWeight = 100 / fileList.length;
-            const base = index * perFileWeight;
-            const cosWeight = perFileWeight * 0.9;
-            setUploadProgress(Math.round(base + (pct / 100) * cosWeight));
-          });
-        } catch (cosError) {
-          const message = cosError instanceof Error ? cosError.message : "COS 上传失败";
-          console.warn("[storage-image-upload] COS 上传失败，降级到 Supabase：", message);
-        }
+        // 图片只存腾讯云 COS。Supabase Storage 备份已随数据库迁移下线，
+        // COS 失败就直接报错 —— 静默降级会把图片写到即将删除的存储里。
+        const sign = await getCosSign({
+          character,
+          contentType: converted.type || "image/webp",
+          fileSize: converted.size,
+          filename: converted.name,
+          modId: uploadSeed,
+        });
+        const url = await uploadToCos(converted, sign, (pct) => {
+          const perFileWeight = 100 / fileList.length;
+          const base = index * perFileWeight;
+          setUploadProgress(Math.round(base + (pct / 100) * perFileWeight));
+        });
 
-        // 2. 上传到 Supabase Storage（备份，也用转换后的文件）
-        const supabaseUrl = await uploadToSupabase(converted, character, uploadSeed, index);
-
-        // 3. 确定最终使用的 URL（COS 优先，降级到 Supabase）
-        if (url) {
-          uploadedUrls.push(url);
-        } else if (supabaseUrl) {
-          // COS 失败时降级到 Supabase
-          uploadedUrls.push(supabaseUrl);
-          toast.warning("部分图片未能上传到 COS，已使用 Supabase 存储。");
-        } else {
-          throw new Error(`图片 ${converted.name} 上传失败：COS 和 Supabase 均不可用。`);
-        }
+        uploadedUrls.push(url);
 
         // 更新总体进度
         const perFileWeight = 100 / fileList.length;

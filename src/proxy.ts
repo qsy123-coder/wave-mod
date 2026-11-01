@@ -1,13 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 
-import { getServerSupabaseEnv, isAdminIdentity } from "@/lib/supabase/server-config";
+import { adminUnauthorizedResponse, verifyAdminBasicAuth } from "@/lib/admin/basic-auth";
 
-function isAllowedAdmin(identity: { email?: string | null; phone?: string | null } | null) {
-  return isAdminIdentity(identity);
-}
-
-/** `/visits` 及其子路径（`/visits/unlock`）都不走管理员登录校验 */
+/** `/visits` 及其子路径（`/visits/unlock`）都不走管理员校验 */
 function isVisitsPath(pathname: string) {
   return pathname === "/visits" || pathname.startsWith("/visits/");
 }
@@ -19,15 +14,10 @@ function isVisitsPath(pathname: string) {
  *   - `/visits` 是按凭证渲染的动态页（带 `wavemod-visits` cookie 才 200，否则 404）；
  *   - 香港反代的 `location /` 有 600 秒 HTML 缓存，且 `proxy_ignore_headers Cache-Control`
  *     会无视 Next 发的 `private, no-store`；
- *   - 它的 bypass 只认 Supabase 登录态 cookie（`sb-*-auth-token`），`wavemod-visits` 不在其中；
  *   - 但 `proxy_no_cache` 里有 `$upstream_http_set_cookie` —— **上游回了 Set-Cookie 就不落盘**。
  *
- * 2026-10-30 实测：站长解锁后匿名打 `/visits` 拿到 `X-Cache-Status: HIT` + 完整统计表，
- * 就是这个原因。这里补一个 `Max-Age=0` 的空 cookie 当信号：浏览器收到即丢弃（不留痕），
- * nginx 看到 Set-Cookie 就不缓存。
- *
- * 根本解法仍是把 `visits` 加进 nginx 的不缓存 location（见
- * `deploy/hk-proxy/nginx/wavemod-proxy.conf.template`），两条一起才稳。
+ * 这里补一个 `Max-Age=0` 的空 cookie 当信号：浏览器收到即丢弃（不留痕），
+ * nginx 看到 Set-Cookie 就不缓存。根本解法仍是把 `visits` 加进 nginx 的不缓存 location。
  */
 function visitsNoCacheResponse() {
   const response = NextResponse.next();
@@ -45,52 +35,29 @@ function visitsNoCacheResponse() {
   return response;
 }
 
+/**
+ * 后台入口守卫（Basic Auth）。
+ *
+ * 登录（Supabase Auth）已下线：后台不再有账号体系，改为 nginx + 应用层双层 Basic Auth。
+ * 应用层这层不能省 —— 直连 `*.vercel.app` 不经过 nginx，只靠反代等于没锁。
+ *
+ * `/api/cos/sign`、`/api/oss/sign` 是后台专用签接口，同样必须走这里，
+ * 否则拿到部署域名的人可以绕过 UI 直接申请上传凭证。
+ */
 export async function proxy(request: NextRequest) {
-  // 统计页有自己的密钥凭证（`VISITS_TOKEN` + 签名 cookie），与 Supabase 登录无关，
-  // 必须在这里短路，否则会被下面那段管理员校验弹去登录页。
   if (isVisitsPath(request.nextUrl.pathname)) {
     return visitsNoCacheResponse();
   }
 
-  const env = getServerSupabaseEnv();
+  const authorized = await verifyAdminBasicAuth(request.headers.get("authorization"));
 
-  if (!env) {
-    const loginUrl = new URL("/auth/login", request.url);
-    loginUrl.searchParams.set("next", request.nextUrl.pathname);
-    loginUrl.searchParams.set("mode", "admin");
-    loginUrl.searchParams.set("error", "missing_env");
-    return NextResponse.redirect(loginUrl);
+  if (!authorized) {
+    return adminUnauthorizedResponse();
   }
 
-  const response = NextResponse.next();
-  const supabase = createServerClient(env.url, env.anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
-        });
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!isAllowedAdmin(user)) {
-    const loginUrl = new URL("/auth/login", request.url);
-    loginUrl.searchParams.set("next", request.nextUrl.pathname);
-    loginUrl.searchParams.set("mode", "admin");
-    loginUrl.searchParams.set("error", user ? "unauthorized" : "login_required");
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/visits/:path*"],
+  matcher: ["/admin/:path*", "/api/cos/sign", "/api/oss/sign", "/visits/:path*"],
 };

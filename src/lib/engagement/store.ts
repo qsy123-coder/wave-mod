@@ -22,13 +22,6 @@ import {
   remoteWriteEngagement,
 } from "./remote-store";
 import {
-  describeSupabaseStore,
-  isSupabaseEngagementEnabled,
-  supabaseReadEngagement,
-  supabaseReadFavoritedIds,
-  supabaseWriteEngagement,
-} from "./supabase-store";
-import {
   applyAction,
   computeCounts,
   computeMine,
@@ -213,7 +206,6 @@ function runExclusive<T>(task: () => Promise<T>): Promise<T> {
  */
 export async function readEngagement(ids: string[], deviceId: string): Promise<EngagementReadResult> {
   if (isRemoteEngagementEnabled()) return remoteReadEngagement(ids, deviceId);
-  if (isSupabaseEngagementEnabled()) return supabaseReadEngagement(ids, deviceId);
   if (isCosEngagementEnabled()) return cosReadEngagement(ids, deviceId);
   return fsReadEngagement(ids, deviceId);
 }
@@ -224,21 +216,18 @@ export async function writeEngagement(
   deviceId: string,
 ): Promise<EngagementReadResult> {
   if (isRemoteEngagementEnabled()) return remoteWriteEngagement(modId, action, deviceId);
-  if (isSupabaseEngagementEnabled()) return supabaseWriteEngagement(modId, action, deviceId);
   if (isCosEngagementEnabled()) return cosWriteEngagement(modId, action, deviceId);
   return fsWriteEngagement(modId, action, deviceId);
 }
 
 export async function readFavoritedIds(deviceId: string): Promise<string[]> {
   if (isRemoteEngagementEnabled()) return remoteReadFavoritedIds(deviceId);
-  if (isSupabaseEngagementEnabled()) return supabaseReadFavoritedIds(deviceId);
   if (isCosEngagementEnabled()) return cosReadFavoritedIds(deviceId);
   return fsReadFavoritedIds(deviceId);
 }
 
 export function describeEngagementStore() {
   if (isRemoteEngagementEnabled()) return describeRemoteStore();
-  if (isSupabaseEngagementEnabled()) return describeSupabaseStore();
   if (isCosEngagementEnabled()) return describeCosStore();
   return fsDescribeStore();
 }

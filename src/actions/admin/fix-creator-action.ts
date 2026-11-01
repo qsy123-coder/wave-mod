@@ -2,60 +2,45 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireAdminUser } from "@/actions/auth/auth-actions";
+import { queryOne, queryRows } from "@/lib/db/query";
 import { revalidateCreatorProfileCache } from "@/lib/mod-cache";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUser } from "@/lib/supabase/server";
 
 export type FixCreatorResult = {
   fixed: number;
   error: string;
 };
 
-/** 批量补齐所有 created_by 为 NULL 的 MOD，关联到当前管理员用户 */
+/**
+ * 批量补齐所有 created_by 为 NULL 的 MOD。
+ *
+ * 登录已下线，不再有「当前管理员用户」；改为关联到库里第一个 `role = 'admin'`
+ * 的 profiles 记录（历史数据，归档保留）。找不到时不猜、不写。
+ */
 export async function fixMissingCreatedByAction(): Promise<FixCreatorResult> {
-  await requireAdminUser("/admin/mods");
+  const adminProfile = await queryOne<{ id: string }>(
+    "select id from public.profiles where role = 'admin' order by created_at asc limit 1",
+  );
 
-  const supabaseAdmin = createAdminClient();
-  if (!supabaseAdmin) {
-    return { fixed: 0, error: "缺少 Supabase Service Role Key。" };
+  if (!adminProfile) {
+    return { fixed: 0, error: "库中没有 role=admin 的 profiles 记录，无法确定归属。" };
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser?.id) {
-    return { fixed: 0, error: "无法获取当前用户信息，请重新登录。" };
+  try {
+    const rows = await queryRows<{ id: string }>(
+      "update public.mods set created_by = $1 where created_by is null returning id",
+      [adminProfile.id],
+    );
+
+    if (rows.length === 0) {
+      return { fixed: 0, error: "" };
+    }
+
+    revalidateCreatorProfileCache(adminProfile.id);
+    revalidatePath("/admin/mods");
+    revalidatePath("/", "layout");
+
+    return { fixed: rows.length, error: "" };
+  } catch (error) {
+    return { fixed: 0, error: `更新失败：${error instanceof Error ? error.message : "未知错误"}` };
   }
-
-  // 先查有多少 MOD 缺少 created_by
-  const { data: nullMods, error: selectError } = await supabaseAdmin
-    .from("mods")
-    .select("id")
-    .is("created_by", null);
-
-  if (selectError) {
-    return { fixed: 0, error: `查询失败：${selectError.message}` };
-  }
-
-  if (!nullMods || nullMods.length === 0) {
-    return { fixed: 0, error: "" };
-  }
-
-  // 批量更新
-  const { error: updateError } = await supabaseAdmin
-    .from("mods")
-    .update({ created_by: currentUser.id })
-    .is("created_by", null);
-
-  if (updateError) {
-    return { fixed: 0, error: `更新失败：${updateError.message}` };
-  }
-
-  const count = nullMods.length;
-
-  // 刷新缓存和页面
-  revalidateCreatorProfileCache(currentUser.id);
-  revalidatePath("/admin/mods");
-  revalidatePath("/", "layout");
-
-  return { fixed: count, error: "" };
 }

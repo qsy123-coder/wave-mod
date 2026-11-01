@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { UploadForm } from "@/components/features/admin/upload/upload-form";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { getCharacterSuggestions } from "@/lib/mods";
@@ -11,7 +10,6 @@ function AdminUploadSkeleton() {
 }
 
 async function AdminUploadContent() {
-  await requireAdminUser("/admin/upload");
   const characters = await getCharacterSuggestions();
 
   return (

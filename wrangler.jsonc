@@ -9,13 +9,10 @@
     "binding": "ASSETS"
   },
   "vars": {
-    "NEXT_PUBLIC_SITE_URL": "https://wave-mod.top",
-    "NEXT_PUBLIC_SUPABASE_URL": "https://xqwzgcxwdwpmkdbmzmve.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_61QHtbRPJtHDCcwOZoynOA_mZlSNPfU",
-    "SUPABASE_URL": "https://xqwzgcxwdwpmkdbmzmve.supabase.co",
-    "SUPABASE_ANON_KEY": "sb_publishable_61QHtbRPJtHDCcwOZoynOA_mZlSNPfU",
-    "ENABLE_SUPABASE_PHONE_OTP": "true",
-    "ADMIN_EMAIL": "qsy55882@gmail.com",
+    // Cloudflare Workers 流水线目前是禁用状态（超出 3 MiB 限制）。
+    // 迁移后应用只读 DATABASE_URL（自建 PostgreSQL），Workers 无法直接用它；
+    // 将来若重启这条流水线，需要单独评估 Hyperdrive 或 HTTP 数据网关。
+    "NEXT_PUBLIC_SITE_URL": "https://go.sunnyrose.xyz",
     "ALIYUN_OSS_REGION": "oss-cn-hangzhou",
     "ALIYUN_OSS_BUCKET": "wave-mod",
     "ALIYUN_OSS_ENDPOINT": "https://oss-cn-hangzhou.aliyuncs.com",

@@ -6,7 +6,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Grid3X3, Search } from "lucide-react";
 
-import { useSession } from "@/components/features/auth/session-provider";
+import { useGuestViewer as useSession } from "@/lib/viewer/guest-viewer";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { ModsInfiniteGrid } from "@/components/features/mods/list/mods-infinite-grid";
 import { getCharacterImagePath } from "@/lib/constants/character-images";

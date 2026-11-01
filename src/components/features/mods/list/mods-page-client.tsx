@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowUp } from "lucide-react";
 
-import { useSession } from "@/components/features/auth/session-provider";
+import { useGuestViewer as useSession } from "@/lib/viewer/guest-viewer";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { ModsInfiniteGrid, type ModsGridStatus } from "@/components/features/mods/list/mods-infinite-grid";
 import type { MasonryLayoutHint } from "@/components/features/mods/list/masonry-packing";

@@ -22,13 +22,11 @@ type SideItem = {
 type ProfileSideNavProps = {
   profileHref: string;
   favoritesHref: string;
-  editProfileHref: string;
 };
 
 export function ProfileSideNav({
   profileHref,
   favoritesHref,
-  editProfileHref,
 }: ProfileSideNavProps) {
   const items: SideItem[] = [
     { icon: <UserRound className="size-4" />, label: "Profile", href: profileHref, active: true },
@@ -38,7 +36,7 @@ export function ProfileSideNav({
     { icon: <Heart className="size-4" />, label: "Liked Resources", href: `${profileHref}?tab=favorites` },
     { icon: <Mail className="size-4" />, label: "Messages" },
     { icon: <Bell className="size-4" />, label: "Notifications" },
-    { icon: <Settings className="size-4" />, label: "Settings", href: editProfileHref },
+    { icon: <Settings className="size-4" />, label: "Settings" },
   ];
 
   return (

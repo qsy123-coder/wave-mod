@@ -1,0 +1,21 @@
+# WaveMod 自建 PostgreSQL（香港 2C/1.9G）调优片段
+# 由 deploy/hk-db/install.sh 写入 /etc/postgresql/17/main/conf.d/wavemod.conf
+#
+# 记忆/磁盘预算：库只有 29MB，瓶颈在「和 nginx 抢 1.9G 内存」，不在 PG 自身。
+# 不要照抄大机器的 shared_buffers=25%；这里给 256MB 已经足够。
+
+listen_addresses = '127.0.0.1'
+max_connections = 100
+shared_buffers = 256MB
+effective_cache_size = 768MB
+work_mem = 8MB
+maintenance_work_mem = 64MB
+wal_level = replica
+max_wal_size = 1GB
+min_wal_size = 128MB
+checkpoint_completion_target = 0.9
+random_page_cost = 1.1
+log_min_duration_statement = 1000
+log_checkpoints = on
+log_connections = off
+log_disconnections = off

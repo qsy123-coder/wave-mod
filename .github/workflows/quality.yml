@@ -28,9 +28,9 @@ jobs:
 
     env:
       CI: true
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # 数据库迁移后应用只读 DATABASE_URL（自建 PostgreSQL）。
+      # 未配置该 secret 时构建会回退到仓库内打包容的兜底快照，仍然能过。
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
       NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
       COS_BUCKET: wave-mod-preview-1327973389
       COS_REGION: ap-guangzhou

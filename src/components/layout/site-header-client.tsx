@@ -3,11 +3,9 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, Home, LayoutDashboard, LogIn, LogOut, Menu, Sparkles, UploadCloud, Gamepad2, BookOpen, ChevronDown, UserRound } from "lucide-react";
+import { Heart, Home, Menu, Sparkles, Gamepad2, ChevronDown, UserRound } from "lucide-react";
 
 import { getEnabledGames } from "@/config/games";
-import { signOutUser } from "@/actions/auth/auth-actions";
-import { useSession } from "@/components/features/auth/session-provider";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import { MobileCharacterNav } from "@/components/layout/mobile-character-nav";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -35,7 +33,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { siteConfig } from "@/lib/constants/site";
 import { GALLERY_BACK_KEY } from "@/lib/constants/gallery-nav";
-import { LOGIN_BACK_KEY } from "@/lib/constants/auth-nav";
 import { isCurrentNavigationUrl, isPlainLeftClick } from "@/lib/navigation-url";
 import { isImmersiveActive } from "@/lib/preferences/site-preferences";
 import { cn } from "@/lib/utils";
@@ -93,19 +90,6 @@ const MOBILE_DETAILS_SUMMARY_CLASS =
   "flex cursor-pointer list-none items-center justify-between border-4 border-black bg-[var(--neo-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000] [&::-webkit-details-marker]:hidden";
 
 export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
-  // 登录态来自客户端 cookie（零网络），不再由服务端下发 —— 服务端读 cookie 会让
-  // 所有用到 header 的页面无法静态化。详见 session-provider.tsx。
-  //
-  // 会话尚未就绪时（status === "loading"，只在硬加载的头一两帧）**按未登录渲染**：
-  // 这样预渲染 HTML 里是一个**可见、可点**的「登录」按钮，匿名访客与爬虫（流量的
-  // 绝大多数）从一开始看到的就是对的，也不需要 JS 才能用。
-  //
-  // 代价是已登录用户在硬加载时会看到「登录」闪一下再变「退出」。另一种做法是就绪前
-  // `visibility: hidden` 占位（布局不跳），但那样在 JS 加载慢时**所有人**都会看到一块
-  // 空白、且无 JS 时登录入口直接消失 —— 两害相权，宁愿只让已登录用户看到一次文字切换。
-  // 管理入口同理：`isAdmin` 只有在查询回来后才会为 true，因此它由 false 变 true 时会有
-  // 一次出现动画；受害者只有管理员本人（ADMIN_EMAIL / ADMIN_PHONES 里那一个账号）。
-  const { isLoggedIn, isAdmin } = useSession();
   // 站点偏好：直达分类（账户下拉里的勾选项）与沉浸布局（/mods 收起导航栏）
   const { autoOpenMods, setAutoOpenMods, immersive } = useSitePreferences();
   const isDesktop = useIsDesktop();
@@ -150,8 +134,6 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
   const { startPageLoading } = useNavigationLoading();
   const isZzzRoute = pathname.startsWith("/zenless-zone-zero");
   const isAdminRoute = pathname.startsWith("/admin");
-  const loginHref = "/auth/login?mode=user&next=/favorites";
-  const signOutAction = signOutUser.bind(null, "/");
   const games = getEnabledGames();
   const currentGameKey = getCurrentGameKey(pathname);
   const currentGameName = games.find((game) => game.key === currentGameKey)?.name ?? "主站";
@@ -203,19 +185,6 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
     }
   };
 
-  // 点击"登录"进入 /auth/login 时，记录当前来源页，供登录页返回按钮一步跳回。
-  // 登录页同样是独立 layout（无 header），必须放在 Link 自身 onClick 里记录——<Link>
-  // 内部会 preventDefault，header 级 onClick（handleHeaderNavClick）此时已 defaultPrevented
-  // 而提前 return，走不到这里。
-  const handleLoginEntry = (href: string) => {
-    if (href.startsWith("/auth/login")) {
-      try {
-        sessionStorage.setItem(LOGIN_BACK_KEY, getCurrentUrl());
-      } catch {
-        /* sessionStorage 不可用时忽略，返回按钮会走 referrer / 首页兜底 */
-      }
-    }
-  };
 
   return (
     <header
@@ -433,44 +402,6 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                     <Home className="size-3.5" />
                     直达角色分类
                   </DropdownMenuCheckboxItem>
-                  {/* 管理员专属入口：与后台守卫同源判定，非管理员不渲染 */}
-                  {isAdmin ? (
-                    <>
-                      <DropdownMenuItem className="cursor-pointer p-0 focus:bg-transparent">
-                        <Link href="/admin/mods" prefetch={false} className={DROPDOWN_ITEM_CLASS}>
-                          <LayoutDashboard className="size-3.5" />
-                          管理列表
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer p-0 focus:bg-transparent">
-                        <Link href="/admin/upload" prefetch={false} className={DROPDOWN_ITEM_CLASS}>
-                          <UploadCloud className="size-3.5" />
-                          上传
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  ) : null}
-                  <DropdownMenuSeparator className="my-2 h-1 bg-black" />
-                  {isLoggedIn ? (
-                    <form action={signOutAction}>
-                      <button type="submit" className={DROPDOWN_ITEM_CLASS}>
-                        <LogOut className="size-3.5" />
-                        退出登录
-                      </button>
-                    </form>
-                  ) : (
-                    <DropdownMenuItem className="cursor-pointer p-0 focus:bg-transparent">
-                      <Link
-                        href={loginHref}
-                        prefetch={false}
-                        onClick={() => handleLoginEntry(loginHref)}
-                        className={DROPDOWN_ITEM_CLASS}
-                      >
-                        <LogIn className="size-3.5" />
-                        登录
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </MotionReveal>
@@ -481,17 +412,6 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                 <Sparkles className="size-3" />
                 直链下载
               </Link>
-            </MotionReveal>
-          )}
-          {/* 后台路由：只保留一个退出登录 */}
-          {isAdminRoute && (
-            <MotionReveal delay={0.2} rotate={-1}>
-              <form action={signOutAction}>
-                <button type="submit" className="neo-button-outline inline-flex items-center gap-1 px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.1em] whitespace-nowrap">
-                  <LogOut className="size-3" />
-                  退出登录
-                </button>
-              </form>
             </MotionReveal>
           )}
         </div>
@@ -633,59 +553,6 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
                   <Heart className="size-4" />
                   收藏
                 </Link>
-                {/* 管理员专属入口（移动端） */}
-                {isAdmin && (
-                  <>
-                    <Link
-                      href="/admin/mods"
-                      onClick={() => setMobileOpen(false)}
-                      className="neo-button-secondary inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
-                    >
-                      <LayoutDashboard className="size-4" />
-                      管理列表
-                    </Link>
-                    <Link
-                      href="/admin/upload"
-                      onClick={() => setMobileOpen(false)}
-                      className="neo-button-outline inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
-                    >
-                      <UploadCloud className="size-4" />
-                      上传
-                    </Link>
-                    <Link
-                      href="/admin/tutorial"
-                      onClick={() => setMobileOpen(false)}
-                      className="neo-button-secondary inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
-                    >
-                      <BookOpen className="size-4" />
-                      教程管理
-                    </Link>
-                  </>
-                )}
-                {isLoggedIn ? (
-                  <form action={signOutAction}>
-                    <button
-                      type="submit"
-                      onClick={() => setMobileOpen(false)}
-                      className="neo-button-outline inline-flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
-                    >
-                      <LogOut className="size-4" />
-                      退出登录
-                    </button>
-                  </form>
-                ) : (
-                  <Link
-                    href={loginHref}
-                    onClick={() => {
-                      setMobileOpen(false);
-                      handleLoginEntry(loginHref);
-                    }}
-                    className="neo-button-outline inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
-                  >
-                    <LogIn className="size-4" />
-                    登录
-                  </Link>
-                )}
                 <Link
                   href="/mods"
                   onClick={() => setMobileOpen(false)}

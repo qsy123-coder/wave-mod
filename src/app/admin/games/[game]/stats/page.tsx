@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { BarChart3, Download, Eye, FileStack, Heart, Star, Tags, Trophy, Users } from "lucide-react";
 
 import { getGameBySlug, getEnabledGames, type GameConfig } from "@/config/games";
-import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import { getAdminMods, type AdminMod } from "@/lib/mods";
@@ -114,7 +113,6 @@ function TopModsTable({ game, mods }: { game: GameConfig; mods: AdminMod[] }) {
 }
 
 async function AdminGameStatsContent({ game }: { game: GameConfig }) {
-  await requireAdminUser(`/admin/games/${game.slug}/stats`);
   const mods = await getAdminMods({ gameKey: game.key });
   const publishedCount = mods.filter((mod) => mod.isPublished).length;
   const draftCount = mods.length - publishedCount;

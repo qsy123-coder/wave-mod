@@ -5,7 +5,7 @@ import { Download } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
-import { useSession } from "@/components/features/auth/session-provider";
+import { useGuestViewer as useSession } from "@/lib/viewer/guest-viewer";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { DailyUpdateDay } from "@/lib/mods";

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { AdminModsListClient } from "@/components/features/admin/mods/admin-mods-list-client";
 import { CharacterSidebar } from "@/components/features/mods/list/character-sidebar";
 import { AdminModsSkeleton } from "@/components/layout/data-skeletons";
@@ -174,7 +173,6 @@ function AdminModsEmpty({ hasActiveFilters }: { hasActiveFilters: boolean }) {
 type SearchParams = { character?: string; game?: string; query?: string; sort?: string; status?: string; page?: string; pageSize?: string };
 
 async function AdminModsContent({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  await requireAdminUser("/admin/mods");
 
   const params = (await searchParams) ?? {};
   const filters = parseAdminModsSearchParams(params);

@@ -11,14 +11,12 @@ import type { StatItem } from "./profile-shared";
 import { ProfileSideNav } from "./profile-side-nav";
 import { ProfileModMiniCard } from "./profile-mod-mini-card";
 import { ProfileRightRail } from "./profile-right-rail";
-import { ProfileEditButton } from "./profile-edit-form";
 import { ScrollableRow } from "./scrollable-row";
 import { CoverReveal } from "./cover-reveal";
 
 type ProfileContentProps = {
   profile: CreatorProfile;
   game: GameConfig;
-  isOwnProfile: boolean;
   stats: StatItem[];
   activeTab?: "published" | "favorites";
   favoriteMods?: FavoriteMod[] | null;
@@ -27,11 +25,12 @@ type ProfileContentProps = {
 export function ProfileContent({
   profile,
   game,
-  isOwnProfile,
   stats,
   activeTab = "published",
   favoriteMods,
 }: ProfileContentProps) {
+  // 登录/个人中心已下线，这个组件现在只服务创作者主页，不再有「自己的资料」分支。
+  const isOwnProfile = false;
   const coverImage =
     profile.mods[0]?.coverImage ??
     "/bg-zzz/ChatGPT Image 2026年6月2日 00_01_21.png";
@@ -66,9 +65,8 @@ export function ProfileContent({
 
         <div className="flex gap-1.5 flex-1 min-h-0">
           <ProfileSideNav
-            profileHref={game.nav.profile ?? `${game.nav.home}/profile`}
+            profileHref={`/${game.key}/creator/${profile.userId}`}
             favoritesHref={`${game.nav.home}/favorites`}
-            editProfileHref={`${game.nav.profile ?? `${game.nav.home}/profile`}/edit`}
           />
 
           <div className="min-w-0 flex-1 flex flex-col min-h-0">
@@ -77,13 +75,6 @@ export function ProfileContent({
               coverImage={coverImage}
               coverAlt={`${profile.displayName} cover`}
               height="h-[190px] sm:h-[220px]"
-              actions={
-                isOwnProfile ? (
-                  <ProfileEditButton
-                    editHref={`${game.nav.profile ?? `${game.nav.home}/profile`}/edit`}
-                  />
-                ) : null
-              }
             >
               <div className="flex flex-wrap items-end gap-2 sm:gap-3">
                 {/* 头像：优先真实 avatar_url，兜底首字圆形 */}

@@ -13,7 +13,6 @@ import type { SiteMod } from "@/lib/mods";
 import { getSiteUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";
 
-import { CommentsPanel } from "./comments-panel";
 import { DownloadButton } from "./download-button";
 import { DrawerPreviewGallery } from "./drawer-preview-gallery";
 import { FavoriteButton } from "./favorite-button";
@@ -32,7 +31,6 @@ type DrawerTab = "overview" | "comments";
 
 const tabs: { id: DrawerTab; label: string }[] = [
   { id: "overview", label: "总览" },
-  { id: "comments", label: "评论" },
 ];
 
 /**
@@ -78,9 +76,6 @@ function ModDetailDrawerSkeleton() {
 }
 
 export function ModDetailDrawer({
-  admin = false,
-  currentUserId,
-  currentUserName = "我",
   isLoggedIn = false,
   modId,
   onClose,
@@ -343,19 +338,6 @@ export function ModDetailDrawer({
             </div>
           )}
 
-          {/* Comments tab */}
-          {mod && activeTab === "comments" && (
-            <div className="px-4 py-5 sm:px-6">
-              <CommentsPanel
-                admin={admin}
-                currentUserId={currentUserId}
-                currentUserName={currentUserName}
-                initialComments={[]}
-                isLoggedIn={isLoggedIn}
-                modId={mod.id}
-              />
-            </div>
-          )}
         </div>
 
         {/* ── 底部操作条：分享 / 各网盘下载 / 收藏 ──

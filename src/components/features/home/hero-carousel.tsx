@@ -8,7 +8,7 @@ import Autoplay from "embla-carousel-autoplay";
 
 import { ArrowUpRight, Pause, Play } from "lucide-react";
 
-import { useSession } from "@/components/features/auth/session-provider";
+import { useGuestViewer as useSession } from "@/lib/viewer/guest-viewer";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import {

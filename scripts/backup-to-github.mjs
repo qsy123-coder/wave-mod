@@ -29,7 +29,6 @@
  *   GH_TOKEN            供 gh CLI 用（本机已登录则省略；Actions 用 secrets.GITHUB_TOKEN 自动注入）
  */
 
-import { createClient } from "@supabase/supabase-js";
 import COS from "cos-nodejs-sdk-v5";
 import { config } from "dotenv";
 import { resolve, join, basename, dirname } from "node:path";
@@ -48,6 +47,7 @@ import {
   putSnapshotToCos,
 } from "./mods-snapshot-export.mjs";
 import { checkSnapshotFreshness, snapshotStats } from "./snapshot-freshness.mjs";
+import { psqlJson } from "./psql-db.mjs";
 
 // ── 加载 .env + .env.local ──
 config({ path: resolve(process.cwd(), ".env"), override: true, quiet: true });
@@ -124,15 +124,11 @@ if (!["git", "release"].includes(dbDumpMode)) {
   process.exit(1);
 }
 
-// ── 客户端初始化 ──
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim();
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-const projectRef = extractProjectRef(supabaseUrl);
-
-// 表行数统计需要 supabase 客户端；没有则不统计（manifest 该字段为 null）
-const supabase = supabaseUrl && serviceRoleKey
-  ? createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } })
-  : null;
+// ── 连接信息 ──
+// 迁移后不再有 Supabase 项目；manifest 里保留 projectRef 字段是为了兼容旧清单，
+// 值改成连接串的 hostname（自建库是 db.sunnyrose.xyz）。
+const databaseUrl = process.env.DATABASE_URL?.trim();
+const projectRef = extractProjectRef(databaseUrl);
 
 const cos = new COS({ SecretId: cosSecretId, SecretKey: cosSecretKey });
 
@@ -510,17 +506,17 @@ async function downloadAll(toDownload) {
 // ── 3. 表行数（manifest）──
 
 async function tableCounts() {
-  if (!supabase) return null;
-  const counts = {};
-  for (const t of TABLES) {
-    try {
-      const { count, error } = await supabase.from(t).select("*", { count: "exact", head: true });
-      counts[t] = error ? null : count;
-    } catch {
-      counts[t] = null;
-    }
+  // 走 psql（DATABASE_URL）而不是 REST：迁移后没有 Supabase 网关，
+  // 而且 psql 能一次查询就拿到所有表的行数。
+  try {
+    const sql = `select coalesce(json_object_agg(tbl, cnt), '{}'::json)::text from (
+      ${TABLES.map((t) => `select '${t}' as tbl, count(*)::int as cnt from public."${t}"`).join(" union all ")}
+    ) s;`;
+    return await psqlJson(sql);
+  } catch (error) {
+    console.warn("[backup] 表行数统计失败：", error instanceof Error ? error.message : error);
+    return null;
   }
-  return counts;
 }
 
 // ── 4. GitHub Release（DB_DUMP_MODE=release）──

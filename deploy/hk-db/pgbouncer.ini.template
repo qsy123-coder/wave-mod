@@ -1,0 +1,47 @@
+; ============================================================================
+; WaveMod pgbouncer 配置模板
+; 由 deploy/hk-db/install.sh 渲染到 /etc/pgbouncer/pgbouncer.ini
+; 占位符：{{DB_NAME}} {{DB_USER}} {{DB_DOMAIN}}
+; ============================================================================
+;
+; 为什么必须用 pgbouncer：Vercel 每个 Serverless 实例都会开一个 pg Pool，
+; 实例一多就会直接打满 Postgres 的 max_connections。transaction 模式把
+; 「函数执行期间」的连接复用到不同请求之间，是 Serverless 场景的标准解法。
+;
+; 约束：transaction 模式下不能用命名 prepared statement、LISTEN/NOTIFY、
+; 会话级 SET；应用侧（src/lib/db）已按这个约束写。
+
+[databases]
+{{DB_NAME}} = host=127.0.0.1 port=5432 dbname={{DB_NAME}}
+
+[pgbouncer]
+; pgbouncer 进程的运行用户（Debian/Ubuntu 默认 postgres）
+user = postgres
+listen_addr = 0.0.0.0
+listen_port = 6432
+auth_type = scram-sha-256
+auth_file = /etc/pgbouncer/userlist.txt
+
+; transaction 模式（见上面的约束）
+pool_mode = transaction
+max_client_conn = 200
+default_pool_size = 20
+min_pool_size = 2
+reserve_pool_size = 5
+reserve_pool_timeout = 5
+
+; 不开放 console（需要时用 `psql -p 6432 -U {{DB_USER}} pgbouncer` 临时加 admin_users）
+
+; 日志
+logfile = /var/log/postgresql/pgbouncer.log
+pidfile = /var/run/postgresql/pgbouncer.pid
+verbose = 0
+
+; TLS：应用（Vercel）到 pgbouncer 走公网，必须加密。
+; 证书来自 certbot（{{DB_DOMAIN}}），续期后由 deploy hook 重启 pgbouncer。
+client_tls_sslmode = require
+client_tls_key_file = /etc/letsencrypt/live/{{DB_DOMAIN}}/privkey.pem
+client_tls_cert_file = /etc/letsencrypt/live/{{DB_DOMAIN}}/fullchain.pem
+
+; 应用/驱动会带这些 startup 参数；不忽略的话 pgbouncer 会拒连。
+ignore_startup_parameters = extra_float_digits,options

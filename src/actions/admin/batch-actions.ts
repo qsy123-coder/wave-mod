@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdminUser } from "@/actions/auth/auth-actions";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { execute, queryOne, queryRows } from "@/lib/db/query";
+import { buildUpdateAssignments } from "@/lib/db/sql";
 import { logger } from "@/lib/logger";
 import { mapMod } from "@/lib/mods-domain/mappers";
 import type { ModRow, SiteMod } from "@/lib/mods-domain/types";
@@ -17,38 +17,28 @@ export async function batchFeatureMods(
   ids: string[],
   isFeatured: boolean,
 ): Promise<BatchResult> {
-  await requireAdminUser("/admin/mods");
 
-  const supabase = createAdminClient();
-  const result: BatchResult = { success: 0, failed: [] };
-
-  if (!supabase) {
-    return { success: 0, failed: ids.map((id) => ({ id, title: "", error: "数据库连接失败" })) };
+  if (ids.length === 0) {
+    return { success: 0, failed: [] };
   }
 
-  for (const id of ids) {
-    try {
-      const { error } = await supabase
-        .from("mods")
-        .update({ is_featured: isFeatured })
-        .eq("id", id);
+  try {
+    // 一条语句更新全部：原来逐条调 REST，N 条就是 N 个往返。
+    await execute("update public.mods set is_featured = $1 where id = any($2::uuid[])", [
+      isFeatured,
+      ids,
+    ]);
 
-      if (error) {
-        result.failed.push({ id, title: "", error: error.message });
-      } else {
-        result.success++;
-      }
-    } catch (err) {
-      result.failed.push({
-        id,
-        title: "",
-        error: err instanceof Error ? err.message : "未知错误",
-      });
-    }
+    revalidatePath("/admin/mods");
+    return { success: ids.length, failed: [] };
+  } catch (error) {
+    // 批量语句失败时无法区分是哪一条，统一回填到全部 id（与原实现的可观测结果一致）。
+    const message = error instanceof Error ? error.message : "未知错误";
+    return {
+      success: 0,
+      failed: ids.map((id) => ({ id, title: "", error: message })),
+    };
   }
-
-  revalidatePath("/admin/mods");
-  return result;
 }
 
 /** 批量切换发布状态 */
@@ -56,72 +46,49 @@ export async function batchPublishMods(
   ids: string[],
   isPublished: boolean,
 ): Promise<BatchResult> {
-  await requireAdminUser("/admin/mods");
 
-  const supabase = createAdminClient();
-  const result: BatchResult = { success: 0, failed: [] };
-
-  if (!supabase) {
-    return { success: 0, failed: ids.map((id) => ({ id, title: "", error: "数据库连接失败" })) };
+  if (ids.length === 0) {
+    return { success: 0, failed: [] };
   }
 
-  for (const id of ids) {
-    try {
-      const { error } = await supabase
-        .from("mods")
-        .update({ is_published: isPublished })
-        .eq("id", id);
+  try {
+    await execute("update public.mods set is_published = $1 where id = any($2::uuid[])", [
+      isPublished,
+      ids,
+    ]);
 
-      if (error) {
-        result.failed.push({ id, title: "", error: error.message });
-      } else {
-        result.success++;
-      }
-    } catch (err) {
-      result.failed.push({
-        id,
-        title: "",
-        error: err instanceof Error ? err.message : "未知错误",
-      });
-    }
+    revalidatePath("/admin/mods");
+    return { success: ids.length, failed: [] };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "未知错误";
+    return {
+      success: 0,
+      failed: ids.map((id) => ({ id, title: "", error: message })),
+    };
   }
-
-  revalidatePath("/admin/mods");
-  return result;
 }
 
 /** 批量删除 */
 export async function batchDeleteMods(ids: string[]): Promise<BatchResult> {
-  await requireAdminUser("/admin/mods");
 
-  const supabase = createAdminClient();
   const result: BatchResult = { success: 0, failed: [] };
-
-  if (!supabase) {
-    return { success: 0, failed: ids.map((id) => ({ id, title: "", error: "数据库连接失败" })) };
-  }
 
   for (const id of ids) {
     try {
-      // 先查名称用于错误反馈
-      const { data: mod } = await supabase
-        .from("mods")
-        .select("title")
-        .eq("id", id)
-        .single();
+      // `returning title` 同时承担「查名称用于错误反馈」和「删除」两件事。
+      const row = await queryOne<{ title: string }>(
+        "delete from public.mods where id = $1 returning title",
+        [id],
+      );
 
-      const { error } = await supabase.from("mods").delete().eq("id", id);
-
-      if (error) {
-        result.failed.push({ id, title: mod?.title ?? "", error: error.message });
-      } else {
-        result.success++;
-      }
-    } catch (err) {
+      // 原实现对「id 不存在」也算成功（Supabase delete 不报错），这里保持一致。
+      void row;
+      result.success++;
+    } catch (error) {
       result.failed.push({
         id,
         title: "",
-        error: err instanceof Error ? err.message : "未知错误",
+        error: error instanceof Error ? error.message : "未知错误",
       });
     }
   }
@@ -143,17 +110,11 @@ export async function batchUpdateMods(
     downloadUrl?: string;
   },
 ): Promise<BatchResult> {
-  await requireAdminUser("/admin/mods");
 
-  const supabase = createAdminClient();
   const result: BatchResult = { success: 0, failed: [] };
 
-  if (!supabase) {
-    return { success: 0, failed: ids.map((id) => ({ id, title: "", error: "数据库连接失败" })) };
-  }
-
   // 只更新非空字段
-  const updateData = {
+  const updateData: Record<string, unknown> = {
     ...(fields.title?.trim() ? { title: fields.title.trim() } : {}),
     ...(fields.description?.trim() ? { description: fields.description.trim() } : {}),
     ...(fields.character?.trim() ? { character: fields.character.trim() } : {}),
@@ -163,31 +124,24 @@ export async function batchUpdateMods(
     ...(fields.downloadUrl !== undefined ? { download_url: fields.downloadUrl.trim() } : {}),
   };
 
-  if (Object.keys(updateData).length === 0) {
+  const { assignments, values } = buildUpdateAssignments(updateData);
+
+  if (!assignments) {
     return { success: 0, failed: ids.map((id) => ({ id, title: "", error: "没有提供任何要更新的字段" })) };
   }
 
   for (const id of ids) {
     try {
-      const { data: mod } = await supabase
-        .from("mods")
-        .select("title")
-        .eq("id", id)
-        .single();
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from("mods") as any).update(updateData).eq("id", id);
-
-      if (error) {
-        result.failed.push({ id, title: mod?.title ?? "", error: error.message });
-      } else {
-        result.success++;
-      }
-    } catch (err) {
+      await queryOne<{ title: string }>(
+        `update public.mods set ${assignments} where id = $${values.length + 1} returning title`,
+        [...values, id],
+      );
+      result.success++;
+    } catch (error) {
       result.failed.push({
         id,
         title: "",
-        error: err instanceof Error ? err.message : "未知错误",
+        error: error instanceof Error ? error.message : "未知错误",
       });
     }
   }
@@ -204,20 +158,21 @@ export async function batchUpdateMods(
 
 /** 批量获取 Mod 详情（用于批量编辑表单回填） */
 export async function batchGetModDetails(ids: string[]): Promise<SiteMod[]> {
-  const supabase = createAdminClient();
-  if (!supabase || ids.length === 0) return [];
+  if (ids.length === 0) return [];
 
-  const { data, error } = await supabase
-    .from("mods")
-    .select("*")
-    .in("id", ids);
+  try {
+    const rows = await queryRows<ModRow>(
+      "select * from public.mods where id = any($1::uuid[])",
+      [ids],
+    );
 
-  if (error || !data) {
-    logger.warn("[admin] batchGetModDetails failed", { error: error?.message });
+    return rows.map(mapMod);
+  } catch (error) {
+    logger.warn("[admin] batchGetModDetails failed", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
     return [];
   }
-
-  return (data as ModRow[]).map((row) => mapMod(row));
 }
 
 export type ModUpdateFields = {
@@ -235,18 +190,12 @@ export type ModUpdateFields = {
 export async function batchUpdateModsIndividually(
   updates: { id: string; fields: ModUpdateFields }[],
 ): Promise<BatchResult> {
-  await requireAdminUser("/admin/mods");
 
-  const supabase = createAdminClient();
   const result: BatchResult = { success: 0, failed: [] };
-
-  if (!supabase) {
-    return { success: 0, failed: updates.map((u) => ({ id: u.id, title: "", error: "数据库连接失败" })) };
-  }
 
   for (const { id, fields } of updates) {
     try {
-      const updateData = {
+      const updateData: Record<string, unknown> = {
         ...(fields.gameKey?.trim() ? { game_key: fields.gameKey.trim() } : {}),
         ...(fields.title?.trim() ? { title: fields.title.trim() } : {}),
         ...(fields.character?.trim() ? { character: fields.character.trim() } : {}),
@@ -257,22 +206,24 @@ export async function batchUpdateModsIndividually(
         ...(fields.nsfw !== undefined ? { nsfw: fields.nsfw } : {}),
       };
 
-      if (Object.keys(updateData).length === 0) {
+      const { assignments, values } = buildUpdateAssignments(updateData);
+
+      if (!assignments) {
         result.success++;
         continue;
       }
 
-      const { data: mod } = await supabase.from("mods").select("title").eq("id", id).single();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from("mods") as any).update(updateData).eq("id", id);
-
-      if (error) {
-        result.failed.push({ id, title: mod?.title ?? "", error: error.message });
-      } else {
-        result.success++;
-      }
-    } catch (err) {
-      result.failed.push({ id, title: "", error: err instanceof Error ? err.message : "未知错误" });
+      await queryOne<{ title: string }>(
+        `update public.mods set ${assignments} where id = $${values.length + 1} returning title`,
+        [...values, id],
+      );
+      result.success++;
+    } catch (error) {
+      result.failed.push({
+        id,
+        title: "",
+        error: error instanceof Error ? error.message : "未知错误",
+      });
     }
   }
 

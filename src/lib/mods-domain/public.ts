@@ -11,8 +11,8 @@ import { mapMod, publicModColumns, publicModDetailColumns } from "@/lib/mods-dom
 import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
 import { normalizeModsPageArgs } from "@/lib/mods-domain/filter-params";
 import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, rankModsByQuery, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
+import { queryOne, queryRows } from "@/lib/db/query";
 import type { ModRow, ModsPage, ModSort, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
-import { createPublicReadClient } from "@/lib/supabase/server";
 
 /**
  * 单批拉取行数。
@@ -71,21 +71,19 @@ const CACHE_REVALIDATE_SECONDS = 21600;
  */
 const getCachedModShard = unstable_cache(
   async (gameKey: string, from: number): Promise<SiteMod[]> => {
-    const supabase = createPublicReadClient();
-    const { data, error } = await supabase
-      .from("mods")
-      .select(publicModColumns)
-      .eq("is_published", true)
-      .eq("game_key", gameKey)
-      .order("created_at", { ascending: false })
-      .range(from, from + MOD_FETCH_BATCH_SIZE - 1);
+    // 与原来的 Supabase `.range(from, from + size - 1)` 等价：LIMIT + OFFSET。
+    // 查询失败直接抛：unstable_cache 不会缓存异常，避免把一次失败固化一整个 TTL。
+    const rows = await queryRows<ModRow>(
+      `select ${publicModColumns}
+         from public.mods
+        where is_published = true
+          and game_key = $1
+        order by created_at desc
+        limit $2 offset $3`,
+      [gameKey, MOD_FETCH_BATCH_SIZE, from],
+    );
 
-    if (error) {
-      // 向上抛：unstable_cache 不会缓存抛出的异常，避免把一次失败固化一整个 TTL
-      throw new Error(error.message);
-    }
-
-    return (data ?? []).map((row) => mapMod(row as ModRow));
+    return rows.map(mapMod);
   },
   // key 必须与改造前的 ["public-mods-batch"] 不同：两者返回的**形状不一样**
   // （原始行 vs 领域对象）。复用同一个 key 会让新代码从旧缓存条目里读出原始行，
@@ -102,19 +100,17 @@ const getCachedModShard = unstable_cache(
  */
 const getCachedPublishedModCount = unstable_cache(
   async (gameKey: string): Promise<number> => {
-    const supabase = createPublicReadClient();
-    const { count, error } = await supabase
-      .from("mods")
-      .select("id", { count: "exact", head: true })
-      .eq("is_published", true)
-      .eq("game_key", gameKey);
+    // count(*) 是 bigint，pg 默认返回字符串；`::int` 让调用方拿到的就是 number。
+    // 同 getCachedModShard：查询失败抛出，避免把一次失败固化一整个 TTL。
+    const row = await queryOne<{ count: number }>(
+      `select count(*)::int as count
+         from public.mods
+        where is_published = true
+          and game_key = $1`,
+      [gameKey],
+    );
 
-    if (error) {
-      // 同 getCachedModShard：抛出以免把一次失败固化一整个 TTL
-      throw new Error(error.message);
-    }
-
-    return count ?? 0;
+    return row?.count ?? 0;
   },
   ["public-mods-count"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: [modCacheTags.list] },
@@ -176,35 +172,18 @@ async function getAllPublishedMods(gameKey: string, strict = false): Promise<Sit
  */
 const getCachedAvailableCharacters = unstable_cache(
   async (gameKey: string): Promise<string[]> => {
-    const supabase = createPublicReadClient();
-
-    // 分页获取所有角色（解决 Supabase 默认 1,000 行限制）
-    let allData: { character: string }[] = [];
-    let from = 0;
-    const batchSize = 1000;
-    while (true) {
-      const { data, error } = await supabase
-        .from("mods")
-        .select("character")
-        .eq("is_published", true)
-        .eq("game_key", gameKey)
-        .order("id", { ascending: true })
-        .range(from, from + batchSize - 1);
-
-      if (error) {
-        // 抛出而非返回兜底值：否则一次失败会被缓存一整个 TTL
-        throw new Error(error.message);
-      }
-
-      if (!data || data.length === 0) break;
-      allData = allData.concat(data);
-      if (data.length < batchSize) break;
-      from += batchSize;
-    }
+    // 原来分页 1000 行是为了绕开 Supabase 默认 limit；SQL 的 DISTINCT 直接返回全部。
+    const rows = await queryRows<{ character: string }>(
+      `select distinct character
+         from public.mods
+        where is_published = true
+          and game_key = $1`,
+      [gameKey],
+    );
 
     return Array.from(
       new Set(
-        allData
+        rows
           .map((row) => normalizeCharacterName(String(row.character ?? "")))
           .filter(Boolean),
       ),
@@ -352,21 +331,17 @@ export async function getPublicMods(limit?: number, filters: PublicModsFilters =
 export async function getFeaturedMods(limit: number, gameKey = defaultGameKey) {
   // 获取手动推荐的 mod（is_featured = true），按 featured_order 升序（null 排最后）+ 创建时间倒序兜底
   try {
-    const supabase = createPublicReadClient();
-    const { data, error } = await supabase
-      .from("mods")
-      .select(`${publicModColumns}, featured_order`)
-      .eq("is_published", true)
-      .eq("game_key", gameKey)
-      .eq("is_featured", true)
-      .order("featured_order", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false });
+    const rows = await queryRows<ModRow>(
+      `select ${publicModColumns}, featured_order
+         from public.mods
+        where is_published = true
+          and game_key = $1
+          and is_featured = true
+        order by featured_order asc nulls last, created_at desc`,
+      [gameKey],
+    );
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    const mods = (data ?? []).map((row) => mapMod(row as ModRow));
+    const mods = rows.map(mapMod);
     return sortFeaturedModsByOrder(mods).slice(0, limit);
   } catch (error) {
     // 首页轮播是唯一不走 unstable_cache 的公开读路径，网关一挂它第一个空掉
@@ -584,38 +559,32 @@ export async function getPublicModBaseById(id: string, gameKey?: string) {
     return null;
   }
 
-  let supabase;
-  try {
-    supabase = createPublicReadClient();
-  } catch (error) {
-    logger.warn("[mods] getPublicModBaseById skipped because Supabase env is missing", { error: error instanceof Error ? error.message : "unknown" });
-    return null;
-  }
-
-  let query = supabase
-    .from("mods")
-    // 详情页要展示安装说明，是整个前台唯一需要 xxmi_install_guide 的地方，
-    // 因此只有这一处用详情列清单（列表路径已裁剪该列，实测每次整表扫省下
-    // 1,384,698 字节 ≈ 1.32 MiB，约占列表列集 payload 的 24%）。
-    .select(publicModDetailColumns)
-    .eq("id", parsedId.data)
-    .eq("is_published", true);
+  // 详情页要展示安装说明，是整个前台唯一需要 xxmi_install_guide 的地方，
+  // 因此只有这一处用详情列清单（列表路径已裁剪该列，实测每次整表扫省下
+  // 1,384,698 字节 ≈ 1.32 MiB，约占列表列集 payload 的 24%）。
+  const params: unknown[] = [parsedId.data];
+  let sql = `select ${publicModDetailColumns}
+               from public.mods
+              where id = $1
+                and is_published = true`;
 
   if (gameKey) {
-    query = query.eq("game_key", gameKey);
+    params.push(gameKey);
+    sql += " and game_key = $2";
   }
 
-  const { data, error } = await query.maybeSingle();
-
-  if (error) {
-    // 详情页同样要走快照兜底，否则网关被锁时列表有卡片、点进去却是 404。
-    logger.warn("[mods] getPublicModBaseById 失败，回退到本地快照", { error: error.message });
+  try {
+    const row = await queryOne<ModRow>(sql, params);
+    return row ? mapMod(row) : null;
+  } catch (error) {
+    // 详情页同样要走快照兜底，否则数据库不可用时列表有卡片、点进去却是 404。
+    logger.warn("[mods] getPublicModBaseById 失败，回退到本地快照", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
 
     const snapshotRow = (await getSnapshotRows(gameKey ?? defaultGameKey)).find(
       (row) => row.id === parsedId.data,
     );
     return snapshotRow ? mapMod(snapshotRow as ModRow) : null;
   }
-
-  return data ? mapMod(data as ModRow) : null;
 }

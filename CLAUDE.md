@@ -7,13 +7,13 @@
 
 ## 技术栈
 
-- **前端**：Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui, TanStack Query
-- **后端**：Next.js API Routes / tRPC + Prisma
-- **数据库**：PostgreSQL + Prisma ORM
-- **认证**：NextAuth.js v5 (Auth.js)
-- **状态管理**：Zustand + TanStack Query
-- **部署**：Vercel (前端+Serverless) / Docker
-- **其他**：Zod, React Hook Form, ESLint + Prettier + Husky
+- **前端**：Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui, TanStack Query
+- **后端**：Server Actions + Route Handlers（无 tRPC / Prisma）
+- **数据库**：自建 PostgreSQL 17，原生 `pg` + 参数化 SQL（2026-11 从 Supabase 迁出，见 `docs/db-migration-selfhosted-pg-prd.md`）
+- **认证**：无站内登录；后台 `/admin` 用 nginx + 应用层 Basic Auth（`src/proxy.ts`）
+- **状态管理**：React Context + TanStack Query
+- **部署**：Vercel hkg1 + 香港 nginx 反代 + 香港自建 PostgreSQL；Cloudflare Workers 流水线停用
+- **其他**：Zod, React Hook Form, ESLint
 
 ## 架构原则 (必须严格遵守)
 
@@ -27,13 +27,14 @@
 ## 目录结构 (重要)
 
 src/
-├── app/ # Next.js App Router
-├── features/ # 核心业务功能（按领域组织）
-├── entities/ # 业务实体（User, Order 等）
-├── shared/ # 通用组件、工具、UI
-├── widgets/ # 复杂组合组件
-├── lib/ # 工具库、prisma、auth 等
-└── types/ # 全局类型定义
+├── app/ # Next.js App Router（页面 + Route Handlers）
+├── actions/ # Server Actions（admin / tutorial 等）
+├── components/ # 通用与业务组件
+├── config/ # 站点/游戏配置
+├── constants/ # 常量与静态数据
+├── features/ # 按游戏/领域组织的功能
+├── lib/ # 工具库（含 db/ 数据访问层）
+└── types/ # 全局类型定义（含 db.ts 数据库类型）
 
 ## 编码规范
 
@@ -41,14 +42,14 @@ src/
 - **命名**：组件用 PascalCase，函数/变量用 camelCase，文件用 kebab-case
 - **组件**：Server Component 优先，Client Component 必须加 `'use client'`
 - **样式**：只允许 Tailwind + shadcn/ui，不允许全局 CSS
-- **API**：使用 tRPC 或 Server Actions，禁止直接暴露数据库查询
+- **API**：使用 Server Actions 或 Route Handlers；数据库访问只能经 `src/lib/db`，SQL 必须参数化
 - **错误处理**：统一使用 `try/catch + ZodError` 处理，错误信息不能暴露敏感信息
 
 ## 测试策略
 
-- 单元测试：Vitest + React Testing Library（重点测试 utils 和 hooks）
-- 组件测试：重点覆盖复杂 widgets
-- E2E：Playwright（关键用户流程）
+- 单元测试：Vitest（重点测试 utils、hooks 与纯函数）
+- 组件测试：重点覆盖复杂组合组件
+- E2E：手工冒烟 + `curl`（当前未接 Playwright）
 - **TDD 优先**：新功能必须先写测试
 
 ## Git 提交规范
@@ -268,7 +269,6 @@ npm run dev          # 启动开发
 npm run build        # 构建检查
 npm run lint         # 代码检查
 npm run test         # 测试
-npm run db:push      # Prisma 同步
 ```
 
 ## 质量检查策略（重要）

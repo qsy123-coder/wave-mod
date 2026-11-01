@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { hmacSha1Base64, utf8ToBase64 } from "@/lib/crypto";
 import { buildOssObjectKey } from "@/lib/oss/path";
 import {
@@ -66,7 +65,6 @@ async function buildFormDataFields({
 }
 
 export async function POST(request: Request) {
-  await requireAdminUser("/admin/upload");
 
   const env = getServerOssEnv();
 

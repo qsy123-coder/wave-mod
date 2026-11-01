@@ -1,13 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
-import { ArrowRight, LogOut } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
-import { signOutUser } from "@/actions/auth/auth-actions";
 import { FavoritesClient } from "@/components/features/mods/favorites/favorites-client";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { getGameBySlug } from "@/config/games";
-import { getFavoriteMods, type SiteMod } from "@/lib/mods";
 
 type PageProps = {
   params: Promise<{ game: string }>;
@@ -16,28 +13,14 @@ type PageProps = {
 /**
  * 分站「我的收藏」。
  *
- * 与站点级 /favorites 同一套逻辑，区别只是按 gameKey 过滤。
- * 同样不再要求登录：游客看本机收藏，登录用户看「服务端 ∪ 本机」。
+ * 登录已下线：只展示本机设备号下的收藏，并按 gameKey 过滤。
  */
 export default async function GameFavoritesPage({ params }: PageProps) {
-  await connection();
-
   const { game: gameSlug } = await params;
   const game = getGameBySlug(gameSlug);
 
   if (!game) {
     notFound();
-  }
-
-  let serverMods: SiteMod[] = [];
-  let signedIn = false;
-
-  try {
-    const favorites = await getFavoriteMods();
-    signedIn = favorites !== null;
-    serverMods = (favorites ?? []).filter((mod) => mod.gameKey === game.key);
-  } catch {
-    // 按游客视角继续
   }
 
   return (
@@ -54,22 +37,6 @@ export default async function GameFavoritesPage({ params }: PageProps) {
       </MotionReveal>
 
       <div className="flex flex-wrap items-center gap-3">
-        {signedIn ? (
-          <form
-            action={async () => {
-              "use server";
-              await signOutUser(game.nav.home);
-            }}
-          >
-            <button
-              type="submit"
-              className="neo-button-outline inline-flex items-center gap-2 px-4 py-3 text-sm font-black uppercase tracking-[0.14em]"
-            >
-              <LogOut className="size-4" />
-              退出登录
-            </button>
-          </form>
-        ) : null}
         <Link
           href={`${game.nav.mods}?sort=hot`}
           className="neo-button-primary inline-flex items-center gap-2 px-5 py-3 text-sm font-black uppercase tracking-[0.14em]"
@@ -79,7 +46,7 @@ export default async function GameFavoritesPage({ params }: PageProps) {
         </Link>
       </div>
 
-      <FavoritesClient serverMods={serverMods} signedIn={signedIn} gameKey={game.key} />
+      <FavoritesClient serverMods={[]} signedIn={false} gameKey={game.key} />
     </div>
   );
 }

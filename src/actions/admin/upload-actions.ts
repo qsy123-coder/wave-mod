@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { getPersistedModMeta } from "@/constants/upload-defaults";
 import {
   adminModFormSchema,
@@ -12,26 +11,12 @@ import {
   splitImageUrls,
   type AdminModFormState,
 } from "@/lib/admin/mod-form";
-import { revalidateCreatorProfileCache, revalidatePublicModCaches } from "@/lib/mod-cache";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUser } from "@/lib/supabase/server";
-import { getServerSupabaseEnv } from "@/lib/supabase/server-config";
+import { execute } from "@/lib/db/query";
+import { revalidatePublicModCaches } from "@/lib/mod-cache";
 
 export type UploadFormState = AdminModFormState;
 
 export async function createModAction(_prevState: UploadFormState, formData: FormData): Promise<UploadFormState> {
-  await requireAdminUser("/admin/upload");
-
-  const env = getServerSupabaseEnv();
-  const supabaseAdmin = createAdminClient();
-
-  if (!env?.serviceRoleKey || !supabaseAdmin) {
-    return {
-      error: "服务端缺少 Supabase Service Role Key，暂时无法写入数据库。",
-      fieldErrors: {},
-      success: "",
-    };
-  }
 
   const parsed = adminModFormSchema.safeParse(parseAdminModFormData(formData));
 
@@ -55,42 +40,39 @@ export async function createModAction(_prevState: UploadFormState, formData: For
     };
   }
 
-  // 关联当前上传者
-  const currentUser = await getCurrentUser();
-  const createdBy = currentUser?.id ?? null;
-
-  const { error } = await supabaseAdmin.from("mods").insert({
-    title: payload.title,
-    game_key: payload.gameKey,
-    character: payload.character,
-    version: persistedMeta.version,
-    game_version: persistedMeta.gameVersion,
-    description: payload.description,
-    download_url: payload.downloadUrl || null,
-    video_url: payload.videoUrl || null,
-    mod_author_url: payload.authorUrl || null,
-    images: imageList,
-    drive_links: splitDriveLinks(payload.driveLinksText),
-    nsfw: payload.nsfw,
-    xxmi_install_guide: payload.xxmiGuide,
-    created_by: createdBy,
-  });
-
-  if (error) {
+  try {
+    // 登录已下线，created_by 留空（列可空）；历史数据里的 created_by 原样保留。
+    // drive_links 是 jsonb：对象数组必须显式 JSON.stringify，否则 pg 会按 Postgres 数组编码。
+    await execute(
+      `insert into public.mods
+         (title, game_key, character, version, game_version, description,
+          download_url, video_url, mod_author_url, images, drive_links, nsfw, xxmi_install_guide)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [
+        payload.title,
+        payload.gameKey,
+        payload.character,
+        persistedMeta.version,
+        persistedMeta.gameVersion,
+        payload.description,
+        payload.downloadUrl || null,
+        payload.videoUrl || null,
+        payload.authorUrl || null,
+        imageList,
+        JSON.stringify(splitDriveLinks(payload.driveLinksText)),
+        payload.nsfw,
+        payload.xxmiGuide,
+      ],
+    );
+  } catch (error) {
     return {
-      error:
-        error.message === "Invalid API key"
-          ? `写入数据库失败：Invalid API key（服务端当前读取到的是 ${env.serviceRoleKey.startsWith("sb_secret_") ? "sb_secret" : env.serviceRoleKey.startsWith("eyJ") ? "legacy_jwt" : "unknown"}，长度 ${env.serviceRoleKey.length}）`
-          : `写入数据库失败：${error.message}`,
+      error: `写入数据库失败：${error instanceof Error ? error.message : "未知错误"}`,
       fieldErrors: {},
       success: "",
     };
   }
 
   revalidatePublicModCaches();
-  if (createdBy) {
-    revalidateCreatorProfileCache(createdBy);
-  }
   revalidatePath("/mods");
   revalidatePath(`/${payload.gameKey}`);
   revalidatePath(`/${payload.gameKey}/mods`);

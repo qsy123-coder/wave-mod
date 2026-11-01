@@ -33,12 +33,7 @@ async function CreatorData({ params }: PageProps) {
   ];
 
   return (
-    <ProfileContent
-      profile={profile}
-      game={game}
-      isOwnProfile={false}
-      stats={stats}
-    />
+    <ProfileContent profile={profile} game={game} stats={stats} />
   );
 }
 

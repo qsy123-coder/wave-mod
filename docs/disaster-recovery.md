@@ -1,14 +1,24 @@
 # WaveMod 异地备份与灾难恢复手册
 
+> **2026-11 数据库迁移后**：生产库已从 Supabase 搬到香港自建 PostgreSQL
+> （`db.sunnyrose.xyz:6432`，pgbouncer + TLS）。本手册的备份/恢复流程仍然适用，
+> 但连接串、备份来源和「登录用户」相关描述已更新。旧 Supabase 项目只保留
+> **30 天**用于回滚，之后删除；下文涉及旧平台的内容仅作过渡期参考。
+> 迁移方案见 `docs/db-migration-selfhosted-pg-prd.md`。
+
 本手册说明如何把 WaveMod 的**数据库**和 **mod 图片**备份到 GitHub，以及数据意外丢失时如何**完全恢复**。
 
 ## 1. 备份架构总览
 
 ```
-Supabase Postgres ──pg_dump(Fc, public)──▶ 数据库 dump ──▶ GitHub Release 附件（保留最近 30 份）
+香港自建 PostgreSQL ──pg_dump(Fc, public)──▶ 数据库 dump ──▶ GitHub Release 附件（保留最近 30 份）
+        │                                   └─▶ 香港机 /var/backups/wavemod（本地 30 份）
 腾讯云 COS（mods/ + tutorial/ 图片）──▶ backups/images/ ──▶ git 仓库（增量提交）
 表行数 ──▶ backups/manifest.json ──▶ git 仓库
 ```
+
+- 自建库的**主备份**是香港机上的 `/etc/cron.d/wavemod-db-backup`（每天 03:10，
+  `deploy/hk-db/backup.sh`，本地保留 30 份）；GitHub Actions 的每日备份是第二份异地副本。
 
 - **数据库 dump**：每天全量 `pg_dump`（public schema，custom 格式），上传为 GitHub Release 附件。仓库代码保持小、git 历史不膨胀。
 - **图片**：从 COS 增量同步到 `backups/images/`（首次全量约 300-500MB，之后只下载新增/变更的），提交进 git 仓库。**object key 原样保留**，因此恢复时把图片回传 COS 相同路径，数据库里存的 COS URL 自动恢复生效。
@@ -31,21 +41,21 @@ node scripts/restore-from-backup.mjs --yes        # 正式恢复（数据库 + �
 npm run restore                                   # 等价
 ```
 
-## 3. 前置：获取 Supabase 数据库连接串（必做一次）
+## 3. 前置：数据库连接串
 
-备份脚本需要 Postgres 连接串（`pg_dump` 用它直连数据库）。当前 `.env.local` 里只有 Supabase 的 JS 密钥，没有连接串，需要你到控制台获取：
+迁移完成后，备份与恢复都只认 `DATABASE_URL`，指向香港自建 pgbouncer：
 
-1. 打开 [Supabase 控制台](https://supabase.com/dashboard) → 选择项目 **`xqwzgcxwdwpmkdbmzmve`**
-2. 左侧 **Project Settings** → **Database**
-3. 在 **Connection string** 区域，选 **Session pooler**（或 **Direct connection**）
-   > ⚠️ 不要选 Transaction pooler（端口 6543）——`pg_dump` 长连接会超时
-4. 复制形如 `postgresql://postgres.xqwzgcxwdwpmkdbmzmve:[PASSWORD]@aws-0-xxx.pooler.supabase.com:5432/postgres` 的连接串
-5. 密码在 **Reset database password** 处可重置（忘了就重置）
-6. 填到本机 `.env.local`：
-   ```
-   DATABASE_URL=postgresql://postgres.xqwzgcxwdwpmkdbmzmve:[PASSWORD]@aws-0-xxx.pooler.supabase.com:5432/postgres
-   ```
-   > 提醒：连接串含数据库密码，`.env*` 已被 `.gitignore` 排除，**不会**提交进 git。
+```
+DATABASE_URL=postgresql://wavemod_app:<密码>@db.sunnyrose.xyz:6432/wavemod?sslmode=verify-full
+```
+
+- 该串同时用于 `pg_dump` / `pg_restore` / 应用运行时，密码在
+  `/etc/pgbouncer/userlist.txt`（服务器）与 Vercel 环境变量里。
+- 证书由 certbot 维护；`sslmode=verify-full` 会校验证书与主机名。
+- **过渡期（切换后 30 天内）** 旧 Supabase 连接串只用于回滚，不再作为备份源。
+
+> ⚠️ 备份脚本在 GitHub Actions 上运行时需要出站访问 6432；服务器防火墙必须放行。
+> 若不想把库暴露给 Actions，可只依赖香港机本地 cron 备份。
 
 ## 4. 配置 GitHub Secrets（GitHub Actions 定时备份需要）
 
@@ -93,6 +103,17 @@ pg_restore --list backups/db/wavemod-*.dump | tail -n +5 | wc -l
 
 ## 7. 灾难恢复流程
 
+### 7.0 回滚到旧 Supabase（切换后 30 天内）
+
+1. Vercel → Deployments → 把上一个可用版本 **Promote**（≤2 分钟）。
+2. 恢复该版本需要的 `DATABASE_URL` / Supabase 环境变量（旧值仍留在备忘录或
+   `.env.local.bak`，不要提前删）。
+3. **先导出新库的增量**：`pg_dump -Fc "$NEW_DATABASE_URL" -f rollback-delta.dump`，
+   否则切换后写入的 mod 会丢。把差异补回旧库后再宣布回滚完成。
+4. 回滚后重新启用旧 Supabase 的 REST 网关（升级/解除 spend cap），确认后台可用。
+
+> 30 天后旧项目删除，此路径失效；此后只能用备份恢复自建库。
+
 ### 7.1 数据库被清空 / 被篡改 → 恢复数据库
 
 ```bash
@@ -107,9 +128,12 @@ node scripts/restore-from-backup.mjs --db-only --yes
 ```
 
 - 脚本会自动从 GitHub Release 下载最新 dump 并做 **sha256 校验**（损坏即拒绝）。
-- 只恢复 `public` schema（业务数据 + 表 + 函数 + 触发器 + RLS），**不触碰** `auth`/`storage` 等平台托管 schema。
-- **登录用户**：同一个 Supabase 项目下 `auth.users` 未被清空时，恢复后用户密码哈希仍有效，可直接登录；若 auth 也被清空，用户需重新注册（注册触发器会自动重建 `profiles`）。
-- **全新项目**（换了个空 Supabase 项目）：恢复后需手动补平台侧依赖——重跑 `supabase/schema.sql` 中挂 `auth.users` 的触发器、重建 `mod-assets` storage bucket、配置 app settings。
+- 只恢复 `public` schema（业务数据 + 表 + 函数 + 触发器 + 索引）。
+- 自建库**没有 Auth/Storage**：登录已下线，`profiles` 等用户表只作历史存档；
+  恢复后不需要重建 auth 触发器或 storage bucket。
+- 若目标是全新空库：先执行 `db/schema.sql`（或直接 restore dump），再执行
+  `db/cleanup-supabase-artifacts.sql` 去掉 dump 里可能残留的 RLS/policy。
+- 恢复完成后用 `node scripts/verify-migration.mjs` 对比行数与 `mods` 校验和。
 
 ### 7.2 图片全删 / COS 被清空 → 恢复图片
 
@@ -213,7 +237,8 @@ Vercel 运行时日志里有没有 `[mods] 已从远程快照（COS）载入`（
 ## 11. 边界与注意事项
 
 - **备份范围**：mods 预览图 + 教程图（COS 的 `mods/` 和 `tutorial/` 前缀）。**不含视频**（单文件可能超 GitHub 100MB 限制）。本地 `public/` 静态资源已随代码在 git 里。
-- **dump 只含 `public` schema**：业务数据完整；auth/storage 是 Supabase 平台托管，不备份也不允许直接重建。
+- **dump 只含 `public` schema**：业务数据完整；自建库不迁移 Supabase Auth/Storage
+  的内部表，`profiles/favorites/likes/comments/ratings` 只作历史存档。
 - **仓库体积**：首次全量图片约 300-500MB 进 git（GitHub 建议仓库 <1GB）。之后每天只增量几 MB，可控。
 - **git 历史清理**（仅在 dump 曾用 git 模式、历史膨胀时）：单作者仓库可每月执行
   ```bash
@@ -228,8 +253,9 @@ Vercel 运行时日志里有没有 `[mods] 已从远程快照（COS）载入`（
 |---|---|
 | dump 走 GitHub Release 而非 git | 每天全量 dump 会让 git 历史每月膨胀数百 MB；Release 附件独立存储、保留 N 份 |
 | 图片提交 git 仓库 | 总量适中（数百 MB）、增量小，git 最简单可靠，恢复直接取文件 |
-| 只备份 public schema | auth/storage 平台托管，`--clean` 重建会破坏 Supabase 平台 |
-| Session pooler / direct 连接 | Transaction pooler（6543）会重置 `pg_dump` 长连接 |
+| 只备份 public schema | 自建库不迁 Supabase Auth/Storage；业务数据都在 public |
+| 香港机本地 cron + GitHub Actions 双备份 | 单机自建库没有托管平台的高可用；本地备份保证 Actions 不可达时仍有副本 |
+| pgbouncer transaction 模式 | Vercel Serverless 实例多，直连会打满 Postgres 连接 |
 | 恢复图片回传 COS 原 key | 数据库 URL 无需改动即恢复生效 |
 | 兜底快照同时放 COS、且匿名公开读 | 锁定期内新内容要立刻可见就得绕开「重新部署」；公开读省掉密钥管理，代价（全量数据一条公开直链）见第 10 节 |
 | 快照缓存的是 COS 上的 base64，不是解析后的行数组 | Vercel Data Cache 单条上限 2MB（解析后约 4.7MB），超限时 Next 静默不写 ⇒ 退化成每请求真拉 513KB |

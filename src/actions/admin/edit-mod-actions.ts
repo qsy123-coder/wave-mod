@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireAdminUser } from "@/actions/auth/auth-actions";
 import type { UploadFormState } from "@/actions/admin/upload-actions";
 import { getPersistedModMeta } from "@/constants/upload-defaults";
 import {
@@ -13,24 +12,17 @@ import {
   splitDriveLinks,
   splitImageUrls,
 } from "@/lib/admin/mod-form";
-import { revalidateCreatorProfileCache, revalidatePublicModCaches } from "@/lib/mod-cache";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { execute, queryOne } from "@/lib/db/query";
+import { revalidatePublicModCaches } from "@/lib/mod-cache";
 
 const modIdSchema = z.uuid("无效的 MOD ID。");
 
 export async function updateModAction(_prevState: UploadFormState, formData: FormData): Promise<UploadFormState> {
-  await requireAdminUser("/admin/mods");
 
   const parsed = adminModUpdateFormSchema.safeParse(parseAdminModUpdateFormData(formData));
 
   if (!parsed.success) {
     return { error: "请先修正表单中的红色报错项。", fieldErrors: buildAdminModFieldErrors(parsed.error), success: "" };
-  }
-
-  const supabaseAdmin = createAdminClient();
-  if (!supabaseAdmin) {
-    return { error: "服务端缺少 Supabase Service Role Key，暂时无法更新 MOD。", fieldErrors: {}, success: "" };
   }
 
   const payload = parsed.data;
@@ -41,43 +33,50 @@ export async function updateModAction(_prevState: UploadFormState, formData: For
     return { error: "请至少提供一张预览图链接。", fieldErrors: { imageUrls: "请至少提供一张预览图链接。" }, success: "" };
   }
 
-  // 检查 created_by 是否为空，若为空则自动关联当前编辑者
-  const { data: existing } = await supabaseAdmin
-    .from("mods")
-    .select("created_by")
-    .eq("id", payload.id)
-    .maybeSingle();
-  const currentUser = await getCurrentUser();
-  const createdBy = existing?.created_by ?? currentUser?.id ?? null;
-
-  const { error } = await supabaseAdmin
-    .from("mods")
-    .update({
-      title: payload.title,
-      game_key: payload.gameKey,
-      character: payload.character,
-      version: persistedMeta.version,
-      game_version: persistedMeta.gameVersion,
-      description: payload.description,
-      download_url: payload.downloadUrl || null,
-      video_url: payload.videoUrl || null,
-      mod_author_url: payload.authorUrl || null,
-      images: imageList,
-      drive_links: splitDriveLinks(payload.driveLinksText),
-      nsfw: payload.nsfw,
-      xxmi_install_guide: payload.xxmiGuide,
-      ...(createdBy ? { created_by: createdBy } : {}),
-    })
-    .eq("id", payload.id);
-
-  if (error) {
-    return { error: `更新失败：${error.message}`, fieldErrors: {}, success: "" };
+  try {
+    // created_by 由上传/历史数据决定，编辑时不再改写（登录已下线，没有「当前编辑者」）。
+    await execute(
+      `update public.mods set
+         title = $1,
+         game_key = $2,
+         character = $3,
+         version = $4,
+         game_version = $5,
+         description = $6,
+         download_url = $7,
+         video_url = $8,
+         mod_author_url = $9,
+         images = $10,
+         drive_links = $11,
+         nsfw = $12,
+         xxmi_install_guide = $13
+       where id = $14`,
+      [
+        payload.title,
+        payload.gameKey,
+        payload.character,
+        persistedMeta.version,
+        persistedMeta.gameVersion,
+        payload.description,
+        payload.downloadUrl || null,
+        payload.videoUrl || null,
+        payload.authorUrl || null,
+        imageList,
+        JSON.stringify(splitDriveLinks(payload.driveLinksText)),
+        payload.nsfw,
+        payload.xxmiGuide,
+        payload.id,
+      ],
+    );
+  } catch (error) {
+    return {
+      error: `更新失败：${error instanceof Error ? error.message : "未知错误"}`,
+      fieldErrors: {},
+      success: "",
+    };
   }
 
   revalidatePublicModCaches(payload.id);
-  if (createdBy) {
-    revalidateCreatorProfileCache(createdBy);
-  }
   revalidatePath("/admin/mods");
   revalidatePath(`/${payload.gameKey}`);
   revalidatePath(`/${payload.gameKey}/mods`);
@@ -89,46 +88,46 @@ export async function updateModAction(_prevState: UploadFormState, formData: For
 }
 
 export async function getEditableMod(id: string) {
-  await requireAdminUser("/admin/mods");
 
   const parsedId = modIdSchema.safeParse(id);
   if (!parsedId.success) return null;
 
-  const supabaseAdmin = createAdminClient();
-  if (!supabaseAdmin) return null;
+  const data = await queryOne<{
+    id: string;
+    title: string;
+    character: string;
+    version: string;
+    game_version: string;
+    game_key: string;
+    description: string;
+    images: string[] | null;
+    video_url: string | null;
+    download_url: string | null;
+    drive_links: unknown;
+    nsfw: boolean | null;
+    mod_author_url: string | null;
+    xxmi_install_guide: string;
+    views: number | null;
+    downloads_count: number | null;
+    favorites_count: number | null;
+    likes_count: number | null;
+    comments_count: number | null;
+    rating_count: number | null;
+    rating_average: number | null;
+    is_published: boolean;
+    is_featured: boolean | null;
+    created_at: string;
+  }>(
+    `select id, title, character, version, game_version, game_key, description,
+            images, video_url, download_url, drive_links, nsfw, mod_author_url,
+            xxmi_install_guide, views, downloads_count, favorites_count, likes_count,
+            comments_count, rating_count, rating_average, is_published, is_featured, created_at
+       from public.mods
+      where id = $1`,
+    [parsedId.data],
+  );
 
-  const { data, error } = await supabaseAdmin
-    .from("mods")
-    .select(`
-      id,
-      title,
-      character,
-      version,
-      game_version,
-      game_key,
-      description,
-      images,
-      video_url,
-      download_url,
-      drive_links,
-      nsfw,
-      mod_author_url,
-      xxmi_install_guide,
-      views,
-      downloads_count,
-      favorites_count,
-      likes_count,
-      comments_count,
-      rating_count,
-      rating_average,
-      is_published,
-      is_featured,
-      created_at
-    `)
-    .eq("id", parsedId.data)
-    .maybeSingle();
-
-  if (error || !data) return null;
+  if (!data) return null;
 
   return {
     character: data.character,

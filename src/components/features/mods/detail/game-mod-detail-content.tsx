@@ -5,10 +5,8 @@ import { Copy, Sparkles } from "lucide-react";
 import { defaultGameKey, getGameBySlug } from "@/config/games";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
-import { getCurrentUser, isAdminUser } from "@/lib/supabase/server";
-import { getFeaturedMods, getModComments, getPublicModBaseById, getViewerModState } from "@/lib/mods";
+import { getFeaturedMods, getPublicModBaseById } from "@/lib/mods";
 
-import { CommentsPanel } from "@/components/features/mods/detail/comments-panel";
 import { HeroSectionNav } from "@/components/features/mods/detail/hero-section-nav";
 import { LiveModStats } from "@/components/features/mods/detail/live-mod-stats";
 import { ModDetailLayoutShell } from "@/components/features/mods/detail/mod-detail-layout-shell";
@@ -31,21 +29,14 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
 
   if (!game) notFound();
 
-  const [baseMod, viewerState, user, commentsPage, admin, hotMods] = await Promise.all([
+  const [baseMod, hotMods] = await Promise.all([
     getPublicModBaseById(id, game.key),
-    getViewerModState(id),
-    getCurrentUser(),
-    getModComments(id),
-    isAdminUser(),
     getFeaturedMods(12, game.key),
   ]);
 
   if (!baseMod) notFound();
 
-  const mod = {
-    ...baseMod,
-    ...viewerState,
-  };
+  const mod = baseMod;
   const recommendedMods = hotMods.filter((item) => item.id !== mod.id);
   const detailPath = `${game.nav.mods}/${mod.id}`;
 
@@ -58,7 +49,7 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
         downloads: mod.downloads,
         driveLinks: mod.driveLinks,
         isFavorited: Boolean(mod.isFavorited),
-        isLoggedIn: Boolean(user),
+        isLoggedIn: false,
         modId: mod.id,
         nextPath: detailPath,
         title: mod.title,
@@ -136,10 +127,6 @@ export async function GameModDetailContent({ params, redirectDefaultGame = true 
               </div>
             </section>
           </MotionReveal>
-
-          <div id="mod-comments" className="scroll-mt-24">
-            <CommentsPanel admin={Boolean(admin)} currentUserId={user?.id} currentUserName={user?.user_metadata?.display_name ?? user?.email?.split("@")[0] ?? "我"} initialComments={commentsPage.items} initialDegraded={commentsPage.degraded} isLoggedIn={Boolean(user)} modId={mod.id} />
-          </div>
         </div>
       </section>
     </ModDetailLayoutShell>

@@ -31,7 +31,6 @@ export const publicModColumns = `
   nsfw,
   mod_author_url,
   views,
-  downloads_count,
   favorites_count,
   likes_count,
   comments_count,

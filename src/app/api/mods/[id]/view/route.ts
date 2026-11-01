@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { queryOne } from "@/lib/db/query";
 
 function shouldCountView(request: Request) {
   const userAgent = request.headers.get("user-agent")?.toLowerCase() ?? "";
@@ -20,35 +20,27 @@ export async function POST(request: Request, { params }: RouteProps) {
   }
 
   const { id } = await params;
-  const supabaseAdmin = createAdminClient();
 
-  if (!supabaseAdmin) {
-    return NextResponse.json({ ok: false, error: "missing_admin_client" }, { status: 500 });
+  try {
+    // 一条原子自增，避免「先读后写」在并发下丢计数。
+    const row = await queryOne<{ id: string }>(
+      `update public.mods
+          set views = views + 1
+        where id = $1
+          and is_published = true
+        returning id`,
+      [id],
+    );
+
+    if (!row) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "unknown" },
+      { status: 500 },
+    );
   }
-
-  const { data: mod, error: readError } = await supabaseAdmin
-    .from("mods")
-    .select("id, views")
-    .eq("id", id)
-    .eq("is_published", true)
-    .maybeSingle();
-
-  if (readError) {
-    return NextResponse.json({ ok: false, error: readError.message }, { status: 500 });
-  }
-
-  if (!mod) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-  }
-
-  const { error: updateError } = await supabaseAdmin
-    .from("mods")
-    .update({ views: (mod.views ?? 0) + 1 })
-    .eq("id", id);
-
-  if (updateError) {
-    return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
 }

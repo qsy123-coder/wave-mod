@@ -9,7 +9,6 @@ import {
   LAYOUT_STYLE_STORAGE_KEY,
   type LayoutStyle,
 } from "@/lib/layout-style/constants";
-import { getRemoteLayoutStyleAction, syncLayoutStyleAction } from "@/actions/user/profile-actions";
 
 type LayoutStyleContextValue = {
   layoutStyle: LayoutStyle;
@@ -46,24 +45,8 @@ export function LayoutStyleProvider({ children }: { children: ReactNode }) {
   const [layoutStyle, setLayoutStyleState] = useState<LayoutStyle>(readLayoutStyleFromCookie);
 
   useEffect(() => {
-    let cancelled = false;
+    // 登录已下线：皮肤只存 cookie + localStorage，不再跨设备同步。
     applySkinClass(layoutStyle);
-
-    async function syncFromRemote() {
-      try {
-        const remote = await getRemoteLayoutStyleAction();
-        if (cancelled || !remote) return;
-        setLayoutStyleState((prev) => {
-          if (prev === remote) return prev;
-          applySkinClass(remote);
-          writeLayoutStyleCookie(remote);
-          try { localStorage.setItem(LAYOUT_STYLE_STORAGE_KEY, remote); } catch { /* ignore */ }
-          return remote;
-        });
-      } catch { /* 静默降级 */ }
-    }
-    syncFromRemote();
-    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -72,7 +55,6 @@ export function LayoutStyleProvider({ children }: { children: ReactNode }) {
     applySkinClass(value);
     writeLayoutStyleCookie(value);
     try { localStorage.setItem(LAYOUT_STYLE_STORAGE_KEY, value); } catch { /* ignore */ }
-    syncLayoutStyleAction(value).catch(() => {});
   }, []);
 
   const contextValue = useMemo<LayoutStyleContextValue>(

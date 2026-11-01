@@ -484,8 +484,21 @@ server {
         error_page 502 503 504 = @maintenance_api;
     }
 
+    # ── 后台专用签接口：必须 Basic Auth ────────────────────────────────────
+    # 登录已下线（2026-11 数据库迁移），后台访问控制只靠 Basic Auth。
+    # 这两个接口会签发 COS/OSS 上传凭证，绝不能对匿名请求开放；
+    # 应用层 proxy.ts 也做同一份校验（防止绕过 nginx 直连 vercel.app）。
+    location ~ ^/api/(cos|oss)/sign$ {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        auth_basic "WaveMod Admin";
+        auth_basic_user_file /etc/nginx/.htpasswd.wavemod;
+        proxy_cache off;
+        add_header X-Cache-Status "BYPASS" always;
+    }
+
     # ── 其余 /api/*：一律穿过，交给 Vercel ─────────────────────────────────
-    # 这里包含互动计数（per-device，绝不能缓存）、评论、登录、下载跳转等。
+    # 这里包含互动计数（per-device，绝不能缓存）、下载跳转等。
     location /api/ {
         include /etc/nginx/snippets/wavemod-proxy-common.conf;
 
@@ -494,12 +507,25 @@ server {
         error_page 502 503 504 = @maintenance_api;
     }
 
-    # ── 后台与登录：不缓存 ─────────────────────────────────────────────────
+    # ── 后台：不缓存 + Basic Auth ──────────────────────────────────────────
+    # 登录已下线（2026-11 数据库迁移）：后台不再有账号体系，nginx 这层用
+    # htpasswd 挡住外部访问；应用层 proxy.ts 再用同一份凭据校验一次。
+    # htpasswd 文件由 `deploy/hk-db/install.sh` 生成（或手工 htpasswd -c）。
+    location ~ ^/(admin|auth|login) {
+        include /etc/nginx/snippets/wavemod-proxy-common.conf;
+
+        auth_basic "WaveMod Admin";
+        auth_basic_user_file /etc/nginx/.htpasswd.wavemod;
+        proxy_cache off;
+        add_header X-Cache-Status "BYPASS" always;
+    }
+
+    # ── 收藏 / 站长统计：不缓存 ────────────────────────────────────────────
     # ⚠️ `visits` 必须留在这里：它是按 `wavemod-visits` cookie 渲染的站长统计页，
     # 走 `location /` 会被缓存 600 秒，且 `proxy_ignore_headers Cache-Control` 会无视
     # Next 的 `private, no-store` —— 2026-10-30 实测匿名请求因此拿到过完整统计（HIT）。
-    # 代码侧 `src/middleware.ts` 兜了一层 Set-Cookie 信号，但这里才是根治。
-    location ~ ^/(admin|auth|login|favorites|visits) {
+    # 代码侧 `src/proxy.ts` 兜了一层 Set-Cookie 信号，但这里才是根治。
+    location ~ ^/(favorites|visits) {
         include /etc/nginx/snippets/wavemod-proxy-common.conf;
 
         proxy_cache off;

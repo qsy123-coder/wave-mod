@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { buildCosObjectKey, buildCosPublicUrl, buildTutorialObjectKey, COS_STS_DURATION_SECONDS } from "@/lib/cos/shared";
 import { getServerCosEnv } from "@/lib/cos/server-config";
 
@@ -91,7 +90,6 @@ async function callStsApi(
 }
 
 export async function POST(request: Request) {
-  await requireAdminUser("/admin/upload");
 
   const env = getServerCosEnv();
 

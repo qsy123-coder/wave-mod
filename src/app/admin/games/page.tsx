@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { BarChart3, Download, FileStack, Heart, PencilRuler, Plus, RadioTower, Star } from "lucide-react";
 
 import { getEnabledGames, type GameConfig } from "@/config/games";
-import { requireAdminUser } from "@/actions/auth/auth-actions";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { Badge } from "@/components/ui/badge";
 import { getAdminMods, type AdminMod } from "@/lib/mods";
@@ -115,7 +114,6 @@ function GameSummaryCard({ index, summary }: { index: number; summary: GameSumma
 }
 
 async function AdminGamesContent() {
-  await requireAdminUser("/admin/games");
   const summaries = await getGameSummaries();
   const totalMods = summaries.reduce((total, summary) => total + summary.mods, 0);
   const totalDownloads = summaries.reduce((total, summary) => total + summary.downloads, 0);

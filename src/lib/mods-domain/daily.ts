@@ -1,11 +1,11 @@
 import "server-only";
 
 import { defaultGameKey } from "@/config/games";
+import { queryRows } from "@/lib/db/query";
 import { logger } from "@/lib/logger";
 import { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
 import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
 import type { ModRow, SiteMod } from "@/lib/mods-domain/types";
-import { createPublicReadClient } from "@/lib/supabase/server";
 
 // 每天一条的"每日更新"分组。
 // 规则（与 PRD 一致性）：
@@ -84,28 +84,24 @@ export async function getDailyUpdates(
   // 宽松上界：多捞一天，避免时区把临界 mod 划出去；多出的部分在分组时被 dateKeys 过滤掉
   const since = new Date(Date.now() - (safeDays + 1) * DAY_MS);
 
-  let supabase;
   try {
-    supabase = createPublicReadClient();
+    const rows = await queryRows<ModRow>(
+      `select ${publicModColumns}
+         from public.mods
+        where is_published = true
+          and game_key = $1
+          and created_at >= $2
+        order by created_at desc`,
+      [gameKey, since.toISOString()],
+    );
+
+    return groupDailyUpdates(rows.map(mapMod), safeDays);
   } catch (error) {
-    logger.warn("[daily] getDailyUpdates skipped because Supabase env is missing", {
+    // 数据库不可用时用本地快照兜底：快照带 created_at，按天分组的逻辑可原样复用，
+    // 否则「今日更新的 mod」和每日更新页会整片空掉。
+    logger.warn("[daily] getDailyUpdates failed, fallback to snapshot", {
       error: error instanceof Error ? error.message : "unknown",
     });
-    return { today: recentDateKeys(safeDays)[0], days: [] };
-  }
-
-  const { data, error } = await supabase
-    .from("mods")
-    .select(publicModColumns)
-    .eq("is_published", true)
-    .eq("game_key", gameKey)
-    .gte("created_at", since.toISOString())
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    // 网关被锁时用本地快照兜底：快照带 created_at，按天分组的逻辑可原样复用，
-    // 否则「今日更新的 mod」和每日更新页会整片空掉。
-    logger.warn("[daily] getDailyUpdates failed, fallback to snapshot", { error: error.message });
 
     const snapshotMods = (await getSnapshotRows(gameKey))
       // 沿用与上面查询相同的宽松下界（since），多出的部分交给 groupDailyUpdates 的日期键过滤
@@ -114,8 +110,6 @@ export async function getDailyUpdates(
 
     return groupDailyUpdates(snapshotMods, safeDays);
   }
-
-  return groupDailyUpdates((data ?? []).map((row) => mapMod(row as ModRow)), safeDays);
 }
 
 /**

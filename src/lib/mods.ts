@@ -3,10 +3,8 @@ export type { CreatorProfile, TopCreator } from "@/lib/mods-domain/creators";
 export { getDailyUpdates } from "@/lib/mods-domain/daily";
 export type { DailyUpdateDay, DailyUpdatesResult } from "@/lib/mods-domain/daily";
 export { getAdminMods } from "@/lib/mods-domain/admin";
-export { getModComments, getModCommentsPage } from "@/lib/mods-domain/comments";
 export { getPublicModById } from "@/lib/mods-domain/detail";
-export { getFavoriteMods } from "@/lib/mods-domain/favorites";
-export { mapComment, mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
+export { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
 export {
   getAvailableCharacters,
   getCharacterSuggestions,
@@ -51,4 +49,3 @@ export type {
   SiteMod,
   ViewerModState,
 } from "@/lib/mods-domain/types";
-export { getViewerModState } from "@/lib/mods-domain/viewer";
