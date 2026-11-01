@@ -509,8 +509,10 @@ def process_queue(
     """
     state_path = Path(state_path)
     out_dir = Path(out_dir)
-    # 图片/附件写到分发目录（A_每日更新\W-YYYY.MM.DD\）；没配 dest_dir 时退回旧布局。
+    # 图片/附件写到分发目录（A_每日更新\W-YYYY.MM.DD\<来源>\）；
+    # 没配 dest_dir 时退回旧布局（out_dir 本身就是来源目录，不再套一层）。
     dest_root = Path(settings.dest_dir) if settings.dest_dir else out_dir / settings.subdir
+    source_dir = out_dir.name if settings.dest_dir else ""
     run_day = date.today()              # 本轮执行日：整轮（含跨午夜）统一用它归档
     stats = {"planned": 0, "images": 0, "files": 0, "done": 0, "failed": 0, "skipped": 0}
 
@@ -554,6 +556,8 @@ def process_queue(
             entry["day"] = run_day.isoformat()
         day_key = entry["day"]
         day_dir = dest_root / day_folder(day_key, settings.folder_prefix)
+        if source_dir:
+            day_dir = day_dir / source_dir
         img_dir = file_dir = day_dir
 
         # 规划（拉 ProfilePage 拿原图/附件清单）

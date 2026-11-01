@@ -56,11 +56,11 @@
 │                                                            │
 │  计划任务 GameBananaModDownload (每 30 分钟 / 入队即触发)   │
 │    └─ 按队列下载原图 + Mod 附件                             │
-│       → A_每日更新\W-<下载执行日>\（图片和附件直接放一起）  │
+│       → A_每日更新\W-<下载执行日>\GameBanana\（平铺）       │
 │                                                            │
 │  计划任务 ArcaModDownload (每 30 分钟)                      │
 │    └─ 读同步回来的 arca CSV，解析 kio.ac / nahida.live      │
-│       → 原图 + Mod 文件写入同一个 W-<下载执行日>\           │
+│       → 原图 + Mod 文件写入 W-<下载执行日>\arca.live\       │
 │                                                            │
 │  任一来源有新增 → 弹桌面通知 + 微信推送                     │
 └────────────────────────────────────────────────────────────┘
@@ -192,16 +192,17 @@ CSV 里图片只是路径，看不到图。**要浏览就双击 `index.html`**�
 与 GameBanana 同一套路：采集仍在服务器，本机计划任务 `ArcaModDownload`
 （`run_arca_download.py`，每 30 分钟）读 `sync.ps1` 拉回的
 `_Mod每日汇总/arca.live/all_mods.csv`，把图片和 Mod 文件直接写进
-`A_每日更新/W-YYYY.MM.DD/`。队列在 `state.arca_downloads.json`，关机/失败可续传。
+`A_每日更新/W-YYYY.MM.DD/arca.live/`。队列在 `state.arca_downloads.json`，关机/失败可续传。
 
 ```
 A_每日更新/W-2026.11.01/
-├─ 标题.png / 标题_2.png              ← 帖子正文原图（data-originalurl）
-├─ 금희,음림,카멜리아 팬스좌 UHD.zip   ← kio.ac 合集里的压缩包，多个加 _1.._N
-├─ 쇄명 컬러변경 모드 쓰시는분들/       ← nahida 模组页的目录树原样保留
-│  └─ 쇄명-컬러변경(그림자수정)/…
-├─ arca_需手动下载.txt                ← 无法自动下载的链接（纯文本）
-└─ arca_需手动下载.html               ← 同上，双击可直接点链接
+└─ arca.live/                        ← 2026-11-01 起按来源分目录，来源文件夹里平铺
+   ├─ 标题.png / 标题_2.png           ← 帖子正文原图（data-originalurl）
+   ├─ 금희,음림,카멜리아 팬스좌 UHD.zip ← kio.ac 合集里的压缩包，多个加 _1.._N
+   ├─ 쇄명 컬러변경 모드 쓰시는분들/    ← nahida 模组页的目录树原样保留（本身是目录型 mod）
+   │  └─ 쇄명-컬러변경(그림자수정)/…
+   ├─ arca_需手动下载.txt             ← 无法自动下载的链接（纯文本）
+   └─ arca_需手动下载.html            ← 同上，双击可直接点链接
 ```
 
 | 链接类型 | 处理方式 |
@@ -253,15 +254,21 @@ A_每日更新/W-2026.11.01/
 ```
 A_每日更新/
 ├─ W-2026.10.30/                  ← 按**下载执行日**分天（不是 Mod 发布时间）
-│  ├─ Suoming Summer.jpg          ← 原图：单图不加序号
-│  ├─ Suoming Summer_2.jpg        ← 多图用 _1.._N
-│  ├─ Suoming Summer.rar          ← Mod 附件：单附件不加序号
-│  ├─ Suoming Summer_2.7z         ← 多附件用 _1.._N
-│  └─ …                           ← 与手工整理的当天文件夹共用，已存在就直接写入
+│  └─ GameBanana/                 ← 2026-11-01 起按来源分目录，来源文件夹里平铺
+│     ├─ Suoming Summer.jpg       ← 原图：单图不加序号
+│     ├─ Suoming Summer_2.jpg     ← 多图用 _1.._N
+│     ├─ Suoming Summer.rar       ← Mod 附件：单附件不加序号
+│     ├─ Suoming Summer_2.7z      ← 多附件用 _1.._N
+│     └─ …                        ← 与手工整理的来源文件夹共用，已存在就直接写入
 └─ _Mod每日汇总/GameBanana/
    ├─ images/                     ← HTML 用的 530 缩略图（保持原样）
    └─ all_mods.csv
 ```
+
+> **目录结构变更（2026-11-01）**：`W-日期/<来源>/` 两层，`arca.live` 和
+> `GameBanana` 各自一个文件夹；图片、压缩包在来源文件夹里平铺，nahida 的
+> 目录型 mod 保留自己的文件夹。旧日期的平铺目录不迁移，Web 看板和下载器
+> 都会先找 `<来源>/`，找不到再回退旧路径。
 
 | 规则 | 说明 |
 |---|---|

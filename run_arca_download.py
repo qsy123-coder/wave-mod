@@ -69,7 +69,8 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     dest_root = Path(settings.dest_dir)
-    csv_path = find_csv(settings, cfg["site"].get("source_name", "arca.live").strip())
+    source_name = cfg["site"].get("source_name", "arca.live").strip() or "arca.live"
+    csv_path = find_csv(settings, source_name)
     state_path = BASE_DIR / settings.state_file
 
     added = enqueue_from_csv(csv_path, state_path, settings)
@@ -83,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
         notifier,
         max_items=args.limit,
         plan_only=args.plan_only,
+        source_name=source_name,
     )
     log.info("下载任务结束：%s", stats)
     return 0

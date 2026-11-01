@@ -1097,8 +1097,13 @@ def _has_pending(entry: dict[str, Any]) -> bool:
     return False
 
 
-def _write_manual_lists(out_root: Path, entries: Iterable[dict[str, Any]], prefix: str) -> None:
-    """把无法自动下载的链接按天汇总成 txt + 可点击的 html。"""
+def _write_manual_lists(
+    out_root: Path,
+    entries: Iterable[dict[str, Any]],
+    prefix: str,
+    source_name: str = "arca.live",
+) -> None:
+    """把无法自动下载的链接按天汇总成 txt + 可点击的 html（放在来源子目录里）。"""
     grouped: dict[Path, list[tuple[str, str, str, str]]] = {}
     for entry in entries:
         manual = entry.get("manual") or []
@@ -1107,7 +1112,7 @@ def _write_manual_lists(out_root: Path, entries: Iterable[dict[str, Any]], prefi
         day = entry.get("day") or ""
         if not day:
             continue
-        day_dir = out_root / day_folder(day, prefix)
+        day_dir = out_root / day_folder(day, prefix) / source_name
         for item in manual:
             grouped.setdefault(day_dir, []).append((
                 entry.get("title", ""),
@@ -1209,6 +1214,7 @@ def process_queue(
     *,
     max_items: int | None = None,
     plan_only: bool = False,
+    source_name: str = "arca.live",
 ) -> dict[str, int]:
     """处理队列里所有未完成的帖子。返回统计。"""
     state_path = Path(state_path)
@@ -1220,7 +1226,7 @@ def process_queue(
     try:
         return _process_queue_inner(
             settings, state_path, out_root, notifier,
-            max_items=max_items, plan_only=plan_only,
+            max_items=max_items, plan_only=plan_only, source_name=source_name,
         )
     finally:
         _release_run_lock(lock)
@@ -1234,8 +1240,10 @@ def _process_queue_inner(
     *,
     max_items: int | None = None,
     plan_only: bool = False,
+    source_name: str = "arca.live",
 ) -> dict[str, int]:
     out_root = Path(out_root)
+    source_dir = sanitize_name(source_name, 40) or "arca.live"
     run_day = date.today()
     stats = {"planned": 0, "images": 0, "files": 0, "done": 0, "manual": 0,
              "failed": 0, "skipped": 0, "bytes": 0}
@@ -1259,7 +1267,7 @@ def _process_queue_inner(
         pending = pending[:max_items]
     if not pending:
         log.info("下载队列为空")
-        _write_manual_lists(out_root, state["items"].values(), settings.folder_prefix)
+        _write_manual_lists(out_root, state["items"].values(), settings.folder_prefix, source_dir)
         return stats
 
     log.info("待处理 %d 个 arca 帖子", len(pending))
@@ -1280,7 +1288,7 @@ def _process_queue_inner(
         aid = entry["article_id"]
         if not entry.get("day"):
             entry["day"] = run_day.isoformat()
-        day_dir = out_root / day_folder(entry["day"], settings.folder_prefix)
+        day_dir = out_root / day_folder(entry["day"], settings.folder_prefix) / source_dir
 
         if not entry.get("planned"):
             slot = taken
@@ -1495,7 +1503,7 @@ def _process_queue_inner(
                 "清理磁盘后下一轮会自动继续。",
             )
 
-    _write_manual_lists(out_root, state["items"].values(), settings.folder_prefix)
+    _write_manual_lists(out_root, state["items"].values(), settings.folder_prefix, source_dir)
     log.info(
         "本轮下载：新增图片 %d 张、文件 %d 个，完成 %d 个帖子，待手动 %d，失败 %d，共 %.1f MB",
         stats["images"], stats["files"], stats["done"], stats["manual"], stats["failed"],

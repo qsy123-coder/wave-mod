@@ -163,6 +163,23 @@ def _status(value: str) -> str:
     return str(value or "queued").strip().lower() or "queued"
 
 
+def _resolve_file(base_dir: Path | None, source: str, name: str) -> Path | None:
+    """新布局 <day>/<来源>/<name>；兼容旧的 <day>/<name> 平铺布局。"""
+    if not base_dir or not name:
+        return None
+    new = base_dir / source / name
+    if not new.exists() and (base_dir / name).exists():
+        return base_dir / name
+    return new
+
+
+def _file_info(base_dir: Path | None, source: str, name: str) -> tuple[int, bool]:
+    path = _resolve_file(base_dir, source, name)
+    if path is None:
+        return 0, False
+    return _safe_size(path), path.exists()
+
+
 # ---------------------------------------------------------------- 队列归一化
 
 
@@ -172,19 +189,19 @@ def _collect_arca(state: dict[str, Any], paths: Paths, part_map: dict[tuple[str,
         day = _parse_day(str(entry.get("day") or ""))
         status = _status(entry.get("status"))
         title = str(entry.get("title") or entry.get("name") or key)
-        day_dir = paths.arca_dest / _day_folder(day, paths.arca_prefix) if day else None
+        day_base = paths.arca_dest / _day_folder(day, paths.arca_prefix) if day else None
 
         items: list[dict[str, Any]] = []
         for img in entry.get("images") or []:
             name = str(img.get("file") or "")
-            actual = _safe_size(day_dir / name) if day_dir and name else 0
+            actual, on_disk = _file_info(day_base, "arca.live", name)
             items.append({
                 "type": "image",
                 "name": name,
                 "status": _status(img.get("status")),
                 "size": actual,
                 "planned": 0,
-                "on_disk": bool(day_dir and name and (day_dir / name).exists()),
+                "on_disk": on_disk,
                 "error": str(img.get("error") or ""),
                 "part": part_map.get((day, name)),
             })
@@ -193,7 +210,7 @@ def _collect_arca(state: dict[str, Any], paths: Paths, part_map: dict[tuple[str,
             if kind == "kio":
                 for f in plan.get("files") or []:
                     name = str(f.get("file") or "")
-                    actual = _safe_size(day_dir / name) if day_dir and name else 0
+                    actual, on_disk = _file_info(day_base, "arca.live", name)
                     items.append({
                         "type": "file",
                         "kind": "kio",
@@ -201,7 +218,7 @@ def _collect_arca(state: dict[str, Any], paths: Paths, part_map: dict[tuple[str,
                         "status": _status(f.get("status")),
                         "size": actual,
                         "planned": int(f.get("size") or 0),
-                        "on_disk": bool(day_dir and name and (day_dir / name).exists()),
+                        "on_disk": on_disk,
                         "error": str(f.get("error") or ""),
                         "part": part_map.get((day, name)),
                     })
@@ -209,7 +226,7 @@ def _collect_arca(state: dict[str, Any], paths: Paths, part_map: dict[tuple[str,
                 for coll in plan.get("collections") or []:
                     for f in coll.get("files") or []:
                         name = str(f.get("file") or "")
-                        actual = _safe_size(day_dir / name) if day_dir and name else 0
+                        actual, on_disk = _file_info(day_base, "arca.live", name)
                         items.append({
                             "type": "file",
                             "kind": "nahida",
@@ -218,7 +235,7 @@ def _collect_arca(state: dict[str, Any], paths: Paths, part_map: dict[tuple[str,
                             "status": _status(f.get("status")),
                             "size": actual,
                             "planned": int(f.get("size") or 0),
-                            "on_disk": bool(day_dir and name and (day_dir / name).exists()),
+                            "on_disk": on_disk,
                             "error": str(f.get("error") or ""),
                             "part": part_map.get((day, name)),
                         })
@@ -251,26 +268,26 @@ def _collect_gb(state: dict[str, Any], paths: Paths, part_map: dict[tuple[str, s
         day = _parse_day(str(entry.get("day") or ""))
         status = _status(entry.get("status"))
         title = str(entry.get("name") or entry.get("mod_id") or key)
-        day_dir = paths.gb_dest / _day_folder(day, paths.gb_prefix) if day else None
+        day_base = paths.gb_dest / _day_folder(day, paths.gb_prefix) if day else None
         items: list[dict[str, Any]] = []
         for img in entry.get("images") or []:
             name = str(img.get("file") or "")
-            actual = _safe_size(day_dir / name) if day_dir and name else 0
+            actual, on_disk = _file_info(day_base, "GameBanana", name)
             items.append({
                 "type": "image", "name": name, "status": _status(img.get("status")),
                 "size": actual, "planned": 0,
-                "on_disk": bool(day_dir and name and (day_dir / name).exists()),
+                "on_disk": on_disk,
                 "error": str(img.get("error") or ""),
                 "part": part_map.get((day, name)),
             })
         for f in entry.get("files") or []:
             name = str(f.get("file") or "")
-            actual = _safe_size(day_dir / name) if day_dir and name else 0
+            actual, on_disk = _file_info(day_base, "GameBanana", name)
             items.append({
                 "type": "file", "kind": "gamebanana", "name": name,
                 "status": _status(f.get("status")), "size": actual,
                 "planned": int(f.get("size") or 0),
-                "on_disk": bool(day_dir and name and (day_dir / name).exists()),
+                "on_disk": on_disk,
                 "error": str(f.get("error") or ""),
                 "part": part_map.get((day, name)),
             })
@@ -343,7 +360,10 @@ def _entry_record(
     }
 
 
-def _scan_parts(dest_root: Path, prefix: str, days: set[str]) -> dict[tuple[str, str], dict[str, Any]]:
+def _scan_parts(
+    dest_root: Path, prefix: str, days: set[str], source_name: str
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """扫描 .part：新布局 <day>/<来源>/ 优先，旧的 <day>/ 平铺布局兜底。"""
     found: dict[tuple[str, str], dict[str, Any]] = {}
     for day in days:
         if not day:
@@ -351,22 +371,29 @@ def _scan_parts(dest_root: Path, prefix: str, days: set[str]) -> dict[tuple[str,
         folder = dest_root / _day_folder(day, prefix)
         if not folder.exists():
             continue
-        try:
-            parts = list(folder.rglob("*.part"))
-        except OSError:
-            continue
-        for part in parts:
+        # 先扫旧根目录（跳过来源子目录），再扫来源子目录；同名时新布局覆盖旧布局
+        for root, is_source in ((folder, False), (folder / source_name, True)):
+            if not root.exists():
+                continue
             try:
-                st = part.stat()
+                parts = list(root.rglob("*.part"))
             except OSError:
                 continue
-            rel = str(part.relative_to(folder)).replace("\\", "/")
-            name = rel[:-5] if rel.endswith(".part") else rel
-            found[(day, name)] = {
-                "name": rel,
-                "size": st.st_size,
-                "mtime": datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds"),
-            }
+            for part in parts:
+                try:
+                    st = part.stat()
+                except OSError:
+                    continue
+                rel_path = part.relative_to(root)
+                if not is_source and rel_path.parts and rel_path.parts[0] == source_name:
+                    continue
+                rel = str(rel_path).replace("\\", "/")
+                name = rel[:-5] if rel.endswith(".part") else rel
+                found[(day, name)] = {
+                    "name": rel,
+                    "size": st.st_size,
+                    "mtime": datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds"),
+                }
     return found
 
 
@@ -479,8 +506,8 @@ class Snapshot:
                 if d:
                     days.add(d)
 
-        arca_parts = _scan_parts(paths.arca_dest, paths.arca_prefix, days)
-        gb_parts = _scan_parts(paths.gb_dest, paths.gb_prefix, days)
+        arca_parts = _scan_parts(paths.arca_dest, paths.arca_prefix, days, "arca.live")
+        gb_parts = _scan_parts(paths.gb_dest, paths.gb_prefix, days, "GameBanana")
 
         entries = _collect_arca(arca_state, paths, arca_parts)
         entries += _collect_gb(gb_state, paths, gb_parts)
