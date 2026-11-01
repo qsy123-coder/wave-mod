@@ -23,6 +23,9 @@ select json_agg(row_to_json(t) order by t.created_at desc) from (
          images, cover_width, cover_height, video_url, download_url, downloads_count, drive_links, nsfw,
          mod_author_url, views, favorites_count, likes_count, comments_count,
          rating_count, rating_average, is_published, is_featured, featured_order, created_at
-  from mods
+  -- ⚠️ 必须写 public.：经 pgbouncer 连接时 search_path 可能是空的
+  -- （pgbouncer 的 track_extra_parameters 会显式下发一个空 search_path），
+  -- 不带 schema 的表名会报 "relation mods does not exist"。
+  from public.mods
   where is_published = true
 ) t;
