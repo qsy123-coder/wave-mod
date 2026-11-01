@@ -41,16 +41,10 @@ rem Remove quotes added by drag-and-drop, and a trailing backslash.
 set "TARGET=%TARGET:"=%"
 if "%TARGET:~-1%"=="\" set "TARGET=%TARGET:~0,-1%"
 
-rem A single mod folder (mod.ini / Meshes / Textures / preview.jpg) is wrapped itself.
-rem Any other folder is treated as a parent: files are renamed, subfolders are wrapped.
+rem Always process the dropped item itself:
+rem   folder -> wrap it in a pinyin-named outer folder
+rem   file   -> rename it to pinyin initials
 set ARG=--path="%TARGET%"
-if not exist "%TARGET%\" goto :arg_ready
-set ARG=--dir="%TARGET%"
-if exist "%TARGET%\mod.ini" set ARG=--path="%TARGET%"
-if exist "%TARGET%\Meshes\" set ARG=--path="%TARGET%"
-if exist "%TARGET%\Textures\" set ARG=--path="%TARGET%"
-if exist "%TARGET%\preview.jpg" set ARG=--path="%TARGET%"
-:arg_ready
 
 echo.
 echo Target: %TARGET%
