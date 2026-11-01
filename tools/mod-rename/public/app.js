@@ -259,10 +259,16 @@ function renderRow(item) {
         text: plan?.applicable ? `可应用（改 ${plan.changed} 项）` : "不可应用",
       });
 
+  const canSplit = item.kind === "mod" && item.ext === ".zip";
+  const splitBtn = canSplit
+    ? el("button", { class: "btn-split", text: "拆包…", onclick: () => openSplit(state.plan[item.name]) })
+    : null;
+
   const result = el("div", { class: "result" }, [
     el("div", { class: "key", text: plan?.display || "—" }),
     el("div", {}, [stateChip, extra, s.confidence === "low" ? el("span", { class: "chip", text: "词表未完全命中" }) : null]),
     issues,
+    splitBtn,
   ]);
 
   const checkedNow = state.selected.has(item.name);
@@ -277,6 +283,235 @@ function renderRow(item) {
     authorInput,
     result,
   ]);
+}
+
+// ---------------- 拆包 ----------------
+
+const split = { row: null, item: null, info: null, groups: [], img: null, imageName: "", slices: [], mapping: [] };
+
+function findItem(name) {
+  for (const s of state.sources) {
+    const hit = s.items.find((i) => i.name === name);
+    if (hit) return { ...hit, sourceName: s.name };
+  }
+  return null;
+}
+
+/** 客户端版的 composeKey（与服务端 composeKey 同规则，只用于预填，最终以服务端校验为准） */
+function composePackName({ character, name, hotkeys, author }) {
+  const chars = String(character ?? "").split(/[,，、]/).map((x) => x.trim()).filter(Boolean).join(",");
+  const n = String(name ?? "").replace(/\s+/g, " ").trim();
+  let key = chars && n ? `${chars}-${n}` : chars || n;
+  const hk = String(hotkeys ?? "").trim();
+  if (hk) key += `（${hk}）`;
+  const au = String(author ?? "").trim();
+  if (au) key += ` by ${au}`;
+  return key.trim();
+}
+
+async function openSplit(row) {
+  const item = findItem(row.from);
+  if (!item) return banner("找不到这个条目，刷新一下再试");
+  banner("");
+  try {
+    const info = await api(
+      `/api/zip?dir=${encodeURIComponent(state.dir)}&source=${encodeURIComponent(item.sourceName)}&name=${encodeURIComponent(item.name)}`
+    );
+    split.row = row;
+    split.item = item;
+    split.info = info;
+    split.slices = [];
+    split.mapping = [];
+
+    const rowSug = state.suggestion[item.name] ?? {};
+    const used = new Set();
+    split.groups = info.topLevel.map((t) => {
+      const s = info.suggests?.[t.name] ?? {};
+      const character = (s.characters ?? [])[0] ?? "";
+      let packName = composePackName({
+        character,
+        name: rowSug.name || s.name || t.name,
+        hotkeys: rowSug.hotkeys ?? "",
+        author: rowSug.author ?? "",
+      });
+      if (!packName) packName = t.name;
+      if (used.has(packName)) packName = `${packName}（${t.name}）`;
+      used.add(packName);
+      return { top: t.name, character, packName, ignore: false, files: t.files, bytes: t.bytes };
+    });
+
+    // 合集长图：优先同名图
+    const base = item.base;
+    const imgName =
+      info.images.find((n) => n.replace(/\.[^.]+$/, "") === base) ?? info.images[0] ?? "";
+    split.imageName = imgName;
+    split.img = imgName ? await loadImage(`/api/asset?dir=${encodeURIComponent(state.dir)}&source=${encodeURIComponent(item.sourceName)}&name=${encodeURIComponent(imgName)}`) : null;
+
+    renderSplit();
+    document.getElementById("split-dialog").showModal();
+  } catch (err) {
+    banner(String(err.message));
+  }
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`读取封面图失败：${src}`));
+    img.src = `${src}${src.includes("?") ? "&" : "?"}t=${encodeURIComponent(TOKEN)}`;
+  });
+}
+
+function renderSplit() {
+  $("split-title").textContent = `拆包：${split.item.name}`;
+  $("split-hint").textContent = `共 ${split.info.topLevel.length} 个顶层目录 · ${fmtSize(split.info.totals.bytes)}　（每一行拆成一个单角色包）`;
+
+  const rows = split.groups.map((g, i) => {
+    const checkbox = el("input", {
+      type: "checkbox",
+      checked: g.ignore ? undefined : "checked",
+      onchange: (e) => {
+        g.ignore = !e.target.checked;
+        renderSplit();
+      },
+    });
+    const name = el("div", { class: "name" }, [
+      el("span", { text: g.top || "(根目录文件)" }),
+      el("span", { class: "sub", text: `${g.files} 个文件 · ${fmtSize(g.bytes)}` }),
+    ]);
+    const char = el("input", {
+      type: "text",
+      value: g.character,
+      list: "char-list",
+      placeholder: "角色",
+      oninput: (e) => {
+        g.character = e.target.value.split(/[,，、]/)[0]?.trim() ?? "";
+        g.packName = composePackName({
+          character: g.character,
+          name: state.suggestion[split.item.name]?.name ?? "",
+          hotkeys: state.suggestion[split.item.name]?.hotkeys ?? "",
+          author: state.suggestion[split.item.name]?.author ?? "",
+        }) || g.packName;
+        $("split-pack-" + i).value = g.packName;
+      },
+    });
+    const pack = el("input", {
+      type: "text",
+      id: "split-pack-" + i,
+      value: g.packName,
+      oninput: (e) => {
+        g.packName = e.target.value;
+      },
+    });
+    return el("div", { class: "split-top" }, [checkbox, name, char, pack]);
+  });
+  $("split-tops").replaceChildren(...rows);
+
+  const box = $("split-cover-box");
+  if (!split.img || split.groups.length === 0) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  requestAnimationFrame(() => renderStrips());
+}
+
+function activeGroups() {
+  return split.groups
+    .map((g, gi) => ({ g, gi }))
+    .filter(({ g }) => !g.ignore);
+}
+
+function renderStrips() {
+  const active = activeGroups();
+  const n = active.length;
+  const w = split.img.naturalWidth;
+  const h = split.img.naturalHeight;
+  split.slices = [];
+  split.mapping = active.map(({ gi }) => gi);
+
+  const strips = [];
+  for (let i = 0; i < n; i++) {
+    const x0 = Math.round((w * i) / n);
+    const x1 = Math.round((w * (i + 1)) / n);
+    const canvas = document.createElement("canvas");
+    canvas.width = x1 - x0;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(split.img, x0, 0, x1 - x0, h, 0, 0, x1 - x0, h);
+    const dataUrl = canvas.toDataURL("image/png");
+    split.slices.push(dataUrl);
+
+    const select = el(
+      "select",
+      {
+        onchange: (e) => {
+          split.mapping[i] = Number(e.target.value);
+        },
+      },
+      [
+        ...active.map(({ g, gi }) => el("option", { value: String(gi), text: g.packName || `包 ${gi + 1}` })),
+        el("option", { value: "-1", text: "不使用" }),
+      ]
+    );
+    select.value = String(split.mapping[i]);
+
+    strips.push(
+      el("div", { class: "strip" }, [
+        el("img", { src: dataUrl, alt: `面板 ${i + 1}` }),
+        el("label", {}, [el("span", { text: `面板 ${i + 1} 用作` }), select]),
+      ])
+    );
+  }
+  $("split-strips").replaceChildren(...strips);
+}
+
+async function applySplit() {
+  const err = $("split-error");
+  err.hidden = true;
+  const groups = split.groups.filter((g) => !g.ignore);
+  if (!groups.length) {
+    err.hidden = false;
+    err.textContent = "至少要保留一个包";
+    return;
+  }
+  const covers = {};
+  for (let i = 0; i < split.slices.length; i++) {
+    const target = split.mapping[i];
+    if (target < 0) continue;
+    const g = split.groups[target];
+    if (!g || g.ignore || !g.packName.trim()) continue;
+    covers[g.packName.trim()] = split.slices[i];
+  }
+  const ignore = split.groups.filter((g) => g.ignore).map((g) => g.top);
+
+  $("split-apply").disabled = true;
+  try {
+    const res = await api("/api/split", {
+      method: "POST",
+      body: {
+        dir: state.dir,
+        source: split.item.sourceName,
+        zip: split.item.name,
+        confirm: true,
+        archive: $("split-archive").checked,
+        groups: groups.map((g) => ({ packName: g.packName.trim(), tops: [g.top] })),
+        ignore,
+        covers,
+      },
+    });
+    document.getElementById("split-dialog").close();
+    await loadScan();
+    banner(
+      `已拆出 ${res.packs.length} 个包（${res.packs.map((p) => p.packName).join("、")}）` +
+        (res.archived?.length ? `；已归档 ${res.archived.length} 个源文件到 _合集原包/` : "")
+    );
+  } catch (e) {
+    err.hidden = false;
+    err.textContent = String(e.message);
+  } finally {
+    $("split-apply").disabled = false;
+  }
 }
 
 function iconFor(level) {
@@ -394,6 +629,8 @@ $("dir-select").addEventListener("change", async (e) => {
 $("btn-reload").addEventListener("click", () => loadScan().then(loadJournals));
 $("btn-apply").addEventListener("click", applySelected);
 $("btn-undo").addEventListener("click", undoLast);
+$("split-cancel").addEventListener("click", () => $("split-dialog").close());
+$("split-apply").addEventListener("click", applySplit);
 
 // 角色下拉容器（内容在 render() 里按库内角色刷新）
 document.body.appendChild(el("datalist", { id: "char-list" }));

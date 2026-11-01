@@ -157,6 +157,57 @@ main { padding: 14px 20px 90px; display: flex; flex-direction: column; gap: 22px
 .journals h2 { font-size: 14px; }
 .journals ul { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); }
 
+/* ---------- 拆包对话框 ---------- */
+dialog.split {
+  width: min(980px, 94vw);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+}
+dialog.split::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog.split h2 { font-size: 15px; margin: 0 0 6px; word-break: break-all; }
+
+.split-tops { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.split-top {
+  display: grid;
+  grid-template-columns: 24px minmax(160px, 1.2fr) 120px minmax(200px, 1.6fr);
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.split-top .name { font-size: 13px; word-break: break-all; }
+.split-top .sub { display: block; color: var(--muted); font-size: 11px; }
+.split-top input[type="text"] { width: 100%; }
+
+.split-covers { margin: 14px 0; }
+.split-sub { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.strips { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.strip {
+  flex: 0 0 auto;
+  width: 150px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.strip img { display: block; width: 100%; height: 190px; object-fit: cover; }
+.strip label { display: block; padding: 6px; font-size: 11px; }
+.strip select { width: 100%; margin-top: 4px; }
+
+.split-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+
+.split button.btn-split {
+  font-size: 11.5px;
+  padding: 2px 8px;
+  margin-top: 6px;
+}
+
 @media (max-width: 1100px) {
   .row { grid-template-columns: 22px 1fr 1fr; }
   .row > .orig, .row > .result { grid-column: span 2; }

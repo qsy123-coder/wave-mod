@@ -13,7 +13,7 @@ import { join } from "node:path";
 const ILLEGAL = /[\\/:*?"<>|]/;
 const KEEP_JOURNALS = 30;
 
-function assertSafeName(name) {
+export function assertSafeName(name) {
   if (!name || typeof name !== "string") throw new Error("空名字");
   if (ILLEGAL.test(name)) throw new Error(`名字含 Windows 非法字符：${name}`);
   if (name === "." || name === ".." || name.includes("..")) throw new Error(`名字里不能有 ..：${name}`);

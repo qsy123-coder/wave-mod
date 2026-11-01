@@ -12,7 +12,7 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resolveCharacterAndTitle } from "../../scripts/daily-classify.mjs";
@@ -23,6 +23,7 @@ import { applyPlan, listJournals, undoJournal } from "./lib/journal.mjs";
 import { looksLikeEndfield, splitExistingName, translate } from "./lib/naming.mjs";
 import { planAll } from "./lib/plan.mjs";
 import { dateDirToDay, listDateDirs, scanDateDir } from "./lib/scan.mjs";
+import { inspectZip, siblingsOf, splitZip } from "./lib/split.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../..");
@@ -74,6 +75,16 @@ function safeSourceDir(dateDir, source) {
   const p = resolve(dateDir, source);
   if (!p.startsWith(resolve(dateDir) + sep)) throw new Error("路径越界");
   if (!existsSync(p) || !statSync(p).isDirectory()) throw new Error(`来源目录不存在：${source}`);
+  return p;
+}
+
+/** 只接受来源目录下的单个文件名（不含路径分隔符） */
+function safeEntryPath(sourceDir, name) {
+  const b = String(name ?? "");
+  if (!b || b !== basename(b) || b.includes("..")) throw new Error(`非法文件名：${name}`);
+  const p = resolve(sourceDir, b);
+  if (!p.startsWith(resolve(sourceDir) + sep)) throw new Error("路径越界");
+  if (!existsSync(p) || !statSync(p).isFile()) throw new Error(`文件不存在：${b}`);
   return p;
 }
 
@@ -207,6 +218,68 @@ const server = createServer(async (req, res) => {
         ...scan,
         dateDir,
         suggestions: Object.fromEntries(scan.sources.flatMap((s) => Object.entries(suggestFor(s.items, knownCharacters)))),
+      });
+    }
+
+    // 合集包的顶层目录树 + 每个目录的命名建议（拆包向导用）
+    if (req.method === "GET" && url.pathname === "/api/zip") {
+      const dateDir = safeDateDir(url.searchParams.get("dir") ?? "");
+      const sourceDir = safeSourceDir(dateDir, url.searchParams.get("source") ?? "");
+      const name = url.searchParams.get("name") ?? "";
+      if (!/\.zip$/i.test(name)) throw new Error("只有 .zip 合集包可以拆");
+      const zipPath = safeEntryPath(sourceDir, name);
+      const info = inspectZip(zipPath);
+      const suggests = Object.fromEntries(
+        info.topLevel.map((t) => {
+          const s = translate(t.name, glossary, {});
+          return [t.name, s];
+        })
+      );
+      return send(res, 200, { name, ...info, suggests, images: siblingsOf(sourceDir, name) });
+    }
+
+    // 预览图字节（页面用 canvas 裁封面时必须能读到本地图）
+    if (req.method === "GET" && url.pathname === "/api/asset") {
+      const dateDir = safeDateDir(url.searchParams.get("dir") ?? "");
+      const sourceDir = safeSourceDir(dateDir, url.searchParams.get("source") ?? "");
+      const file = safeEntryPath(sourceDir, url.searchParams.get("name") ?? "");
+      const type = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" }[
+        extname(file).toLowerCase()
+      ];
+      if (!type) throw new Error("只允许读取预览图");
+      return send(res, 200, readFileSync(file), { "content-type": type });
+    }
+
+    // 拆包：按顶层目录拆成多个单角色 zip，并写入裁好的封面
+    if (req.method === "POST" && url.pathname === "/api/split") {
+      const body = await readBody(req);
+      if (body.confirm !== true) throw new Error("缺少 confirm: true");
+      const dateDir = safeDateDir(body.dir ?? "");
+      const sourceDir = safeSourceDir(dateDir, body.source ?? "");
+      if (!/\.zip$/i.test(body.zip ?? "")) throw new Error("只有 .zip 合集包可以拆");
+      const zipPath = safeEntryPath(sourceDir, body.zip);
+
+      const covers = {};
+      for (const [pack, dataUrl] of Object.entries(body.covers ?? {})) {
+        const m = /^data:image\/png;base64,(.+)$/.exec(String(dataUrl));
+        if (!m) throw new Error(`封面格式不对：${pack}`);
+        const buf = Buffer.from(m[1], "base64");
+        if (buf.length > 20 * 1024 * 1024) throw new Error(`封面太大：${pack}`);
+        covers[pack] = buf;
+      }
+
+      const result = splitZip({
+        zipPath,
+        sourceDir,
+        groups: body.groups ?? [],
+        covers,
+        archive: body.archive !== false,
+        ignore: body.ignore ?? [],
+      });
+      return send(res, 200, {
+        packs: result.packs,
+        archived: result.archived,
+        ignored: result.ignored,
       });
     }
 

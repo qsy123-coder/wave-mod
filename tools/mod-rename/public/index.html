@@ -32,6 +32,25 @@
 
     <section id="journals" class="journals" hidden></section>
 
+    <dialog id="split-dialog" class="split">
+      <h2 id="split-title"></h2>
+      <p id="split-hint" class="meta"></p>
+      <div id="split-tops" class="split-tops"></div>
+      <div id="split-cover-box" class="split-covers" hidden>
+        <div class="split-sub">封面（按包数量等分，可改归属）</div>
+        <div id="split-strips" class="strips"></div>
+      </div>
+      <label class="field">
+        <input type="checkbox" id="split-archive" checked />
+        <span>拆分后把源包与合集长图移到 _合集原包/（不删除）</span>
+      </label>
+      <p id="split-error" class="banner" hidden></p>
+      <div class="split-actions">
+        <button id="split-cancel" class="ghost">取消</button>
+        <button id="split-apply" class="primary">开始拆分</button>
+      </div>
+    </dialog>
+
     <script type="module" src="/app.js"></script>
   </body>
 </html>
