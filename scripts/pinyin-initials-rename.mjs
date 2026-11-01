@@ -26,6 +26,7 @@
  *   node scripts/pinyin-initials-rename.mjs --dir=<目录> --type=file      # 只处理文件
  *   node scripts/pinyin-initials-rename.mjs --dir=<目录> --mode=rename    # 文件夹也直接改名
  *   node scripts/pinyin-initials-rename.mjs --path=<单个文件或文件夹>      # 只处理一个
+ *   node scripts/pinyin-initials-rename.mjs --exclude="a.bat,b.txt"        # 跳过指定文件名
  */
 
 import { existsSync, mkdirSync, readdirSync, renameSync, statSync } from "node:fs";
@@ -72,6 +73,13 @@ const mode = (argValue("mode") || "auto").toLowerCase();
 const type = (argValue("type") || "all").toLowerCase();
 const dirArg = argValue("dir");
 const pathArg = argValue("path");
+// 逗号分隔的文件名黑名单：拖拽 bat 自己也在目标目录时，别把它也改了
+const excludedNames = new Set(
+  (argValue("exclude") ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean),
+);
 
 if (!["auto", "wrap", "rename"].includes(mode)) {
   console.error("❌ --mode 只能是 auto / wrap / rename");
@@ -101,7 +109,9 @@ function collectItems() {
       process.exit(1);
     }
     if (type !== "all" && type !== (isFile ? "file" : "dir")) return [];
-    return [{ sourcePath, name: basename(sourcePath), isFile }];
+    const name = basename(sourcePath);
+    if (excludedNames.has(name)) return [];
+    return [{ sourcePath, name, isFile }];
   }
 
   const dir = resolve(dirArg);
@@ -111,6 +121,7 @@ function collectItems() {
   }
   return readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isFile() || entry.isDirectory())
+    .filter((entry) => !excludedNames.has(entry.name))
     .filter((entry) => type === "all" || type === (entry.isFile() ? "file" : "dir"))
     .map((entry) => ({
       sourcePath: join(dir, entry.name),

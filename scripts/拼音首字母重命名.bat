@@ -3,8 +3,11 @@ setlocal EnableExtensions
 chcp 65001 >nul
 title Pinyin initials rename
 
-rem Keep the .mjs next to this bat, so moving the repo does not break it.
+rem Prefer the .mjs next to this bat. If the bat was copied elsewhere, fall back
+rem to the repo copy, so a lone .bat still works.
 set "SCRIPT=%~dp0pinyin-initials-rename.mjs"
+if not exist "%SCRIPT%" if defined WAVEMOD_SCRIPTS set "SCRIPT=%WAVEMOD_SCRIPTS%\pinyin-initials-rename.mjs"
+if not exist "%SCRIPT%" set "SCRIPT=F:\Projects\wave-mod\scripts\pinyin-initials-rename.mjs"
 
 where node >nul 2>nul
 if errorlevel 1 (
@@ -20,6 +23,9 @@ if not exist "%SCRIPT%" (
   if not defined PY_RENAME_NO_PAUSE pause
   exit /b 1
 )
+
+rem Skip this bat itself if it was copied into the target folder.
+set "EXCLUDE=%~nx0"
 
 rem Drop a folder/file onto this bat, or paste a path when prompted.
 set "TARGET=%~1"
@@ -65,7 +71,7 @@ echo Target: %TARGET%
 echo Mode:   %MODE%
 echo.
 echo --- PREVIEW (no files will be changed) ---
-node "%SCRIPT%" %ARG% --mode=%MODE%
+node "%SCRIPT%" %ARG% --mode=%MODE% --exclude="%EXCLUDE%"
 if errorlevel 1 goto :failed
 
 if defined PY_RENAME_DRY_RUN goto :done
@@ -79,7 +85,7 @@ if /i not "%CONFIRM%"=="y" goto :cancelled
 :apply
 echo.
 echo --- APPLYING ---
-node "%SCRIPT%" %ARG% --mode=%MODE% --apply
+node "%SCRIPT%" %ARG% --mode=%MODE% --exclude="%EXCLUDE%" --apply
 if errorlevel 1 goto :failed
 echo.
 echo Done.
