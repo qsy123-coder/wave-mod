@@ -7,6 +7,7 @@ import Image from "next/image";
 
 import { copyToClipboard, copyToClipboardSync } from "@/lib/clipboard";
 import { driveCopyTip, driveMobileTip } from "@/lib/cloud-drive";
+import { reportDriveClick } from "@/lib/drive-stats/client";
 import { reportDownload } from "@/lib/engagement/client";
 import { driveOpenHref } from "@/lib/drive-client";
 import { launchDriveClient } from "@/lib/drive-client-launch";
@@ -120,6 +121,8 @@ export function DownloadButton({
     if (!ok) return;
     // 复制成功即视为一次下载（这也是桌面端真正的下载动作）
     reportDownload(modId);
+    // 网盘点击单独计数：同设备同天同盘只算 1 次，和下载数不是一回事
+    reportDriveClick(drive.platform);
     // 把对应客户端拉起来（它自己会读剪贴板弹转存框）。同一条链接本会话已唤起过就跳过，
     // 免得反复把它切到前台。返回值决定文案口径 —— 见 lib/drive-client-launch.ts
     const launched = launchDriveClient(drive.platform, drive.url);
@@ -142,6 +145,7 @@ export function DownloadButton({
   const handleMobileOpen = (drive: DriveLink) => {
     // 打开分享页即视为一次下载动作（与改造前直接跳转的口径一致）
     reportDownload(modId);
+    reportDriveClick(drive.platform);
     const ok = copyToClipboardSync(drive.url);
     setCopiedDrive({ platform: drive.platform, device: "mobile", launched: false, opened: true, copied: ok });
   };
@@ -149,7 +153,10 @@ export function DownloadButton({
   /** 手机端（链接缺 scheme 等脏数据）：没法跳，只复制并说明原因 */
   const handleMobileCopy = async (drive: DriveLink) => {
     const ok = await copyToClipboard(drive.url);
-    if (ok) reportDownload(modId);
+    if (ok) {
+      reportDownload(modId);
+      reportDriveClick(drive.platform);
+    }
     setCopiedDrive({ platform: drive.platform, device: "mobile", launched: false, opened: false, copied: ok });
   };
 

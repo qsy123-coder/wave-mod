@@ -2,6 +2,13 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
+import { buildDriveStats } from "@/lib/drive-stats/aggregate";
+import { readDrivePlatforms } from "@/lib/drive-stats/store";
+import type {
+  DriveClickDay,
+  DrivePlatformStats,
+  DriveStats,
+} from "@/lib/drive-stats/types";
 import { shanghaiDayKey } from "@/lib/engagement/store-core";
 import { buildVisitRange, chartMax, summarizeVisits } from "@/lib/visits/aggregate";
 import { VISITS_COOKIE, verifyVisitsCookieNow } from "@/lib/visits/cookie";
@@ -207,6 +214,192 @@ function MetricCard({
   );
 }
 
+// ── 网盘点击 ────────────────────────────────────────────────────────────────
+// 纯 SVG 折线，不引图表库（与页面顶部 UV/PV 折线同一原则）。
+
+const SPARK_WIDTH = 220;
+const SPARK_HEIGHT = 44;
+
+function sparkY(count: number, max: number): number {
+  return SPARK_HEIGHT - 4 - (count / max) * (SPARK_HEIGHT - 8);
+}
+
+function sparklinePath(days: DriveClickDay[]): string {
+  const max = Math.max(1, ...days.map((day) => day.count));
+  const step = days.length > 1 ? SPARK_WIDTH / (days.length - 1) : 0;
+
+  return days
+    .map((day, index) => {
+      const x = step * index;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${sparkY(day.count, max).toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function DriveSparkline({ days, label }: { days: DriveClickDay[]; label: string }) {
+  const max = Math.max(1, ...days.map((day) => day.count));
+  const last = days[days.length - 1];
+
+  return (
+    <svg
+      viewBox={`0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}`}
+      role="img"
+      aria-label={label}
+      className="h-11 w-full"
+    >
+      <line
+        x1={0}
+        y1={SPARK_HEIGHT - 2}
+        x2={SPARK_WIDTH}
+        y2={SPARK_HEIGHT - 2}
+        stroke="#000"
+        strokeOpacity={0.12}
+        strokeWidth={1}
+      />
+      <path
+        d={sparklinePath(days)}
+        fill="none"
+        stroke="#000"
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {last ? (
+        <circle cx={SPARK_WIDTH - 1} cy={sparkY(last.count, max)} r={3} fill="#000" />
+      ) : null}
+    </svg>
+  );
+}
+
+function DrivePlatformCard({ platform }: { platform: DrivePlatformStats }) {
+  const sharePercent = platform.share * 100;
+  const shareLabel =
+    sharePercent > 0 && sharePercent < 10 ? sharePercent.toFixed(1) : sharePercent.toFixed(0);
+
+  return (
+    <div className="border-4 border-black bg-white p-4 text-black shadow-[6px_6px_0px_0px_#000]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-black/50">网盘</p>
+          <p className="mt-1 truncate text-lg font-black leading-tight">{platform.platform}</p>
+        </div>
+        <span className="shrink-0 border-2 border-black bg-[var(--neo-panel)] px-2 py-0.5 text-[11px] font-black">
+          {shareLabel}%
+        </span>
+      </div>
+
+      <div className="mt-3 flex items-end gap-4">
+        <div>
+          <p className="text-3xl font-black leading-none">{formatNumber(platform.total)}</p>
+          <p className="mt-1 text-[11px] font-black uppercase tracking-[0.14em] text-black/50">
+            累计点击
+          </p>
+        </div>
+        <div className="text-[11px] font-bold leading-5 text-black/60">
+          <p>今日 {formatNumber(platform.today)}</p>
+          <p>昨日 {formatNumber(platform.yesterday)}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 border-t-2 border-black/10 pt-2">
+        <DriveSparkline
+          days={platform.days}
+          label={`${platform.platform} 近 ${platform.days.length} 天点击趋势`}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** 平台太多时只列前 6 个，其余合并成一列「其他」，避免表格横向失控 */
+const DRIVE_TABLE_MAX_COLUMNS = 6;
+
+function DriveStatsTable({ stats }: { stats: DriveStats }) {
+  const visible = stats.platforms.slice(0, DRIVE_TABLE_MAX_COLUMNS);
+  const rest = stats.platforms.slice(DRIVE_TABLE_MAX_COLUMNS);
+  const dates = visible[0]?.days.map((day) => day.date) ?? [];
+  const restByDate = dates.map((_, index) =>
+    rest.reduce((sum, platform) => sum + (platform.days[index]?.count ?? 0), 0),
+  );
+
+  return (
+    <table className="w-full min-w-[40rem] border-collapse text-sm">
+      <thead className="bg-black text-white">
+        <tr>
+          <th className="px-4 py-2 text-left font-black">日期</th>
+          {visible.map((platform) => (
+            <th key={platform.platform} className="px-4 py-2 text-right font-black">
+              {platform.platform}
+            </th>
+          ))}
+          {rest.length > 0 ? (
+            <th className="px-4 py-2 text-right font-black">其他（{rest.length}）</th>
+          ) : null}
+        </tr>
+      </thead>
+      <tbody>
+        {dates
+          .map((date, index) => ({ date, index }))
+          .reverse()
+          .map(({ date, index }) => (
+            <tr key={date} className="border-b-2 border-black/10 last:border-b-0">
+              <td className="px-4 py-2 font-bold">{date}</td>
+              {visible.map((platform) => (
+                <td key={platform.platform} className="px-4 py-2 text-right font-black">
+                  {formatNumber(platform.days[index]?.count ?? 0)}
+                </td>
+              ))}
+              {rest.length > 0 ? (
+                <td className="px-4 py-2 text-right font-bold text-black/70">
+                  {formatNumber(restByDate[index])}
+                </td>
+              ) : null}
+            </tr>
+          ))}
+      </tbody>
+    </table>
+  );
+}
+
+function DriveClickSection({ stats }: { stats: DriveStats | null }) {
+  return (
+    <section className="border-4 border-black bg-white p-4 text-black shadow-[6px_6px_0px_0px_#000]">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex items-center gap-2 border-4 border-black bg-[var(--neo-secondary)] px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em]">
+          网盘点击
+        </div>
+        <p className="text-xs font-bold text-black/55">
+          同一设备同一天同一网盘只计 1 次 · 只统计 mod 的网盘按钮
+        </p>
+      </div>
+
+      {stats === null ? (
+        <div className="border-4 border-black bg-[var(--neo-accent)] p-4 text-black">
+          <p className="text-sm font-black">网盘点击数据暂不可用</p>
+          <p className="mt-1 text-xs font-bold">
+            读不到计数服务。这里刻意不显示 0 —— 0 会被误读成「没人点」。
+          </p>
+        </div>
+      ) : stats.platforms.length === 0 ? (
+        <p className="border-4 border-dashed border-black/30 px-4 py-6 text-center text-sm font-bold text-black/50">
+          还没有网盘点击数据（上线后开始累计）
+        </p>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {stats.platforms.map((platform) => (
+              <DrivePlatformCard key={platform.platform} platform={platform} />
+            ))}
+          </div>
+          <div className="mt-4 overflow-x-auto border-4 border-black">
+            <DriveStatsTable stats={stats} />
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 export default async function VisitsPage({ searchParams }: PageProps) {
   const token = process.env.VISITS_TOKEN?.trim();
   if (!token) notFound();
@@ -225,9 +418,14 @@ export default async function VisitsPage({ searchParams }: PageProps) {
   }
 
   const today = shanghaiDayKey();
-  const rows = await readVisitDays(RANGE_DAYS, today);
+  // 两块数据各自独立：任何一块读不到都只让那一块显示「暂不可用」
+  const [rows, driveRows] = await Promise.all([
+    readVisitDays(RANGE_DAYS, today),
+    readDrivePlatforms(RANGE_DAYS, today),
+  ]);
   const days = rows ? buildVisitRange(rows, RANGE_DAYS, today) : [];
   const summary = summarizeVisits(days, today);
+  const driveStats = driveRows === null ? null : buildDriveStats(driveRows, RANGE_DAYS, today);
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
@@ -304,6 +502,8 @@ export default async function VisitsPage({ searchParams }: PageProps) {
           </p>
         </>
       )}
+
+      <DriveClickSection stats={driveStats} />
     </main>
   );
 }

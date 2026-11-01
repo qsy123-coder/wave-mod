@@ -45,6 +45,18 @@ GET  /health                → {ok, mods, visitsDays, updatedAt, bytes}
 而这份文件每次写入都要整份重写。冻结后每天只占两个整数。
 设备号先做 sha256 截断再存，这里不保留任何可直接反查的设备标识。
 
+网盘点击统计（driveClicks）
+--------------------------
+按「设备 × 天 × 平台」去重的点击累加器，**不区分 mod**：
+
+  - 今天 / 昨天：{total, days:{day:[设备号 hash…]}} —— 实时去重
+  - 前天及更早：days 里的列表冻结成整数
+  - 平台名先归一化再建桶；规则必须与 src/lib/drive-stats/platform.ts 逐条一致
+
+  POST /drive-click {deviceId, platform, day, today} → {ok, total, today}
+  GET  /drive-stats?days=30&today=YYYY-MM-DD
+                 → {platforms:[{platform,total,days:[{date,count}]}]}（按累计降序）
+
 ⚠️ 只监听 127.0.0.1，由 nginx 的 `/__engagement/` 反代；不要直接暴露端口。
 """
 
@@ -86,12 +98,31 @@ VISIT_DAYS_MAX = 3650
 # 单次 /visits 最多返回多少天
 VISIT_READ_MAX = 3650
 
+# 网盘点击：同样永久保留每日聚合，天数上限与访问统计一致
+DRIVE_DAYS_MAX = 3650
+DRIVE_READ_MAX = 3650
+PLATFORM_MAX = 24
+
+# ⚠️ 必须与 src/lib/drive-stats/platform.ts 的 RULES 逐条一致。
+# 两边规则不同 = 本地开发与线上把同一个盘算进不同的桶。
+DRIVE_PLATFORM_RULES = [
+    ("夸克", re.compile(r"夸克|quark", re.IGNORECASE)),
+    ("迅雷", re.compile(r"迅雷|xunlei", re.IGNORECASE)),
+    ("百度网盘", re.compile(r"百度|baidu", re.IGNORECASE)),
+    ("阿里云盘", re.compile(r"阿里|aliyun|ali", re.IGNORECASE)),
+    ("蓝奏云", re.compile(r"蓝奏|lanzou", re.IGNORECASE)),
+    ("天翼云盘", re.compile(r"天翼|ctyun|189", re.IGNORECASE)),
+    ("115", re.compile(r"115|一二", re.IGNORECASE)),
+    ("移动云盘", re.compile(r"和彩|移动云|139", re.IGNORECASE)),
+    ("123云盘", re.compile(r"123|咪咕", re.IGNORECASE)),
+]
+
 # COS 镜像：同一份状态每 5 分钟最多传一次，失败只记日志
 COS_MIN_INTERVAL = 300
 COS_KEY = "engagement/live.json"
 
 _lock = threading.RLock()
-_state = {"version": 1, "mods": {}, "visits": {}}
+_state = {"version": 1, "mods": {}, "visits": {}, "driveClicks": {}}
 _updated_at = 0
 _last_backup_at = 0
 _last_mirror_at = 0
@@ -190,6 +221,81 @@ def _sanitize_visits(value) -> dict:
     return visits
 
 
+def normalize_drive_platform(raw) -> str:
+    """网盘平台名归一化。⚠️ 必须与 src/lib/drive-stats/platform.ts 一致。"""
+    if not isinstance(raw, str):
+        return ""
+    value = re.sub(r"\s+", " ", raw).strip()
+    if not value:
+        return ""
+
+    for name, pattern in DRIVE_PLATFORM_RULES:
+        if pattern.search(value):
+            return name
+
+    stripped = re.sub(r"\s*网盘$", "", value).strip()
+    return (stripped or value)[:PLATFORM_MAX]
+
+
+def _unique(items: list[str]) -> list[str]:
+    """保序去重。列表长度就是 UV，重复项会让统计凭空变大。"""
+    seen: set[str] = set()
+    result = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
+
+
+def _sanitize_drive_clicks(value) -> dict:
+    """每日网盘点击聚合。宽进严出：坏平台/坏日期/坏元素丢掉，好的救回来。"""
+    platforms: dict[str, dict] = {}
+    if not isinstance(value, dict):
+        return platforms
+
+    for raw_platform, raw_entry in value.items():
+        platform = normalize_drive_platform(raw_platform)
+        if not platform or not isinstance(raw_entry, dict):
+            continue
+
+        days: dict[str, object] = {}
+        raw_days = raw_entry.get("days")
+        if isinstance(raw_days, dict):
+            for day, day_value in raw_days.items():
+                if not isinstance(day, str) or not DAY_RE.match(day):
+                    continue
+                if isinstance(day_value, list):
+                    days[day] = _unique(_str_list(day_value))
+                else:
+                    days[day] = _count(day_value)
+
+        total = _count(raw_entry.get("total"))
+        existing = platforms.get(platform)
+        if existing is None:
+            platforms[platform] = {"total": total, "days": days}
+            continue
+
+        # 归一化把多个旧 key 合到一个桶里时，把累计值和每日值一起合并
+        existing["total"] += total
+        for day, day_value in days.items():
+            old_value = existing["days"].get(day)
+            if isinstance(day_value, list) and isinstance(old_value, list):
+                old_value.extend(item for item in day_value if item not in old_value)
+            elif isinstance(day_value, int) and isinstance(old_value, int):
+                existing["days"][day] = old_value + day_value
+            else:
+                existing["days"][day] = day_value
+
+    for entry in platforms.values():
+        if len(entry["days"]) > DRIVE_DAYS_MAX:
+            for day in sorted(entry["days"])[: len(entry["days"]) - DRIVE_DAYS_MAX]:
+                del entry["days"][day]
+
+    return platforms
+
+
 def load_state() -> None:
     global _state, _updated_at
     try:
@@ -204,7 +310,13 @@ def load_state() -> None:
 
     mods = raw.get("mods") if isinstance(raw, dict) else None
     visits = raw.get("visits") if isinstance(raw, dict) else None
-    state = {"version": 1, "mods": {}, "visits": _sanitize_visits(visits)}
+    drive_clicks = raw.get("driveClicks") if isinstance(raw, dict) else None
+    state = {
+        "version": 1,
+        "mods": {},
+        "visits": _sanitize_visits(visits),
+        "driveClicks": _sanitize_drive_clicks(drive_clicks),
+    }
     if isinstance(mods, dict):
         for mod_id, value in mods.items():
             if isinstance(mod_id, str) and MOD_ID_RE.match(mod_id):
@@ -354,6 +466,103 @@ def visits_payload(days: int, today: str) -> list[dict]:
         devices = entry.get("devices")
         uv = len(devices) if isinstance(devices, list) else _count(entry.get("uv"))
         rows.append({"date": day, "uv": uv, "pv": _count(entry.get("pv"))})
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# 网盘点击统计（driveClicks）
+#
+# 与 mod 计数、站点访问都独立：按「设备 × 天 × 平台」去重，不区分 mod。
+# 同一个 hash 在同一天同一个平台只计 1 次，哪怕他点了十个 mod 的夸克按钮。
+# ---------------------------------------------------------------------------
+def _freeze_drive_clicks(today: str) -> None:
+    """把**前天及更早**的设备 hash 列表折算成整数；今天/昨天保留列表。
+
+    与 visits 保留两天同理：跨零点的迟到请求带着昨天的 day，昨天若已冻结，
+    这些点击就只能加总数、补不了去重。
+    """
+    previous = (date.fromisoformat(today) - timedelta(days=1)).isoformat()
+
+    for entry in _state["driveClicks"].values():
+        days = entry.get("days")
+        if not isinstance(days, dict):
+            continue
+
+        for day, value in list(days.items()):
+            if day in (today, previous):
+                continue
+            if isinstance(value, list):
+                days[day] = len(value)
+
+        if len(days) > DRIVE_DAYS_MAX:
+            for day in sorted(days)[: len(days) - DRIVE_DAYS_MAX]:
+                del days[day]
+
+
+def apply_drive_click(
+    platform: str,
+    device_id: str,
+    day: str,
+    today: str | None = None,
+) -> dict:
+    """记录一次网盘点击：同设备同天同平台只计 1 次。"""
+    current = today or day
+
+    entry = _state["driveClicks"].setdefault(platform, {"total": 0, "days": {}})
+    days = entry.setdefault("days", {})
+    digest = _device_hash(device_id)
+    value = days.get(day)
+    counted = False
+
+    if isinstance(value, list):
+        if digest not in value:
+            value.append(digest)
+            counted = True
+    elif isinstance(value, int):
+        # 已冻结的历史日：没法再按设备去重，只能当一次新点击（迟到请求极少见）
+        days[day] = value + 1
+        counted = True
+    else:
+        days[day] = [digest]
+        counted = True
+
+    if counted:
+        entry["total"] = _count(entry.get("total")) + 1
+
+    _freeze_drive_clicks(current)
+
+    final = _state["driveClicks"].get(platform, entry)
+    final_days = final.get("days") if isinstance(final, dict) else {}
+    final_value = final_days.get(day) if isinstance(final_days, dict) else None
+    today_count = len(final_value) if isinstance(final_value, list) else _count(final_value)
+
+    return {
+        "total": _count(final.get("total")) if isinstance(final, dict) else 0,
+        "today": today_count,
+    }
+
+
+def drive_stats_payload(days: int, today: str) -> list[dict]:
+    """返回各平台的累计与区间内有数据的日期（升序，平台按累计降序）。"""
+    start = (date.fromisoformat(today) - timedelta(days=days - 1)).isoformat()
+    rows = []
+
+    for platform, entry in _state["driveClicks"].items():
+        day_rows = []
+        for day, value in sorted(entry.get("days", {}).items()):
+            if day < start or day > today:
+                continue
+            count = len(value) if isinstance(value, list) else _count(value)
+            day_rows.append({"date": day, "count": count})
+        rows.append(
+            {
+                "platform": platform,
+                "total": _count(entry.get("total")),
+                "days": day_rows,
+            }
+        )
+
+    rows.sort(key=lambda row: (-row["total"], row["platform"]))
     return rows
 
 
@@ -541,6 +750,12 @@ class Handler(BaseHTTPRequestHandler):
                     "ok": True,
                     "mods": len(_state["mods"]),
                     "visitsDays": len(_state["visits"]),
+                    "drivePlatforms": len(_state["driveClicks"]),
+                    "driveClickDays": sum(
+                        len(entry.get("days", {}))
+                        for entry in _state["driveClicks"].values()
+                        if isinstance(entry, dict)
+                    ),
                     "updatedAt": _updated_at,
                     "bytes": size,
                 }
@@ -562,6 +777,23 @@ class Handler(BaseHTTPRequestHandler):
             with _lock:
                 days_payload = visits_payload(days, today)
             _json_response(self, 200, {"days": days_payload})
+            return
+
+        if parsed.path == "/drive-stats":
+            days_raw = (query.get("days") or ["30"])[0]
+            today = (query.get("today") or [""])[0]
+            try:
+                days = int(days_raw)
+            except ValueError:
+                _json_response(self, 400, {"error": "bad days"})
+                return
+            if days < 1 or days > DRIVE_READ_MAX or not DAY_RE.match(today):
+                _json_response(self, 400, {"error": "bad days/today"})
+                return
+
+            with _lock:
+                platforms = drive_stats_payload(days, today)
+            _json_response(self, 200, {"platforms": platforms})
             return
 
         if parsed.path == "/export":
@@ -676,6 +908,36 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError as error:
                     # 与互动计数同一条原则：内存已更新，本次浏览仍算数，但必须留痕
                     print(f"[engagement-service] 访问统计写盘失败（本次只在内存生效）: {error}", flush=True)
+            _mirror_async()
+            _json_response(self, 200, {"ok": True, **counts})
+            return
+
+        if self.path == "/drive-click":
+            device_id = payload.get("deviceId")
+            platform = normalize_drive_platform(payload.get("platform"))
+            day = payload.get("day")
+            today = payload.get("today") or day
+
+            if not isinstance(device_id, str) or not DEVICE_RE.match(device_id):
+                _json_response(self, 400, {"error": "bad deviceId"})
+                return
+            if not platform:
+                _json_response(self, 400, {"error": "bad platform"})
+                return
+            if not isinstance(day, str) or not DAY_RE.match(day):
+                _json_response(self, 400, {"error": "bad day"})
+                return
+            if not isinstance(today, str) or not DAY_RE.match(today):
+                _json_response(self, 400, {"error": "bad today"})
+                return
+
+            with _lock:
+                counts = apply_drive_click(platform, device_id, day, today)
+                try:
+                    _save_locked()
+                except OSError as error:
+                    # 与其它计数同一条原则：内存已更新，本次点击仍算数，但必须留痕
+                    print(f"[engagement-service] 网盘点击写盘失败（本次只在内存生效）: {error}", flush=True)
             _mirror_async()
             _json_response(self, 200, {"ok": True, **counts})
             return
