@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -79,8 +80,26 @@ function SheetClose({ children, onClick, ...props }: React.ComponentProps<"butto
   );
 }
 
+/**
+ * 抽屉内容必须 portal 到 `<body>`，不能原地渲染。
+ *
+ * 原地渲染时，只要调用方在带 `transform` / `translate` / `will-change`（这几种属性）
+ * 的祖先里，CSS 就会把这个祖先当成 `position: fixed` 元素的**包含块** —— 抽屉不再
+ * 相对视口定位，而是被塞进那个祖先的盒子里。
+ *
+ * 踩过的坑（2026-11-01）：手机端右上角导航图标打开「站点导航」抽屉，抽屉被塞进
+ * sticky header（`will-change-[translate,opacity]`）里，只有 header 那么高、贴在
+ * 页面顶部。同款地雷还有：瀑布流容器在 FLIP 过渡期间带 `transform`，
+ * 以及在抽屉内部再开一层抽屉（share-mod-dialog 早就自己 portal 到 body 绕开）。
+ *
+ * 首帧返回 null 是给 SSR 让路：服务端没有 document，客户端首帧也要与 SSR 一致，
+ * 挂载后再真正 portal。
+ */
 function SheetPortal({ children }: { children?: React.ReactNode }) {
-  return <>{children}</>;
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(children, document.body);
 }
 
 function SheetOverlay({ className, onClick, ...props }: React.ComponentProps<"div">) {
