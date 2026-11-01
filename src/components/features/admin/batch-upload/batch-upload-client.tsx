@@ -676,7 +676,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
         ) : null}
 
         {rows.length > 0 ? (
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-black">
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-black text-black">
             <span className="border-4 border-black bg-white px-3 py-1.5">共 {rows.length} 条</span>
             <span className="border-4 border-black bg-[#d8f5c8] px-3 py-1.5">
               可提交 {includedRows.length}
@@ -711,7 +711,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
             </button>
             <select
               defaultValue=""
-              className="border-4 border-black bg-white px-3 py-1.5 text-xs font-black"
+              className="border-4 border-black bg-white px-3 py-1.5 text-xs font-black text-black"
               onChange={(event) => {
                 applyBulkCharacter(event.target.value);
                 event.currentTarget.value = "";
@@ -729,8 +729,8 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
       </section>
 
       {rows.length > 0 ? (
-        <section className="overflow-x-auto border-4 border-black bg-white shadow-[8px_8px_0px_0px_#000]">
-          <table className="w-full min-w-[1400px] border-collapse text-left text-xs">
+        <section className="overflow-x-auto border-4 border-black bg-white text-black shadow-[8px_8px_0px_0px_#000]">
+          <table className="w-full min-w-[1400px] border-collapse text-left text-xs text-black">
             <thead className="bg-black text-white">
               <tr>
                 <th className="px-2 py-2">提交</th>
@@ -778,7 +778,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
                           updateRow(row.id, { character: event.target.value }, "character")
                         }
                         className={`w-28 border-4 px-2 py-1 font-black ${
-                          unknown ? "border-[#c1121f] bg-[#ffe3e3] text-[#c1121f]" : "border-black bg-white"
+                          unknown ? "border-[#c1121f] bg-[#ffe3e3] text-[#c1121f]" : "border-black bg-white text-black"
                         }`}
                       />
                       {unknown ? (
@@ -789,7 +789,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
                       <input
                         value={row.version}
                         onChange={(event) => updateRow(row.id, { version: event.target.value }, "version")}
-                        className="w-20 border-4 border-black bg-white px-2 py-1 font-black"
+                        className="w-20 border-4 border-black bg-white px-2 py-1 font-black text-black"
                       />
                     </td>
                     <td className="px-2 py-2">
@@ -798,7 +798,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
                         onChange={(event) =>
                           updateRow(row.id, { gameVersion: event.target.value }, "gameVersion")
                         }
-                        className="w-20 border-4 border-black bg-white px-2 py-1 font-black"
+                        className="w-20 border-4 border-black bg-white px-2 py-1 font-black text-black"
                       />
                     </td>
                     <td className="px-2 py-2">
@@ -820,7 +820,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
                           updateRow(row.id, { description: event.target.value }, "description")
                         }
                         rows={3}
-                        className="w-64 border-4 border-black bg-white px-2 py-1 font-bold"
+                        className="w-64 border-4 border-black bg-white px-2 py-1 font-bold text-black"
                       />
                     </td>
                     <td className="px-2 py-2 text-center">
@@ -844,12 +844,12 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
         </section>
       ) : null}
 
-      <section className="flex flex-wrap items-center gap-4 border-4 border-black bg-[var(--neo-secondary)] p-5 shadow-[8px_8px_0px_0px_#000]">
+      <section className="flex flex-wrap items-center gap-4 border-4 border-black bg-[var(--neo-secondary)] p-5 text-black shadow-[8px_8px_0px_0px_#000]">
         <button
           type="button"
           disabled={busy || includedRows.length === 0}
           onClick={() => void handleSubmit()}
-          className="neo-button-primary inline-flex items-center gap-2 px-6 py-3 text-sm font-black uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-50"
+          className="neo-button-primary inline-flex items-center gap-2 px-6 py-3 text-sm font-black uppercase tracking-[0.14em] text-black disabled:cursor-not-allowed disabled:opacity-60"
         >
           {busy ? <LoaderCircle className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
           {busy ? "处理中…" : `上传并入库（${includedRows.length} 条）`}
@@ -896,7 +896,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
       </section>
 
       {result?.failed.length ? (
-        <section className="border-4 border-black bg-white p-4 shadow-[6px_6px_0px_0px_#000]">
+        <section className="border-4 border-black bg-white p-4 text-black shadow-[6px_6px_0px_0px_#000]">
           <p className="mb-2 text-sm font-black text-[#c1121f]">失败明细</p>
           <ul className="space-y-1 text-xs font-bold">
             {result.failed.map((item) => (
