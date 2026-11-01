@@ -1,6 +1,6 @@
 # 数据库迁移 PRD：Supabase → 香港自建 PostgreSQL
 
-> 状态：待确认（PRD，未进入实现）
+> 状态：实施中（代码与本地演练已完成，待装机/切换；见 §14）
 > 日期：2026-11-01
 > 决策来源：2026-11-01 需求会话（「数据库迁移 + 恢复后台管理」）
 > 关联文档：`docs/disaster-recovery.md`、`docs/hk-proxy-runbook.md`、`docs/域名入口拓扑.md`
@@ -637,9 +637,39 @@ Supabase。回滚前必须先 `pg_dump` 新库，把差异补回旧库，否则�
 
 ---
 
-## 14. 待确认
+## 14. 实施进度（2026-11-01）
 
-1. **Basic Auth 凭据**：用户名/密码由你定，还是我生成一个 32 位随机密码写进部署文档？
+分支约定：
+
+| 分支 | 用途 |
+|---|---|
+| `main` | 保持现网可发布状态，迁移完成前不动 |
+| `rollback/pre-pg-migration` | 迁移前的快照分支（`d9dc0e76`，PRD 提交），随时可回退 |
+| `feature/selfhosted-pg` | 迁移实现分支（已通过 CI） |
+
+已完成（代码 + 本地演练）：
+
+- [x] `src/lib/db`（pg Pool + 参数化查询）、公开读/后台/教程全部 SQL 化
+- [x] 后台 Basic Auth（nginx 模板 + `src/proxy.ts` 应用层双层）
+- [x] 下线登录/个人中心/评论/评分；收藏只走设备号
+- [x] 删除 `src/lib/supabase/*`、`@supabase` 运行时引用
+- [x] `deploy/hk-db/`（PG17 + pgbouncer + TLS + 备份）
+- [x] `scripts/migrate-supabase-to-hk.mjs` + `scripts/verify-migration.mjs`
+- [x] 本地演练：16 张表 / `mods` 5578 行 / checksum 与源库一致；公开接口与生产一致
+- [x] lint 0 error、tsc 通过、build 通过、589 个测试通过、CI 绿
+
+待执行（需要服务器/控制台权限）：
+
+- [ ] 香港机装机（`deploy/hk-db/install.sh`）
+- [ ] `db.sunnyrose.xyz` A 记录 + 证书
+- [ ] 腾讯云防火墙放行 6432
+- [ ] 正式迁移 + 切换窗口
+- [ ] 30 天后删除旧 Supabase
+
+## 15. 仍需你拍板
+
+1. **Basic Auth 凭据**：用户名/密码由你定，还是我生成一个 32 位随机密码?
 2. **切换时间**：建议选在访问低峰（凌晨 02:00–04:00），确认哪一晚。
 3. **香港机是否先升配**：1.9 GB 内存跑 nginx + PG + pgbouncer 偏紧，是否先升到 4 GB？
-4. **`/admin` 入口**：公共头部是否保留「后台」链接（Basic Auth 会弹窗），还是完全隐藏、只靠书签？
+4. **DNS 证书**：`db.sunnyrose.xyz` 的 A 记录与 Cloudflare DNS Token 由谁操作？
+5. **`/admin` 入口**：已按默认**隐藏**（公共头部不再显示后台链接）；如要恢复入口告诉我。
