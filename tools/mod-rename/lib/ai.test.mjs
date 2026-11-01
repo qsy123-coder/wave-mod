@@ -112,10 +112,20 @@ describe("辅助", () => {
     expect(sanitizeResult({ characters: ["今汐"], name: "x" }, known)).toMatchObject({ characters: ["今汐"], name: "x" });
   });
 
-  it("needsAi：认不出角色或置信度低就要问", () => {
+  it("needsAi：认不出角色 / 残留韩文 / 整段英文 都要问", () => {
     expect(needsAi({ characters: [], confidence: "high" })).toBe(true);
-    expect(needsAi({ characters: ["今汐"], confidence: "low" })).toBe(true);
-    expect(needsAi({ characters: ["今汐"], confidence: "high" })).toBe(false);
+    expect(needsAi({ characters: ["心月狐"], name: "의 별자리", confidence: "low" })).toBe(true);
+    // 2026-11-01 用户指出的情况：GameBanana 的「Suoming Red and Black」整段英文，也该翻
+    expect(needsAi({ characters: ["锁暝"], name: "Suoming Red and Black", confidence: "high" })).toBe(true);
+  });
+
+  it("needsAi：带汉字的名字不打扰（拉丁字母多半是专名）", () => {
+    expect(needsAi({ characters: ["女漂"], name: "特工RoverF（星火永明）", confidence: "high" })).toBe(false);
+    expect(needsAi({ characters: ["锁暝"], name: "特效颜色更改", confidence: "high" })).toBe(false);
+  });
+
+  it("sanitizeResult 拒绝把韩文原样抄回来", () => {
+    expect(sanitizeResult({ characters: ["心月狐"], name: "의 별자리" }, known)).toBeNull();
   });
 
   it("aiConfig 读环境变量并给默认值", () => {

@@ -24,11 +24,24 @@ export function aiConfig(env = process.env) {
   };
 }
 
-/** 这条要不要问模型：没认出角色、或者还有没翻译干净的韩文 */
+const HANGUL = /[가-힣]/;
+const CJK = /[一-鿿]/;
+const LATIN = /[A-Za-z]/;
+
+/**
+ * 这条要不要问模型。三种情况：
+ *   1. 没认出角色；
+ *   2. 名称里还有韩文没翻（`의 별자리`）；
+ *   3. 名称**整段是英文、一个汉字都没有**（`Suoming Red and Black`）——
+ *      带汉字的（`特工RoverF（星火永明）`）不算，那里的拉丁字母通常是专名，翻了反而错。
+ */
 export function needsAi(suggestion) {
   if (!suggestion) return true;
   if (!(suggestion.characters ?? []).length) return true;
-  return suggestion.confidence === "low";
+  const name = String(suggestion.name ?? "");
+  if (HANGUL.test(name)) return true;
+  if (!CJK.test(name) && LATIN.test(name)) return true;
+  return false;
 }
 
 function buildSystemPrompt(glossary, characters) {
@@ -47,8 +60,11 @@ function buildSystemPrompt(glossary, characters) {
     "规则：",
     `1. characters 只能从这个清单里选，禁止发明新角色：${whitelist}`,
     "2. name 是去掉角色名之后的皮肤/风格名；保留版本号与括号内容；不要重复角色名。",
+    "2b. name 必须是中文：原文里残留的韩文（例如「의 별자리」）也要翻译，禁止照抄韩文。",
     "3. hotkeys 只填切换键（例如 ctrl+alt、890上下左右、num1~7），没有就空串。",
     "4. author 填作者名；原文没有就空串。",
+    "4b. 专有名词保留原文：武器型号、作品名、人名昵称（如 OTs-14 Groza、Sol Badguy、M4 SOPMOD II、RoverF）不要翻成中文；",
+    "    只翻译描述性词语（颜色、服饰类型、风格，如 Red and Black → 红黑）。",
     "5. 一个条目里有多个角色时，characters 按出现顺序全部列出。",
     "6. 拿不准就把 characters 留空数组，不要猜。",
     "",
@@ -79,6 +95,7 @@ export function sanitizeResult(raw, whitelist) {
   if (bad.length) return null; // 只要有一个不在库里，这条就不能用
   const name = String(raw.name ?? "").trim();
   if (!characters.length || !name) return null;
+  if (HANGUL.test(name)) return null; // 要求翻译却照抄韩文 ⇒ 当失败，别让它假装补好了
   return {
     characters,
     name,

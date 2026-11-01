@@ -23,7 +23,7 @@ import { loadEnvFiles } from "./lib/env.mjs";
 import { loadKnownMods } from "./lib/db.mjs";
 import { injectToken } from "./lib/html.mjs";
 import { applyPlan, listJournals, undoJournal } from "./lib/journal.mjs";
-import { looksLikeEndfield, splitExistingName, translate } from "./lib/naming.mjs";
+import { HANGUL_RE, looksLikeEndfield, splitExistingName, translate } from "./lib/naming.mjs";
 import { planAll } from "./lib/plan.mjs";
 import { dateDirToDay, listDateDirs, scanDateDir } from "./lib/scan.mjs";
 import { inspectZip, siblingsOf, splitZip } from "./lib/split.mjs";
@@ -111,8 +111,14 @@ function suggestFor(items, knownCharacters) {
           author: item.meta?.author,
           subcategory: item.meta?.subcategory,
         });
+    // 「已经是规范名」不等于「名字已经能看」：`心月狐-의 별자리` 角色认出来了，
+    // 名称里还留着韩文，这种也要标低置信度，好让 AI 补全有活干。
+    const hangulLeft = HANGUL_RE.test(s.name ?? "");
+    const merged = { ...s, confidence: hangulLeft ? "low" : s.confidence };
     out[item.name] = {
-      ...s,
+      ...merged,
+      // 「要不要 AI」由服务端算（含纯英文名的情况），页面只读这个字段，避免两边规则漂移
+      needsAi: needsAi(merged),
       alreadyNamed: named,
       endfield:
         looksLikeEndfield(item.name, glossary) || looksLikeEndfield(item.meta?.subcategory ?? "", glossary),

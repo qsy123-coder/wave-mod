@@ -152,23 +152,32 @@ function render() {
   renderFooter();
 }
 
+/** 「要不要 AI」以服务端算出来的为准（lib/ai.mjs 的 needsAi），页面不再重复一套规则 */
 function needsAiFor(name) {
   const s = state.suggestion[name];
   if (!s) return true;
-  if (!(s.characters ?? []).length) return true;
-  return s.confidence === "low";
+  return s.needsAi ?? !(s.characters ?? []).length;
 }
 
 function renderSource(src) {
   const applicable = src.items.filter((i) => state.plan[i.name]?.applicable).length;
   const pending = src.items.filter((i) => needsAiFor(i.name));
-  const aiBtn = el("button", {
-    class: "ghost btn-ai",
-    text: `AI 补全 ${pending.length}`,
-    disabled: !state.ai.configured || !pending.length ? "disabled" : undefined,
-    title: state.ai.configured ? `模型：${state.ai.model}` : "未配置 DEEPSEEK_API_KEY（写在 .env.local）",
-    onclick: () => runAi(src.name, pending.map((i) => i.name)),
-  });
+  // 0 条时不留一个灰按钮（看着像功能没了），直接说明「不用补」
+  const aiBtn = !state.ai.configured
+    ? el("button", {
+        class: "ghost btn-ai",
+        text: "AI 未配置",
+        disabled: "disabled",
+        title: "在 .env.local 写 DEEPSEEK_API_KEY，然后重开本工具",
+      })
+    : pending.length
+      ? el("button", {
+          class: "ghost btn-ai",
+          text: `AI 补全 ${pending.length}`,
+          title: `用 ${state.ai.model} 补全这 ${pending.length} 条（词表没搞定的）`,
+          onclick: () => runAi(src.name, pending.map((i) => i.name)),
+        })
+      : el("span", { class: "count", text: "全部已识别，无需 AI" });
   const head = el("h2", {}, [
     el("span", { text: src.name }),
     el("span", { class: "count", text: `${src.items.length} 条 · 可应用 ${applicable}` }),
@@ -327,6 +336,7 @@ async function runAi(source, names) {
         hotkeys: r.hotkeys,
         author: r.author || state.suggestion[name]?.author || "",
         confidence: "high",
+        needsAi: false,
         leftover: [],
         viaModel: true,
       };
