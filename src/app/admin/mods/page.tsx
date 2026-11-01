@@ -230,6 +230,14 @@ async function AdminModsContent({ searchParams }: { searchParams: Promise<Search
 
       {/* 右侧主内容区：独立滚动，顶部筛选卡片 sticky 固定 */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto pb-4">
+        <div className="mb-3 flex justify-end">
+          <Link
+            href="/admin/batch-upload"
+            className="neo-button-secondary inline-flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-[0.14em]"
+          >
+            批量上传（CSV + txt + 预览图）
+          </Link>
+        </div>
         <AdminModsListClient
           filters={filters}
           countLabel={

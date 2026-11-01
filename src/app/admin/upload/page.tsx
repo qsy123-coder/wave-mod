@@ -32,6 +32,12 @@ export default function AdminUploadPage() {
         <section className="inline-block border-4 border-black px-5 py-4 shadow-[8px_8px_0px_0px_#000]" style={{ background: "var(--neo-accent)" }}>
           <p className="neo-label text-black/60">Admin Upload</p>
           <h1 className="mt-2 text-4xl font-black text-black">管理员上传表单</h1>
+          <Link
+            href="/admin/batch-upload"
+            className="neo-button-outline mt-4 inline-flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-[0.14em]"
+          >
+            批量上传（CSV + txt + 预览图）
+          </Link>
         </section>
       </MotionReveal>
 

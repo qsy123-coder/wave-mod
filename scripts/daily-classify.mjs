@@ -11,7 +11,7 @@
  */
 
 import { resolveReshareAlias } from "./reshare-title-aliases.mjs";
-import { resolveDakaIfApplicable } from "./daka-classify.mjs";
+import { resolveDakaIfApplicable } from "./daka-classify-pure.mjs";
 
 /** 角色前缀 → 标准角色名，title 去前缀 */
 export const CHARACTER_PREFIX_MAP = [

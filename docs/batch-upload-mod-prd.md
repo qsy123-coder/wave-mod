@@ -410,3 +410,36 @@ W-YYYY.M.D/
 3. **缺图行为**：默认允许用站内占位图提交（与每日流程一致），只在预览里黄色警告；如果要「缺图直接禁止提交」，告诉我。
 4. **txt-only 行**：默认不勾选，用户可手动加入；如果希望自动全部加入，告诉我。
 5. **是否需要在成功后自动刷新 COS 兜底快照**：默认不做（由每日备份任务负责），成功后只失效 Next 缓存。
+
+---
+
+## 12. 实现状态（2026-11-01）
+
+已实现并本地验收：
+
+- [x] 抽出 `scripts/daily-classify.mjs` / `scripts/quark-csv-parse.mjs` /
+      `scripts/daka-classify-pure.mjs`；每日脚本改为 import，`--dry-run` 输出与重构前逐行一致
+- [x] `/admin/batch-upload` 页面：CSV/txt/预览图目录、日期、逐行编辑、批量角色、全选
+- [x] 未知角色标红 + 禁止勾选 + 提交按钮禁用；修正后自动重新勾选
+- [x] 浏览器转 WebP（最长边 1000px）→ `/api/cos/sign` → COS 直传；并发 3、主图/副图顺序稳定
+- [x] Server Action 事务 upsert：新增/更新/重新上架、批内去重、角色白名单、缓存失效
+- [x] 已存在行：更新网盘/图片 + `created_at` 往前推；自定义简介不被自动文案覆盖
+- [x] 本地 E2E（Playwright + `wavemod_dev`）：
+  - 2 条 CSV + 1 条迅雷 txt + 3 张图 → 新增 2；A 有夸克+迅雷，B 只有夸克；图片 2/1 张
+  - 同批再传（日期改 11-02）→ 更新 2、重新上架 2；自定义简介保持不变
+  - 未知角色行：标红、checkbox disabled、提交 0 条
+- [x] `npm run lint` 0 error、`npx tsc --noEmit`、`npm run build`、`npm test`（611 通过）
+
+### 实现时的两个补充决定
+
+1. **标题在预览里只读**：标题来自 CSV 文件名，允许改标题会改变去重键
+   （CLAUDE.md 的「事后改 title/character」坑）。角色仍可改，用于修正未知角色；
+   简介/版本/适配版本/NSFW 可改。
+2. **COS 桶 CORS 补了 `https://go.sunnyrose.xyz` 和 `http://localhost:3102`**：
+   原规则只有 `localhost:3000 / www.wave-mod.top / wave-mod.top`。不补的话，
+   从当前规范域名直传 COS 会被浏览器 CORS 拦（现有后台图片上传同样受影响）。
+
+待部署/生产验收：
+
+- [ ] 合并到 `main` → Vercel 部署
+- [ ] 生产用 2–3 条真实数据走一遍（预览图直传 + 入库 + 前台确认）
