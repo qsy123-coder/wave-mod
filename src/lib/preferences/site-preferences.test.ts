@@ -1,10 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   AUTO_OPEN_MODS_STORAGE_KEY,
+  AUTO_SKIP_NOTICE_KEY,
   buildAutoOpenModsScript,
+  consumeAutoSkipNotice,
   isImmersiveActive,
   isModsPathname,
+  markAutoSkipNotice,
   parseStoredFlag,
 } from "./site-preferences";
 
@@ -74,31 +77,92 @@ describe("buildAutoOpenModsScript：首页绘制前的直达脚本", () => {
       pathname,
       replace: (url: string) => replaced.push(url),
     };
+    const sessionWrites: Array<[string, string]> = [];
+    const fakeSessionStorage = {
+      setItem: (key: string, value: string) => sessionWrites.push([key, value]),
+    };
 
-    new Function("window", "location", buildAutoOpenModsScript())(fakeWindow, fakeLocation);
-    return replaced;
+    new Function("window", "location", buildAutoOpenModsScript())(
+      { ...fakeWindow, sessionStorage: fakeSessionStorage },
+      fakeLocation,
+    );
+    return { replaced, sessionWrites };
   }
 
   it("开启 + 访问首页时在绘制前替换到 /mods", () => {
-    expect(runScript("1")).toEqual(["/mods"]);
+    const { replaced, sessionWrites } = runScript("1");
+    expect(replaced).toEqual(["/mods"]);
+    // 跳转前留下提示标记，落地 /mods 后由 AutoOpenModsNotice 解释原因
+    expect(sessionWrites).toEqual([[AUTO_SKIP_NOTICE_KEY, "1"]]);
   });
 
-  it("关闭时完全不动首页", () => {
-    expect(runScript("0")).toEqual([]);
-    expect(runScript(null)).toEqual([]);
+  it("关闭时完全不动首页，也不留提示标记", () => {
+    expect(runScript("0")).toEqual({ replaced: [], sessionWrites: [] });
+    expect(runScript(null)).toEqual({ replaced: [], sessionWrites: [] });
   });
 
   it("只在路径恰好是 / 时生效", () => {
-    expect(runScript("1", { pathname: "/mods" })).toEqual([]);
-    expect(runScript("1", { pathname: "/guide" })).toEqual([]);
+    expect(runScript("1", { pathname: "/mods" }).replaced).toEqual([]);
+    expect(runScript("1", { pathname: "/guide" }).replaced).toEqual([]);
   });
 
   it("localStorage 抛错（隐私模式）时静默放行，不冒泡异常", () => {
     expect(() => runScript("1", { throwOnRead: true })).not.toThrow();
-    expect(runScript("1", { throwOnRead: true })).toEqual([]);
+    expect(runScript("1", { throwOnRead: true })).toEqual({ replaced: [], sessionWrites: [] });
   });
 
   it("使用 location.replace 而不是产生历史记录的方式", () => {
     expect(buildAutoOpenModsScript()).toContain('location.replace("/mods")');
+  });
+});
+
+describe("直达分类跳过首页的提示标记", () => {
+  const store = new Map<string, string>();
+  type FakeWindow = {
+    sessionStorage: {
+      getItem: (key: string) => string | null;
+      setItem: (key: string, value: string) => void;
+      removeItem: (key: string) => void;
+    };
+  };
+  // 经 unknown 绕开 lib.dom 里完整的 Window 类型：这里只模拟用得到的那一个字段
+  const globalWithWindow = globalThis as unknown as { window?: FakeWindow };
+
+  beforeEach(() => {
+    store.clear();
+    // node 环境没有 window：造一个只带 sessionStorage 的最小实现
+    globalWithWindow.window = {
+      sessionStorage: {
+        getItem: (key) => store.get(key) ?? null,
+        setItem: (key, value) => void store.set(key, value),
+        removeItem: (key) => void store.delete(key),
+      },
+    };
+  });
+
+  afterEach(() => {
+    delete globalWithWindow.window;
+  });
+
+  it("打标记后只能取到一次（取走即清，刷新不会重复骚扰）", () => {
+    markAutoSkipNotice();
+    expect(consumeAutoSkipNotice()).toBe(true);
+    expect(consumeAutoSkipNotice()).toBe(false);
+  });
+
+  it("没有标记时返回 false", () => {
+    expect(consumeAutoSkipNotice()).toBe(false);
+  });
+
+  it("sessionStorage 抛错时不冒泡，按「没有提示」处理", () => {
+    if (!globalWithWindow.window) throw new Error("window 未注入");
+    globalWithWindow.window.sessionStorage.getItem = () => {
+      throw new Error("blocked");
+    };
+    globalWithWindow.window.sessionStorage.setItem = () => {
+      throw new Error("blocked");
+    };
+    expect(() => markAutoSkipNotice()).not.toThrow();
+    expect(consumeAutoSkipNotice()).toBe(false);
   });
 });

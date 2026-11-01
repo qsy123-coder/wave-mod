@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { useSitePreferences } from "@/components/layout/site-preferences-provider";
+import { markAutoSkipNotice } from "@/lib/preferences/site-preferences";
 
 /**
  * 首页直达的**客户端兜底**。
@@ -22,6 +23,8 @@ export function HomeAutoRedirect() {
 
   useEffect(() => {
     if (!autoOpenMods) return;
+    // 与内联脚本同一套口径：跳转前留标记，让 /mods 上的提示告诉用户发生了什么
+    markAutoSkipNotice();
     router.replace("/mods");
   }, [autoOpenMods, router]);
 

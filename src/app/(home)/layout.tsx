@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { DailyTicker } from "@/components/common/daily-ticker";
+import { BootOverlay } from "@/components/layout/boot-overlay";
 import { HomeAutoRedirect } from "@/components/features/home/home-auto-redirect";
 import { SiteHeader } from "@/components/layout/site-header";
 import { getDailyUpdates } from "@/lib/mods";
@@ -26,6 +27,8 @@ async function HomeTopBar() {
 export default function HomeLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[var(--neo-dark)] bg-[radial-gradient(circle,var(--neo-canvas-dot)_1.5px,transparent_1.6px),linear-gradient(to_right,var(--neo-canvas-line)_1px,transparent_1px),linear-gradient(to_bottom,var(--neo-canvas-line)_1px,transparent_1px)] bg-[size:24px_24px,44px_44px,44px_44px]">
+      {/* 首次冷启动 / 首页缓存被清后的整页加载动画（快的时候一帧都不闪，见组件注释） */}
+      <BootOverlay />
       {/*
         直达角色分类的**前绘制**跳转。
         必须是同步内联脚本：浏览器解析到这里时 body 内容还没画出来，开启偏好后

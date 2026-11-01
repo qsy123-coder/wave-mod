@@ -14,6 +14,15 @@ export const AUTO_OPEN_MODS_STORAGE_KEY = "wavemod-auto-open-mods";
 export const IMMERSIVE_MODS_STORAGE_KEY = "wavemod-mods-immersive";
 
 /**
+ * 「刚才因为直达分类被跳过了首页」的一次性标记（sessionStorage）。
+ *
+ * 直达分类是**用户自己开的**偏好，但每次被跳走时用户看不到任何解释，容易以为
+ * 「点首页打不开」。跳转前留个标记，落地 `/mods` 后由 `AutoOpenModsNotice`
+ * 弹一条提示并给出「关闭该偏好」的入口 —— 用完即删，刷新不会重复打扰。
+ */
+export const AUTO_SKIP_NOTICE_KEY = "wavemod-auto-skip-notice";
+
+/**
  * 沉浸切换时右栏宽度的变化量 = 侧栏 240px + 父容器布局 gap 24px。
  *
  * 网格用它把「切换前宽度」换算成目标宽度，先按目标宽度排一次版，再用 transform
@@ -49,6 +58,33 @@ function writeFlag(key: string, value: boolean): void {
 
 export function readAutoOpenMods(): boolean {
   return readFlag(AUTO_OPEN_MODS_STORAGE_KEY);
+}
+
+/** 跳过首页前打标记（sessionStorage 不可用时静默放弃，提示只是锦上添花） */
+export function markAutoSkipNotice(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(AUTO_SKIP_NOTICE_KEY, "1");
+  } catch {
+    // 隐私模式：读不到就当作没有提示，不影响跳转本身
+  }
+}
+
+/**
+ * 取走提示标记：有标记返回 true 并立刻清掉。
+ *
+ * 必须在**展示时**就清，而不是等用户点关闭 —— 否则用户点了浏览器刷新，
+ * 同一次跳转的提示又会弹一遍。
+ */
+export function consumeAutoSkipNotice(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const flagged = window.sessionStorage.getItem(AUTO_SKIP_NOTICE_KEY) === "1";
+    if (flagged) window.sessionStorage.removeItem(AUTO_SKIP_NOTICE_KEY);
+    return flagged;
+  } catch {
+    return false;
+  }
 }
 
 export function writeAutoOpenMods(value: boolean): void {
@@ -101,7 +137,11 @@ export function isImmersiveActive({
  * 那条路径由 `HomeAutoRedirect` 兜底。
  */
 export function buildAutoOpenModsScript(): string {
+  // 跳转前先留一个 sessionStorage 标记，落地 /mods 后由 AutoOpenModsNotice 提示用户
+  // 「刚才那一下是直达分类干的」并给出关闭入口。sessionStorage 被禁时静默忽略。
   return `(function(){try{if(location.pathname!=="/")return;if(window.localStorage.getItem(${JSON.stringify(
     AUTO_OPEN_MODS_STORAGE_KEY,
-  )})==="1"){location.replace("/mods");}}catch(e){}})();`;
+  )})==="1"){try{window.sessionStorage.setItem(${JSON.stringify(
+    AUTO_SKIP_NOTICE_KEY,
+  )},"1");}catch(e){}location.replace("/mods");}}catch(e){}})();`;
 }

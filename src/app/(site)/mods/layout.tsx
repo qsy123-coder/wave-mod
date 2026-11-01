@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { AutoOpenModsNotice } from "@/components/features/mods/list/auto-open-mods-notice";
 import { ModsShell } from "@/components/features/mods/list/mods-shell";
 import { NavigationLoadingProvider } from "@/components/layout/navigation-loading-context";
 import { NavigationProgress } from "@/components/layout/navigation-progress";
@@ -26,6 +27,8 @@ export default function ModsLayout({ children }: { children: React.ReactNode }) 
           现在容器一直铺到视口底部，再由下面那条不透明的装饰线压住最后 12px ——
           卡片是从线后面滑过去的，交界处只剩一条设计好的黑/黄边。
         */}
+        {/* 「直达角色分类」把用户从首页弹过来时，说明一下发生了什么（没有标记时不渲染） */}
+        <AutoOpenModsNotice />
         <div className="flex flex-1 gap-6 overflow-hidden pt-3">
           {children}
         </div>

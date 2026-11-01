@@ -2,26 +2,38 @@
 
 import { useEffect, useState } from "react";
 
+/**
+ * - `switch`：跨分站切换用，挂载后 80ms 淡入；
+ * - `boot`：首页冷启动遮罩用。遮罩出现在**React 水合之前**，那时 setTimeout /
+ *   setInterval 根本还没跑起来，所以它必须首帧就可见、文案也不依赖 JS 计时器。
+ */
+export type CubeLoaderVariant = "switch" | "boot";
+
 export default function CubeLoader({
   targetName = "",
+  variant = "switch",
 }: {
   targetName?: string;
+  variant?: CubeLoaderVariant;
 }) {
-  const [show, setShow] = useState(false);
+  const isBoot = variant === "boot";
+  const [show, setShow] = useState(isBoot);
   const [dots, setDots] = useState("");
 
   useEffect(() => {
+    if (isBoot) return;
     const t = setTimeout(() => setShow(true), 80);
     return () => clearTimeout(t);
-  }, []);
+  }, [isBoot]);
 
-  // 动态省略号动画
+  // 动态省略号动画（boot 变体不跑：水合前没有计时器可用）
   useEffect(() => {
+    if (isBoot) return;
     const interval = setInterval(() => {
       setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
     }, 500);
     return () => clearInterval(interval);
-  }, []);
+  }, [isBoot]);
 
   return (
     <div
@@ -66,12 +78,12 @@ export default function CubeLoader({
       {/* 加载提示文字 */}
       <div className="flex flex-col items-center gap-3 text-center">
         <h3 className="text-base font-bold tracking-[0.3em] uppercase flex items-center gap-1" style={{ color: "#ffd84f" }}>
-          正在切换到 {targetName}
-          <span className="inline-block w-5 text-left">{dots}</span>
+          {isBoot ? "正在加载站点" : `正在切换到 ${targetName}`}
+          {isBoot ? null : <span className="inline-block w-5 text-left">{dots}</span>}
         </h3>
         <div className="flex items-center gap-2 text-sm font-bold" style={{ color: "#bcaeff" }}>
           <span className="inline-block w-1.5 h-1.5 rounded-full animate-cube-pulse" style={{ backgroundColor: "#ff7a7a" }} />
-          <span>模块加载中，马上就好…</span>
+          <span>{isBoot ? "首次进入会慢一点，马上就好…" : "模块加载中，马上就好…"}</span>
         </div>
       </div>
     </div>

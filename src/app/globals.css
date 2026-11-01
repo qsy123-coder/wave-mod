@@ -92,8 +92,8 @@
   --neo-canvas-line: rgba(0, 0, 0, 0.14);
   --radius: 0rem;
 }
-
-
+
+
 
 .theme-soft {
   --background: #f5f5f5;
@@ -131,7 +131,7 @@
   --neo-canvas-dot: rgba(26, 26, 26, 0.10);
   --neo-canvas-line: rgba(26, 26, 26, 0.05);
 }
-
+
 
 .theme-macaron {
   --background: #f6f0fa;
@@ -518,6 +518,21 @@
 /* ==========================================================================
    CubeLoader 3D 立方体加载动画
    ========================================================================== */
+
+/*
+ * 首页冷启动遮罩（BootOverlay）。
+ *
+ * 默认隐藏；内联脚本在首屏绘制前把 <html data-boot-overlay="on"> 打上，才会显示。
+ * 用属性而不是 Tailwind 类：可见性必须在 React 水合之前就由内联脚本决定，
+ * 类名没法表达「只在 html 属性为 on 时 display:flex」这件事。
+ */
+.boot-overlay {
+  display: none;
+}
+
+html[data-boot-overlay="on"] .boot-overlay {
+  display: flex;
+}
 
 .perspective-container {
   perspective: 1200px;
