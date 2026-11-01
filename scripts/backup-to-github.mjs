@@ -107,7 +107,7 @@ const psqlPath = process.env.PG_PSQL_PATH?.trim() || "psql";
 const needDb = !FLAGS.imagesOnly; // images-only 时不需要数据库
 const needCos = !FLAGS.dbOnly; // db-only 时不需要 COS
 const missing = [];
-if (needDb && !databaseUrl) missing.push("DATABASE_URL（Supabase 连接串，见 docs/disaster-recovery.md 获取步骤）");
+if (needDb && !databaseUrl) missing.push("DATABASE_URL（自建 PostgreSQL 连接串，见 docs/disaster-recovery.md）");
 if (needCos) {
   for (const [k, v] of [["COS_SECRET_ID", cosSecretId], ["COS_SECRET_KEY", cosSecretKey], ["COS_BUCKET", cosBucket], ["COS_REGION", cosRegion]]) {
     if (!v) missing.push(k);
@@ -127,7 +127,6 @@ if (!["git", "release"].includes(dbDumpMode)) {
 // ── 连接信息 ──
 // 迁移后不再有 Supabase 项目；manifest 里保留 projectRef 字段是为了兼容旧清单，
 // 值改成连接串的 hostname（自建库是 db.sunnyrose.xyz）。
-const databaseUrl = process.env.DATABASE_URL?.trim();
 const projectRef = extractProjectRef(databaseUrl);
 
 const cos = new COS({ SecretId: cosSecretId, SecretKey: cosSecretKey });
