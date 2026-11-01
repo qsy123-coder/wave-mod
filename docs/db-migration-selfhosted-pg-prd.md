@@ -673,12 +673,33 @@ Supabase。回滚前必须先 `pg_dump` 新库，把差异补回旧库，否则�
 **凭据**：本机 `C:\Users\WINDOWS11\.wavemod-secrets\hk-db.env`（不在仓库内，
 含 DB / Basic Auth / postgres 管理员密码）；服务器上为 `/root/hk-db.env`（600）。
 
-待执行（需要 Vercel 控制台）：
+已完成切换（2026-11-01 16:00 左右）：
 
-- [ ] Vercel 设置 `DATABASE_URL`、`ADMIN_BASIC_AUTH_USER`、`ADMIN_BASIC_AUTH_PASSWORD`
-- [ ] 合并 `feature/selfhosted-pg` → `main` 并部署
-- [ ] 部署后按 §9 验收；观察 30 分钟
-- [ ] 30 天后删除旧 Supabase
+- [x] Vercel Production + Preview 设置 `DATABASE_URL`、`ADMIN_BASIC_AUTH_USER`、
+      `ADMIN_BASIC_AUTH_PASSWORD`（通过 Vercel API）
+- [x] 合并 `feature/selfhosted-pg` → `main` 并部署（Vercel READY）
+- [x] 验收：
+  - `/api/mods` → 200、total=5578；`/api/updates` 分组与切换前一致
+  - `/admin/mods` 无凭据 401、带凭据 200 且含 5578
+  - 直连 `wave-mod.vercel.app/admin/mods` 无凭据 401（应用层 Basic Auth 生效）
+  - `/auth/login` → 404（登录入口已移除）
+  - **后台编辑保存通过真实鼠标点击验证**：改 description → POST 200 → 库里精确写入 → 再改回并确认
+- [x] nginx 缓存已清空（31MB → 0），页面立即切到新应用
+- [x] GitHub Secret `DATABASE_URL` 已更新为新库；手动跑通 `Daily Offsite Backup`
+      （dump 1139KB、snapshot 5578 条、commit + tag 成功）
+- [x] 香港机本地备份 + 恢复演练（5578 行）通过
+- [ ] 30 天后删除旧 Supabase（保留期内可回滚）
+
+### 切换后发现并修复的两个问题
+
+1. **pgbouncer 默认跟踪 `search_path` 并下发空值**
+   → 经 6432 的 `select ... from mods` 报 `relation "mods" does not exist`。
+   修复：`track_extra_parameters = IntervalStyle, extra_float_digits, options`
+   （去掉 `search_path`），并把 `scripts/mods-snapshot.sql` 改为 `from public.mods`。
+2. **后台「保存修改」真实鼠标点击无反应**
+   根因是 `onSubmit` 里在 submit 事件的 Promise 微任务中调用 `requestSubmit()`，
+   被浏览器的防递归提交规则忽略。修复：挪到 `setTimeout(..., 0)` 宏任务。
+   已在生产用 Playwright 真实点击验证写入与还原。
 
 ## 15. 已拍板
 
@@ -686,4 +707,4 @@ Supabase。回滚前必须先 `pg_dump` 新库，把差异补回旧库，否则�
 2. **香港机配置**：用户明确**不升 4G**，按 1.9G 运行；PG 已压到 256MB shared_buffers。
 3. **DNS 证书**：已用服务器上既有的 Cloudflare Token 创建 `db.sunnyrose.xyz` 并签证书。
 4. **`/admin` 入口**：已**隐藏**（公共头部不显示后台链接）。
-5. **切换窗口**：待 Vercel 环境变量就绪后执行；旧 Supabase 保留 30 天。
+5. **切换窗口**：已于 2026-11-01 16:00 左右完成；旧 Supabase 保留 30 天。
