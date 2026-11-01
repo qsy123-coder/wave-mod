@@ -367,7 +367,9 @@ async function runAi(source, names) {
     const secs = ((Date.now() - started) / 1000).toFixed(1);
     banner(
       n
-        ? `AI 补全 ${n} 条（${res.model}，用时 ${secs}s）${res.errors?.length ? `；${res.errors.length} 条失败：${res.errors.join("；")}` : ""}`
+        ? `AI 补全 ${n} 条（${res.model}，用时 ${secs}s）—— 只填了表单，确认无误后点右下角「应用已选」才会真正改名${
+            res.errors?.length ? `；${res.errors.length} 条失败：${res.errors.join("；")}` : ""
+          }`
         : `AI 没有给出可用结果（用时 ${secs}s）：${res.errors?.join("；") || "模型没返回可用条目"}`,
       { scroll: true }
     );
