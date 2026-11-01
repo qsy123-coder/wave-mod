@@ -41,11 +41,8 @@ rem Remove quotes added by drag-and-drop, and a trailing backslash.
 set "TARGET=%TARGET:"=%"
 if "%TARGET:~-1%"=="\" set "TARGET=%TARGET:~0,-1%"
 
-rem Default: process the dropped item itself.
-rem If it is a parent folder (not a single mod folder), process its children:
-rem   - files are renamed
-rem   - subfolders are wrapped in a pinyin folder
-rem A single mod folder is detected by mod.ini / Meshes / Textures / preview.jpg.
+rem A single mod folder (mod.ini / Meshes / Textures / preview.jpg) is wrapped itself.
+rem Any other folder is treated as a parent: files are renamed, subfolders are wrapped.
 set ARG=--path="%TARGET%"
 if not exist "%TARGET%\" goto :arg_ready
 set ARG=--dir="%TARGET%"
@@ -58,29 +55,10 @@ if exist "%TARGET%\preview.jpg" set ARG=--path="%TARGET%"
 echo.
 echo Target: %TARGET%
 echo.
-echo --- PREVIEW (no files will be changed) ---
-node "%SCRIPT%" %ARG% --mode=auto --exclude="%EXCLUDE%"
-if errorlevel 1 goto :failed
-
-if defined PY_RENAME_DRY_RUN goto :done
-if defined PY_RENAME_YES goto :apply
-echo.
-set "CONFIRM="
-set /p "CONFIRM=Apply these changes? [y/N]: "
-if /i not "%CONFIRM%"=="y" goto :cancelled
-
-:apply
-echo.
-echo --- APPLYING ---
 node "%SCRIPT%" %ARG% --mode=auto --exclude="%EXCLUDE%" --apply
 if errorlevel 1 goto :failed
 echo.
 echo Done.
-goto :done
-
-:cancelled
-echo.
-echo Cancelled. No files were changed.
 goto :done
 
 :failed
