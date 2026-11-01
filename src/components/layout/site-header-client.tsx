@@ -34,7 +34,7 @@ import {
 import { siteConfig } from "@/lib/constants/site";
 import { GALLERY_BACK_KEY } from "@/lib/constants/gallery-nav";
 import { isCurrentNavigationUrl, isPlainLeftClick } from "@/lib/navigation-url";
-import { isImmersiveActive } from "@/lib/preferences/site-preferences";
+import { AUTO_OPEN_MODS_BLOCK_EVENT, isImmersiveActive } from "@/lib/preferences/site-preferences";
 import { cn } from "@/lib/utils";
 
 type SiteHeaderClientProps = {
@@ -151,6 +151,23 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
    *
    * 换成逐个显式判掉「点了也不会跳到新页」的几种情形，剩下的才起骨架。
    */
+  /**
+   * 直达分类模式下拦下「首页」链接。
+   *
+   * ⚠️ 必须用**捕获阶段**：Next 的 `<Link>` 在锚点自己那一层就已经 preventDefault +
+   * `router.push` 了，等事件冒泡到 `<header>` 再拦，页面早就导航走了（实测过）。
+   * 捕获阶段先 `stopPropagation`，Link 的处理函数根本不会执行，页面原地不动，
+   * 只派发事件让拦截弹窗出来。
+   */
+  const handleHeaderClickCapture = (e: React.MouseEvent) => {
+    if (!autoOpenMods || !isPlainLeftClick(e)) return;
+    const anchor = (e.target as Element | null)?.closest?.("a");
+    if (!anchor || anchor.getAttribute("href") !== "/") return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.dispatchEvent(new Event(AUTO_OPEN_MODS_BLOCK_EVENT));
+  };
+
   const handleHeaderNavClick = (e: React.MouseEvent) => {
     // 带修饰键 / 中键的点击是「在新标签页打开」，当前页压根不动 —— 起骨架只会盖住
     // 用户还在看的这一页。与 mod-card、character-sidebar 同一口径（共用 isPlainLeftClick）。
@@ -196,6 +213,7 @@ export function SiteHeaderClient({ topBar }: SiteHeaderClientProps) {
         headerImmersive && "-translate-y-full opacity-0 pointer-events-none",
       )}
       style={{ background: "var(--neo-nav)" }}
+      onClickCapture={handleHeaderClickCapture}
       onClick={handleHeaderNavClick}
       // 收起到视口外后不能再被 Tab 聚焦（`display` 没变，必须显式 inert）
       inert={headerImmersive || undefined}

@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 
 import { DailyTicker } from "@/components/common/daily-ticker";
-import { AutoOpenModsPrompt } from "@/components/features/home/auto-open-mods-prompt";
 import { BootOverlay } from "@/components/layout/boot-overlay";
 import { SiteHeader } from "@/components/layout/site-header";
 import { getDailyUpdates } from "@/lib/mods";
@@ -28,11 +27,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
     <div className="min-h-screen bg-[var(--neo-dark)] bg-[radial-gradient(circle,var(--neo-canvas-dot)_1.5px,transparent_1.6px),linear-gradient(to_right,var(--neo-canvas-line)_1px,transparent_1px),linear-gradient(to_bottom,var(--neo-canvas-line)_1px,transparent_1px)] bg-[size:24px_24px,44px_44px,44px_44px]">
       {/* 首次冷启动 / 首页缓存被清后的整页加载动画（快的时候一帧都不闪，见组件注释） */}
       <BootOverlay />
-      {/*
-        开启「直达角色分类」时，访问首页先弹窗拦一下（不再静默跳转）。
-        用户明确选「前往分类页」才走；也可以当场关掉这个偏好，见组件注释。
-      */}
-      <AutoOpenModsPrompt />
+      {/* 直达分类的拦截弹窗挂在根布局（ClientProviders），任何页面点「首页」都能拦 */}
       {/* 通知条嵌在 sticky header 首行：桌面显示，移动端隐藏。
           以前整块 header 还套了一层 <Suspense fallback={<SiteHeaderSkeleton />}>，
           现在去掉了 —— 登录态搬到客户端后 header 不再挂起，而留着那层会让预渲染结果

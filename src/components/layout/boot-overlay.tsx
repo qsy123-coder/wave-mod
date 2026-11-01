@@ -35,14 +35,37 @@ export function BootOverlay() {
     const root = document.documentElement;
     if (root.getAttribute(BOOT_OVERLAY_ATTR) !== "on") return;
 
-    const hide = () => root.setAttribute(BOOT_OVERLAY_ATTR, "off");
+    // 幂等：遮罩收起后 12s 兜底定时器还会再跑一次，别让属性反复抖动
+    const hide = () => {
+      if (root.getAttribute(BOOT_OVERLAY_ATTR) === "on") root.setAttribute(BOOT_OVERLAY_ATTR, "off");
+    };
     const shownAt = Number(root.getAttribute(BOOT_OVERLAY_STARTED_AT_ATTR) ?? "");
     const elapsed = Number.isFinite(shownAt) && shownAt > 0 ? performance.now() - shownAt : MIN_VISIBLE_MS;
+    const minWait = Math.max(0, MIN_VISIBLE_MS - elapsed);
 
-    const timer = window.setTimeout(hide, Math.max(0, MIN_VISIBLE_MS - elapsed));
+    /**
+     * 等**整页**加载完再撤，而不是等 React 水合。
+     *
+     * 水合完成 ≠ 加载完成：首页还有几十张预览图，浏览器标签页一直在转圈。遮罩提前
+     * 撤掉会出现「动画没了、页面还在慢慢长图」的断层，用户体感更差。
+     * `window.load` 就是子资源（图片等）全部落地的时刻，也就是标签页停止转圈的时刻。
+     */
+    let timer: number | undefined;
+    const scheduleHide = () => {
+      timer = window.setTimeout(hide, minWait);
+    };
+
+    if (document.readyState === "complete") {
+      scheduleHide();
+    } else {
+      window.addEventListener("load", scheduleHide, { once: true });
+    }
+
+    // 兜底：某个资源一直挂着时，不能让遮罩把页面锁死
     const watchdog = window.setTimeout(hide, BOOT_OVERLAY_MAX_MS);
     return () => {
-      window.clearTimeout(timer);
+      window.removeEventListener("load", scheduleHide);
+      if (timer !== undefined) window.clearTimeout(timer);
       window.clearTimeout(watchdog);
     };
   }, []);

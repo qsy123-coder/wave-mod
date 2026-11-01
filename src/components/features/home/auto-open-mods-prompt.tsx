@@ -1,49 +1,68 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { ArrowRight, Sparkles, X } from "lucide-react";
 
 import { useSitePreferences } from "@/components/layout/site-preferences-provider";
-import { markAutoSkipNotice } from "@/lib/preferences/site-preferences";
+import { AUTO_OPEN_MODS_BLOCK_EVENT, markAutoSkipNotice } from "@/lib/preferences/site-preferences";
 
 /**
- * 「直达角色分类」开启时，访问首页先**弹窗拦一下**。
+ * 「直达角色分类」开启时的拦截弹窗。
  *
- * 以前这里是无条件 `location.replace("/mods")`（连首屏都不给看）：用户自己开的
- * 偏好，但发生时页面上没有任何解释，点首页却直接落到分类页，很容易被当成
- * 「首页打不开 / 出 bug 了」。现在改成弹窗拦截，给三个明确出口：
+ * 两个触发点：
+ *   1. 直接落到首页（`/`）—— 以前这里会静默 `location.replace("/mods")`；
+ *   2. 在任意页面点导航栏的「首页 / Logo」—— 链接处 preventDefault 并派发
+ *      `AUTO_OPEN_MODS_BLOCK_EVENT`，由本组件弹出（这样**根本不会跳过去**）。
  *
- *   1. 前往分类页 —— 按偏好走，落地 `/mods` 后还会有一条说明条（可关闭该偏好）
- *   2. 关闭该偏好，留在首页 —— 当场反悔，以后不再打扰
- *   3. 右上角 × —— 只看这次留在首页，偏好保持不动
+ * 三个出口：
+ *   - 前往分类页：按偏好走，落地 `/mods` 后顶部还有一条说明条（可关闭该偏好）
+ *   - 关闭该偏好，留在首页：当场反悔，以后不再打扰
+ *   - 右上角 ×：只看这次，偏好保持不动
  *
- * 弹窗本身不做任何路由跳转，所以用户不选就什么都不会发生（这正是「拦截」）。
+ * 挂在根布局（ClientProviders）而不是首页 layout：要在任何页面都能拦住「点首页」。
  */
 export function AutoOpenModsPrompt() {
   const { autoOpenMods, setAutoOpenMods } = useSitePreferences();
   const router = useRouter();
+  const pathname = usePathname();
   const [dismissed, setDismissed] = useState(false);
+  const [blockedAttempt, setBlockedAttempt] = useState(false);
 
-  // autoOpenMods 要等 Provider 在 effect 里读完 localStorage 才会变 true，
-  // 所以这里天然是「水合后弹出」，不会和静态 HTML 打架。
-  if (!autoOpenMods || dismissed) return null;
+  // 导航栏点了首页 → 拦下来在当前位置弹框
+  useEffect(() => {
+    const onBlocked = () => {
+      setDismissed(false);
+      setBlockedAttempt(true);
+    };
+    window.addEventListener(AUTO_OPEN_MODS_BLOCK_EVENT, onBlocked);
+    return () => window.removeEventListener(AUTO_OPEN_MODS_BLOCK_EVENT, onBlocked);
+  }, []);
+
+  // 每次换页重新允许提示：用户关掉后去别处逛，再想「回首页」时还得再拦一次
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 路由变化来自外部系统（Next Router）
+    setDismissed(false);
+  }, [pathname]);
+
+  const open = autoOpenMods && !dismissed && (pathname === "/" || blockedAttempt);
+  if (!open) return null;
+
+  const close = () => setDismissed(true);
 
   const goMods = () => {
     // 落地页要用这条标记弹说明条（那里有「关闭该偏好」的入口）
     markAutoSkipNotice();
-    setDismissed(true);
-    router.push("/mods");
+    close();
+    if (pathname !== "/mods") router.push("/mods");
   };
 
   const turnOffPreference = () => {
     setAutoOpenMods(false);
-    setDismissed(true);
+    close();
   };
 
   return (
-    /* z-[210]：要盖在「每日更新」弹窗（z-[200]）之上 —— 两者都可能同屏出现，
-       拦截框在后就看不见了，用户会以为点首页没反应 */
     <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div
         role="dialog"
@@ -54,8 +73,8 @@ export function AutoOpenModsPrompt() {
       >
         <button
           type="button"
-          onClick={() => setDismissed(true)}
-          aria-label="关闭提示，留在首页"
+          onClick={close}
+          aria-label="关闭提示"
           className="absolute right-3 top-3 inline-flex size-8 items-center justify-center border-[3px] border-black bg-white text-black shadow-[2px_2px_0px_0px_#000] transition active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
         >
           <X className="size-3.5" />

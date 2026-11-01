@@ -23,6 +23,14 @@ export const IMMERSIVE_MODS_STORAGE_KEY = "wavemod-mods-immersive";
 export const AUTO_SKIP_NOTICE_KEY = "wavemod-auto-skip-notice";
 
 /**
+ * 「点了首页但被直达分类拦下」的窗口事件名。
+ *
+ * 导航栏里的首页/Logo 链接分布在不同组件里，而拦截弹窗挂在根布局 —— 用事件解耦：
+ * 链接处只负责 preventDefault + dispatch，弹窗自己决定怎么展示。
+ */
+export const AUTO_OPEN_MODS_BLOCK_EVENT = "wavemod:auto-open-mods-blocked";
+
+/**
  * 沉浸切换时右栏宽度的变化量 = 侧栏 240px + 父容器布局 gap 24px。
  *
  * 网格用它把「切换前宽度」换算成目标宽度，先按目标宽度排一次版，再用 transform
