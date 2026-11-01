@@ -52,6 +52,16 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# pgbouncer 以 postgres 用户运行，读不到 root 600 的 Let's Encrypt privkey。
+# 复制一份到 /etc/pgbouncer/tls/ 并改属主；续期钩子里也调用同一段逻辑。
+sync_pgbouncer_tls() {
+  install -d -m 0750 -o postgres -g postgres /etc/pgbouncer/tls
+  install -m 0640 -o postgres -g postgres \
+    "/etc/letsencrypt/live/${DB_DOMAIN}/fullchain.pem" /etc/pgbouncer/tls/fullchain.pem
+  install -m 0640 -o postgres -g postgres \
+    "/etc/letsencrypt/live/${DB_DOMAIN}/privkey.pem" /etc/pgbouncer/tls/privkey.pem
+}
+
 echo "== 1/8 安装 PostgreSQL 17 与 pgbouncer =="
 apt-get update
 apt-get install -y --no-install-recommends \
@@ -59,7 +69,7 @@ apt-get install -y --no-install-recommends \
 
 install -d /usr/share/postgresql-common/pgdg
 curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-  | gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+  | gpg --batch --yes --dearmor -o /usr/share/keyrings/postgresql.gpg
 echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
   > /etc/apt/sources.list.d/pgdg.list
 apt-get update
@@ -110,6 +120,7 @@ chmod 640 /etc/pgbouncer/pgbouncer.ini
 
 systemctl enable pgbouncer
 if [[ -d "/etc/letsencrypt/live/${DB_DOMAIN}" ]]; then
+  sync_pgbouncer_tls
   systemctl restart pgbouncer
 else
   echo "⚠️  证书尚未就绪，pgbouncer 先不启动（见下一步）。"
@@ -135,13 +146,19 @@ else
 fi
 
 if [[ -d "/etc/letsencrypt/live/${DB_DOMAIN}" ]]; then
+  sync_pgbouncer_tls
   systemctl restart pgbouncer
 fi
 
-# 续期后自动重启 pgbouncer（否则它会继续用旧证书直到重启）
+# 续期后同步证书并重启 pgbouncer（否则它会继续用旧证书直到重启）
 install -d /etc/letsencrypt/renewal-hooks/deploy
-cat > /etc/letsencrypt/renewal-hooks/deploy/wavemod-pgbouncer <<'EOF'
+cat > /etc/letsencrypt/renewal-hooks/deploy/wavemod-pgbouncer <<EOF
 #!/bin/sh
+install -d -m 0750 -o postgres -g postgres /etc/pgbouncer/tls
+install -m 0640 -o postgres -g postgres \\
+  /etc/letsencrypt/live/${DB_DOMAIN}/fullchain.pem /etc/pgbouncer/tls/fullchain.pem
+install -m 0640 -o postgres -g postgres \\
+  /etc/letsencrypt/live/${DB_DOMAIN}/privkey.pem /etc/pgbouncer/tls/privkey.pem
 systemctl restart pgbouncer
 EOF
 chmod 0755 /etc/letsencrypt/renewal-hooks/deploy/wavemod-pgbouncer

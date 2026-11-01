@@ -658,18 +658,32 @@ Supabase。回滚前必须先 `pg_dump` 新库，把差异补回旧库，否则�
 - [x] 本地演练：16 张表 / `mods` 5578 行 / checksum 与源库一致；公开接口与生产一致
 - [x] lint 0 error、tsc 通过、build 通过、589 个测试通过、CI 绿
 
-待执行（需要服务器/控制台权限）：
+已在香港机完成：
 
-- [ ] 香港机装机（`deploy/hk-db/install.sh`）
-- [ ] `db.sunnyrose.xyz` A 记录 + 证书
-- [ ] 腾讯云防火墙放行 6432
-- [ ] 正式迁移 + 切换窗口
+- [x] 香港机装机：PostgreSQL 17.11 + pgbouncer 1.26.1（TLS/SCRAM），
+      `127.0.0.1:5432` + `0.0.0.0:6432`，每日备份 cron
+- [x] `db.sunnyrose.xyz` A 记录（Cloudflare，灰云）与 Let's Encrypt 证书
+- [x] 6432 外网可达（实测本机与服务器两端均可连）
+- [x] 正式迁移：16 张表、`mods` 5578 行、checksum 与源库一致
+- [x] 新代码连生产库冒烟：`/api/mods` 5578、`/api/updates` 分组正确、
+      `/admin` 带凭据可读、`wavemod_app` 写入/更新/删除（事务回滚）正常
+- [x] nginx 已应用 Basic Auth：无凭据 401、带凭据 307（旧应用仍重定向登录）；
+      `/api/cos/sign` 无凭据 401；公开页面不受影响
+
+**凭据**：本机 `C:\Users\WINDOWS11\.wavemod-secrets\hk-db.env`（不在仓库内，
+含 DB / Basic Auth / postgres 管理员密码）；服务器上为 `/root/hk-db.env`（600）。
+
+待执行（需要 Vercel 控制台）：
+
+- [ ] Vercel 设置 `DATABASE_URL`、`ADMIN_BASIC_AUTH_USER`、`ADMIN_BASIC_AUTH_PASSWORD`
+- [ ] 合并 `feature/selfhosted-pg` → `main` 并部署
+- [ ] 部署后按 §9 验收；观察 30 分钟
 - [ ] 30 天后删除旧 Supabase
 
-## 15. 仍需你拍板
+## 15. 已拍板
 
-1. **Basic Auth 凭据**：用户名/密码由你定，还是我生成一个 32 位随机密码?
-2. **切换时间**：建议选在访问低峰（凌晨 02:00–04:00），确认哪一晚。
-3. **香港机是否先升配**：1.9 GB 内存跑 nginx + PG + pgbouncer 偏紧，是否先升到 4 GB？
-4. **DNS 证书**：`db.sunnyrose.xyz` 的 A 记录与 Cloudflare DNS Token 由谁操作？
-5. **`/admin` 入口**：已按默认**隐藏**（公共头部不再显示后台链接）；如要恢复入口告诉我。
+1. **Basic Auth 凭据**：已生成 32 位随机密码，用户名 `waveadmin`（见 §14 路径）。
+2. **香港机配置**：用户明确**不升 4G**，按 1.9G 运行；PG 已压到 256MB shared_buffers。
+3. **DNS 证书**：已用服务器上既有的 Cloudflare Token 创建 `db.sunnyrose.xyz` 并签证书。
+4. **`/admin` 入口**：已**隐藏**（公共头部不显示后台链接）。
+5. **切换窗口**：待 Vercel 环境变量就绪后执行；旧 Supabase 保留 30 天。

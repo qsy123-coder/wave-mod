@@ -39,9 +39,11 @@ verbose = 0
 
 ; TLS：应用（Vercel）到 pgbouncer 走公网，必须加密。
 ; 证书来自 certbot（{{DB_DOMAIN}}），续期后由 deploy hook 重启 pgbouncer。
+; 证书不能直接指向 /etc/letsencrypt：privkey 是 root 600，pgbouncer（postgres 用户）
+; 读不到会直接启动失败。install.sh 会把证书复制到 /etc/pgbouncer/tls/ 并改属主。
 client_tls_sslmode = require
-client_tls_key_file = /etc/letsencrypt/live/{{DB_DOMAIN}}/privkey.pem
-client_tls_cert_file = /etc/letsencrypt/live/{{DB_DOMAIN}}/fullchain.pem
+client_tls_key_file = /etc/pgbouncer/tls/privkey.pem
+client_tls_cert_file = /etc/pgbouncer/tls/fullchain.pem
 
 ; 应用/驱动会带这些 startup 参数；不忽略的话 pgbouncer 会拒连。
 ignore_startup_parameters = extra_float_digits,options
