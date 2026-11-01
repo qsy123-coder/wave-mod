@@ -131,10 +131,27 @@ export function isImmersiveActive({
   return immersive && isDesktop && isModsPathname(pathname);
 }
 
-/*
- * 以前这里还有一个 `buildAutoOpenModsScript()`：在首页首屏绘制前 `location.replace("/mods")`。
- * 2026-11-02 起改成**弹窗拦截**（AutoOpenModsPrompt）：
- *   - 静默跳转没有任何解释，用户点首页却落到分类页，容易以为首页坏了；
- *   - 弹窗还能当场关掉这个偏好，不用再回账户菜单里找。
- * 所以那段内联脚本与配套的 HomeAutoRedirect 一并删掉了 —— 不要再加回来。
+/**
+ * 首页直达脚本：**输入网址 / 直接打开首页**时，首屏绘制前换到 `/mods`。
+ *
+ * 分工（2026-11-02 明确）：
+ *   - 用户自己敲地址进站 → 偏好说了算，直接去分类页，不打扰；
+ *   - 用户已经站内、点「首页」想回去 → 由导航栏捕获链接派发
+ *     `AUTO_OPEN_MODS_BLOCK_EVENT`，弹框问一句（AutoOpenModsPrompt）。
+ *
+ * ⚠️ 必须只在**硬加载**时执行（`document.readyState === "loading"`）：站内客户端导航
+ * 到 `/` 时 React 会把这段脚本重新挂进 DOM，不挡的话会绕过拦截弹窗直接跳走。
+ *
+ * 用 `location.replace` 而不是 `location.href`：不产生历史记录，否则按后退会回到 `/`
+ * 又被弹回 `/mods`，形成退不出去的死循环。
  */
+export function buildAutoOpenModsScript(): string {
+  // 跳转前留标记：落地 /mods 后由 AutoOpenModsNotice 说明「为什么直接到了分类页」
+  return `(function(){try{
+if(document.readyState!=="loading")return;
+if(location.pathname!=="/")return;
+if(window.localStorage.getItem(${JSON.stringify(AUTO_OPEN_MODS_STORAGE_KEY)})==="1"){
+try{window.sessionStorage.setItem(${JSON.stringify(AUTO_SKIP_NOTICE_KEY)},"1");}catch(e){}
+location.replace("/mods");
+}}catch(e){}})();`;
+}

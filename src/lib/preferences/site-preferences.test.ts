@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  AUTO_OPEN_MODS_STORAGE_KEY,
+  AUTO_SKIP_NOTICE_KEY,
+  buildAutoOpenModsScript,
   consumeAutoSkipNotice,
   isImmersiveActive,
   isModsPathname,
@@ -55,6 +58,68 @@ describe("isImmersiveActive：沉浸 = 开关 + 桌面 + 在 /mods", () => {
   });
 });
 
+
+describe("buildAutoOpenModsScript：输入网址进站时的直达（只在硬加载生效）", () => {
+  function runScript({
+    stored = "1",
+    pathname = "/",
+    readyState = "loading",
+    throwOnRead = false,
+  }: {
+    stored?: string | null;
+    pathname?: string;
+    readyState?: string;
+    throwOnRead?: boolean;
+  } = {}) {
+    const replaced: string[] = [];
+    const sessionWrites: Array<[string, string]> = [];
+    const fakeWindow = {
+      localStorage: {
+        getItem: (key: string) => {
+          if (throwOnRead) throw new Error("storage blocked");
+          return key === AUTO_OPEN_MODS_STORAGE_KEY ? stored : null;
+        },
+      },
+      sessionStorage: {
+        setItem: (key: string, value: string) => sessionWrites.push([key, value]),
+      },
+    };
+    const fakeDocument = { readyState };
+    const fakeLocation = { pathname, replace: (url: string) => replaced.push(url) };
+
+    new Function("window", "document", "location", buildAutoOpenModsScript())(
+      fakeWindow,
+      fakeDocument,
+      fakeLocation,
+    );
+    return { replaced, sessionWrites };
+  }
+
+  it("开启 + 硬加载首页 → 首屏前换到 /mods，并留下说明条标记", () => {
+    const { replaced, sessionWrites } = runScript();
+    expect(replaced).toEqual(["/mods"]);
+    expect(sessionWrites).toEqual([[AUTO_SKIP_NOTICE_KEY, "1"]]);
+  });
+
+  it("站内客户端导航（readyState 不是 loading）→ 不跳，交给拦截弹窗", () => {
+    expect(runScript({ readyState: "complete" }).replaced).toEqual([]);
+  });
+
+  it("偏好关闭时不动首页", () => {
+    expect(runScript({ stored: "0" }).replaced).toEqual([]);
+    expect(runScript({ stored: null }).replaced).toEqual([]);
+  });
+
+  it("只在路径恰好是 / 时生效", () => {
+    expect(runScript({ pathname: "/mods" }).replaced).toEqual([]);
+    expect(runScript({ pathname: "/guide" }).replaced).toEqual([]);
+  });
+
+  it("存储抛错（隐私模式）时静默放行", () => {
+    expect(() => runScript({ throwOnRead: true })).not.toThrow();
+    expect(runScript({ throwOnRead: true }).replaced).toEqual([]);
+  });
+});
 
 describe("直达分类跳过首页的提示标记", () => {
   const store = new Map<string, string>();

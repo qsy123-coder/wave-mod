@@ -4,6 +4,7 @@ import { DailyTicker } from "@/components/common/daily-ticker";
 import { BootOverlay } from "@/components/layout/boot-overlay";
 import { SiteHeader } from "@/components/layout/site-header";
 import { getDailyUpdates } from "@/lib/mods";
+import { buildAutoOpenModsScript } from "@/lib/preferences/site-preferences";
 
 // 近期新上的角色（最近 3 天发布过 mod 的角色名，去重）——仅首页顶部滚动通知使用
 async function HomeTopBar() {
@@ -25,6 +26,12 @@ async function HomeTopBar() {
 export default function HomeLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[var(--neo-dark)] bg-[radial-gradient(circle,var(--neo-canvas-dot)_1.5px,transparent_1.6px),linear-gradient(to_right,var(--neo-canvas-line)_1px,transparent_1px),linear-gradient(to_bottom,var(--neo-canvas-line)_1px,transparent_1px)] bg-[size:24px_24px,44px_44px,44px_44px]">
+      {/*
+        「直达角色分类」只管**输入网址进站**这一种情形：首屏绘制前换到 /mods。
+        站内点「首页」是另一条路 —— 由导航栏捕获链接弹框（AutoOpenModsPrompt），
+        不会走到这里（脚本也只在硬加载时执行）。
+      */}
+      <script dangerouslySetInnerHTML={{ __html: buildAutoOpenModsScript() }} />
       {/* 首次冷启动 / 首页缓存被清后的整页加载动画（快的时候一帧都不闪，见组件注释） */}
       <BootOverlay />
       {/* 直达分类的拦截弹窗挂在根布局（ClientProviders），任何页面点「首页」都能拦 */}

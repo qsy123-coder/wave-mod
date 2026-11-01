@@ -8,12 +8,13 @@ import { useSitePreferences } from "@/components/layout/site-preferences-provide
 import { AUTO_OPEN_MODS_BLOCK_EVENT, markAutoSkipNotice } from "@/lib/preferences/site-preferences";
 
 /**
- * 「直达角色分类」开启时的拦截弹窗。
+ * 「直达角色分类」开启时，**站内点「首页」**的拦截弹窗。
  *
- * 两个触发点：
- *   1. 直接落到首页（`/`）—— 以前这里会静默 `location.replace("/mods")`；
- *   2. 在任意页面点导航栏的「首页 / Logo」—— 链接处 preventDefault 并派发
- *      `AUTO_OPEN_MODS_BLOCK_EVENT`，由本组件弹出（这样**根本不会跳过去**）。
+ * 职责边界（2026-11-02 用户明确）：
+ *   - 用户输入网址 / 直接打开首页 → 偏好说了算，内联脚本首屏前就把他送到 `/mods`，
+ *     **不弹窗**（那是他自己的偏好，不需要每次确认）；
+ *   - 用户已经在站内、点导航栏的「首页 / Logo」 → 链接处 preventDefault 并派发
+ *     `AUTO_OPEN_MODS_BLOCK_EVENT`，本组件弹窗问一句，**不跳转**。
  *
  * 三个出口：
  *   - 前往分类页：按偏好走，落地 `/mods` 后顶部还有一条说明条（可关闭该偏好）
@@ -43,10 +44,11 @@ export function AutoOpenModsPrompt() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 路由变化来自外部系统（Next Router）
     setDismissed(false);
+    setBlockedAttempt(false);
   }, [pathname]);
 
-  const open = autoOpenMods && !dismissed && (pathname === "/" || blockedAttempt);
-  if (!open) return null;
+  // 只响应「点了首页被拦下」这一个事件；直接打开首页由内联脚本跳走，不弹窗
+  if (!autoOpenMods || !blockedAttempt || dismissed) return null;
 
   const close = () => setDismissed(true);
 
