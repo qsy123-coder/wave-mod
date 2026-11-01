@@ -32,3 +32,9 @@ __pycache__/
 .env
 .DS_Store
 Thumbs.db
+
+# ===== 登录 cookie / 凭据（绝不提交）=====
+baidu_cookies.txt
+local/baidu_cookies.txt
+cookies.txt
+local/cookies.txt
