@@ -1,9 +1,15 @@
 "use client";
 
 import { useCallback, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
+import { replaceModImageAction } from "@/actions/admin/mod-image-actions";
 import { ModCard } from "@/components/common/mod-card";
+import { CensorDialog } from "@/components/features/admin/batch-upload/censor-dialog";
 import { MotionReveal } from "@/components/layout/motion-reveal";
+import { uploadRowImage } from "@/lib/admin/batch-image-upload";
+import { isCosStorageUrl } from "@/lib/cos/shared";
 import { BatchActionBar } from "./batch-action-bar";
 import { FixCreatorButton } from "./fix-creator-button";
 import { ManageFeaturedButton } from "./featured-mods-manager";
@@ -27,9 +33,15 @@ export function AdminModsListClient({
   pagination,
   emptyState,
 }: AdminModsListClientProps) {
+  const router = useRouter();
+
   // 批量选择模式：只有点击「批量选择」按钮后才进入，勾选框才出现
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [censorMod, setCensorMod] = useState<AdminMod | null>(null);
+  const [censorFile, setCensorFile] = useState<File | null>(null);
+  const [censorLoading, setCensorLoading] = useState(false);
+  const [censorSaving, setCensorSaving] = useState(false);
 
   // 勾选框直接点击：按 checked 值精确设置（勾选框内部 stopPropagation，不会触发卡片点击）
   const setSelect = useCallback((id: string, checked: boolean) => {
@@ -67,6 +79,79 @@ export function AdminModsListClient({
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
+
+  const openCensor = async (mod: AdminMod) => {
+    if (censorLoading || censorSaving) return;
+
+    const imageUrl = mod.images?.[0] ?? mod.coverImage;
+
+    if (!imageUrl || !isCosStorageUrl(imageUrl)) {
+      toast.error("这条 MOD 没有 COS 预览图，无法打码。");
+      return;
+    }
+
+    const loadingToast = toast.loading("正在读取预览图…");
+    setCensorLoading(true);
+
+    try {
+      const response = await fetch(
+        `/api/admin/fetch-image?url=${encodeURIComponent(imageUrl)}`,
+        { cache: "no-store" },
+      );
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? `读取预览图失败（${response.status}）`);
+      }
+
+      const blob = await response.blob();
+      setCensorMod(mod);
+      setCensorFile(new File([blob], `${mod.id}-cover.webp`, { type: blob.type || "image/webp" }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "读取预览图失败");
+    } finally {
+      toast.dismiss(loadingToast);
+      setCensorLoading(false);
+    }
+  };
+
+  const applyCensoredImage = async (file: File) => {
+    if (!censorMod || censorSaving) return;
+
+    const savingToast = toast.loading("正在上传打码图…");
+    setCensorSaving(true);
+
+    try {
+      const imageUrl = await uploadRowImage({
+        character: censorMod.character,
+        file,
+        index: 0,
+        // 每次打码都用新前缀：COS 对象键不带内容哈希，复用同一个 key 时
+        // max-age=604800 的缓存会让前台继续看到旧图。
+        draftId: crypto.randomUUID(),
+      });
+
+      const result = await replaceModImageAction({
+        modId: censorMod.id,
+        imageIndex: 0,
+        imageUrl,
+      });
+
+      if (!result.ok) {
+        throw new Error(result.error ?? "更新图片失败");
+      }
+
+      toast.success("封面已打码并更新。");
+      setCensorMod(null);
+      setCensorFile(null);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "打码失败");
+    } finally {
+      toast.dismiss(savingToast);
+      setCensorSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -134,6 +219,8 @@ export function AdminModsListClient({
                   onCheckboxChange={selectionMode ? (checked) => setSelect(mod.id, checked) : undefined}
                   // 选择模式下卡片不是链接（点了只勾选，不能导航；href 是给编辑页用的）
                   onCardSelect={selectionMode ? () => toggleSelect(mod.id) : undefined}
+                  // 正常模式点封面直接打开打码；标题仍是编辑页链接
+                  onImageClick={selectionMode ? undefined : () => void openCensor(mod)}
                   extraMetaBadges={
                     <span className={`inline-flex items-center border-2 border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-black shadow-[2px_2px_0_0_#000] ${mod.isPublished ? "bg-[#4ade80]" : "bg-[#ffd84f]"}`}>
                       {mod.isPublished ? "已发布" : "草稿"}
@@ -148,6 +235,18 @@ export function AdminModsListClient({
           {pagination}
         </>
       )}
+
+      <CensorDialog
+        open={Boolean(censorMod && censorFile)}
+        file={censorFile}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCensorMod(null);
+            setCensorFile(null);
+          }
+        }}
+        onApply={(file) => void applyCensoredImage(file)}
+      />
     </div>
   );
 }

@@ -473,3 +473,19 @@ W-YYYY.M.D/
 - [x] **生产 E2E**：`https://go.sunnyrose.xyz/admin/batch-upload` 同样流程通过（CORS 生效）
 - [x] `npx tsc --noEmit`、`npm run lint`、`npm run build`、`npm test`（657 通过）
 - [x] COS CORS 追加 `http://localhost:3100`、`http://localhost:3102`（本地测试端口）
+
+---
+
+## 14. 管理列表直接打码（2026-11-01）
+
+- `/admin/mods` 的卡片封面可点击（左下角有「打码」提示），点击直接打开同一个打码弹窗；
+  标题仍是编辑页链接，不改变原有编辑入口。
+- 原图通过 `/api/admin/fetch-image` 同源代理读取：
+  - 只允许 `https` + `*.myqcloud.com` + `.cos.` 的腾讯云 COS 地址，防 SSRF；
+  - 路由加入 `src/proxy.ts` 的 Basic Auth matcher。
+- 打码后：
+  - 新图上传 COS，**每次用新的随机前缀**（避免复用对象键时 `max-age=604800` 缓存旧图）；
+  - `replaceModImageAction` 只替换 `images[0]`，其它图片不变；
+  - 失效公开缓存并 `router.refresh()` 更新卡片。
+- 本地 E2E：单条上传测试 mod → 在管理列表点封面 → 拖框打码 → 应用 →
+  DB `images[0]` 变为新 COS URL；测试行已删除。

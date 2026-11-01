@@ -52,6 +52,8 @@ type ModCardProps = {
   mediaTopRight?: ReactNode;
   mediaTopRightClassName?: string;
   mediaBottomLeft?: ReactNode;
+  /** 点击封面图时回调（后台管理列表用于直接打开打码） */
+  onImageClick?: () => void;
   /**
    * 图片加载后把真实宽高比报给外面。瀑布流要靠它决定卡片高度、
    * 以及横屏图要不要横跨两列（比例在服务端拿不到，只能等图片加载）。
@@ -194,6 +196,7 @@ export function ModCard({
   mediaTopRight,
   mediaTopRightClassName,
   mediaBottomLeft,
+  onImageClick,
   onImageRatioChange,
   showCheckbox = false,
   checkboxChecked = false,
@@ -390,8 +393,32 @@ export function ModCard({
             ? "h-auto"
             : "min-h-72 aspect-[4/5] sm:aspect-[3/4] xl:aspect-[4/5]",
           !isAutoAspect && imageAspectClassName,
+          onImageClick && "cursor-crosshair",
         )}
         style={isAutoAspect ? { aspectRatio: renderAspectRatio ? String(renderAspectRatio) : "3/4" } : undefined}
+        onClick={
+          onImageClick
+            ? (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onImageClick();
+              }
+            : undefined
+        }
+        role={onImageClick ? "button" : undefined}
+        tabIndex={onImageClick ? 0 : undefined}
+        aria-label={onImageClick ? `打码：${mod.title}` : undefined}
+        onKeyDown={
+          onImageClick
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onImageClick();
+                }
+              }
+            : undefined
+        }
       >
         {/* 模糊放大背景图，填充 object-contain 产生的空白区域 */}
         {imageError ? (
@@ -459,6 +486,11 @@ export function ModCard({
         >
           <div className="h-full w-full animate-pulse bg-[var(--neo-muted)]" />
         </div>
+        {onImageClick ? (
+          <span className="pointer-events-none absolute bottom-2 left-2 z-30 border-2 border-black bg-[#ffd84f] px-2 py-0.5 text-[10px] font-black text-black shadow-[2px_2px_0_0_#000]">
+            打码
+          </span>
+        ) : null}
       </div>
       {/* 批量操作复选框 */}
       {showCheckbox ? (
