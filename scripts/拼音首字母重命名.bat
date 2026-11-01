@@ -22,43 +22,45 @@ if not exist "%SCRIPT%" (
   exit /b 1
 )
 
-rem Do not rename this bat itself if it sits inside the target folder.
+rem Do not rename this bat itself if it sits inside a target folder.
 set "EXCLUDE=%~nx0"
 
-rem Drop a folder/file onto this bat, or paste a path when prompted.
-set "TARGET=%~1"
-if not defined TARGET (
-  echo Drag a folder or file here, or paste its full path, then press Enter.
-  set /p "TARGET=Path: "
-)
-if not defined TARGET (
-  echo [ERROR] No path given.
-  if not defined PY_RENAME_NO_PAUSE pause
-  exit /b 1
-)
+rem Dragging several folders/files onto this bat passes them as %1 %2 %3 ...
+if "%~1"=="" goto :prompt
 
-rem Remove quotes added by drag-and-drop, and a trailing backslash.
+:loop
+if "%~1"=="" goto :done
+call :process "%~1"
+shift
+goto :loop
+
+:prompt
+echo Drag a folder or file here, or paste its full path, then press Enter.
+set "TARGET="
+set /p "TARGET=Path: "
+if not defined TARGET goto :done
+call :process "%TARGET%"
+goto :done
+
+rem ---------------------------------------------------------------------------
+rem Process one item: folder -> wrap it in a pinyin folder, file -> rename it.
+rem ---------------------------------------------------------------------------
+:process
+set "TARGET=%~1"
 set "TARGET=%TARGET:"=%"
 if "%TARGET:~-1%"=="\" set "TARGET=%TARGET:~0,-1%"
-
-rem Always process the dropped item itself:
-rem   folder -> wrap it in a pinyin-named outer folder
-rem   file   -> rename it to pinyin initials
-set ARG=--path="%TARGET%"
+if not defined TARGET exit /b 0
 
 echo.
 echo Target: %TARGET%
 echo.
-node "%SCRIPT%" %ARG% --mode=auto --exclude="%EXCLUDE%" --apply
-if errorlevel 1 goto :failed
-echo.
-echo Done.
-goto :done
-
-:failed
-echo.
-echo [ERROR] The operation failed. Nothing else was changed.
-echo.
+node "%SCRIPT%" --path="%TARGET%" --mode=auto --exclude="%EXCLUDE%" --apply
+if errorlevel 1 (
+  echo.
+  echo [ERROR] Failed: %TARGET%
+  echo.
+)
+exit /b 0
 
 :done
 if not defined PY_RENAME_NO_PAUSE pause
