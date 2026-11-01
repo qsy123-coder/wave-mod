@@ -106,6 +106,14 @@ alter default privileges in schema public grant all on sequences to ${DB_USER};
 alter default privileges in schema public grant all on functions to ${DB_USER};
 SQL
 
+# 备份脚本以 root 运行；给 root 写一份 .pgpass（600），走 TCP 连本机 5432。
+if [[ -n "${POSTGRES_ADMIN_PASSWORD:-}" ]]; then
+  sudo -u postgres psql -v ON_ERROR_STOP=1 \
+    -c "alter user postgres password '${POSTGRES_ADMIN_PASSWORD}';" >/dev/null
+  printf '127.0.0.1:5432:*:postgres:%s\n' "${POSTGRES_ADMIN_PASSWORD}" > /root/.pgpass
+  chmod 600 /root/.pgpass
+fi
+
 echo "== 4/8 配置 pgbouncer =="
 sed -e "s/{{DB_NAME}}/${DB_NAME}/g" \
     -e "s/{{DB_USER}}/${DB_USER}/g" \

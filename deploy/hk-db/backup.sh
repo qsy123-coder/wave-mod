@@ -18,8 +18,15 @@ OUT="${BACKUP_DIR}/${DB_NAME}-${STAMP}.dump"
 
 install -d -m 0750 "${BACKUP_DIR}"
 
+# cron 以 root 运行，而 Ubuntu 的 peer 认证只允许 postgres 系统用户连 postgres 角色。
+# 统一走 TCP + /root/.pgpass（install.sh 会写，600 权限）。
+PG_CONN_ARGS=()
+if [[ "$(id -u)" -eq 0 ]]; then
+  PG_CONN_ARGS=(-h 127.0.0.1 -U postgres)
+fi
+
 # -Fc：custom 格式，可用 pg_restore 选择性恢复；-Z6 已经够小（29MB 库）。
-pg_dump -Fc -Z6 -d "${DB_NAME}" -f "${OUT}"
+pg_dump "${PG_CONN_ARGS[@]}" -Fc -Z6 -d "${DB_NAME}" -f "${OUT}"
 
 # 写一份校验和，恢复前可先核对
 sha256sum "${OUT}" > "${OUT}.sha256"
