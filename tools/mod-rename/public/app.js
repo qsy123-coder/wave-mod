@@ -386,7 +386,9 @@ async function openSplit(row) {
     const used = new Set();
     split.groups = info.topLevel.map((t) => {
       const s = info.suggests?.[t.name] ?? {};
-      const character = (s.characters ?? [])[0] ?? "";
+      // 目录名本身就是中文角色名时（如「今汐 白」），直接从库内角色里认一个
+      const character =
+        (s.characters ?? [])[0] ?? state.characters.find((c) => c && t.name.includes(c)) ?? "";
       let packName = composePackName({
         character,
         name: rowSug.name || s.name || t.name,

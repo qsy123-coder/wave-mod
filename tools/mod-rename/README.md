@@ -67,6 +67,8 @@ DEEPSEEK_TIMEOUT_MS=25000
 
 - 只监听 `127.0.0.1`，局域网访问不到；
 - 每次启动生成一次性 token，URL 里没带 `t` 或请求头没带 `x-rename-token` 一律 403；
+  （`index.html` 里的 `/style.css`、`/app.js` 会在返回时自动拼上 `?t=`，否则它们也会被自己的鉴权挡住，
+  表现是「页面白屏、服务端日志全是 200」）
 - 校验 `Origin`，别的网页发来的请求会被拒；
 - 只允许操作 `WAVE_MOD_DAILY_BASE` 下 `W-日期` 目录的 `arca.live/`、`GameBanana/`；
 - 没有删除接口，只有 `rename`。

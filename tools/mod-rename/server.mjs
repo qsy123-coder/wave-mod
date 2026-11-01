@@ -21,6 +21,7 @@ import { resolveCharacterAndTitle } from "../../scripts/daily-classify.mjs";
 import { aiConfig, needsAi, suggestWithModel } from "./lib/ai.mjs";
 import { loadEnvFiles } from "./lib/env.mjs";
 import { loadKnownMods } from "./lib/db.mjs";
+import { injectToken } from "./lib/html.mjs";
 import { applyPlan, listJournals, undoJournal } from "./lib/journal.mjs";
 import { looksLikeEndfield, splitExistingName, translate } from "./lib/naming.mjs";
 import { planAll } from "./lib/plan.mjs";
@@ -187,13 +188,22 @@ const STATIC = {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
 
+  // 浏览器自动请求的 favicon：没 token 也要给个空响应，不然控制台永远挂着一条 403
+  if (url.pathname === "/favicon.ico") return send(res, 204, "");
+
   if (!sameOrigin(req)) return send(res, 403, "forbidden origin");
   if (!tokenOk(req, url)) return send(res, 403, "forbidden token");
 
   try {
     if (req.method === "GET" && STATIC[url.pathname]) {
       const [file, type] = STATIC[url.pathname];
-      return send(res, 200, readFileSync(join(PUBLIC_DIR, file)), { "content-type": type });
+      const body = readFileSync(join(PUBLIC_DIR, file));
+      // 子资源（style.css / app.js）也必须带 token，否则会被鉴权挡成 403
+      // —— 页面之前就是这么白屏的：HTML 出来了，JS/CSS 全 403。
+      if (url.pathname === "/") {
+        return send(res, 200, injectToken(body.toString("utf8"), TOKEN), { "content-type": type });
+      }
+      return send(res, 200, body, { "content-type": type });
     }
 
     if (req.method === "GET" && url.pathname === "/api/dirs") {
