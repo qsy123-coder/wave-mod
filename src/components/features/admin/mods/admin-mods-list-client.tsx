@@ -94,17 +94,31 @@ export function AdminModsListClient({
     setCensorLoading(true);
 
     try {
-      const response = await fetch(
-        `/api/admin/fetch-image?url=${encodeURIComponent(imageUrl)}`,
-        { cache: "no-store" },
-      );
+      // 优先浏览器直连 COS：Vercel hkg1 → 广州 COS 有已知超时问题（见 hk-proxy-runbook 7.1），
+      // 同源代理只作为 CORS 不可用时的兜底。
+      let blob: Blob | null = null;
 
-      if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(data?.error ?? `读取预览图失败（${response.status}）`);
+      try {
+        const direct = await fetch(imageUrl, { mode: "cors", cache: "no-store" });
+        if (direct.ok) blob = await direct.blob();
+      } catch {
+        // 跨域被拦或网络失败，走同源代理
       }
 
-      const blob = await response.blob();
+      if (!blob) {
+        const response = await fetch(
+          `/api/admin/fetch-image?url=${encodeURIComponent(imageUrl)}`,
+          { cache: "no-store" },
+        );
+
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(data?.error ?? `读取预览图失败（${response.status}）`);
+        }
+
+        blob = await response.blob();
+      }
+
       setCensorMod(mod);
       setCensorFile(new File([blob], `${mod.id}-cover.webp`, { type: blob.type || "image/webp" }));
     } catch (error) {
