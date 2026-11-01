@@ -27,6 +27,8 @@ export type BatchUploadRow = {
   driveLinks: BatchDriveLink[];
   images: string[];
   imageFiles: File[];
+  /** 打码前的原图，用于「还原」；imageFiles 是当前要上传的版本 */
+  originalImageFiles: File[];
   include: boolean;
   status: BatchRowStatus;
   /** 用户在预览里改过的字段；服务端只覆盖这些字段 */

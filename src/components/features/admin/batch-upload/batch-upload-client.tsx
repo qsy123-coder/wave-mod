@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   FileSpreadsheet,
   FileText,
   FolderOpen,
-  ImagePlus,
   LoaderCircle,
   RefreshCw,
   UploadCloud,
@@ -15,12 +14,12 @@ import {
 import { toast } from "sonner";
 
 import { batchUploadModsAction } from "@/actions/admin/batch-upload-actions";
+import { uploadRowImage, withConcurrency } from "@/lib/admin/batch-image-upload";
 import type {
   BatchDriveLink,
   BatchUploadResult,
   BatchUploadRow,
 } from "@/lib/admin/batch-upload-types";
-import { convertToWebP, getCosSign, uploadToCos } from "@/lib/cos/client-upload";
 
 import {
   dedupKey,
@@ -31,6 +30,10 @@ import {
 } from "../../../../../scripts/daily-classify.mjs";
 import { parseQuarkCsvText } from "../../../../../scripts/quark-csv-parse.mjs";
 import { parseXunleiTxt, withXunleiPwd } from "../../../../../scripts/xunlei-txt-parse.mjs";
+
+import { CensorDialog } from "./censor-dialog";
+import { CensorImageThumbs } from "./censor-image-thumbs";
+import { SingleModForm } from "./single-mod-form";
 
 const PLACEHOLDER_IMAGE_URL =
   "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/placeholder/mod-placeholder.webp";
@@ -227,6 +230,7 @@ function buildRows(
       driveLinks,
       images: [],
       imageFiles,
+      originalImageFiles: imageFiles,
       include: status !== "unknown-character" && status !== "missing-link",
       status,
       editedFields: [],
@@ -258,6 +262,7 @@ function buildRows(
       driveLinks,
       images: [],
       imageFiles,
+      originalImageFiles: imageFiles,
       include: false,
       status,
       editedFields: [],
@@ -266,23 +271,6 @@ function buildRows(
   }
 
   return rows;
-}
-
-async function withConcurrency<T>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<void>,
-): Promise<void> {
-  let cursor = 0;
-
-  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (cursor < items.length) {
-      const item = items[cursor++];
-      await worker(item);
-    }
-  });
-
-  await Promise.all(runners);
 }
 
 export function BatchUploadClient({ characters, existingKeys }: Props) {
@@ -300,10 +288,12 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
 
   const [rows, setRows] = useState<BatchUploadRow[]>([]);
   const [date, setDate] = useState(todayShanghai);
+  const [mode, setMode] = useState<"batch" | "single">("batch");
   const [parseError, setParseError] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0, label: "" });
   const [result, setResult] = useState<BatchUploadResult | null>(null);
+  const [censorTarget, setCensorTarget] = useState<{ rowId: string; index: number } | null>(null);
 
   const includedRows = rows.filter(
     (row) => row.include && row.status !== "unknown-character" && row.driveLinks.length > 0,
@@ -373,15 +363,34 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
     setImageIndex(index);
     setImageFileCount(list.length);
     setRows((previous) =>
-      previous.map((row) => ({
-        ...row,
-        imageFiles: lookupImages(
+      previous.map((row) => {
+        const nextFiles = lookupImages(
           index,
           row.sourceKey,
           resolveCanonicalKey(stripRenameSuffix(row.sourceKey)),
           row.title,
-        ),
-      })),
+        );
+        return { ...row, imageFiles: nextFiles, originalImageFiles: nextFiles };
+      }),
+    );
+  };
+
+  const applyCensoredImage = (rowId: string, index: number, file: File) => {
+    setRows((previous) =>
+      previous.map((row) => {
+        if (row.id !== rowId) return row;
+        const nextFiles = [...row.imageFiles];
+        nextFiles[index] = file;
+        return { ...row, imageFiles: nextFiles };
+      }),
+    );
+  };
+
+  const resetCensoredImages = (rowId: string) => {
+    setRows((previous) =>
+      previous.map((row) =>
+        row.id === rowId ? { ...row, imageFiles: [...row.originalImageFiles] } : row,
+      ),
     );
   };
 
@@ -438,28 +447,6 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
     );
   };
 
-  const uploadOneImage = async (
-    row: BatchUploadRow,
-    file: File,
-    index: number,
-    draftId: string,
-  ) => {
-    const converted = await convertToWebP(file, 0.85, 1000);
-    // GIF 动图不转码，保留 .gif；其余统一 .webp
-    const ext = converted.type === "image/gif" ? "gif" : "webp";
-    const contentType = ext === "gif" ? "image/gif" : "image/webp";
-    const filename = index === 0 ? `preview.${ext}` : `preview-${index + 1}.${ext}`;
-    const namedFile = new File([converted], filename, { type: contentType });
-    const sign = await getCosSign({
-      character: row.character,
-      contentType,
-      fileSize: namedFile.size,
-      filename,
-      modId: draftId,
-    });
-    return uploadToCos(namedFile, sign);
-  };
-
   const handleSubmit = async () => {
     if (includedRows.length === 0) {
       toast.error("没有可提交的行：请先选择 CSV，并修正未知角色/缺失链接。");
@@ -491,7 +478,12 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
         try {
           const draftId = draftIdByRow.get(task.row.id);
           if (!draftId) throw new Error("缺少上传标识");
-          const url = await uploadOneImage(task.row, task.file, task.index, draftId);
+          const url = await uploadRowImage({
+            character: task.row.character,
+            file: task.file,
+            index: task.index,
+            draftId,
+          });
           // 写下标而不是 push：并发完成后 images[0] 仍然必须是主图
           const slots = imageSlotsByRow.get(task.row.id);
           if (slots) slots[task.index] = url;
@@ -585,8 +577,33 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
     }
   };
 
+  const censorRow = censorTarget ? rows.find((row) => row.id === censorTarget.rowId) ?? null : null;
+
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setMode("batch")}
+          className={`border-4 border-black px-5 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] ${
+            mode === "batch" ? "bg-[#ffd84f] text-black" : "bg-white text-black"
+          }`}
+        >
+          批量模式（CSV + txt）
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("single")}
+          className={`border-4 border-black px-5 py-2 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] ${
+            mode === "single" ? "bg-[#ffd84f] text-black" : "bg-white text-black"
+          }`}
+        >
+          单条模式
+        </button>
+      </div>
+
+      {mode === "batch" ? (
+        <>
       <section className="neo-card-lg bg-[var(--neo-panel)] p-5 text-black">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="border-4 border-black bg-white p-4 shadow-[5px_5px_0px_0px_#000]">
@@ -811,7 +828,12 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
                       </div>
                     </td>
                     <td className="px-2 py-2">
-                      <ImageCell files={row.imageFiles} />
+                      <CensorImageThumbs
+                        files={row.imageFiles}
+                        originals={row.originalImageFiles}
+                        onCensor={(index) => setCensorTarget({ rowId: row.id, index })}
+                        onReset={() => resetCensoredImages(row.id)}
+                      />
                     </td>
                     <td className="px-2 py-2">
                       <textarea
@@ -914,6 +936,29 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
         <p>· 预览图：文件名 = 标题；`标题-1.png`、`标题-2.png` 是副图，主图无编号。</p>
         <p>· 已存在的 mod 会更新网盘/图片并重新上架；简介/版本只在您改过时覆盖。</p>
       </section>
+        </>
+      ) : (
+        <SingleModForm
+          characters={characters}
+          existingSet={existingSet}
+          date={date}
+          onDateChange={setDate}
+        />
+      )}
+
+      <CensorDialog
+        open={Boolean(censorTarget)}
+        file={censorRow && censorTarget ? censorRow.originalImageFiles[censorTarget.index] ?? null : null}
+        onOpenChange={(open) => {
+          if (!open) setCensorTarget(null);
+        }}
+        onApply={(file) => {
+          if (censorTarget) {
+            applyCensoredImage(censorTarget.rowId, censorTarget.index, file);
+            setCensorTarget(null);
+          }
+        }}
+      />
     </div>
   );
 }
@@ -931,38 +976,3 @@ function StatusBadge({ row }: { row: BatchUploadRow }) {
   return <span className="border-4 border-black bg-[#d8f5c8] px-2 py-1 font-black">新增</span>;
 }
 
-function ImageCell({ files }: { files: File[] }) {
-  const urls = useMemo(
-    () => files.slice(0, 4).map((file) => URL.createObjectURL(file)),
-    [files],
-  );
-
-  useEffect(() => {
-    return () => {
-      for (const url of urls) URL.revokeObjectURL(url);
-    };
-  }, [urls]);
-
-  if (files.length === 0) {
-    return (
-      <span className="inline-flex items-center gap-1 border-4 border-black bg-[#ffd84f] px-2 py-1 font-black">
-        <ImagePlus className="size-3.5" /> 缺图（用占位图）
-      </span>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1">
-      {urls.map((url, index) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={url}
-          src={url}
-          alt={`preview-${index + 1}`}
-          className="size-12 border-2 border-black object-cover"
-        />
-      ))}
-      <span className="font-black">{files.length} 张</span>
-    </div>
-  );
-}
