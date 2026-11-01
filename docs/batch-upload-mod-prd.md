@@ -439,10 +439,11 @@ W-YYYY.M.D/
    原规则只有 `localhost:3000 / www.wave-mod.top / wave-mod.top`。不补的话，
    从当前规范域名直传 COS 会被浏览器 CORS 拦（现有后台图片上传同样受影响）。
 
-待部署/生产验收：
+部署/生产验收：
 
-- [ ] 合并到 `main` → Vercel 部署
-- [ ] 生产用 2–3 条真实数据走一遍（预览图直传 + 入库 + 前台确认）
+- [x] 合并到 `main` → Vercel 部署（`760739e4`，READY）
+- [x] 生产 E2E：批量行打码、单条模式解析/打码/入库 2 张图、DB 校验通过
+      （测试行已删除；单条测试标题 `弗洛洛-单条测试 v2.0`）
 
 ---
 
@@ -469,5 +470,6 @@ W-YYYY.M.D/
 ### 13.3 验收
 
 - [x] 本地 E2E：批量行打码 → 弹窗拖框 → 应用后缩略图标记；单条解析角色/版本、打码、入库 2 张图，DB 校验通过
-- [x] `npx tsc --noEmit`、`npm run lint`、`npm run build` 通过
-- [x] COS CORS 追加 `http://localhost:3100`（本地 `npm start` 测试端口）
+- [x] **生产 E2E**：`https://go.sunnyrose.xyz/admin/batch-upload` 同样流程通过（CORS 生效）
+- [x] `npx tsc --noEmit`、`npm run lint`、`npm run build`、`npm test`（657 通过）
+- [x] COS CORS 追加 `http://localhost:3100`、`http://localhost:3102`（本地测试端口）
