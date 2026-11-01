@@ -15,6 +15,17 @@ proxy_pass https://wavemod_upstream;
 proxy_http_version 1.1;
 proxy_set_header Connection "";
 
+# 回源一律要**未压缩**的响应体，压缩交给本机 nginx 做（见 wavemod-proxy.conf 的 gzip 段）。
+#
+# 为什么：proxy_cache_key 只有 `$host$request_uri`，**不含 Accept-Encoding**，而 Vercel
+# 会按每个请求方协商 gzip / br。谁先来谁定调 —— 一个支持 br 的 Chrome 先请求，缓存里
+# 存下的就是 br；之后只声明 gzip 的客户端（老 Android WebView、iOS ≤10 的 Safari、部分
+# 国产内置浏览器、各种脚本）拿到的仍是 br。它们解不开这份响应体，浏览器直接报
+# 「无法加载该网页」，而且连 CSS/JS 都不会再去请求 —— 表现为「进到首页等一会就变错误页」。
+# 2026-11-01 实测：请求头写 `Accept-Encoding: gzip`，返回的却是 `Content-Encoding: br`；
+# 对应访客在访问日志里只有文档一条记录，没有任何子资源请求。
+proxy_set_header Accept-Encoding "";
+
 proxy_set_header Host {{UPSTREAM_HOST}};
 proxy_set_header X-Forwarded-Host $host;
 proxy_set_header X-Real-IP $remote_addr;

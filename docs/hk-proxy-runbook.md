@@ -156,6 +156,10 @@ curl -sI https://go.sunnyrose.xyz/api/mods?sort=new | grep -i x-cache-status   #
 | 其他 `/api/*`、`/admin`、`/auth`、`/login`、`/favorites` | **不缓存** | POST 一律 BYPASS |
 | 上游 502/503/504 | 维护页 | 页面返回 HTML，API 返回 JSON 503 + `Retry-After` |
 
+> ⚠️ 缓存里的响应体一律是**未压缩**的（回源强制 `Accept-Encoding: ""`），压缩由
+> 本机 gzip 按访客能力现场做。别把回源的 Accept-Encoding 放回去 —— 缓存键不含它，
+> 会让 br 和 gzip 串味，老浏览器解不开，详见 6.2。
+
 > ⚠️ PRD 里写「`/api/engagement` 缓存 30–60 秒」是**错的**：该响应包含
 > 「这台设备赞没赞过」，共享缓存会把 A 的状态发给 B。配置里已显式关闭，
 > 不要再加回去。
@@ -206,6 +210,55 @@ curl -s -o /dev/null -w '%{http_code}\n' \
   `vercel firewall system-mitigations pause`（立即生效，24 小时后自动恢复）。
 - 不要为了「修复」去改 title / `character` / 重新上传：那会让去重键错位，
   详见 CLAUDE.md 的每日上传硬规则。
+
+## 6.2 压缩编码：手机访客看到「无法加载该网页」（2026-11-01）
+
+### 现象
+
+手机（尤其国产内置浏览器、老 Android WebView、iOS ≤10）打开首页能进，**等一会儿
+变成浏览器的错误页**（Firefox 系文案是 "The page couldn't load"），换网络无效；
+PC 上同一个地址完全正常。
+
+日志里的决定性证据：这个访客当天**只有文档一条请求**，之后没有任何 CSS / JS /
+图片请求 —— 说明 HTML 收到了但**解不开**，浏览器直接放弃，不会再去取子资源。
+
+### 根因
+
+Vercel 按请求方的 `Accept-Encoding` 协商回 `gzip` 或 `br`，而 nginx 的
+`proxy_cache_key` 是 `"$host$request_uri"`，**不含 Accept-Encoding**，也不转码。
+谁第一个请求谁定调：一个支持 br 的 Chrome 把 br 存进缓存后，之后所有只声明
+gzip 的客户端拿到的都是 `Content-Encoding: br` —— 解不开。
+
+```bash
+# 修复前：请求只要 gzip，回来的却是 br
+curl -s -o /dev/null -D - -H 'Accept-Encoding: gzip' https://go.sunnyrose.xyz/ \
+  | grep -i content-encoding      # -> Content-Encoding: br   ✗
+```
+
+### 处置（commit 见本次）
+
+1. `wavemod-proxy-common.conf` 里加 `proxy_set_header Accept-Encoding "";`
+   —— 回源一律要**未压缩体**，缓存里永远是 identity，不再有编码串味。
+2. `wavemod-proxy.conf` 的 443 server 里开 `gzip`（含 `gzip_vary`、
+   `gzip_types`），由本机按访客能力现场压缩。
+   **不要改成 brotli**：nginx 1.18 没这个模块，Vercel 的 br 一旦落盘就只能原样
+   发给所有人，正是这次的问题。
+3. 改完必须**清缓存**（旧条目还带着 br）：
+
+```bash
+ssh -i ~/.ssh/wavemod_hk -p 28822 root@45.135.119.204 \
+  "find /var/cache/nginx/wavemod -type f -delete; systemctl reload nginx"
+```
+
+### 验收
+
+```bash
+# gzip-only 客户端必须拿到 gzip（首两字节 1F 8B）
+curl -s -H 'Accept-Encoding: gzip' https://go.sunnyrose.xyz/ -o /tmp/a.gz
+xxd -l2 /tmp/a.gz                     # -> 1f8b
+# 不带 Accept-Encoding 的客户端拿到未压缩 HTML
+curl -s -o /dev/null -D - -H 'Accept-Encoding:' https://go.sunnyrose.xyz/ | grep -i content-length
+```
 
 ## 7. 已知问题（切换前必须知道）
 
