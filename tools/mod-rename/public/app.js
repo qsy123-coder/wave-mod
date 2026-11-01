@@ -14,19 +14,31 @@ const state = {
   characters: [],
   journals: [],
   ai: { configured: false, model: "" },
+  aiRunning: false,
 };
 
 const $ = (id) => document.getElementById(id);
 
-async function api(path, { method = "GET", body } = {}) {
-  const res = await fetch(path, {
-    method,
-    headers: {
-      "x-rename-token": TOKEN,
-      ...(body ? { "content-type": "application/json" } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+async function api(path, { method = "GET", body, timeoutMs = 30_000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: {
+        "x-rename-token": TOKEN,
+        ...(body ? { "content-type": "application/json" } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err?.name === "AbortError") throw new Error(`请求超时（>${Math.round(timeoutMs / 1000)} 秒）`);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   const text = await res.text();
   let data;
   try {
@@ -38,10 +50,12 @@ async function api(path, { method = "GET", body } = {}) {
   return data;
 }
 
-function banner(message) {
+function banner(message, { scroll = false } = {}) {
   const el = $("banner");
   el.hidden = !message;
   el.textContent = message ?? "";
+  // 顶栏在页面最上方，滚下去看表格时提示是看不见的 —— 关键提示顺手带过来
+  if (message && scroll) el.scrollIntoView({ block: "nearest" });
 }
 
 function el(tag, props = {}, children = []) {
@@ -163,8 +177,10 @@ function renderSource(src) {
   const applicable = src.items.filter((i) => state.plan[i.name]?.applicable).length;
   const pending = src.items.filter((i) => needsAiFor(i.name));
   // 0 条时不留一个灰按钮（看着像功能没了），直接说明「不用补」
-  const aiBtn = !state.ai.configured
-    ? el("button", {
+  const aiBtn = state.aiRunning
+    ? el("button", { class: "ghost btn-ai", text: "补全中…", disabled: "disabled" })
+    : !state.ai.configured
+      ? el("button", {
         class: "ghost btn-ai",
         text: "AI 未配置",
         disabled: "disabled",
@@ -320,12 +336,16 @@ function renderRow(item) {
 // ---------------- AI 补全 ----------------
 
 async function runAi(source, names) {
-  if (!names.length) return;
-  banner(`正在让 ${state.ai.model} 补全 ${names.length} 条…`);
+  if (!names.length || state.aiRunning) return;
+  state.aiRunning = true;
+  const started = Date.now();
+  banner(`正在让 ${state.ai.model} 补全 ${names.length} 条…（通常 5–20 秒，别关窗口）`, { scroll: true });
+  render(); // 按钮立刻变成「补全中…」，否则点完像没反应
   try {
     const res = await api("/api/ai/suggest", {
       method: "POST",
       body: { dir: state.dir, source, names },
+      timeoutMs: 120_000,
     });
     let n = 0;
     for (const [name, r] of Object.entries(res.results ?? {})) {
@@ -344,13 +364,18 @@ async function runAi(source, names) {
       n++;
     }
     await refreshPlan();
+    const secs = ((Date.now() - started) / 1000).toFixed(1);
     banner(
       n
-        ? `AI 补全 ${n} 条（${res.model}）${res.errors?.length ? `；${res.errors.length} 条失败：${res.errors.join("；")}` : ""}`
-        : `AI 没有给出可用结果：${res.errors?.join("；") || "未知原因"}`
+        ? `AI 补全 ${n} 条（${res.model}，用时 ${secs}s）${res.errors?.length ? `；${res.errors.length} 条失败：${res.errors.join("；")}` : ""}`
+        : `AI 没有给出可用结果（用时 ${secs}s）：${res.errors?.join("；") || "模型没返回可用条目"}`,
+      { scroll: true }
     );
   } catch (err) {
-    banner(String(err.message));
+    banner(`AI 补全失败：${err.message}`, { scroll: true });
+  } finally {
+    state.aiRunning = false;
+    render();
   }
 }
 
