@@ -112,6 +112,7 @@ main { padding: 14px 20px 90px; display: flex; flex-direction: column; gap: 22px
   gap: 10px;
 }
 .source h2 .count { color: var(--muted); font-weight: 400; font-size: 12px; }
+.source h2 .btn-ai { margin-left: auto; font-size: 12px; padding: 3px 10px; }
 
 .rows { display: flex; flex-direction: column; gap: 8px; }
 

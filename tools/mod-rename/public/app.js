@@ -13,6 +13,7 @@ const state = {
   touched: new Set(),
   characters: [],
   journals: [],
+  ai: { configured: false, model: "" },
 };
 
 const $ = (id) => document.getElementById(id);
@@ -60,6 +61,7 @@ function el(tag, props = {}, children = []) {
 async function loadDirs() {
   const data = await api("/api/dirs");
   state.dirs = data.dirs;
+  state.ai = data.ai ?? { configured: false, model: "" };
   const sel = $("dir-select");
   sel.replaceChildren(...data.dirs.map((d) => el("option", { value: d.name, text: d.name })));
   $("meta-line").textContent = `数据目录：${data.base}　·　爬虫状态：${data.crawlFound ? data.crawlDir : "未找到（只能靠文件名猜）"}`;
@@ -150,11 +152,27 @@ function render() {
   renderFooter();
 }
 
+function needsAiFor(name) {
+  const s = state.suggestion[name];
+  if (!s) return true;
+  if (!(s.characters ?? []).length) return true;
+  return s.confidence === "low";
+}
+
 function renderSource(src) {
   const applicable = src.items.filter((i) => state.plan[i.name]?.applicable).length;
+  const pending = src.items.filter((i) => needsAiFor(i.name));
+  const aiBtn = el("button", {
+    class: "ghost btn-ai",
+    text: `AI 补全 ${pending.length}`,
+    disabled: !state.ai.configured || !pending.length ? "disabled" : undefined,
+    title: state.ai.configured ? `模型：${state.ai.model}` : "未配置 DEEPSEEK_API_KEY（写在 .env.local）",
+    onclick: () => runAi(src.name, pending.map((i) => i.name)),
+  });
   const head = el("h2", {}, [
     el("span", { text: src.name }),
     el("span", { class: "count", text: `${src.items.length} 条 · 可应用 ${applicable}` }),
+    aiBtn,
   ]);
   const rows = el("div", { class: "rows" }, src.items.map(renderRow));
   return el("section", { class: "source" }, [head, rows]);
@@ -266,7 +284,12 @@ function renderRow(item) {
 
   const result = el("div", { class: "result" }, [
     el("div", { class: "key", text: plan?.display || "—" }),
-    el("div", {}, [stateChip, extra, s.confidence === "low" ? el("span", { class: "chip", text: "词表未完全命中" }) : null]),
+    el("div", {}, [
+      stateChip,
+      extra,
+      s.viaModel ? el("span", { class: "chip", text: "AI" }) : null,
+      s.confidence === "low" ? el("span", { class: "chip", text: "词表未完全命中" }) : null,
+    ]),
     issues,
     splitBtn,
   ]);
@@ -283,6 +306,42 @@ function renderRow(item) {
     authorInput,
     result,
   ]);
+}
+
+// ---------------- AI 补全 ----------------
+
+async function runAi(source, names) {
+  if (!names.length) return;
+  banner(`正在让 ${state.ai.model} 补全 ${names.length} 条…`);
+  try {
+    const res = await api("/api/ai/suggest", {
+      method: "POST",
+      body: { dir: state.dir, source, names },
+    });
+    let n = 0;
+    for (const [name, r] of Object.entries(res.results ?? {})) {
+      state.suggestion[name] = {
+        ...(state.suggestion[name] ?? {}),
+        characters: r.characters,
+        name: r.name,
+        hotkeys: r.hotkeys,
+        author: r.author || state.suggestion[name]?.author || "",
+        confidence: "high",
+        leftover: [],
+        viaModel: true,
+      };
+      state.touched.delete(name); // 交给「默认勾选可应用」重新判断
+      n++;
+    }
+    await refreshPlan();
+    banner(
+      n
+        ? `AI 补全 ${n} 条（${res.model}）${res.errors?.length ? `；${res.errors.length} 条失败：${res.errors.join("；")}` : ""}`
+        : `AI 没有给出可用结果：${res.errors?.join("；") || "未知原因"}`
+    );
+  } catch (err) {
+    banner(String(err.message));
+  }
 }
 
 // ---------------- 拆包 ----------------

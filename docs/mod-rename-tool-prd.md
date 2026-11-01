@@ -1,6 +1,6 @@
 # Mod 命名工坊 PRD（本地网页工具 tools/mod-rename）
 
-> 状态：P0、P1 已实现并自测通过（2026-11-01）；P2 接模型未开始
+> 状态：P0、P1、P2 均已实现并自测通过（2026-11-01）
 > 日期：2026-11-01
 > 需求来源：用户 2026-11-01「根据命名相关文档规则我要开发一个专门针对命名的应用」
 > 关联文档：`CLAUDE.md`（「Mod 重命名」与「每日 Mod 上传流程」）、`scripts/daily-classify.mjs`（分类与去重规则）、`scripts/check-mod-keys.mjs`（自检脚本）、`wuwa_mod_crawl/README.md`（来源目录与下载队列）、`docs/batch-upload-mod-prd.md`
@@ -312,4 +312,31 @@ select character, title from mods where character = any($1);  -- 做去重键提
 - 单测：ZIP 读写（含中文名、相邻条目数据偏移）、拆包对账/回滚/ignore/重复名。
 - 端到端（临时目录 + 真服务）：`GET /api/zip` → `POST /api/split`，产物用系统 `unzip -Z1`
   独立核对条目名，并确认 `_合集原包/` 里源包与长图都在。
+
+---
+
+## 13. P2 实现记录：模型翻译（2026-11-01 改供应商）
+
+**供应商变更**：用户 2026-11-01 明确「只有 DeepSeek 的 API key」。
+因此原方案里的 `@anthropic-ai/sdk` **不引入**，改用 DeepSeek 的 OpenAI 兼容接口
+`POST {DEEPSEEK_BASE_URL}/chat/completions` + `response_format: {"type":"json_object"}`。
+好处顺带解决了两个问题：零新依赖；`ANTHROPIC_API_KEY` 也不需要。
+
+**代码**：`tools/mod-rename/lib/ai.mjs`
+
+- `needsAi(suggestion)`：没认出角色，或还有没翻译干净的韩文 —— 只有这两类才问模型；
+- 请求里带**库内角色白名单**（`distinct character`）+ 词表 + 命名规则；`temperature: 0`；
+- 25 条一批，`AbortController` 超时（默认 25s）；
+- 返回结果用 `sanitizeResult` 硬校验：**角色不在白名单 ⇒ 整条作废**、名称为空 ⇒ 作废；
+- JSON 模式的一个坑：模型没按 json 输出时接口会把内容替换成空格，表现为「200 + 空内容」，
+  这一条单独报错而不是当成功。
+- 失败只回错误文案，页面照常人工填名、照常改名。
+
+**页面**：每个来源标题右边「AI 补全 N」（N = 需要 AI 的条数），结果合并进建议字段并标 `AI` 徽标。
+
+**验证**
+
+- 单测 8 条：无 key 不发请求、正常解析、越界角色丢弃、空内容、接口 500、配置默认值。
+- 端到端：起一个假的 `/chat/completions`，把 `DEEPSEEK_BASE_URL` 指过去，确认
+  「合法结果保留 + 越界角色（卡梅莉亚）被丢弃」。
 | 磁盘被拆包撑爆 | 系统盘满 | 预检剩余空间 ≥ 源包 × 2；原包归档后可手动清理 |

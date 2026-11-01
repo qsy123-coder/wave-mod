@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 
 import { resolveCharacterAndTitle } from "../../scripts/daily-classify.mjs";
 
+import { aiConfig, needsAi, suggestWithModel } from "./lib/ai.mjs";
 import { loadEnvFiles } from "./lib/env.mjs";
 import { loadKnownMods } from "./lib/db.mjs";
 import { applyPlan, listJournals, undoJournal } from "./lib/journal.mjs";
@@ -193,11 +194,13 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/api/dirs") {
+      const ai = aiConfig();
       return send(res, 200, {
         base: BASE,
         crawlDir: CRAWL_DIR,
         crawlFound: existsSync(CRAWL_DIR),
         dirs: listDateDirs(BASE),
+        ai: { configured: Boolean(ai.key), model: ai.model },
       });
     }
 
@@ -219,6 +222,29 @@ const server = createServer(async (req, res) => {
         dateDir,
         suggestions: Object.fromEntries(scan.sources.flatMap((s) => Object.entries(suggestFor(s.items, knownCharacters)))),
       });
+    }
+
+    // 词表没搞定的条目交给 DeepSeek（角色白名单硬校验，失败只报错不阻塞）
+    if (req.method === "POST" && url.pathname === "/api/ai/suggest") {
+      const body = await readBody(req);
+      const dateDir = safeDateDir(body.dir ?? "");
+      const sourceDir = safeSourceDir(dateDir, body.source ?? "");
+      const sourceName = body.source;
+      const { knownCharacters, error: dbError } = await loadKnownMods();
+      if (!knownCharacters) throw new Error(dbError || "拿不到库内角色清单");
+
+      const scan = scanDateDir(dateDir, { crawlDir: CRAWL_DIR, summaryDir: SUMMARY_DIR });
+      const source = scan.sources.find((s) => s.name === sourceName);
+      if (!source) throw new Error(`来源目录里没有条目：${sourceName}`);
+
+      const wanted = Array.isArray(body.names) && body.names.length ? new Set(body.names) : null;
+      const items = source.items
+        .filter((it) => (wanted ? wanted.has(it.name) : needsAi(suggestFor([it], knownCharacters)[it.name])))
+        .map((it) => ({ name: it.name, base: it.base, meta: it.meta }));
+
+      if (!items.length) return send(res, 200, { results: {}, errors: [], model: aiConfig().model });
+      const { results, errors } = await suggestWithModel({ items, glossary, knownCharacters, config: aiConfig() });
+      return send(res, 200, { results, errors, model: aiConfig().model, sourceDir: sourceDir });
     }
 
     // 合集包的顶层目录树 + 每个目录的命名建议（拆包向导用）
