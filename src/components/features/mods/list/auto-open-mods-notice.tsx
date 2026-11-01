@@ -9,10 +9,10 @@ import { consumeAutoSkipNotice } from "@/lib/preferences/site-preferences";
 /**
  * 「直达角色分类」把用户从首页弹到 `/mods` 之后的一次性提示。
  *
- * 为什么需要：这个跳转是**用户自己开的偏好**，但发生时页面上没有任何解释，
- * 点首页却看到分类页，很容易被当成「首页打不开 / 出 bug 了」。跳转前
- * （内联脚本与 HomeAutoRedirect）会在 sessionStorage 留一个标记，落地这里弹一条
- * 说明，并给一个「关闭该偏好」的按钮 —— 用户当场就能反悔，不用去账户菜单里找。
+ * 为什么需要：用户是在首页弹窗里（AutoOpenModsPrompt）主动选了「前往分类页」，
+ * 但落到这里之后页面上没有任何痕迹，下次点首页还会被拦一次。落地时弹一条说明并给
+ * 「关闭该偏好」的按钮 —— 用户当场就能反悔，不用去账户菜单里找。
+ * 标记由弹窗在跳转前写入 sessionStorage，这里取走即清。
  *
  * 渲染位置：`(site)/mods/layout.tsx` 的 ModsShell 顶部，位于网格行之上。
  * 没有标记时返回 null，不占任何高度。

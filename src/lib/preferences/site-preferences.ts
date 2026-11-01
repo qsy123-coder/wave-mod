@@ -2,7 +2,8 @@
  * 站点级浏览偏好（只存本机 localStorage）。
  *
  * 两个布尔值：
- *  - 直达分类：访问 `/` 时是否在**首次绘制前**换到 `/mods`；
+ *  - 直达分类：访问 `/` 时是否先弹窗拦一下、问要不要直接去 `/mods`
+ *    （2026-11-02 从「静默跳转」改成弹窗，见 AutoOpenModsPrompt）；
  *  - 沉浸布局：`/mods` 是否隐藏左侧栏与顶部导航栏。
  *
  * 为什么不进数据库：两者都与「这台设备、这块屏幕」强相关（手机上沉浸没有意义，
@@ -14,11 +15,10 @@ export const AUTO_OPEN_MODS_STORAGE_KEY = "wavemod-auto-open-mods";
 export const IMMERSIVE_MODS_STORAGE_KEY = "wavemod-mods-immersive";
 
 /**
- * 「刚才因为直达分类被跳过了首页」的一次性标记（sessionStorage）。
+ * 「刚才在首页弹窗里选了『前往分类页』」的一次性标记（sessionStorage）。
  *
- * 直达分类是**用户自己开的**偏好，但每次被跳走时用户看不到任何解释，容易以为
- * 「点首页打不开」。跳转前留个标记，落地 `/mods` 后由 `AutoOpenModsNotice`
- * 弹一条提示并给出「关闭该偏好」的入口 —— 用完即删，刷新不会重复打扰。
+ * 用户在弹窗里确认过后，落地 `/mods` 仍给一条说明条（带「关闭该偏好」入口），
+ * 免得他下次又忘 —— 用完即删，刷新不会重复打扰。
  */
 export const AUTO_SKIP_NOTICE_KEY = "wavemod-auto-skip-notice";
 
@@ -123,25 +123,10 @@ export function isImmersiveActive({
   return immersive && isDesktop && isModsPathname(pathname);
 }
 
-/**
- * 首页直达脚本：**必须在 HTML 解析阶段同步执行**（不能 async/defer），
- * 否则用户会先看到首页 Hero 再被跳走。
- *
- * 用 `location.replace` 而不是 `location.href`：不产生历史记录。否则用户按后退
- * 会回到 `/`，脚本又把它们弹回 `/mods`，形成「后退永远退不出去」的死循环。
- *
- * 只处理路径恰好是 `/` 的情形：`(home)` 布局目前只包这一条路由，写上是为了
- * 将来往里加页面时不误跳。localStorage 抛错（隐私模式）时静默放行首页。
- *
- * 客户端导航（例如点 logo 从 `/mods` 回 `/`）不会重新执行 `<script>`，
- * 那条路径由 `HomeAutoRedirect` 兜底。
+/*
+ * 以前这里还有一个 `buildAutoOpenModsScript()`：在首页首屏绘制前 `location.replace("/mods")`。
+ * 2026-11-02 起改成**弹窗拦截**（AutoOpenModsPrompt）：
+ *   - 静默跳转没有任何解释，用户点首页却落到分类页，容易以为首页坏了；
+ *   - 弹窗还能当场关掉这个偏好，不用再回账户菜单里找。
+ * 所以那段内联脚本与配套的 HomeAutoRedirect 一并删掉了 —— 不要再加回来。
  */
-export function buildAutoOpenModsScript(): string {
-  // 跳转前先留一个 sessionStorage 标记，落地 /mods 后由 AutoOpenModsNotice 提示用户
-  // 「刚才那一下是直达分类干的」并给出关闭入口。sessionStorage 被禁时静默忽略。
-  return `(function(){try{if(location.pathname!=="/")return;if(window.localStorage.getItem(${JSON.stringify(
-    AUTO_OPEN_MODS_STORAGE_KEY,
-  )})==="1"){try{window.sessionStorage.setItem(${JSON.stringify(
-    AUTO_SKIP_NOTICE_KEY,
-  )},"1");}catch(e){}location.replace("/mods");}}catch(e){}})();`;
-}

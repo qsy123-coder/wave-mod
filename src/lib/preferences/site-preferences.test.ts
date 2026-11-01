@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  AUTO_OPEN_MODS_STORAGE_KEY,
-  AUTO_SKIP_NOTICE_KEY,
-  buildAutoOpenModsScript,
   consumeAutoSkipNotice,
   isImmersiveActive,
   isModsPathname,
@@ -58,63 +55,6 @@ describe("isImmersiveActive：沉浸 = 开关 + 桌面 + 在 /mods", () => {
   });
 });
 
-describe("buildAutoOpenModsScript：首页绘制前的直达脚本", () => {
-  /** 在沙箱里执行脚本：window / location 作为参数注入，不碰真实 DOM */
-  function runScript(
-    stored: string | null,
-    { pathname = "/", throwOnRead = false }: { pathname?: string; throwOnRead?: boolean } = {},
-  ) {
-    const replaced: string[] = [];
-    const fakeWindow = {
-      localStorage: {
-        getItem: (key: string) => {
-          if (throwOnRead) throw new Error("storage blocked");
-          return key === AUTO_OPEN_MODS_STORAGE_KEY ? stored : null;
-        },
-      },
-    };
-    const fakeLocation = {
-      pathname,
-      replace: (url: string) => replaced.push(url),
-    };
-    const sessionWrites: Array<[string, string]> = [];
-    const fakeSessionStorage = {
-      setItem: (key: string, value: string) => sessionWrites.push([key, value]),
-    };
-
-    new Function("window", "location", buildAutoOpenModsScript())(
-      { ...fakeWindow, sessionStorage: fakeSessionStorage },
-      fakeLocation,
-    );
-    return { replaced, sessionWrites };
-  }
-
-  it("开启 + 访问首页时在绘制前替换到 /mods", () => {
-    const { replaced, sessionWrites } = runScript("1");
-    expect(replaced).toEqual(["/mods"]);
-    // 跳转前留下提示标记，落地 /mods 后由 AutoOpenModsNotice 解释原因
-    expect(sessionWrites).toEqual([[AUTO_SKIP_NOTICE_KEY, "1"]]);
-  });
-
-  it("关闭时完全不动首页，也不留提示标记", () => {
-    expect(runScript("0")).toEqual({ replaced: [], sessionWrites: [] });
-    expect(runScript(null)).toEqual({ replaced: [], sessionWrites: [] });
-  });
-
-  it("只在路径恰好是 / 时生效", () => {
-    expect(runScript("1", { pathname: "/mods" }).replaced).toEqual([]);
-    expect(runScript("1", { pathname: "/guide" }).replaced).toEqual([]);
-  });
-
-  it("localStorage 抛错（隐私模式）时静默放行，不冒泡异常", () => {
-    expect(() => runScript("1", { throwOnRead: true })).not.toThrow();
-    expect(runScript("1", { throwOnRead: true })).toEqual({ replaced: [], sessionWrites: [] });
-  });
-
-  it("使用 location.replace 而不是产生历史记录的方式", () => {
-    expect(buildAutoOpenModsScript()).toContain('location.replace("/mods")');
-  });
-});
 
 describe("直达分类跳过首页的提示标记", () => {
   const store = new Map<string, string>();
