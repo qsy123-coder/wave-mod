@@ -98,7 +98,12 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
                 }
 
                 allowSubmitRef.current = true;
-                formElement.requestSubmit();
+                // ⚠️ 必须挪到宏任务里再 requestSubmit。
+                // 在 submit 事件处理中（包括它的 Promise 微任务）直接调用
+                // requestSubmit()，浏览器会按「防递归提交」规则忽略掉 ——
+                // 表现为点「保存修改」毫无反应（2026-11-01 实测 Chrome/Edge）。
+                // 用真实鼠标点击、键盘回车都会中招；只有 programmatic click 不会。
+                setTimeout(() => formElement.requestSubmit(), 0);
               });
             }}>
               {mode === "edit" && modId ? <input type="hidden" name="id" value={modId} /> : null}
