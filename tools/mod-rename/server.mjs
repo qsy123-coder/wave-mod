@@ -10,6 +10,7 @@
  *   node tools/mod-rename/server.mjs --port=4318
  */
 import { createServer } from "node:http";
+import { exec } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
@@ -44,6 +45,8 @@ const argPort = process.argv.slice(2).find((a) => a.startsWith("--port="));
 const PORT = Number(argPort ? argPort.slice("--port=".length) : process.env.RENAME_UI_PORT || 4318);
 const HOST = "127.0.0.1";
 const TOKEN = randomUUID();
+/** `--open`：启动后自己把浏览器打开（桌面快捷方式用），省得再复制 URL */
+const OPEN_BROWSER = process.argv.includes("--open");
 
 const glossary = JSON.parse(readFileSync(GLOSSARY_PATH, "utf8"));
 
@@ -347,10 +350,33 @@ const server = createServer(async (req, res) => {
   }
 });
 
+function openInBrowser(url) {
+  const cmd =
+    process.platform === "win32"
+      ? `start "" "${url}"`
+      : process.platform === "darwin"
+        ? `open "${url}"`
+        : `xdg-open "${url}"`;
+  exec(cmd, { windowsHide: true }, () => {
+    // 打不开浏览器不影响服务本身，URL 已经打在终端里了
+  });
+}
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`\n  端口 ${PORT} 已被占用 —— 多半是已经开着一个命名工坊窗口。`);
+    console.error(`  关掉那个窗口（或任务管理器里结束 node.exe）再启动。\n`);
+    process.exit(0);
+  }
+  throw err;
+});
+
 server.listen(PORT, HOST, () => {
   const url = `http://${HOST}:${PORT}/?t=${TOKEN}`;
   console.log(`\n  Mod 命名工坊\n  ${url}\n`);
   console.log(`  数据目录：${BASE}`);
   console.log(`  爬虫状态：${CRAWL_DIR}${existsSync(CRAWL_DIR) ? "" : "（不存在，只能靠文件名猜）"}`);
-  console.log(`  撤销记录：${JOURNAL_DIR}\n`);
+  console.log(`  撤销记录：${JOURNAL_DIR}`);
+  console.log(`\n  用完关掉这个窗口即可（Ctrl+C 或直接关窗）。\n`);
+  if (OPEN_BROWSER) openInBrowser(url);
 });
