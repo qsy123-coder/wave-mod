@@ -576,6 +576,27 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
    */
   const masonryRootRef = useRef<HTMLDivElement | null>(null);
 
+  /**
+   * 瀑布流容器的 ref —— **必须是稳定引用**。
+   *
+   * 内联箭头（`ref={(node) => …}`）每次渲染都是新函数，React 就会在每个 commit 上
+   * 「先用 null 卸载、再用真实节点挂载」，于是 `attachMasonryContainer` 里的
+   * `setMasonryWidth` 每渲染一次就被调用一次。ref 回调发生在 **commit 阶段**，
+   * React 会把这次 setState 当成新一轮更新继续渲染，下一帧 ref 又是新函数……
+   * 嵌套到 50 层就抛 React #185（Maximum update depth exceeded），整页被换成
+   * Next 的默认错误页「This page couldn't load」。
+   *
+   * 2026-11-01 手机端首页就是这样整页挂掉的（桌面端因为容器宽度恒定、且首屏不挂
+   * 瀑布流而没触发）。改成 useCallback 稳定引用后，只有节点真正变化时才会重新挂载。
+   */
+  const setMasonryContainer = useCallback(
+    (node: HTMLDivElement | null) => {
+      attachMasonryContainer(node);
+      masonryRootRef.current = node;
+    },
+    [attachMasonryContainer],
+  );
+
   useEffect(() => {
     if (!isMasonry) return;
     const root = masonryRootRef.current;
@@ -805,8 +826,8 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
           : null;
 
       return (
-        // 内联箭头：每次渲染都重挂一次 ref，顺带重新量宽度（同数据分支的写法）
-        <div ref={(node) => attachMasonryContainer(node)} style={flipStyle}>
+        // 用稳定的 attachMasonryContainer 本身，不要内联箭头（理由见 setMasonryContainer）
+        <div ref={attachMasonryContainer} style={flipStyle}>
           {pendingPack ? (
             <div className="relative" style={{ height: pendingPack.height }}>
               {pendingPack.placements.map((placement, i) => {
@@ -888,13 +909,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
       {isMasonry ? (
         /* 瀑布流：绝对定位摆放 —— 横屏卡要横跨两列，flex 分列做不到。
            没量到容器宽度时退回 flex 分列，见 attachMasonryContainer 的注释。 */
-        <div
-          ref={(node) => {
-            attachMasonryContainer(node);
-            masonryRootRef.current = node;
-          }}
-          style={flipStyle}
-        >
+        <div ref={setMasonryContainer} style={flipStyle}>
           {masonryPack ? (
             <>
               {/* 高度要把占位卡也算进去：它们是 absolute 的，不撑开父元素，
