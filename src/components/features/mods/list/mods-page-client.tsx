@@ -260,7 +260,7 @@ export function ModsPageClient({
         <ModsInfiniteGrid
           sort={sort as ModSort}
           // 这里是主站 `/mods`（导航里的「角色分类」）：整页卡片都是海报版式 ——
-          // 不悬停只露浏览/点赞，悬停淡入标题、下载、收藏，左上角角色标识不显示。
+          // 不悬停只露浏览/点赞，悬停淡入标题、下载、收藏和左上角角色标识。
           posterCards
           character={character}
           gameKey={gameKey}

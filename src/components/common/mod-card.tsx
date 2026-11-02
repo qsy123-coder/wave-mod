@@ -49,8 +49,8 @@ type ModCardProps = {
    * PC 端「海报」式呈现：鼠标没悬停时只露浏览量/点赞量，悬停才淡入标题、
    * 下载按钮、收藏按钮等其余信息（手机/平板没有 hover，保持原样）。
    *
-   * 主站 `/mods`（导航里的「角色分类」）整页都用：调用方同时传
-   * `showMetaBadges={false}`，不悬停时卡片只剩预览图和浏览/点赞计数。
+   * 主站 `/mods`（导航里的「角色分类」）整页都用：不悬停时卡片只剩预览图和
+   * 浏览/点赞计数，左上角角色标识也一起悬停才出现。
    */
   revealOnHover?: boolean;
   metaBadgeTone?: MetaBadgeTone;
@@ -531,7 +531,20 @@ export function ModCard({
           </label>
         </div>
       ) : null}
-      {topLeftContent ? <div className={cn(styles.topLeft, showCheckbox && "left-7", mediaTopLeftClassName)}>{topLeftContent}</div> : null}
+      {topLeftContent ? (
+        <div
+          className={cn(
+            styles.topLeft,
+            showCheckbox && "left-7",
+            // 角色标识也归入「悬停才显示」的那一组（用户 2026-11-02 要求）。
+            // 它是纯展示元素，不需要像下载/收藏那样关掉 pointer-events。
+            revealOnHover && HOVER_REVEAL_CLASS,
+            mediaTopLeftClassName,
+          )}
+        >
+          {topLeftContent}
+        </div>
+      ) : null}
       {topRightContent ? (
         <div
           className={cn(
