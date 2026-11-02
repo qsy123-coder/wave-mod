@@ -67,6 +67,9 @@ function buildSystemPrompt(glossary, characters) {
     "    只翻译描述性词语（颜色、服饰类型、风格，如 Red and Black → 红黑）。",
     "5. 一个条目里有多个角色时，characters 按出现顺序全部列出。",
     "6. 拿不准就把 characters 留空数组，不要猜。",
+    "7. 全英文标题也要处理：角色名换成白名单里的中文标准名（Yangyang → 秧秧），",
+    "   描述性文字翻成中文（Red and Black → 红黑、simplified and minor edit → 简化与微调），",
+    "   只留专有名词原文。标题本身就是一个角色名时，name 留空串即可，不要硬造名字。",
     "",
     "韩语→中文对照（优先使用）：",
     JSON.stringify(dict),
@@ -85,23 +88,40 @@ function buildUserPrompt(items) {
   return `把这些条目整理成规范名，返回 json：\n${JSON.stringify(payload)}`;
 }
 
-/** 把模型给的结果裁到合法范围：角色必须在白名单里，否则整条作废 */
-export function sanitizeResult(raw, whitelist) {
-  if (!raw || typeof raw !== "object") return null;
+/**
+ * 模型给的一条结果 → 可落地部分 + 不可用原因。
+ *
+ * 允许「单边」结果：全英文标题常常只有一个角色名（`Shen QingXiao`），
+ * 模型认出了角色却给不出名称 —— 这半边仍然值钱，填进表单让用户补名称即可。
+ * 唯一硬底线是角色白名单：出现库外角色整条作废（前台会凭空多一个分类）。
+ */
+export function inspectResult(raw, whitelist) {
+  if (!raw || typeof raw !== "object") return { result: null, reason: "模型返回的条目不是对象" };
   const characters = Array.isArray(raw.characters)
     ? [...new Set(raw.characters.map((c) => String(c).trim()).filter(Boolean))]
     : [];
   const bad = characters.filter((c) => !whitelist.has(c));
-  if (bad.length) return null; // 只要有一个不在库里，这条就不能用
-  const name = String(raw.name ?? "").trim();
-  if (!characters.length || !name) return null;
-  if (HANGUL.test(name)) return null; // 要求翻译却照抄韩文 ⇒ 当失败，别让它假装补好了
+  if (bad.length) return { result: null, reason: `角色「${bad.join("、")}」不在库内清单` };
+
+  let name = String(raw.name ?? "").trim();
+  if (HANGUL.test(name)) name = ""; // 要求翻译却照抄韩文 ⇒ 名称不可用，但角色仍然保留
+  if (!characters.length && !name) {
+    return { result: null, reason: "模型没认出库内角色，也没给出名称" };
+  }
   return {
-    characters,
-    name,
-    hotkeys: String(raw.hotkeys ?? "").trim(),
-    author: String(raw.author ?? "").trim(),
+    result: {
+      characters,
+      name,
+      hotkeys: String(raw.hotkeys ?? "").trim(),
+      author: String(raw.author ?? "").trim(),
+    },
+    reason: "",
   };
+}
+
+/** 兼容旧调用：只要结果，不要原因 */
+export function sanitizeResult(raw, whitelist) {
+  return inspectResult(raw, whitelist).result;
 }
 
 /**
@@ -164,8 +184,19 @@ export async function suggestWithModel({ items, glossary, knownCharacters, confi
       const list = Array.isArray(parsed?.results) ? parsed.results : [];
       batch.forEach((it, idx) => {
         const hit = list.find((r) => r?.key === it.name) ?? list[idx];
-        const clean = sanitizeResult(hit, whitelist);
-        if (clean) results[it.name] = clean;
+        if (!hit) {
+          errors.push(`${it.name}：模型没有返回这一条`);
+          return;
+        }
+        const { result, reason } = inspectResult(hit, whitelist);
+        if (!result) {
+          errors.push(`${it.name}：${reason}`);
+        } else if (!result.characters.length && result.name === it.base) {
+          // 没角色、名字也原样抄回（`WWGF_PACK 1`）—— 等于什么都没补，别假装成功
+          errors.push(`${it.name}：模型没认出库内角色`);
+        } else {
+          results[it.name] = result;
+        }
       });
     } catch (err) {
       const msg = err?.name === "AbortError" ? `模型超时（>${config.timeoutMs}ms）` : String(err?.message ?? err);

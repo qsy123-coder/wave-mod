@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { aiConfig, needsAi, sanitizeResult, suggestWithModel } from "./ai.mjs";
+import { aiConfig, inspectResult, needsAi, sanitizeResult, suggestWithModel } from "./ai.mjs";
 
 const glossary = { characters: { 금희: "今汐" }, words: { 팬스좌: "粉丝福利" }, categories: {} };
 const known = new Set(["今汐", "吟霖", "锁暝"]);
@@ -105,11 +105,24 @@ describe("suggestWithModel", () => {
 });
 
 describe("辅助", () => {
-  it("sanitizeResult 拒空角色/空名称/非白名单", () => {
-    expect(sanitizeResult({ characters: [], name: "x" }, known)).toBeNull();
-    expect(sanitizeResult({ characters: ["今汐"], name: "" }, known)).toBeNull();
+  it("sanitizeResult 拒全空/非白名单，但单边结果照样落地", () => {
+    expect(sanitizeResult({ characters: [], name: "" }, known)).toBeNull();
     expect(sanitizeResult({ characters: ["今汐", "路人甲"], name: "x" }, known)).toBeNull();
+    // 全英文标题常常只给得出角色（`Shen QingXiao` → 清宵，名称空）：
+    // 角色这半边必须留下，否则用户看到的就是「AI 什么都没做」
+    expect(sanitizeResult({ characters: ["今汐"], name: "" }, known)).toEqual({
+      characters: ["今汐"],
+      name: "",
+      hotkeys: "",
+      author: "",
+    });
+    expect(sanitizeResult({ characters: [], name: "红黑" }, known)).toMatchObject({ characters: [], name: "红黑" });
     expect(sanitizeResult({ characters: ["今汐"], name: "x" }, known)).toMatchObject({ characters: ["今汐"], name: "x" });
+  });
+
+  it("inspectResult 说出每条失败的原因，而不是静默丢弃", () => {
+    expect(inspectResult({ characters: ["卡梅莉亚"], name: "x" }, known).reason).toMatch(/不在库内清单/);
+    expect(inspectResult({ characters: [], name: "" }, known).reason).toMatch(/没认出/);
   });
 
   it("needsAi：认不出角色 / 残留韩文 / 整段英文 都要问", () => {
@@ -124,8 +137,59 @@ describe("辅助", () => {
     expect(needsAi({ characters: ["锁暝"], name: "特效颜色更改", confidence: "high" })).toBe(false);
   });
 
-  it("sanitizeResult 拒绝把韩文原样抄回来", () => {
-    expect(sanitizeResult({ characters: ["心月狐"], name: "의 별자리" }, known)).toBeNull();
+  it("sanitizeResult 不采用照抄回来的韩文名称（角色仍保留）", () => {
+    expect(sanitizeResult({ characters: ["今汐"], name: "의 별자리" }, known)).toMatchObject({
+      characters: ["今汐"],
+      name: "",
+    });
+    expect(sanitizeResult({ characters: [], name: "의 별자리" }, known)).toBeNull();
+  });
+
+  it("没角色、名称原样抄回时算失败（不假装补好了）", async () => {
+    const f = fakeFetch({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              results: [{ key: "WWGF_PACK 1", characters: [], name: "WWGF_PACK 1" }],
+            }),
+          },
+        },
+      ],
+    });
+    const res = await suggestWithModel({
+      items: [{ name: "WWGF_PACK 1", base: "WWGF_PACK 1", meta: null }],
+      glossary,
+      knownCharacters: known,
+      config: { key: "k", timeoutMs: 1000 },
+      fetchImpl: f,
+    });
+    expect(res.results).toEqual({});
+    expect(res.errors.join()).toContain("没认出库内角色");
+  });
+
+  it("模型漏返回某条时，错误里点名该条", async () => {
+    const f = fakeFetch({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              results: [{ key: "x.zip", characters: ["今汐"], name: "粉丝福利" }],
+            }),
+          },
+        },
+      ],
+    });
+    const two = [...items, { name: "y.zip", base: "Suoming Red and Black", meta: null }];
+    const res = await suggestWithModel({
+      items: two,
+      glossary,
+      knownCharacters: known,
+      config: { key: "k", baseUrl: "https://api.deepseek.com", model: "deepseek-chat", timeoutMs: 1000 },
+      fetchImpl: f,
+    });
+    expect(res.results["x.zip"]).toBeTruthy();
+    expect(res.errors.join()).toContain("y.zip");
   });
 
   it("aiConfig 读环境变量并给默认值", () => {

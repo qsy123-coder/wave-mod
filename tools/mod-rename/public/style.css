@@ -138,7 +138,8 @@ main { padding: 14px 20px 90px; display: flex; flex-direction: column; gap: 22px
   letter-spacing: 0.04em;
 }
 .source h2 .count { color: var(--lavender); font-weight: 400; font-size: 12px; }
-.source h2 .btn-ai { margin-left: auto; font-size: 12px; padding: 3px 10px; }
+.source h2 .ai-slot { margin-left: auto; display: inline-flex; align-items: center; }
+.source h2 .btn-ai { font-size: 12px; padding: 3px 10px; }
 
 .rows { display: flex; flex-direction: column; gap: 10px; }
 

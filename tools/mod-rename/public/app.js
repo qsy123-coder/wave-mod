@@ -19,6 +19,16 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+/**
+ * 渲染缓存：plan 刷新只更新「结果/校验」这些派生节点，**绝不重建输入框**。
+ * 之前每次 400ms 去抖后都 replaceChildren 整个列表，正在打字的光标会跟着输入框一起消失 ——
+ * 角色认不出来、需要手输的时候尤其打断人。
+ */
+let layoutKey = "";
+const rowViews = new Map(); // 条目名 -> { update() }
+const sectionViews = new Map(); // 来源名 -> { update() }
+let planSeq = 0;
+
 async function api(path, { method = "GET", body, timeoutMs = 30_000 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -94,6 +104,8 @@ async function loadGlossary() {
   try {
     const data = await api("/api/glossary");
     state.characters = data.characters ?? [];
+    // 角色清单晚于首次扫描返回：立刻刷一次下拉候选，否则要等下次输入才生效
+    render();
     if (data.dbError) banner(data.dbError + "（角色未校验，需先修好 psql / DATABASE_URL）");
   } catch (err) {
     banner(String(err.message));
@@ -107,6 +119,7 @@ async function loadScan() {
   state.plan = {};
   state.selected = new Set();
   state.touched = new Set();
+  layoutKey = ""; // 重新扫描后条目对象全换了：强制重建，别复用旧行
   render();
   await refreshPlan();
 }
@@ -120,6 +133,9 @@ function schedulePlan() {
 
 async function refreshPlan() {
   banner("");
+  // 过期的响应不能再盖掉用户刚敲进去的字：每次请求编号，只有最后一次生效
+  const seq = ++planSeq;
+  const dir = state.dir;
   const rows = state.sources.flatMap((s) =>
     s.items.map((item) => {
       const s0 = state.suggestion[item.name] ?? {};
@@ -138,6 +154,7 @@ async function refreshPlan() {
   );
   try {
     const data = await api("/api/plan", { method: "POST", body: { dir: state.dir, rows } });
+    if (seq !== planSeq || dir !== state.dir) return; // 过期计划，丢弃
     state.plan = {};
     for (const src of data.sources) for (const row of src.rows) state.plan[row.from] = row;
     if (data.knownError) banner(data.knownError + "（角色未校验）");
@@ -158,12 +175,33 @@ async function refreshPlan() {
 function render() {
   // 角色下拉的候选来自库内 distinct —— 这是唯一合法的角色来源
   const datalist = $("char-list");
-  if (datalist.options.length !== state.characters.length) {
+  const charKey = state.characters.join("\u0000");
+  if (datalist.dataset.key !== charKey) {
+    datalist.dataset.key = charKey;
     datalist.replaceChildren(...state.characters.map((c) => el("option", { value: c })));
   }
   const root = $("sources");
-  root.replaceChildren(...state.sources.map(renderSource));
+  const key = state.sources
+    .map((s) => `${s.name}\u0000${s.items.map((i) => i.name).join("\u0001")}`)
+    .join("\u0002");
+  if (key !== layoutKey) {
+    // 条目集合真的变了（切日期 / 改名后重扫）才重建
+    layoutKey = key;
+    rowViews.clear();
+    sectionViews.clear();
+    root.replaceChildren(...state.sources.map(renderSource));
+  } else {
+    // 只是 plan 刷新：就地更新派生节点，不动输入框（见文件头 layoutKey 的注释）
+    for (const view of sectionViews.values()) view.update();
+    for (const view of rowViews.values()) view.update();
+  }
   renderFooter();
+}
+
+/** 正在输入的框不覆盖 —— AI 结果/计划刷新回来时不能抢走光标 */
+function setInputValue(input, value) {
+  if (document.activeElement === input) return;
+  if (input.value !== value) input.value = value;
 }
 
 /** 「要不要 AI」以服务端算出来的为准（lib/ai.mjs 的 needsAi），页面不再重复一套规则 */
@@ -174,45 +212,58 @@ function needsAiFor(name) {
 }
 
 function renderSource(src) {
-  const applicable = src.items.filter((i) => state.plan[i.name]?.applicable).length;
-  const pending = src.items.filter((i) => needsAiFor(i.name));
-  // 0 条时不留一个灰按钮（看着像功能没了），直接说明「不用补」
-  const aiBtn = state.aiRunning
-    ? el("button", { class: "ghost btn-ai", text: "补全中…", disabled: "disabled" })
-    : !state.ai.configured
-      ? el("button", {
-        class: "ghost btn-ai",
-        text: "AI 未配置",
-        disabled: "disabled",
-        title: "在 .env.local 写 DEEPSEEK_API_KEY，然后重开本工具",
-      })
-    : pending.length
-      ? el("button", {
-          class: "ghost btn-ai",
-          text: `AI 补全 ${pending.length}`,
-          title: `用 ${state.ai.model} 补全这 ${pending.length} 条（词表没搞定的）`,
-          onclick: () => runAi(src.name, pending.map((i) => i.name)),
-        })
-      : el("span", { class: "count", text: "全部已识别，无需 AI" });
-  const head = el("h2", {}, [
-    el("span", { text: src.name }),
-    el("span", { class: "count", text: `${src.items.length} 条 · 可应用 ${applicable}` }),
-    aiBtn,
-  ]);
+  const count = el("span", { class: "count" });
+  const aiSlot = el("span", { class: "ai-slot" });
+  const head = el("h2", {}, [el("span", { text: src.name }), count, aiSlot]);
   const rows = el("div", { class: "rows" }, src.items.map(renderRow));
-  return el("section", { class: "source" }, [head, rows]);
+  const section = el("section", { class: "source" }, [head, rows]);
+  const view = { src, count, aiSlot, update: () => updateSection(view) };
+  sectionViews.set(src.name, view);
+  updateSection(view);
+  return section;
+}
+
+function updateSection(view) {
+  const { src } = view;
+  const applicable = src.items.filter((i) => state.plan[i.name]?.applicable).length;
+  view.count.textContent = `${src.items.length} 条 · 可应用 ${applicable}`;
+  view.aiSlot.replaceChildren(aiButton(src));
+}
+
+function aiButton(src) {
+  const pending = src.items.filter((i) => needsAiFor(i.name));
+  if (state.aiRunning) return el("button", { class: "ghost btn-ai", text: "补全中…", disabled: "disabled" });
+  if (!state.ai.configured) {
+    return el("button", {
+      class: "ghost btn-ai",
+      text: "AI 未配置",
+      disabled: "disabled",
+      title: "在 .env.local 写 DEEPSEEK_API_KEY，然后重开本工具",
+    });
+  }
+  // 0 条时不留一个灰按钮（看着像功能没了），直接说明「不用补」
+  return pending.length
+    ? el("button", {
+        class: "ghost btn-ai",
+        text: `AI 补全 ${pending.length}`,
+        title: `用 ${state.ai.model} 补全这 ${pending.length} 条（词表没搞定的）`,
+        onclick: () => runAi(src.name, pending.map((i) => i.name)),
+      })
+    : el("span", { class: "count", text: "全部已识别，无需 AI" });
+}
+
+/** 用户改了某个字段：写回 state，稍后再让服务端重算计划 */
+function patchSuggestion(name, patch) {
+  const s = state.suggestion[name] ?? {};
+  Object.assign(s, patch);
+  state.suggestion[name] = s;
+  state.touched.add(name);
+  schedulePlan();
 }
 
 function renderRow(item) {
-  const s = state.suggestion[item.name] ?? {};
-  const plan = state.plan[item.name];
-  const checked = state.selected.has(item.name);
-  const blocked = plan && !plan.applicable;
-
   const checkbox = el("input", {
     type: "checkbox",
-    checked: checked ? "checked" : undefined,
-    disabled: blocked ? "disabled" : undefined,
     onchange: (e) => {
       state.touched.add(item.name);
       if (e.target.checked) state.selected.add(item.name);
@@ -238,99 +289,94 @@ function renderRow(item) {
 
   const charInput = el("input", {
     type: "text",
-    value: (s.characters ?? []).join(","),
     list: "char-list",
     placeholder: "角色",
-    oninput: (e) => {
-      state.touched.add(item.name);
-      s.characters = e.target.value.split(/[,，、]/).map((x) => x.trim()).filter(Boolean);
-      state.suggestion[item.name] = s;
-      schedulePlan();
-    },
+    oninput: (e) =>
+      patchSuggestion(item.name, {
+        characters: e.target.value.split(/[,，、]/).map((x) => x.trim()).filter(Boolean),
+      }),
+    // 失焦时才把 state 里的值同步回输入框（AI 结果在输入中不会抢字）
+    onblur: () => updateRow(view),
   });
 
   const nameInput = el("input", {
     type: "text",
-    value: s.name ?? "",
     placeholder: "名称",
-    oninput: (e) => {
-      state.touched.add(item.name);
-      s.name = e.target.value;
-      state.suggestion[item.name] = s;
-      schedulePlan();
-    },
+    oninput: (e) => patchSuggestion(item.name, { name: e.target.value }),
+    onblur: () => updateRow(view),
   });
 
   const hotkeyInput = el("input", {
     type: "text",
-    value: s.hotkeys ?? "",
     placeholder: "切换键",
-    oninput: (e) => {
-      state.touched.add(item.name);
-      s.hotkeys = e.target.value;
-      state.suggestion[item.name] = s;
-      schedulePlan();
-    },
+    oninput: (e) => patchSuggestion(item.name, { hotkeys: e.target.value }),
+    onblur: () => updateRow(view),
   });
 
   const authorInput = el("input", {
     type: "text",
-    value: s.author ?? "",
     placeholder: "作者",
-    oninput: (e) => {
-      state.touched.add(item.name);
-      s.author = e.target.value;
-      state.suggestion[item.name] = s;
-      schedulePlan();
-    },
+    oninput: (e) => patchSuggestion(item.name, { author: e.target.value }),
+    onblur: () => updateRow(view),
   });
 
-  const issues = el(
-    "ul",
-    { class: "issues" },
-    (plan?.issues ?? []).map((i) => el("li", { class: i.level, text: `${iconFor(i.level)} ${i.message}` }))
-  );
-
-  const extra =
-    item.images?.length > 0
-      ? el("span", { class: "chip", text: `带 ${item.images.length} 张预览图` })
-      : null;
-  const stateChip = plan?.alreadyNamed
-    ? el("span", { class: "chip", text: "已是规范名" })
-    : el("span", {
-        class: plan?.applicable ? "chip ok" : "chip bad",
-        text: plan?.applicable ? `可应用（改 ${plan.changed} 项）` : "不可应用",
-      });
+  const key = el("div", { class: "key" });
+  const chips = el("div", {});
+  const issues = el("ul", { class: "issues" });
 
   const canSplit = item.kind === "mod" && item.ext === ".zip";
   const splitBtn = canSplit
     ? el("button", { class: "btn-split", text: "拆包…", onclick: () => openSplit(state.plan[item.name]) })
     : null;
 
-  const result = el("div", { class: "result" }, [
-    el("div", { class: "key", text: plan?.display || "—" }),
-    el("div", {}, [
-      stateChip,
-      extra,
-      s.viaModel ? el("span", { class: "chip", text: "AI" }) : null,
-      s.confidence === "low" ? el("span", { class: "chip", text: "词表未完全命中" }) : null,
-    ]),
-    issues,
-    splitBtn,
-  ]);
+  const result = el("div", { class: "result" }, [key, chips, issues, splitBtn]);
+  const row = el("div", { class: "row" }, [checkbox, orig, charInput, nameInput, hotkeyInput, authorInput, result]);
 
-  const checkedNow = state.selected.has(item.name);
-  checkbox.checked = checkedNow;
+  const view = {
+    item,
+    refs: { row, checkbox, charInput, nameInput, hotkeyInput, authorInput, key, chips, issues },
+    update: () => updateRow(view),
+  };
+  rowViews.set(item.name, view);
+  updateRow(view);
+  return row;
+}
 
-  return el("div", { class: `row${blocked ? " blocked" : ""}${blocked ? " disabled" : ""}` }, [
-    checkbox,
-    orig,
-    charInput,
-    nameInput,
-    hotkeyInput,
-    authorInput,
-    result,
-  ]);
+/** 只改派生节点与未聚焦的输入框；正在输入的那个框一个字都不碰 */
+function updateRow(view) {
+  const { item, refs } = view;
+  const s = state.suggestion[item.name] ?? {};
+  const plan = state.plan[item.name];
+  const blocked = Boolean(plan && !plan.applicable);
+
+  refs.checkbox.checked = state.selected.has(item.name);
+  refs.checkbox.disabled = blocked;
+  setInputValue(refs.charInput, (s.characters ?? []).join(","));
+  setInputValue(refs.nameInput, s.name ?? "");
+  setInputValue(refs.hotkeyInput, s.hotkeys ?? "");
+  setInputValue(refs.authorInput, s.author ?? "");
+
+  refs.row.className = `row${blocked ? " blocked disabled" : ""}`;
+  refs.key.textContent = plan?.display || "—";
+  refs.chips.replaceChildren(...chipsFor(item, s, plan));
+  refs.issues.replaceChildren(
+    ...(plan?.issues ?? []).map((i) => el("li", { class: i.level, text: `${iconFor(i.level)} ${i.message}` }))
+  );
+}
+
+function chipsFor(item, s, plan) {
+  const chips = [
+    plan?.alreadyNamed
+      ? el("span", { class: "chip", text: "已是规范名" })
+      : el("span", {
+          class: plan?.applicable ? "chip ok" : "chip bad",
+          text: plan?.applicable ? `可应用（改 ${plan.changed} 项）` : "不可应用",
+        }),
+  ];
+  if (item.images?.length > 0) chips.push(el("span", { class: "chip", text: `带 ${item.images.length} 张预览图` }));
+  if (s.viaModel) chips.push(el("span", { class: "chip", text: "AI" }));
+  if (s.confidence === "low") chips.push(el("span", { class: "chip", text: "词表未完全命中" }));
+  return chips;
 }
 
 // ---------------- AI 补全 ----------------
@@ -349,12 +395,14 @@ async function runAi(source, names) {
     });
     let n = 0;
     for (const [name, r] of Object.entries(res.results ?? {})) {
+      const prev = state.suggestion[name] ?? {};
+      // 部分结果也要落地：模型只认出角色、或只翻出名称时，不能把原来那半边擦掉
       state.suggestion[name] = {
-        ...(state.suggestion[name] ?? {}),
-        characters: r.characters,
-        name: r.name,
-        hotkeys: r.hotkeys,
-        author: r.author || state.suggestion[name]?.author || "",
+        ...prev,
+        characters: r.characters?.length ? r.characters : prev.characters ?? [],
+        name: r.name || prev.name || "",
+        hotkeys: r.hotkeys || prev.hotkeys || "",
+        author: r.author || prev.author || "",
         confidence: "high",
         needsAi: false,
         leftover: [],
@@ -365,12 +413,15 @@ async function runAi(source, names) {
     }
     await refreshPlan();
     const secs = ((Date.now() - started) / 1000).toFixed(1);
+    const fails = res.errors ?? [];
+    // 失败逐条报出来：静默丢弃时用户只会以为「AI 什么都没干」
+    const failText = fails.length
+      ? `${fails.length} 条没补上：${fails.slice(0, 5).join("；")}${fails.length > 5 ? "…" : ""}`
+      : "";
     banner(
       n
-        ? `AI 补全 ${n} 条（${res.model}，用时 ${secs}s）—— 只填了表单，确认无误后点右下角「应用已选」才会真正改名${
-            res.errors?.length ? `；${res.errors.length} 条失败：${res.errors.join("；")}` : ""
-          }`
-        : `AI 没有给出可用结果（用时 ${secs}s）：${res.errors?.join("；") || "模型没返回可用条目"}`,
+        ? `AI 补全 ${n} 条（${res.model}，用时 ${secs}s）—— 只填了表单，确认无误后点右下角「应用已选」才会真正改名${failText ? `；${failText}` : ""}`
+        : `AI 没有给出可用结果（用时 ${secs}s）：${failText || "模型没返回可用条目"}`,
       { scroll: true }
     );
   } catch (err) {
