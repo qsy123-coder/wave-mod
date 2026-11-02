@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { aiConfig, inspectResult, needsAi, sanitizeResult, suggestWithModel } from "./ai.mjs";
 
-const glossary = { characters: { 금희: "今汐" }, words: { 팬스좌: "粉丝福利" }, categories: {} };
+const glossary = {
+  characters: { 금희: "今汐" },
+  words: { 팬스좌: "粉丝福利" },
+  categories: {},
+  properNames: { "Ramielle Dan": "蕾米埃尔·丹" },
+};
 const known = new Set(["今汐", "吟霖", "锁暝", "玄翎"]);
 
 function fakeFetch(payload, { status = 200 } = {}) {
@@ -151,7 +156,7 @@ describe("辅助", () => {
         {
           message: {
             content: JSON.stringify({
-              results: [{ key: "x.zip", characters: ["今汐"], name: "SP Ramielle Dan" }],
+              results: [{ key: "x.zip", characters: ["今汐"], name: "SP 蕾米埃尔·丹（ZZZ）" }],
             }),
           },
         },
@@ -165,12 +170,44 @@ describe("辅助", () => {
       fetchImpl: f,
     });
     expect(res.results["x.zip"].characters).toEqual(["玄翎"]);
-    expect(res.results["x.zip"].name).toBe("SP Ramielle Dan");
+    expect(res.results["x.zip"].name).toBe("SP 蕾米埃尔·丹（ZZZ）");
 
     // 提示词里也带上了角色提示，模型不用猜
     const body = f.calls[0].body;
     expect(body.messages[1].content).toContain('"characterHint":"玄翎"');
     expect(body.messages[0].content).toContain("characterHint");
+  });
+
+  it("原文整段英文、模型却把名称照抄回来 → 判失败并点名", async () => {
+    const f = fakeFetch({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              results: [{ key: "y.rar", characters: ["玄翎"], name: "SP Ramielle Dan(ZZZ)" }],
+            }),
+          },
+        },
+      ],
+    });
+    const res = await suggestWithModel({
+      items: [
+        {
+          name: "y.rar",
+          base: "Yangyang SP as Ramielle Dan(ZZZ)",
+          meta: null,
+          characters: ["玄翎"],
+        },
+      ],
+      glossary,
+      knownCharacters: known,
+      config: { key: "k", timeoutMs: 1000 },
+      fetchImpl: f,
+    });
+    expect(res.results).toEqual({});
+    expect(res.errors.join()).toContain("没翻成中文");
+    // 提示词里带上了专有名词译名表
+    expect(f.calls[0].body.messages[0].content).toContain("蕾米埃尔·丹");
   });
 
   it("没角色、名称原样抄回时算失败（不假装补好了）", async () => {

@@ -69,5 +69,14 @@
     "Yinlin": "吟霖",
     "Qingxiao": "清宵"
   },
+  "properNames": {
+    "_note": "英文人名的社区通用译名，只给 AI 提示用（translate 不参与匹配，否则整段英文名会被提前判成「已翻译」而跳过 AI）。译名来源：库内现有标题「玄翎-蕾米埃尔（90)by woju」「男漂-维吉尔」「布兰特-但丁」。",
+    "Ramielle Dan": "蕾米埃尔·丹",
+    "Remielle Dan": "蕾米埃尔·丹",
+    "Ramielle": "蕾米埃尔",
+    "Sol Badguy": "索尔·巴德盖",
+    "Vergil": "维吉尔",
+    "Dante": "但丁"
+  },
   "endfieldMarkers": ["엔드필드", "EFMI", "ENDMIN", "Acrane", "사밍순", "관리자"]
 }

@@ -55,6 +55,7 @@ function buildSystemPrompt(glossary, characters) {
     characters: withoutNotes(glossary.characters),
     words: withoutNotes(glossary.words),
     categories: withoutNotes(glossary.categories),
+    properNames: withoutNotes(glossary.properNames),
   };
   return [
     "你是《鸣潮》Mod 站的内容整理员，把韩语/英文的 Mod 标题整理成站内命名。",
@@ -68,13 +69,14 @@ function buildSystemPrompt(glossary, characters) {
     "2b. name 必须是中文：原文里残留的韩文（例如「의 별자리」）也要翻译，禁止照抄韩文。",
     "3. hotkeys 只填切换键（例如 ctrl+alt、890上下左右、num1~7），没有就空串。",
     "4. author 填作者名；原文没有就空串。",
-    "4b. 专有名词保留原文：武器型号、作品名、人名昵称（如 OTs-14 Groza、Sol Badguy、M4 SOPMOD II、RoverF）不要翻成中文；",
-    "    只翻译描述性词语（颜色、服饰类型、风格，如 Red and Black → 红黑）。",
+    "4b. 英文人名要翻成社区通用中文名，参考 properNames（Ramielle Dan → 蕾米埃尔·丹、Sol Badguy → 索尔·巴德盖、",
+    "    Vergil → 维吉尔、Dante → 但丁）；只有武器型号/编号/缩写（OTs-14 Groza、M4 SOPMOD II、RoverF、ZZZ、DMC）保留原文；",
+    "    颜色、服饰类型、风格等描述性词语也翻成中文（Red and Black → 红黑）。",
     "5. 一个条目里有多个角色时，characters 按出现顺序全部列出。",
     "6. 拿不准就把 characters 留空数组，不要猜。",
-    "7. 全英文标题也要处理：角色名换成白名单里的中文标准名，",
-    "   描述性文字翻成中文（Red and Black → 红黑、simplified and minor edit → 简化与微调），",
-    "   只留专有名词原文。标题本身就是一个角色名时，name 留空串即可，不要硬造名字。",
+    "7. 全英文标题必须翻成中文：角色名换成白名单里的中文标准名，描述性文字和英文人名按 4b 翻译",
+    "    （Red and Black → 红黑、simplified and minor edit → 简化与微调）。只有型号/缩写保留原文。",
+    "    标题本身就是一个角色名时，name 留空串即可，不要硬造名字。",
     "8. 条目里的 characterHint 是来源站分类/词表已经定死的角色：非空时 characters 必须原样使用它，",
     "   尤其不要按标题里的英文角色名去猜（`Yangyang: Xuanling` 的条目是玄翎，不是秧秧）。",
     "",
@@ -199,11 +201,16 @@ export async function suggestWithModel({ items, glossary, knownCharacters, confi
         // 词表/分类已经定死角色时，无论模型返回什么都以词表为准（`Yangyang: Xuanling` → 玄翎）
         const hinted = it.characters?.length ? it.characters : null;
         const { result, reason } = inspectResult(hinted ? { ...hit, characters: hinted } : hit, whitelist);
+        // 原文整段英文时，名称必须真的翻成中文：照抄 `Ramielle Dan` 这种等于没翻
+        const rawName = String(it.base ?? it.name);
+        const mustTranslate = LATIN.test(rawName) && !CJK.test(rawName);
         if (!result) {
           errors.push(`${it.name}：${reason}`);
         } else if (!result.characters.length && result.name === it.base) {
           // 没角色、名字也原样抄回（`WWGF_PACK 1`）—— 等于什么都没补，别假装成功
           errors.push(`${it.name}：模型没认出库内角色`);
+        } else if (mustTranslate && result.name && !CJK.test(result.name)) {
+          errors.push(`${it.name}：名称没翻成中文（${result.name}）`);
         } else {
           results[it.name] = result;
         }
