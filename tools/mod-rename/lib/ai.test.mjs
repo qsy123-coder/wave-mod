@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { aiConfig, inspectResult, needsAi, sanitizeResult, suggestWithModel } from "./ai.mjs";
 
 const glossary = { characters: { 금희: "今汐" }, words: { 팬스좌: "粉丝福利" }, categories: {} };
-const known = new Set(["今汐", "吟霖", "锁暝"]);
+const known = new Set(["今汐", "吟霖", "锁暝", "玄翎"]);
 
 function fakeFetch(payload, { status = 200 } = {}) {
   const calls = [];
@@ -143,6 +143,34 @@ describe("辅助", () => {
       name: "",
     });
     expect(sanitizeResult({ characters: [], name: "의 별자리" }, known)).toBeNull();
+  });
+
+  it("词表已定角色时，模型给的角色一律让位（玄翎 不被改成 秧秧）", async () => {
+    const f = fakeFetch({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              results: [{ key: "x.zip", characters: ["今汐"], name: "SP Ramielle Dan" }],
+            }),
+          },
+        },
+      ],
+    });
+    const res = await suggestWithModel({
+      items: [{ name: "x.zip", base: "Yangyang SP as Ramielle Dan(ZZZ)", meta: null, characters: ["玄翎"] }],
+      glossary,
+      knownCharacters: known,
+      config: { key: "k", timeoutMs: 1000 },
+      fetchImpl: f,
+    });
+    expect(res.results["x.zip"].characters).toEqual(["玄翎"]);
+    expect(res.results["x.zip"].name).toBe("SP Ramielle Dan");
+
+    // 提示词里也带上了角色提示，模型不用猜
+    const body = f.calls[0].body;
+    expect(body.messages[1].content).toContain('"characterHint":"玄翎"');
+    expect(body.messages[0].content).toContain("characterHint");
   });
 
   it("没角色、名称原样抄回时算失败（不假装补好了）", async () => {

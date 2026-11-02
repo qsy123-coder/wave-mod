@@ -36,6 +36,15 @@ describe("translate（韩语 → 站内角色与名称）", () => {
     expect(s.characters).toEqual(["丹瑾"]);
     expect(s.name).toBe("【Merge整合】LongHair + Longyan（長髮+胧嫣）");
   });
+
+  it("GameBanana 复合子分类精确匹配优先于标题里的英文角色名", () => {
+    // 2026-11-01 用户确认：这两条是玄翎，不是秧秧
+    for (const raw of ["Yangyang SP as Ramielle Dan(ZZZ)", "Sol Badguy Yangyang"]) {
+      const s = translate(raw, glossary, { subcategory: "Yangyang: Xuanling" });
+      expect(s.characters).toEqual(["玄翎"]);
+      expect(s.name).toBe(raw.replace(/\(/g, "（").replace(/\)/g, "）"));
+    }
+  });
 });
 
 describe("辅助函数", () => {

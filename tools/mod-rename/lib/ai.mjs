@@ -44,12 +44,17 @@ export function needsAi(suggestion) {
   return false;
 }
 
+/** 去掉 JSON 里 `_note` 这类说明键，别把注释塞进提示词 */
+function withoutNotes(obj) {
+  return Object.fromEntries(Object.entries(obj ?? {}).filter(([k]) => !k.startsWith("_")));
+}
+
 function buildSystemPrompt(glossary, characters) {
   const whitelist = characters.join("、");
   const dict = {
-    characters: glossary.characters ?? {},
-    words: glossary.words ?? {},
-    categories: glossary.categories ?? {},
+    characters: withoutNotes(glossary.characters),
+    words: withoutNotes(glossary.words),
+    categories: withoutNotes(glossary.categories),
   };
   return [
     "你是《鸣潮》Mod 站的内容整理员，把韩语/英文的 Mod 标题整理成站内命名。",
@@ -67,9 +72,11 @@ function buildSystemPrompt(glossary, characters) {
     "    只翻译描述性词语（颜色、服饰类型、风格，如 Red and Black → 红黑）。",
     "5. 一个条目里有多个角色时，characters 按出现顺序全部列出。",
     "6. 拿不准就把 characters 留空数组，不要猜。",
-    "7. 全英文标题也要处理：角色名换成白名单里的中文标准名（Yangyang → 秧秧），",
+    "7. 全英文标题也要处理：角色名换成白名单里的中文标准名，",
     "   描述性文字翻成中文（Red and Black → 红黑、simplified and minor edit → 简化与微调），",
     "   只留专有名词原文。标题本身就是一个角色名时，name 留空串即可，不要硬造名字。",
+    "8. 条目里的 characterHint 是来源站分类/词表已经定死的角色：非空时 characters 必须原样使用它，",
+    "   尤其不要按标题里的英文角色名去猜（`Yangyang: Xuanling` 的条目是玄翎，不是秧秧）。",
     "",
     "韩语→中文对照（优先使用）：",
     JSON.stringify(dict),
@@ -83,6 +90,7 @@ function buildUserPrompt(items) {
       raw: it.base,
       author: it.meta?.author ?? "",
       category: it.meta?.subcategory ?? "",
+      characterHint: (it.characters ?? []).join(","),
     })),
   };
   return `把这些条目整理成规范名，返回 json：\n${JSON.stringify(payload)}`;
@@ -188,7 +196,9 @@ export async function suggestWithModel({ items, glossary, knownCharacters, confi
           errors.push(`${it.name}：模型没有返回这一条`);
           return;
         }
-        const { result, reason } = inspectResult(hit, whitelist);
+        // 词表/分类已经定死角色时，无论模型返回什么都以词表为准（`Yangyang: Xuanling` → 玄翎）
+        const hinted = it.characters?.length ? it.characters : null;
+        const { result, reason } = inspectResult(hinted ? { ...hit, characters: hinted } : hit, whitelist);
         if (!result) {
           errors.push(`${it.name}：${reason}`);
         } else if (!result.characters.length && result.name === it.base) {

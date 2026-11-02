@@ -396,10 +396,11 @@ async function runAi(source, names) {
     let n = 0;
     for (const [name, r] of Object.entries(res.results ?? {})) {
       const prev = state.suggestion[name] ?? {};
-      // 部分结果也要落地：模型只认出角色、或只翻出名称时，不能把原来那半边擦掉
+      // 部分结果也要落地：模型只认出角色、或只翻出名称时，不能把原来那半边擦掉。
+      // 角色以词表/分类为准：已经定出来的（如子分类 `Yangyang: Xuanling` → 玄翎）不让模型改。
       state.suggestion[name] = {
         ...prev,
-        characters: r.characters?.length ? r.characters : prev.characters ?? [],
+        characters: prev.characters?.length ? prev.characters : r.characters ?? [],
         name: r.name || prev.name || "",
         hotkeys: r.hotkeys || prev.hotkeys || "",
         author: r.author || prev.author || "",

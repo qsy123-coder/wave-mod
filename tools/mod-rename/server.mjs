@@ -257,9 +257,11 @@ const server = createServer(async (req, res) => {
       if (!source) throw new Error(`来源目录里没有条目：${sourceName}`);
 
       const wanted = Array.isArray(body.names) && body.names.length ? new Set(body.names) : null;
+      const suggestions = suggestFor(source.items, knownCharacters);
       const items = source.items
-        .filter((it) => (wanted ? wanted.has(it.name) : needsAi(suggestFor([it], knownCharacters)[it.name])))
-        .map((it) => ({ name: it.name, base: it.base, meta: it.meta }));
+        .filter((it) => (wanted ? wanted.has(it.name) : needsAi(suggestions[it.name])))
+        // 词表/分类已经定下的角色一起带上：模型只补名称，别把角色改掉
+        .map((it) => ({ name: it.name, base: it.base, meta: it.meta, characters: suggestions[it.name]?.characters ?? [] }));
 
       if (!items.length) return send(res, 200, { results: {}, errors: [], model: aiConfig().model });
       const { results, errors } = await suggestWithModel({ items, glossary, knownCharacters, config: aiConfig() });
