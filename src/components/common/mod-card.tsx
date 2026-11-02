@@ -49,8 +49,8 @@ type ModCardProps = {
    * PC 端「海报」式呈现：鼠标没悬停时只露浏览量/点赞量，悬停才淡入标题、
    * 下载按钮、收藏按钮等其余信息（手机/平板没有 hover，保持原样）。
    *
-   * 目前只给角色分类列表用 —— 那一页每张卡都是同一个角色，左上角角色标识被
-   * 调用方用 `showMetaBadges={false}` 关掉了，卡片默认只剩预览图和计数。
+   * 主站 `/mods`（导航里的「角色分类」）整页都用：调用方同时传
+   * `showMetaBadges={false}`，不悬停时卡片只剩预览图和浏览/点赞计数。
    */
   revealOnHover?: boolean;
   metaBadgeTone?: MetaBadgeTone;

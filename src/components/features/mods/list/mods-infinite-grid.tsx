@@ -155,6 +155,15 @@ type ModsInfiniteGridProps = {
    * 由 mods-listing-view 协调：收起时立即触发；展开时等面板滑入后才触发。
    */
   layoutShift?: { key: number; delta: number } | null;
+  /**
+   * 卡片「海报」版式（主站 `/mods` 角色分类页，用户 2026-11-02 要求）：
+   * PC 上不悬停只露浏览/点赞，标题、下载、收藏都悬停才淡入；
+   * 同时**不显示**卡片左上角的角色标识（信息已由标题前缀/侧栏给出）。
+   *
+   * 是由页面决定而不是由 `character` 推断：`/mods` 的默认「全部」视图同样要
+   * 这种版式，而手机首页/游戏分站复用的这个网格不要。
+   */
+  posterCards?: boolean;
 };
 
 /** 网格对外汇报的取数状态 */
@@ -170,7 +179,7 @@ export type ModsGridStatus = {
   effectiveColumns: MasonryColumns | null;
 };
 
-export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns, layoutHint = null, layoutShift = null }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns, layoutHint = null, layoutShift = null, posterCards = false }: ModsInfiniteGridProps) {
   // 哨兵节点用 callback ref 存进 state，而不是 useRef。
   //
   // 哨兵是**条件渲染**的（hasNextPage 为假时不渲染），节点会在挂载/卸载之间切换，
@@ -772,10 +781,11 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         onCardClick={onCardClick}
         isLoggedIn={isLoggedIn}
         variant="list"
-        // 角色分类页（用户 2026-11-02）：每张卡都是同一个角色，左上角角色标识是多余的；
-        // PC 上默认只露浏览/点赞，标题、下载、收藏等悬停才淡入。
-        revealOnHover={Boolean(character)}
-        showMetaBadges={!character}
+        // 角色分类页（用户 2026-11-02）：PC 上默认只露浏览/点赞，标题、下载、收藏等
+        // 悬停才淡入；左上角角色标识一并去掉（见 posterCards 的注释）。
+        // 不在 /mods 的网格（游戏分站、手机首页）维持旧口径：带角色筛选才这样。
+        revealOnHover={posterCards || Boolean(character)}
+        showMetaBadges={!posterCards && !character}
         className="bg-[var(--neo-panel)] p-2.5"
         imageAspectClassName={isMasonry ? "auto" : "aspect-[5/6] sm:aspect-[4/5]"}
         imageAspectRatio={aspectRatio}
@@ -800,7 +810,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         mediaTopRightClassName="absolute right-2 top-2"
       />
     ),
-    [gameKey, onCardClick, isLoggedIn, isMasonry, handleImageRatioChange, character],
+    [gameKey, onCardClick, isLoggedIn, isMasonry, handleImageRatioChange, posterCards, character],
   );
 
   /**
