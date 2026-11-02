@@ -45,6 +45,14 @@ type ModCardProps = {
   showInteractionBar?: boolean;
   showTags?: boolean;
   showMetaBadges?: boolean;
+  /**
+   * PC 端「海报」式呈现：鼠标没悬停时只露浏览量/点赞量，悬停才淡入标题、
+   * 下载按钮、收藏按钮等其余信息（手机/平板没有 hover，保持原样）。
+   *
+   * 目前只给角色分类列表用 —— 那一页每张卡都是同一个角色，左上角角色标识被
+   * 调用方用 `showMetaBadges={false}` 关掉了，卡片默认只剩预览图和计数。
+   */
+  revealOnHover?: boolean;
   metaBadgeTone?: MetaBadgeTone;
   extraMetaBadges?: ReactNode;
   mediaTopLeft?: ReactNode;
@@ -102,6 +110,20 @@ const textLimits: Record<ModCardVariant, { title: number; description: number }>
 /** 标题白色实心描边：8 方向 text-shadow 勾边，提升在图片上的可读性 */
 const TITLE_TEXT_OUTLINE =
   "[text-shadow:-1px_-1px_0_#fff,1px_-1px_0_#fff,-1px_1px_0_#fff,1px_1px_0_#fff,-1px_0_0_#fff,1px_0_0_#fff,0_-1px_0_#fff,0_1px_0_#fff]";
+
+/**
+ * 悬停淡入：默认透明，`group-hover/mod-card` 时淡入。
+ *
+ * 用 `@media (hover: hover)` 而不是 `lg:` —— 平板横屏也有 1024px 但没有鼠标，
+ * 按断点隐藏会让标题永远出不来。`group-hover` 的选择器权重更高，能盖过
+ * 媒体查询里的 opacity-0，不依赖 Tailwind 的输出顺序。
+ */
+const HOVER_REVEAL_CLASS =
+  "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:duration-200 group-hover/mod-card:opacity-100";
+
+/** 同上，并额外关掉不可见时的点击（下载/收藏按钮） */
+const HOVER_REVEAL_INTERACTIVE_CLASS =
+  `${HOVER_REVEAL_CLASS} [@media(hover:hover)]:pointer-events-none group-hover/mod-card:pointer-events-auto`;
 
 const variantStyles: Record<
   ModCardVariant,
@@ -189,6 +211,7 @@ export function ModCard({
   showInteractionBar = true,
   showTags = false,
   showMetaBadges = true,
+  revealOnHover = false,
   metaBadgeTone = "default",
   extraMetaBadges,
   mediaTopLeft,
@@ -509,20 +532,34 @@ export function ModCard({
         </div>
       ) : null}
       {topLeftContent ? <div className={cn(styles.topLeft, showCheckbox && "left-7", mediaTopLeftClassName)}>{topLeftContent}</div> : null}
-      {topRightContent ? <div className={cn("z-20 max-sm:hidden", mediaTopRightClassName)}>{topRightContent}</div> : null}
+      {topRightContent ? (
+        <div
+          className={cn(
+            "z-20 max-sm:hidden",
+            revealOnHover && HOVER_REVEAL_INTERACTIVE_CLASS,
+            mediaTopRightClassName,
+          )}
+        >
+          {topRightContent}
+        </div>
+      ) : null}
       {mediaBottomLeft}
 
       {/* 手机端不显示卡片收藏（用户 2026-10-29）：收藏入口只留在详情页 */}
-      <CardFavoriteButton isFavorited={mine.favorited} onToggle={favorite} className="max-md:hidden" />
+      <CardFavoriteButton
+        isFavorited={mine.favorited}
+        onToggle={favorite}
+        className={cn("max-md:hidden", revealOnHover && HOVER_REVEAL_INTERACTIVE_CLASS)}
+      />
 
       <div className={cn(styles.content, contentClassName)}>
         <div className="max-w-sm space-y-1.5">
-          {canUseInnerLinks && linkMode === "split" ? ( 
+          {canUseInnerLinks && linkMode === "split" ? (
             <Link href={resolvedHref} className={styles.titleLinkWrap}>
-              {titleAndDescription}
+              <div className={cn(revealOnHover && HOVER_REVEAL_CLASS)}>{titleAndDescription}</div>
             </Link>
           ) : (
-            titleAndDescription
+            <div className={cn(revealOnHover && HOVER_REVEAL_CLASS)}>{titleAndDescription}</div>
           )}
           {showTags ? null : null}
           {bodyAfterDescription}

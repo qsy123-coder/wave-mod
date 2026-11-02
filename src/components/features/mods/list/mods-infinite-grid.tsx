@@ -772,6 +772,10 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         onCardClick={onCardClick}
         isLoggedIn={isLoggedIn}
         variant="list"
+        // 角色分类页（用户 2026-11-02）：每张卡都是同一个角色，左上角角色标识是多余的；
+        // PC 上默认只露浏览/点赞，标题、下载、收藏等悬停才淡入。
+        revealOnHover={Boolean(character)}
+        showMetaBadges={!character}
         className="bg-[var(--neo-panel)] p-2.5"
         imageAspectClassName={isMasonry ? "auto" : "aspect-[5/6] sm:aspect-[4/5]"}
         imageAspectRatio={aspectRatio}
@@ -796,7 +800,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         mediaTopRightClassName="absolute right-2 top-2"
       />
     ),
-    [gameKey, onCardClick, isLoggedIn, isMasonry, handleImageRatioChange],
+    [gameKey, onCardClick, isLoggedIn, isMasonry, handleImageRatioChange, character],
   );
 
   /**
