@@ -87,11 +87,21 @@ CACHE="$(header x-cache-status)"
 OUT="$(req "$BASE/api/engagement?ids=00000000-0000-4000-8000-000000000000")"
 CACHE="$(header x-cache-status)"
 CC="$(header cache-control)"
-if [[ "$CACHE" == "BYPASS" ]] && [[ "$CC" == *no-store* ]]; then
-  ok "/api/engagement BYPASS + no-store"
-else
-  bad "/api/engagement 必须 BYPASS + no-store（实际 cache=$CACHE cc=$CC）—— 缓存它会串号"
-fi
+# 2026-10-29 起这条走香港本机的 wavemod-edge-api（127.0.0.1:8792），
+# 不再经过 proxy_cache，所以没有 X-Cache-Status 是正常的。
+# 真正要守的底线是：响应声明 no-store，且绝不能出现 HIT/STALE。
+case "$CACHE" in
+  HIT|STALE|UPDATING)
+    bad "/api/engagement 命中了共享缓存（$CACHE）—— 缓存它会串号"
+    ;;
+  *)
+    if [[ "$CC" == *no-store* ]]; then
+      ok "/api/engagement 不缓存 + no-store（cache=${CACHE:-无}）"
+    else
+      bad "/api/engagement 缺 no-store（cache=${CACHE:-无} cc=$CC）"
+    fi
+    ;;
+esac
 
 echo
 echo "[静态资源]"
