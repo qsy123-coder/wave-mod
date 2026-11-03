@@ -224,7 +224,10 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
     // 没有种子（= 筛选条件非默认）时**不能**给 initialData，否则网格会以为第一页
     // 已经拿到了。见 Props 里 initialMods 的注释。
     initialData: staticSeed ? { pageParams: [1], pages: [staticSeed] } : undefined,
-    // 与 /api/mods 的 s-maxage=300 对齐：同一个筛选在 5 分钟内来回切不再重复请求。
+    // 5 分钟：同一个筛选来回切时客户端不重复请求。这里刻意**短于**服务端
+    // /api/mods 浏览型的 s-maxage（2026-11-03 起是 1800 秒）—— 超时后重发的请求
+    // 会落在香港反代那层 6 小时的 proxy_cache 上，回到函数的概率很低，
+    // 所以缩短客户端 TTL 换来的新鲜度几乎是免费的。
     // 种子（服务端预渲染的那一页）也因此不会一挂载就立刻被重拉一遍。
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,

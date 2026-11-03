@@ -8,12 +8,22 @@ type PageProps = {
 };
 
 /**
- * 与 `/mods` 取同一个 TTL（同样会被兜底快照缓存的 3600 压低，见 mods/page.tsx 的说明）。
+ * 12 小时（2026-11-03 从 6 小时上调），与 `public.ts` 的 `CACHE_REVALIDATE_SECONDS`
+ * 取齐 —— 那个常量是这条路由 effective revalidate 的**上限**，写比它大的值不会生效。
+ *
+ * 这个路由的 HTML 里**没有该 mod 的内容** —— 它渲染的是列表页外壳 + 一个客户端
+ * 才填充的详情抽屉（见下面 generateMetadata 的说明）。所以 TTL 拉长不会让
+ * 「刚上传的 mod 详情页」变旧：真正的内容由客户端经 `/api/mods` 取，那条链路由
+ * `revalidatePublicModCaches()` 和香港反代的 `purge-hk-api-cache.mjs` 主动清。
+ *
+ * 为什么上调：ISR 写入同样计入 Fluid Active CPU。2026-11-03 的用量页显示当月
+ * 51K 次 ISR 写入 —— 按 300–500ms/次估算约 4 小时 CPU，接近 8h40m 总额的一半。
+ * 每个详情页每 6 小时到期一次纯属浪费。
  *
  * 这里不写 `generateStaticParams`：5292 条全部预渲染既没必要（爬虫已被
  * `noindex` 挡住）也不值得，交给按需渲染 + 缓存即可，所以 `dynamicParams` 保持 true。
  */
-export const revalidate = 21600;
+export const revalidate = 43200;
 export const dynamicParams = true;
 
 /**

@@ -136,14 +136,14 @@ describe("GET /api/mods —— 入参钳制", () => {
 });
 
 describe("GET /api/mods —— 缓存头", () => {
-  it("浏览型请求：public + s-maxage=300 + stale-while-revalidate", async () => {
+  it("浏览型请求：public + s-maxage=1800 + stale-while-revalidate", async () => {
     const response = await GET(request("page=1&pageSize=16&sort=hot"));
     expect(response.headers.get("Cache-Control")).toBe(
-      "public, s-maxage=300, stale-while-revalidate=3600",
+      "public, s-maxage=1800, stale-while-revalidate=3600",
     );
   });
 
-  // 搜索词是长尾随机的，跟浏览型请求共用 300 秒会把缓存撑爆。
+  // 搜索词是长尾随机的，跟浏览型请求共用 30 分钟会把缓存撑爆。
   it("带 query 的请求：TTL 缩到 60 秒", async () => {
     const response = await GET(request("query=abc"));
     expect(response.headers.get("Cache-Control")).toBe(

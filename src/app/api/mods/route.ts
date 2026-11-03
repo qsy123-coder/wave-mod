@@ -69,13 +69,18 @@ export async function GET(request: NextRequest) {
    * no-store）的区别 —— 两者不要互相抄。
    *
    * 带 `query=` 的请求给更短的 TTL：搜索词是长尾且随机的，让它跟浏览型请求共用
-   * 300 秒会把缓存撑爆，而且搜索结果变化的敏感度更高。
+   * 30 分钟会把缓存撑爆，而且搜索结果变化的敏感度更高。
    *
-   * 注意：站点目前跑在自托管的灰云域名上，没有 CDN 会读 `s-maxage`
-   * （见 CLAUDE.md 与实施计划里的「线上验证口径」）。这行头是写给
-   * 「将来前面挡一层 nginx proxy_cache / CF」的，本身无副作用。
+   * 浏览型 300 → 1800（2026-11-03）：真正扛流量的是香港反代那一层
+   * （deploy/hk-proxy/nginx/wavemod-proxy.conf.template 的 `location = /api/mods`，
+   * 已经缓存 6 小时），这里只是**绕过反代直连 Vercel** 时的兜底。放到 30 分钟
+   * 不会让计数更旧 —— 应用层的结果缓存（public.ts 的 CACHE_REVALIDATE_SECONDS）
+   * 本来就是 6 小时，这一层之前反而比它短得多。
+   *
+   * 站点跑在灰云域名上，浏览器不认 `s-maxage`（那是给共享缓存看的），
+   * 所以这里只影响中间缓存，不影响任何访客看到的数据新鲜度。
    */
-  const maxAge = query ? 60 : 300;
+  const maxAge = query ? 60 : 1800;
   const cacheControl = `public, s-maxage=${maxAge}, stale-while-revalidate=3600`;
 
   return NextResponse.json(result, {

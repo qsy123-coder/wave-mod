@@ -45,10 +45,22 @@ export const MOD_FETCH_BATCH_SIZE = 500;
  *
  * 用户互动（点赞 / 收藏 / 评分 / 评论）刻意**不**走那条路：它们只改单个 mod
  * 的计数、不改列表成员，为此清掉整张表的分片缓存是纯浪费。代价是列表卡片上的
- * 计数最多滞后一个 TTL（现在就是 6 小时；详情页不受影响），
- * 详见 revalidateModEngagementCaches。
+ * 计数最多滞后一个 TTL（现在就是 12 小时；详情页的抽屉走 /api/mods/[id]，
+ * 是实时的，不受影响），详见 revalidateModEngagementCaches。
+ *
+ * ── 2026-11-03：6 小时 → 12 小时 ────────────────────────────────────────
+ *
+ * 库已经迁到自建 Postgres，这条常量不再受 Supabase 出口配额约束，现在它卡住的
+ * 是**函数 CPU**。ISR 重建同样计入 Fluid Active CPU，而当月额度是 4h（临时加成
+ * 后 12h），实测已用 8h40m。
+ *
+ * ⚠️ 想改 `/mods`、`/mods/<id>` 的缓存时长，**必须动这里**：Next 的 effective
+ * revalidate 取「页面自己的 `export const revalidate`」与渲染路径上所有缓存读的
+ * TTL 的**最小值**。只把页面上的值调大是无效的 —— 构建后
+ * `.next/prerender-manifest.json` 里 `/mods` 的 `initialRevalidateSeconds`
+ * 仍然是这条常量的旧值，可以直接验证。
  */
-const CACHE_REVALIDATE_SECONDS = 21600;
+const CACHE_REVALIDATE_SECONDS = 43200;
 
 /**
  * 分片缓存「已发布 mod 的领域对象」（即 mapMod 之后的结果）。
