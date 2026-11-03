@@ -8,24 +8,16 @@ import { logger } from "@/lib/logger";
 import { readEngagement } from "@/lib/engagement/store";
 import { modCacheTags } from "@/lib/mod-cache";
 import { mapMod, publicModColumns, publicModDetailColumns } from "@/lib/mods-domain/mappers";
+import {
+  MODS_PAYLOAD_MAX_CHARS,
+  decodeModsPayload,
+  encodeModsPayload,
+} from "@/lib/mods-domain/mods-payload-codec";
 import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
 import { normalizeModsPageArgs } from "@/lib/mods-domain/filter-params";
 import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, rankModsByQuery, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
 import { queryOne, queryRows } from "@/lib/db/query";
 import type { ModRow, ModsPage, ModSort, PublicModsFilters, SiteMod } from "@/lib/mods-domain/types";
-
-/**
- * 单批拉取行数。
- *
- * 取 500 而非 1000，是为了让每条缓存项序列化后稳定低于 Next.js Data Cache 的
- * 2MB 单项上限（1000 行 ≈ 1.2MB，贴得太近；500 行 ≈ 0.6MB，留出安全余量）。
- * 超过上限时 Next 会静默跳过写入（dev 模式直接抛错），缓存等于没做。
- *
- * 缓存内容在 2026-09-23 从「原始行」改成了「mapMod 之后的领域对象」，体积放大
- * 1.30x：实测 500 行映射后约 518KB，占上限 25%。改这个常量前先跑
- * shard-size.test.ts，它会按新值重新量并卡住超限的情况。
- */
-export const MOD_FETCH_BATCH_SIZE = 500;
 
 /**
  * 公开读缓存的 TTL（秒）。
@@ -44,7 +36,7 @@ export const MOD_FETCH_BATCH_SIZE = 500;
  * 否则那条路上的新内容要等满一个 TTL 才露面。
  *
  * 用户互动（点赞 / 收藏 / 评分 / 评论）刻意**不**走那条路：它们只改单个 mod
- * 的计数、不改列表成员，为此清掉整张表的分片缓存是纯浪费。代价是列表卡片上的
+ * 的计数、不改列表成员，为此清掉整张表的缓存是纯浪费。代价是列表卡片上的
  * 计数最多滞后一个 TTL（现在就是 12 小时；详情页的抽屉走 /api/mods/[id]，
  * 是实时的，不受影响），详见 revalidateModEngagementCaches。
  *
@@ -63,110 +55,94 @@ export const MOD_FETCH_BATCH_SIZE = 500;
 const CACHE_REVALIDATE_SECONDS = 43200;
 
 /**
- * 分片缓存「已发布 mod 的领域对象」（即 mapMod 之后的结果）。
+ * 整表「已发布 mod 的领域对象」—— **一条**缓存项，内容是 gzip 后的 base64 字符串。
  *
- * 背景：/api/mods 每翻一页、以及 /mods 每次渲染，都会走 getPublicMods 把整张表
- * （当前 5292 行）拉一遍，再在内存里 filter/sort，最后只切出 16 条。
+ * ── 为什么不再分片（2026-11-03）──────────────────────────────────────────
  *
- * 2026-09-23 之前这里缓存的是**原始行**，mapMod 由每个请求各做一遍。全表映射一次
- * 约 0.55s，而请求量是每个访客若干次 —— 累计烧穿了 Vercel 的 Fluid Active CPU
- * 额度（10h14m / 4h）导致整站被暂停。现在把 mapMod 收进缓存，每个 TTL 只映射一次。
+ * 旧实现按 500 行拆成 11 个 `unstable_cache` 条目。当时（还在 Supabase）这么做是因为
+ * 整表放不进 2MB 的单条上限。但分片的代价一直没人量：**每一片都是一次独立的
+ * Data Cache 往返**。
  *
- * 整表结果远超 2MB 上限，不能作为单条缓存项，因此按 MOD_FETCH_BATCH_SIZE 拆成多条。
- * 实测（data/mods-snapshot.json.gz，5292 行）：500 行映射后 JSON ≈ 518KB，
- * 放大倍数 1.30x、约为上限的 1/4 —— 500 这个批量对映射后的对象依然安全。
- * 改动批量前请重跑 src/lib/mods-domain/shard-size.test.ts 复核这个数字：
- * 超过 2MB 时 Next 会**静默跳过写入**，缓存等于没做。
+ * 实测（5609 条，data/mods-snapshot.json.gz）纯计算只要 60–85ms：
+ *   gunzip+parse 36ms / mapMod 8ms / zh-CN 排序 27ms / latest 排序 3ms / 搜索 9–13ms
+ * 而线上 /api/mods 的 P75 是 510ms —— 多出来的 400 多毫秒就在这 11 次往返和
+ * 逐片反序列化上。
  *
- * filter/sort/分页仍由调用方在内存中完成（它们不修改入参，可安全复用缓存对象），
- * 因此角色别名、复合关键词搜索、hot 评分、zh-CN 排序等语义完全不变。
+ * 因此改成**一条压缩 payload + 进程内 memo**（见下面的 modsMemo）：
+ * 每个实例每个 payload 只解码一次，之后命中 memo 只剩 filter/sort。
+ * 语义完全不变 —— 匹配、排序、分页仍是原来那几个纯函数。
+ *
+ * 顺带的好处：`count` 那条缓存项也不需要了（旧实现靠它算分片数），少一次往返，
+ * 也少掉「count 与分片非原子失效导致末尾被截断」这类边角问题。
  */
-const getCachedModShard = unstable_cache(
-  async (gameKey: string, from: number): Promise<SiteMod[]> => {
-    // 与原来的 Supabase `.range(from, from + size - 1)` 等价：LIMIT + OFFSET。
+const getCachedModsPayload = unstable_cache(
+  async (gameKey: string): Promise<string> => {
     // 查询失败直接抛：unstable_cache 不会缓存异常，避免把一次失败固化一整个 TTL。
+    // `order by created_at desc, id`：分页需要一个稳定顺序，created_at 会撞值。
     const rows = await queryRows<ModRow>(
       `select ${publicModColumns}
          from public.mods
         where is_published = true
           and game_key = $1
-        order by created_at desc
-        limit $2 offset $3`,
-      [gameKey, MOD_FETCH_BATCH_SIZE, from],
-    );
-
-    return rows.map(mapMod);
-  },
-  // key 必须与改造前的 ["public-mods-batch"] 不同：两者返回的**形状不一样**
-  // （原始行 vs 领域对象）。复用同一个 key 会让新代码从旧缓存条目里读出原始行，
-  // 表现为字段全 undefined 的静默脏数据，而不是报错。
-  ["public-mods-shard-mapped"],
-  { revalidate: CACHE_REVALIDATE_SECONDS, tags: [modCacheTags.list] },
-);
-
-/**
- * 已发布 mod 的总行数，仅用于确定要并发拉几个分片。
- *
- * 用 `head: true` 只取 count 不取行，返回体极小，可安全作为单条缓存项。
- * 与分片缓存同一个 tag，revalidateTag 时一起失效。
- */
-const getCachedPublishedModCount = unstable_cache(
-  async (gameKey: string): Promise<number> => {
-    // count(*) 是 bigint，pg 默认返回字符串；`::int` 让调用方拿到的就是 number。
-    // 同 getCachedModShard：查询失败抛出，避免把一次失败固化一整个 TTL。
-    const row = await queryOne<{ count: number }>(
-      `select count(*)::int as count
-         from public.mods
-        where is_published = true
-          and game_key = $1`,
+        order by created_at desc, id`,
       [gameKey],
     );
 
-    return row?.count ?? 0;
+    const payload = encodeModsPayload(rows.map(mapMod));
+
+    if (payload.length > MODS_PAYLOAD_MAX_CHARS) {
+      // 不抛：内容仍然正确，只是这条写入会被 Data Cache 静默丢掉，
+      // 退化成「每个请求都重新查库 + 编码」。留一行日志，别让它悄悄发生。
+      logger.warn("[mods] 整表 payload 超过 Data Cache 安全上限，写入会被静默跳过", {
+        chars: payload.length,
+        limit: MODS_PAYLOAD_MAX_CHARS,
+        rows: rows.length,
+      });
+    }
+
+    return payload;
   },
-  ["public-mods-count"],
+  // key 必须与改造前的 ["public-mods-shard-mapped"] / ["public-mods-count"] 不同：
+  // 形状变了（对象数组 / 数字 → 压缩字符串）。复用旧 key 会让新代码从旧条目里
+  // 读出对象，解码时直接报错。
+  ["public-mods-payload"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: [modCacheTags.list] },
 );
 
 /**
- * 取回整表**领域对象**：先按总数算出分片数，再并发拉取。
+ * 进程内 memo：同一个实例的后续请求不再付 base64 解码 + gunzip + JSON.parse。
  *
- * 此前是 `for` 循环串行 await 每一片。生产环境 Supabase 在 ap-northeast-2（首尔）
- * 而 Vercel 函数默认在 iad1（美东），单次查询跨洋约 200ms，11 片串行就是 2.2s 起步。
- * 并发后回填耗时从 `分片数 × RTT` 降到约 `1 × RTT`。
+ * key 用 payload 字符串本身（与 snapshot.ts 的 remoteMemo 同一手法）：
+ * 内容一变引用就不相等，`revalidateTag` 之后自然失效，不需要额外的清理钩子。
  *
- * 分片全部命中缓存时不产生任何 Supabase 往返（与改动前一致），
- * 且 mapMod 也一并省掉 —— 这是本次改造的目的，见 getCachedModShard 的注释。
+ * 先比 gameKey：多个分站共用这份 memo，只留最近一次用的那一份就够了
+ * （主站占了绝大多数请求）。
+ */
+let modsMemo: { gameKey: string; payload: string; mods: SiteMod[] } | null = null;
+
+/**
+ * 取回整表**领域对象**：一条 payload，解码一次，之后走进程内 memo。
  */
 async function getAllPublishedMods(gameKey: string, strict = false): Promise<SiteMod[]> {
   try {
-    const total = await getCachedPublishedModCount(gameKey);
-    // 总数为 0 时也拉一片，走统一路径返回空数组
-    const shardCount = Math.max(1, Math.ceil(total / MOD_FETCH_BATCH_SIZE));
+    const payload = await getCachedModsPayload(gameKey);
 
-    const batches = await Promise.all(
-      Array.from({ length: shardCount }, (_, index) => getCachedModShard(gameKey, index * MOD_FETCH_BATCH_SIZE)),
-    );
-
-    // count 与分片是两条独立缓存项，即使同 tag 也不是原子失效，到期时刻可能相差几秒。
-    // 若总数比实际偏小，末尾数据会被截断；满片说明后面可能还有，继续补拉直到出现短片。
-    let from = shardCount * MOD_FETCH_BATCH_SIZE;
-    let lastFetchedFull = batches[batches.length - 1]?.length === MOD_FETCH_BATCH_SIZE;
-    while (lastFetchedFull) {
-      const extra = await getCachedModShard(gameKey, from);
-      batches.push(extra);
-      from += MOD_FETCH_BATCH_SIZE;
-      lastFetchedFull = extra.length === MOD_FETCH_BATCH_SIZE;
+    // 命中 memo 时零解码成本。用 `===` 比字符串（V8 先比长度再 memcmp）而不是哈希：
+    // payload 是内容本身，换了自然不等，不需要额外的失效钩子。
+    if (modsMemo && modsMemo.gameKey === gameKey && modsMemo.payload === payload) {
+      return modsMemo.mods;
     }
 
-    return batches.flat();
+    const mods = decodeModsPayload<SiteMod>(payload);
+    modsMemo = { gameKey, payload, mods };
+    return mods;
   } catch (error) {
     // strict：调用方（列表页缓存）需要知道「这是兜底结果」，否则会把快照固化一整个 TTL。
     // 见 getPublicModsPage 的 catch —— 那边会退回到不缓存的老路径。
     if (strict) throw error;
 
     // Supabase 网关不可用（典型：项目因超配额被 restriction，全站 402）时回退到本地快照。
-    // 故意放在这一层、而不是 getCachedModShard 内部：让失败继续向上抛，
+    // 故意放在这一层、而不是 getCachedModsPayload 内部：让失败继续向上抛，
     // 不被 unstable_cache 把兜底结果固化一整个 TTL —— 网关一恢复就能立刻回到实时数据。
     logger.warn("[mods] Supabase 读取失败，回退到本地快照", {
       error: error instanceof Error ? error.message : "unknown",
@@ -180,7 +156,7 @@ async function getAllPublishedMods(gameKey: string, strict = false): Promise<Sit
  * 已发布 mod 的角色名去重列表。
  *
  * 只取 character 一列，单条缓存项约 0.3MB，稳定低于 2MB 上限，
- * 因此整份结果可以直接作为一条缓存项（无需像 getCachedModShard 那样分片）。
+ * 因此整份结果可以直接作为一条缓存项，不需要压缩。
  */
 const getCachedAvailableCharacters = unstable_cache(
   async (gameKey: string): Promise<string[]> => {
@@ -310,7 +286,7 @@ async function loadPublicMods(
 
   // filter/sort 保持在内存中完成：applyModQueryFilters 用 filter、applyModSort/sortModsByHot
   // 用 slice().sort()，均不修改入参，因此可以安全复用缓存里的领域对象。
-  // mapMod 已在 getCachedModShard 内做过，这里不再重复映射。
+  // mapMod 已在生成 payload 时做过，这里不再重复映射。
   const filtered = applyModQueryFilters(allMods, filters, options);
 
   // hot 与 favorites 这两种排序读的正是 views/likes/favorites 那三个死列（见 withLiveEngagement），
@@ -425,24 +401,26 @@ export function paginateMods(allMods: SiteMod[], page: number, pageSize: number,
 /**
  * ==================== 列表页结果缓存 ====================
  *
- * 分片缓存（getCachedModShard）只省掉了「Supabase 往返 + 整表 mapMod」；
- * **每个请求仍然要付**：11 个分片缓存项的反序列化（≈5.5MB JSON，比它承载的
- * 16 条结果大两个数量级）+ 整表 filter/sort。
+ * 整表缓存（getCachedModsPayload）省掉了「查库 + mapMod + 解码」，但
+ * **每个请求仍然要付**整表 filter/sort（5609 条，实测 10–30ms）。
  *
  * 2026-10-23 线上实测：/api/mods 单次 ≈160ms Active CPU，占全站 53%；
  * 按当时速率外推约 5.5 CPU 小时/月，而 Hobby 的额度只有 4 小时/月
  * （超了不是计费，是项目直接被暂停）。
  *
- * 所以再加一层「整页结果」缓存：命中时只反序列化这一页的 16 条。
+ * 所以再加一层「整页结果」缓存：命中时连 filter/sort 都不用做，直接返回这一页。
  * 香港反代日志同日显示 /api/mods 的请求里 90% 不带搜索词、40% 是 STALE
  * （缓存过期回源），这一层的键空间因此是可控的。
  *
- * 三条边界：
- *   1. **带 query 的请求不进缓存**：搜索词长尾无界，缓存它既撑爆缓存区也没收益。
+ * 四条边界：
+ *   1. **带 query 的请求单独一条短缓存**（60 秒，见 getCachedSearchPage）：
+ *      搜索词长尾无界，只能给很短的 TTL；它命中时省掉的是整表扫描，
+ *      未命中时也和改动前一样走实时路径。
  *   2. **hot / favorites 单独 60 秒**：这两种排序读点赞/收藏的实时计数，
- *      和「列表成员」不是一个变化频率，不能共用 6 小时 TTL。
+ *      和「列表成员」不是一个变化频率，不能共用 12 小时 TTL。
  *   3. **Supabase 失败时不缓存兜底快照**：缓存函数用 strict，失败就抛给
  *      getPublicModsPage，由它退回不缓存的老路径（见下面的 catch）。
+ *   4. **角色名超长的不进缓存**：防匿名请求用超长字符串刷出无数缓存项。
  */
 const LIVE_PAGE_CACHE_SECONDS = 60;
 
@@ -500,6 +478,26 @@ const getCachedLiveModsPage = unstable_cache(
   { revalidate: LIVE_PAGE_CACHE_SECONDS, tags: [modCacheTags.list] },
 );
 
+/**
+ * 搜索结果页的 60 秒缓存。
+ *
+ * 香港反代的日志（2026-11-03）显示 `/api/mods` 的请求里 **73–75% 带 `query=`**，
+ * 而带 query 的请求在**两层**都被绕开：nginx 的 `proxy_cache_bypass $arg_query`
+ * 和应用这边 `cacheable = !filters.query`。于是每次搜索都要走一遍整表扫描 ——
+ * 11-02 那天是 5,109 次搜索，按单次 0.51s 算约 43 分钟 CPU，一天就吃掉月度 4h 额度的 18%。
+ *
+ * 60 秒是刻意的折中：搜索词长尾（11-02 有 2,101 个不同 URL），TTL 长了会把缓存区撑爆；
+ * 而同一个词在几十秒内被重复请求（联想 → 回车 → 刷新）是最常见的重复形态。
+ * 命中时省掉一次整表扫描，未命中时与改动前完全一样。
+ */
+const SEARCH_PAGE_CACHE_SECONDS = 60;
+
+const getCachedSearchPage = unstable_cache(
+  async (args: ModsPageCacheArgs, query: string) => computeModsPage(args, { strict: true }, query),
+  ["public-mods-search-page"],
+  { revalidate: SEARCH_PAGE_CACHE_SECONDS, tags: [modCacheTags.list] },
+);
+
 export async function getPublicModsPage(
   page: number,
   pageSize: number,
@@ -519,10 +517,22 @@ export async function getPublicModsPage(
     sort: filters.sort ?? "default",
   };
 
-  const cacheable = !filters.query && args.character.length <= MAX_CACHED_CHARACTER_LENGTH;
-
-  if (!cacheable) {
+  // 角色名超长的（防缓存轰炸）直接走实时路径，不缓存
+  if (args.character.length > MAX_CACHED_CHARACTER_LENGTH) {
     return computeModsPage(args, options, filters.query);
+  }
+
+  if (filters.query) {
+    try {
+      return await getCachedSearchPage(args, filters.query);
+    } catch (error) {
+      // 与下面浏览型那条一样：读失败时退回实时路径（它会走快照兜底），
+      // 而不是把失败固化一整个 TTL。注意必须把 query 带上，否则会返回未筛选的结果。
+      logger.warn("[mods] 搜索页缓存回填失败，本次走实时路径", {
+        error: error instanceof Error ? error.message : "unknown",
+      });
+      return computeModsPage(args, options, filters.query);
+    }
   }
 
   const readPage =
@@ -543,7 +553,7 @@ export async function getPublicModsPage(
 /**
  * 按 id 批量取 mod，**保持传入顺序**（「我的收藏」要按收藏时间倒序展示）。
  *
- * 走 getAllPublishedMods（快照 + unstable_cache 分片）再在内存里筛：
+ * 走 getAllPublishedMods（整表 payload 缓存，失败回退快照）再在内存里筛：
  * 既不碰 Supabase（网关 402 时它照样能用），也不必为这个低频场景新开一个查询维度。
  * 收藏通常只有几十条，整表扫描的成本可以忽略。
  */
