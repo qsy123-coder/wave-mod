@@ -20,11 +20,26 @@ type PageProps = {
  * 51K 次 ISR 写入 —— 按 300–500ms/次估算约 4 小时 CPU，接近 8h40m 总额的一半。
  * 每个详情页每 6 小时到期一次纯属浪费。
  *
- * 这里不写 `generateStaticParams`：5292 条全部预渲染既没必要（爬虫已被
- * `noindex` 挡住）也不值得，交给按需渲染 + 缓存即可，所以 `dynamicParams` 保持 true。
+ * `dynamicParams` 保持 true：站内 5292 条，谁被访问就生成谁（见下面的
+ * `generateStaticParams`）。
  */
 export const revalidate = 43200;
 export const dynamicParams = true;
+
+/**
+ * 返回空数组，语义是「构建期一个都不预渲染，运行时按需生成并进缓存」。
+ *
+ * 不加这个函数时，Next 会把整条路由判成**纯动态**（构建输出里的 `ƒ`），
+ * 每个请求都重新渲染一遍 —— 2026-11-03 线上实测 `/mods/<id>` 连续两次都是
+ * `X-Vercel-Cache: MISS`、`Age: 0`，`revalidate` 实际没有生效。
+ * 补上之后它才是 ISR：只有冷路径回源，重复访问全走边缘缓存。
+ *
+ * 5292 条全部预渲染既没必要（爬虫已被 `noindex` 挡住）也不值得，
+ * 所以这里返回空数组而不是查库列 id。
+ */
+export async function generateStaticParams(): Promise<Array<{ id: string }>> {
+  return [];
+}
 
 /**
  * 这个 URL 的 HTML 里**没有该资源的内容** —— 它渲染的是默认列表页 + 一个客户端才
