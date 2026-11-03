@@ -12,6 +12,7 @@
  */
 
 import { MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
+import { uniqueById } from "@/lib/mods-domain/merge-pages";
 
 /** 列间距，对应网格的 gap-4 */
 export const MASONRY_GAP = 16;
@@ -318,6 +319,18 @@ export function packMasonry(
     return { placements: [], height: 0, columnWidth: 0 };
   }
 
+  /**
+   * 同一个 id 只排一次。
+   *
+   * 下面收尾那段用 `byId` 按 id 取摆放结果 —— 一旦入参里有重复 id，后一次的摆放会
+   * 覆盖前一次，`ordered` 里两条都指向后一个位置：先出现的那一格**永久空着**，
+   * 卡片还会在同一个位置被渲染两次（React 同 key）。2026-11-03 线上角色分类页的
+   * 大块空白就是这么来的（上游是分页缓存快照不一致，见 merge-pages.ts）。
+   *
+   * 上游（ModsInfiniteGrid）已经去过重；这里再兜一层，打包器不假设调用方做对了。
+   */
+  const uniqueItems = uniqueById(items);
+
   const columnWidth = (containerWidth - (columns - 1) * MASONRY_GAP) / columns;
   // 每列当前的底部纵坐标（最后一张卡下沿 + 间距）
   const bottoms = new Array<number>(columns).fill(0);
@@ -417,7 +430,7 @@ export function packMasonry(
       deferred = 0;
     };
 
-    for (const item of items) {
+    for (const item of uniqueItems) {
       const wide = item.ratio > MASONRY_WIDE_RATIO;
 
       if (!wide) {
@@ -458,7 +471,7 @@ export function packMasonry(
     flushHeld();
   } else if (columns < 2) {
     // 1 列：没有跨列可言，按输入顺序往下堆即可（走暂存反而会让卡片跳到队尾）。
-    for (const item of items) placeSingle(item);
+    for (const item of uniqueItems) placeSingle(item);
   } else {
     /**
      * 3 列及以上：**和 2 列同一套「暂存 → 等齐平 → 放行」机制**（2026-10-30 起）。
@@ -489,7 +502,7 @@ export function packMasonry(
       return Boolean(pair && pair.gap <= MASONRY_HOLE_TOLERANCE);
     };
 
-    for (const item of items) {
+    for (const item of uniqueItems) {
       if (item.ratio <= MASONRY_WIDE_RATIO) {
         placeSingle(item);
         if (held) {
@@ -513,7 +526,7 @@ export function packMasonry(
 
   // 延后会让 placements 的顺序与输入不同；按输入顺序重排，保证输出稳定。
   const byId = new Map(placements.map((placement) => [placement.id, placement]));
-  const ordered = items
+  const ordered = uniqueItems
     .map((item) => byId.get(item.id))
     .filter((placement): placement is MasonryPlacement => Boolean(placement));
 

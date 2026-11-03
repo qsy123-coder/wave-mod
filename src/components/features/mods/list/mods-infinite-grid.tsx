@@ -23,6 +23,7 @@ import { MotionReveal } from "@/components/layout/motion-reveal";
 import { useNavigationLoading } from "@/components/layout/navigation-loading-context";
 import type { ModSort, ModsPage, SiteMod } from "@/lib/mods";
 import { MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
+import { mergePagesById } from "@/lib/mods-domain/merge-pages";
 
 /** SSR 阶段没有 useLayoutEffect；用它同步捕获切换前的宽度，避免被 ResizeObserver 抢先 */
 const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -236,7 +237,12 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
   // 筛选全在服务端做（页面上是 URL 参数、这里只负责跟着翻页），所以这一层不再过滤，
   // 拿到的就是当页真正的结果 —— 计数也就能用服务端的总数。
   // 没有 initialData 时 data 是 undefined，必须兜住。
-  const mods = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data]);
+  //
+  // ⚠️ 合并必须**按 id 去重**：每页一条独立缓存（12h），整表顺序变过时相邻两页会来自
+  // 两份快照 —— 同一张卡出现两次、另一批被跳过。重复 id 在瀑布流里不是「多一张卡」，
+  // 而是丢掉先出现的那次位置、留出一整格空白（2026-11-03 角色分类页的空白）。
+  // 见 merge-pages.ts。
+  const mods = useMemo(() => mergePagesById(data?.pages.map((page) => page.items) ?? []), [data]);
 
   /**
    * 「放宽」是**整次查询**的属性，不是某一页的属性 —— 服务端每次都用同一份筛选

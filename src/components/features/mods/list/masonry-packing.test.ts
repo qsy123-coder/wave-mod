@@ -381,6 +381,22 @@ describe("packMasonry", () => {
     const result = packMasonry(items([PORTRAIT, LANDSCAPE, PORTRAIT]), 4, 900);
     expect(result.placements.map((p) => p.id)).toEqual(ids(3));
   });
+
+  it("重复 id 只排一次：不会把先出现的那次位置吞掉（2026-11-03 线上空白）", () => {
+    // 分页缓存来自两份快照时，同一条 mod 会在相邻两页各出现一次。
+    // 旧实现用 id 做 Map 收尾，后一次的摆放会覆盖前一次 ⇒ 先出现的那格永久空着。
+    const withDuplicate = [
+      { id: "a", ratio: PORTRAIT },
+      { id: "b", ratio: PORTRAIT },
+      { id: "c", ratio: LANDSCAPE },
+      { id: "a", ratio: PORTRAIT },
+      { id: "d", ratio: PORTRAIT },
+    ];
+    const result = packMasonry(withDuplicate, 2, 390);
+
+    expect(result.placements.map((p) => p.id)).toEqual(["a", "b", "c", "d"]);
+    expect(result.placements).toHaveLength(4);
+  });
 });
 
 describe("横屏为主的列表（2026-10-23 绯雪分类）", () => {
