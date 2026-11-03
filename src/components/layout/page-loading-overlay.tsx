@@ -6,9 +6,8 @@ import { pickPageSkeleton } from "@/components/layout/page-skeletons";
 /**
  * 站点级页面导航骨架屏。
  *
- * 顶部导航任意链接点击 → `startPageLoading(href)` → **300ms 后**仍未完成才覆盖内容区
- * 显示骨架（快导航一帧都不闪），目标路由确认后 `stopPageLoading()` → 骨架消失。
- * 延迟见 navigation-loading-context.tsx 的 PAGE_LOADING_SHOW_DELAY_MS。
+ * 顶部导航任意链接点击 → `startPageLoading(href)` → 立即覆盖内容区显示骨架，
+ * 目标路由确认后 `stopPageLoading()` → 骨架消失。
  *
  * **按目标页面选骨架**：`pendingPagePath` 交给 `pickPageSkeleton` 挑一套几何对得上的
  * （图库是暗色沉浸网格、问题解答是可拖拽双栏、每日更新带日期侧栏…）。此前所有页面

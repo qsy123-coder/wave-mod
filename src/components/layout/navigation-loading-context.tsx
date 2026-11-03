@@ -66,17 +66,6 @@ export function useNavigationLoading() {
  */
 const PAGE_LOADING_WATCHDOG_MS = 60_000;
 
-/**
- * 点下导航链接后，先等这么久再盖站点级骨架。
- *
- * 2026-11-03：顶部导航点「首页」时原来会**立刻**盖上整页骨架，哪怕这次导航 100ms
- * 就完成了 —— 用户看到的就是「页面明明已经好了，还要闪一下加载动画」。等 300ms
- * 再盖，快导航一帧不闪；真慢（跨洋 RSC、冷启动）才由骨架接管。
- *
- * 300ms 是「人眼刚能感觉到停顿」的量级：比它快的导航不需要任何占位。
- */
-const PAGE_LOADING_SHOW_DELAY_MS = 300;
-
 export function NavigationLoadingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [pendingCharacter, setPendingCharacter] = useState<string | null>(null);
@@ -140,14 +129,7 @@ export function NavigationLoadingProvider({ children }: { children: ReactNode })
     }
   }, []);
 
-  /** 延迟盖骨架的定时器：导航在它触发前完成，这次点击就完全不出现动画 */
-  const pageShowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const stopPageLoading = useCallback(() => {
-    if (pageShowTimer.current) {
-      clearTimeout(pageShowTimer.current);
-      pageShowTimer.current = null;
-    }
     if (pageWatchdog.current) {
       clearTimeout(pageWatchdog.current);
       pageWatchdog.current = null;
@@ -157,13 +139,8 @@ export function NavigationLoadingProvider({ children }: { children: ReactNode })
   }, []);
 
   const startPageLoading = useCallback((targetPath?: string) => {
-    // 目标路径立刻记下（骨架要靠它挑版式），但**先不盖**：见 PAGE_LOADING_SHOW_DELAY_MS。
+    setIsPageLoading(true);
     setPendingPagePath(targetPath ?? null);
-    if (pageShowTimer.current) clearTimeout(pageShowTimer.current);
-    pageShowTimer.current = setTimeout(() => {
-      pageShowTimer.current = null;
-      setIsPageLoading(true);
-    }, PAGE_LOADING_SHOW_DELAY_MS);
     // 重复点击要重新计时，否则第二次点击会沿用第一次的剩余时间、提前收掉
     if (pageWatchdog.current) clearTimeout(pageWatchdog.current);
     pageWatchdog.current = setTimeout(() => {
@@ -177,7 +154,6 @@ export function NavigationLoadingProvider({ children }: { children: ReactNode })
   useEffect(
     () => () => {
       if (pageWatchdog.current) clearTimeout(pageWatchdog.current);
-      if (pageShowTimer.current) clearTimeout(pageShowTimer.current);
       if (pendingCharWatchdog.current) clearTimeout(pendingCharWatchdog.current);
       if (pendingListingWatchdog.current) clearTimeout(pendingListingWatchdog.current);
     },
