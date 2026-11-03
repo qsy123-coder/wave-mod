@@ -8,11 +8,6 @@ import { logger } from "@/lib/logger";
 import { readEngagement } from "@/lib/engagement/store";
 import { modCacheTags } from "@/lib/mod-cache";
 import { mapMod, publicModColumns, publicModDetailColumns } from "@/lib/mods-domain/mappers";
-import {
-  MODS_PAYLOAD_MAX_CHARS,
-  decodeModsPayload,
-  encodeModsPayload,
-} from "@/lib/mods-domain/mods-payload-codec";
 import { getSnapshotRows } from "@/lib/mods-domain/snapshot";
 import { normalizeModsPageArgs } from "@/lib/mods-domain/filter-params";
 import { applyModQueryFilters, applyModSort, modIdSchema, normalizeCharacterName, rankModsByQuery, sortFeaturedModsByOrder, sortModsByHot } from "@/lib/mods-domain/sorting";
@@ -55,29 +50,45 @@ import type { ModRow, ModsPage, ModSort, PublicModsFilters, SiteMod } from "@/li
 const CACHE_REVALIDATE_SECONDS = 43200;
 
 /**
- * 整表「已发布 mod 的领域对象」—— **一条**缓存项，内容是 gzip 后的 base64 字符串。
+ * 整表缓存：**进程内** TTL 缓存，不走 Next 的 Data Cache。
  *
- * ── 为什么不再分片（2026-11-03）──────────────────────────────────────────
+ * ── 为什么这么改（2026-11-03）────────────────────────────────────────────
  *
- * 旧实现按 500 行拆成 11 个 `unstable_cache` 条目。当时（还在 Supabase）这么做是因为
- * 整表放不进 2MB 的单条上限。但分片的代价一直没人量：**每一片都是一次独立的
- * Data Cache 往返**。
- *
- * 实测（5609 条，data/mods-snapshot.json.gz）纯计算只要 60–85ms：
+ * 旧实现把整表按 500 行拆成 11 个 `unstable_cache` 条目（当时是为了绕开
+ * Data Cache 单条 2MB 的上限）。实测纯计算只要 60–85ms：
  *   gunzip+parse 36ms / mapMod 8ms / zh-CN 排序 27ms / latest 排序 3ms / 搜索 9–13ms
- * 而线上 /api/mods 的 P75 是 510ms —— 多出来的 400 多毫秒就在这 11 次往返和
- * 逐片反序列化上。
+ * 而线上 /api/mods 的 P75 是 510ms —— 差额全在「11 个分片各读一次 Data Cache」
+ * 的往返上。
  *
- * 因此改成**一条压缩 payload + 进程内 memo**（见下面的 modsMemo）：
- * 每个实例每个 payload 只解码一次，之后命中 memo 只剩 filter/sort。
- * 语义完全不变 —— 匹配、排序、分页仍是原来那几个纯函数。
+ * 于是先试过「合成一条 gzip payload 存 Data Cache」，但线上实测**没有生效**：
+ * 连发 5 个冷门请求，`pg_stat_user_tables.idx_scan` 每次都 +1，说明每个请求都
+ * 重新查了一次库；本地 `.next/cache/fetch-cache` 里也确实出现过多份**内容完全相同、
+ * 但文件名不同**的 832KB 条目 —— 该条目的缓存键不稳定，等于没缓存。
  *
- * 顺带的好处：`count` 那条缓存项也不需要了（旧实现靠它算分片数），少一次往返，
- * 也少掉「count 与分片非原子失效导致末尾被截断」这类边角问题。
+ * 所以改成进程内缓存：不依赖 Data Cache 的任何行为，TTL 明确、可预测。
+ * 代价是每个实例各自缓存一份，冷启动后第一个请求要查一次库（整表约 5.6MB）；
+ * 换来的是**同一实例上后续所有请求零数据库往返**。
+ *
+ * 新鲜度：TTL 5 分钟，比原来 Data Cache 的 12 小时**更短**。
+ * 写库路径（管理后台 / 每日上传脚本）仍然会 `revalidateTag(modCacheTags.list)`，
+ * 那会清掉外层 `getCachedModsPage` 的结果缓存；最坏情况下列表多滞后 5 分钟。
+ *
+ * 为什么用 TTL 而不是「跟着 tag 失效」：进程内变量没有任何机制能收到 revalidateTag
+ * 的通知，硬接一个版本号反而要多一次 Data Cache 读，得不偿失。
  */
-const getCachedModsPayload = unstable_cache(
-  async (gameKey: string): Promise<string> => {
-    // 查询失败直接抛：unstable_cache 不会缓存异常，避免把一次失败固化一整个 TTL。
+const MODS_MEMO_TTL_MS = 5 * 60 * 1000;
+
+let modsMemo: { gameKey: string; mods: SiteMod[]; expiresAt: number } | null = null;
+
+/**
+ * 取回整表**领域对象**：命中进程内缓存直接返回，否则查一次库并缓存 5 分钟。
+ */
+async function getAllPublishedMods(gameKey: string, strict = false): Promise<SiteMod[]> {
+  if (modsMemo && modsMemo.gameKey === gameKey && Date.now() < modsMemo.expiresAt) {
+    return modsMemo.mods;
+  }
+
+  try {
     // `order by created_at desc, id`：分页需要一个稳定顺序，created_at 会撞值。
     const rows = await queryRows<ModRow>(
       `select ${publicModColumns}
@@ -88,53 +99,8 @@ const getCachedModsPayload = unstable_cache(
       [gameKey],
     );
 
-    const payload = encodeModsPayload(rows.map(mapMod));
-
-    if (payload.length > MODS_PAYLOAD_MAX_CHARS) {
-      // 不抛：内容仍然正确，只是这条写入会被 Data Cache 静默丢掉，
-      // 退化成「每个请求都重新查库 + 编码」。留一行日志，别让它悄悄发生。
-      logger.warn("[mods] 整表 payload 超过 Data Cache 安全上限，写入会被静默跳过", {
-        chars: payload.length,
-        limit: MODS_PAYLOAD_MAX_CHARS,
-        rows: rows.length,
-      });
-    }
-
-    return payload;
-  },
-  // key 必须与改造前的 ["public-mods-shard-mapped"] / ["public-mods-count"] 不同：
-  // 形状变了（对象数组 / 数字 → 压缩字符串）。复用旧 key 会让新代码从旧条目里
-  // 读出对象，解码时直接报错。
-  ["public-mods-payload"],
-  { revalidate: CACHE_REVALIDATE_SECONDS, tags: [modCacheTags.list] },
-);
-
-/**
- * 进程内 memo：同一个实例的后续请求不再付 base64 解码 + gunzip + JSON.parse。
- *
- * key 用 payload 字符串本身（与 snapshot.ts 的 remoteMemo 同一手法）：
- * 内容一变引用就不相等，`revalidateTag` 之后自然失效，不需要额外的清理钩子。
- *
- * 先比 gameKey：多个分站共用这份 memo，只留最近一次用的那一份就够了
- * （主站占了绝大多数请求）。
- */
-let modsMemo: { gameKey: string; payload: string; mods: SiteMod[] } | null = null;
-
-/**
- * 取回整表**领域对象**：一条 payload，解码一次，之后走进程内 memo。
- */
-async function getAllPublishedMods(gameKey: string, strict = false): Promise<SiteMod[]> {
-  try {
-    const payload = await getCachedModsPayload(gameKey);
-
-    // 命中 memo 时零解码成本。用 `===` 比字符串（V8 先比长度再 memcmp）而不是哈希：
-    // payload 是内容本身，换了自然不等，不需要额外的失效钩子。
-    if (modsMemo && modsMemo.gameKey === gameKey && modsMemo.payload === payload) {
-      return modsMemo.mods;
-    }
-
-    const mods = decodeModsPayload<SiteMod>(payload);
-    modsMemo = { gameKey, payload, mods };
+    const mods = rows.map(mapMod);
+    modsMemo = { gameKey, mods, expiresAt: Date.now() + MODS_MEMO_TTL_MS };
     return mods;
   } catch (error) {
     // strict：调用方（列表页缓存）需要知道「这是兜底结果」，否则会把快照固化一整个 TTL。
