@@ -159,6 +159,11 @@ curl -sI https://go.sunnyrose.xyz/api/mods?sort=new | grep -i x-cache-status   #
 > ⚠️ 缓存里的响应体一律是**未压缩**的（回源强制 `Accept-Encoding: ""`），压缩由
 > 本机 gzip 按访客能力现场做。别把回源的 Accept-Encoding 放回去 —— 缓存键不含它，
 > 会让 br 和 gzip 串味，老浏览器解不开，详见 6.2。
+>
+> ⚠️ 本机 gzip **只压缩 `gzip_types` 里列出的类型**。Next.js App Router 的 RSC 载荷
+> 是 `text/x-component`（约 66KB，gzip 后约 12KB），漏掉它所有客户端导航（点分类、
+> 点排序、点卡片）都会多传 5 倍体积，表现就是「骨架屏变长」。`scripts/check-hk-proxy.sh`
+> 的 `[压缩]` 段会断言这一项。
 
 > ⚠️ PRD 里写「`/api/engagement` 缓存 30–60 秒」是**错的**：该响应包含
 > 「这台设备赞没赞过」，共享缓存会把 A 的状态发给 B。配置里已显式关闭，

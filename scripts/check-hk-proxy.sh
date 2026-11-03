@@ -110,6 +110,31 @@ else
 fi
 
 echo
+echo "[压缩]"
+# RSC 载荷（App Router 的客户端导航响应）类型是 text/x-component。
+# 2026-11-01 的「回源不压缩 + 本机 gzip」改动漏配了这个类型，导致每次客户端导航
+# 都原样传 66KB（gzip 后约 12KB），分类页骨架明显变长。这项检查就是防它再漏。
+RSC_URL="$BASE/mods?_rsc=probe$RANDOM"
+OUT="$(curl -sS -m 60 "${CURL_OPTS[@]}" -o /dev/null -D "$TMP" \
+  -H 'RSC: 1' -H 'Accept-Encoding: gzip' -w '%{http_code} %{size_download}' "$RSC_URL" || true)"
+CODE="${OUT%% *}"; SIZE="${OUT##* }"
+CTYPE="$(header content-type)"
+ENC="$(header content-encoding)"
+if [[ "$CTYPE" == text/x-component* ]]; then
+  if [[ "$ENC" == "gzip" ]]; then
+    if [[ "$SIZE" -le 30000 ]]; then
+      ok "RSC 载荷是 gzip（${SIZE}B）"
+    else
+      bad "RSC 声明了 gzip 但体积仍有 ${SIZE}B，检查 gzip_min_length/缓存内容"
+    fi
+  else
+    bad "RSC 载荷未压缩（$CTYPE, ${SIZE}B）—— 把 text/x-component 加进 gzip_types"
+  fi
+else
+  bad "RSC 探测返回的不是 text/x-component（HTTP $CODE, $CTYPE）"
+fi
+
+echo
 echo "[健康检查]"
 expect_code "/__health"         "$BASE/__health"         200
 expect_code "/__health/origin"  "$BASE/__health/origin"  200
