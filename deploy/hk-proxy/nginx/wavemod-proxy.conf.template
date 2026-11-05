@@ -504,15 +504,17 @@ server {
         error_page 502 503 504 = @maintenance_api;
     }
 
-    # ── 后台专用签接口：必须 Basic Auth ────────────────────────────────────
-    # 登录已下线（2026-11 数据库迁移），后台访问控制只靠 Basic Auth。
-    # 这两个接口会签发 COS/OSS 上传凭证，绝不能对匿名请求开放；
-    # 应用层 proxy.ts 也做同一份校验（防止绕过 nginx 直连 vercel.app）。
+    # ── 后台专用签接口：不缓存 ────────────────────────────────────────────
+    # 这两个接口会签发 COS/OSS 上传凭证，绝不能对匿名请求开放。
+    # 鉴权已全部移到应用层 `src/proxy.ts`：会话 Cookie 验签 / Basic 头二选一。
+    #
+    # ⚠️ 这里**刻意不再 auth_basic**：nginx 的 challenge 会让浏览器弹原生登录框，
+    # 而浏览器只把 Basic 凭据放在会话内存里（关掉浏览器 / 隔天就忘）——
+    # 后台每天上传都要重输密码就是这么来的。匿名请求交给应用层，
+    # 它返回 401 JSON（**不带 WWW-Authenticate**），浏览器不会再弹框。
     location ~ ^/api/(cos|oss)/sign$ {
         include /etc/nginx/snippets/wavemod-proxy-common.conf;
 
-        auth_basic "WaveMod Admin";
-        auth_basic_user_file /etc/nginx/.htpasswd.wavemod;
         proxy_cache off;
         add_header X-Cache-Status "BYPASS" always;
     }
@@ -527,15 +529,16 @@ server {
         error_page 502 503 504 = @maintenance_api;
     }
 
-    # ── 后台：不缓存 + Basic Auth ──────────────────────────────────────────
-    # 登录已下线（2026-11 数据库迁移）：后台不再有账号体系，nginx 这层用
-    # htpasswd 挡住外部访问；应用层 proxy.ts 再用同一份凭据校验一次。
-    # htpasswd 文件由 `deploy/hk-db/install.sh` 生成（或手工 htpasswd -c）。
+    # ── 后台：不缓存 ──────────────────────────────────────────────────────
+    # 访问控制只在应用层（`src/proxy.ts`）：
+    #   - 未登录的整页访问 → 302 到 `/admin/login`
+    #   - `/admin/login` 用来换 30 天签名 Cookie（凭据仍是 ADMIN_BASIC_AUTH_*）
+    #   - 接口 / Server Action 未登录 → 401 JSON（不带 challenge，不弹框）
+    #   - curl 仍可用 `-u waveadmin:<密码>`，应用层同样认 Basic 头
+    # 匿名访问会打到 Vercel 函数，但只会拿到登录页，不泄露任何后台数据。
     location ~ ^/(admin|auth|login) {
         include /etc/nginx/snippets/wavemod-proxy-common.conf;
 
-        auth_basic "WaveMod Admin";
-        auth_basic_user_file /etc/nginx/.htpasswd.wavemod;
         proxy_cache off;
         add_header X-Cache-Status "BYPASS" always;
     }

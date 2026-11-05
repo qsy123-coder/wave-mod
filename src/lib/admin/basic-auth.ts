@@ -11,8 +11,6 @@ import "server-only";
  * 再用定长比较，避免按字符提前返回带来的时序侧信道。
  */
 
-const REALM = "WaveMod Admin";
-
 function digest(value: string): Promise<Uint8Array> {
   return crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)).then(
     (buffer) => new Uint8Array(buffer),
@@ -64,27 +62,40 @@ export function getAdminBasicAuthConfig(): { user: string; password: string } | 
   return { user, password };
 }
 
-export async function verifyAdminBasicAuth(header: string | null): Promise<boolean> {
+/** 校验用户名 + 密码（登录页与 Basic 头共用同一份判断） */
+export async function verifyAdminCredentials(user: string, password: string): Promise<boolean> {
   const config = getAdminBasicAuthConfig();
-  const credentials = parseBasicHeader(header);
-
-  if (!config || !credentials) return false;
+  if (!config) return false;
 
   // 两个字段都要比较（不要用 && 短路），否则可以通过响应时间区分「用户名对、密码错」。
   const [userOk, passwordOk] = await Promise.all([
-    safeEqual(credentials.user, config.user),
-    safeEqual(credentials.password, config.password),
+    safeEqual(user, config.user),
+    safeEqual(password, config.password),
   ]);
 
   return userOk && passwordOk;
 }
 
+export async function verifyAdminBasicAuth(header: string | null): Promise<boolean> {
+  const credentials = parseBasicHeader(header);
+  if (!credentials) return false;
+
+  return verifyAdminCredentials(credentials.user, credentials.password);
+}
+
+/**
+ * 未授权响应。
+ *
+ * **刻意不发 `WWW-Authenticate`**：发了浏览器就会弹原生 Basic 登录框 —— 后台已经
+ * 改成站内登录页 + 30 天 Cookie（见 `session.ts`），这里再弹框等于又回到「每次都输密码」。
+ * curl 用 `-u` 预发凭据，不需要 challenge。
+ */
 export function adminUnauthorizedResponse(): Response {
-  return new Response("需要管理员凭据。", {
+  return new Response(JSON.stringify({ error: "unauthorized" }), {
     status: 401,
     headers: {
       "Cache-Control": "no-store",
-      "WWW-Authenticate": `Basic realm="${REALM}", charset="UTF-8"`,
+      "Content-Type": "application/json; charset=utf-8",
     },
   });
 }

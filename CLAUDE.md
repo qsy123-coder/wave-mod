@@ -10,7 +10,7 @@
 - **前端**：Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui, TanStack Query
 - **后端**：Server Actions + Route Handlers（无 tRPC / Prisma）
 - **数据库**：自建 PostgreSQL 17，原生 `pg` + 参数化 SQL（2026-11 从 Supabase 迁出，见 `docs/db-migration-selfhosted-pg-prd.md`）
-- **认证**：无站内登录；后台 `/admin` 用 nginx + 应用层 Basic Auth（`src/proxy.ts`）
+- **认证**：后台 `/admin` 站内登录页（`/admin/login`）换 30 天签名 Cookie，鉴权在 `src/proxy.ts`；curl 仍可用 Basic 头（凭据 `ADMIN_BASIC_AUTH_*`）
 - **状态管理**：React Context + TanStack Query
 - **部署**：Vercel hkg1 + 香港 nginx 反代 + 香港自建 PostgreSQL；Cloudflare Workers 流水线停用
 - **其他**：Zod, React Hook Form, ESLint

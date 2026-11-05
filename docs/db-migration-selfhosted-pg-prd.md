@@ -227,17 +227,18 @@ src/lib/db/
    这样角色别名、复合关键词、hot 排序、zh-CN 排序等语义零变化。
 6. 快照兜底保留：`getSnapshotRows()` 不动；DB 不可用时仍回退 COS/打包快照。
 
-### 5.4 后台防护（Basic Auth 双层）
+### 5.4 后台防护（应用层登录态）
 
-用户选择「nginx Basic Auth」，但**只做 nginx 会漏掉 `*.vercel.app` 直连**——
-知道部署域名的人可以完全绕过 nginx。所以必须两层：
+> 2026-11-05 更新：浏览器原生 Basic 弹框在关掉浏览器后不保留凭据，后台每天都要
+> 重输密码，已改成**站内登录页 + 30 天签名 Cookie**。nginx 不再下 `auth_basic`
+> challenge（否则浏览器仍会弹框），鉴权集中在应用层；curl 的 Basic 头继续支持。
 
-1. **nginx 层**：`/admin`、`/api/cos/sign`、`/api/oss/sign` 加 `auth_basic`，
-   凭据在服务器 `/etc/nginx/.htpasswd.wavemod`；配置改
-   `deploy/hk-proxy/nginx/wavemod-proxy.conf.template`，由部署脚本渲染，不手改。
-2. **应用层**：`src/proxy.ts` 改为校验同一个 Basic Auth 凭据（环境变量
-   `ADMIN_BASIC_AUTH_USER` + `ADMIN_BASIC_AUTH_PASSWORD`），失败返回
-   `401 WWW-Authenticate: Basic realm="WaveMod Admin"`。
+1. **nginx 层**：只负责「不缓存 + 透传」，不再做 Basic Auth。
+2. **应用层** `src/proxy.ts`：
+   - 有有效 `wavemod_admin_session` Cookie（HMAC 签名，30 天）→ 放行；
+   - 否则有有效 Basic 头（`ADMIN_BASIC_AUTH_USER/PASSWORD`）→ 放行（给 curl/脚本）；
+   - 否则整页导航 302 到 `/admin/login`，接口/Server Action 返回
+     `401 {"error":"unauthorized"}`，**不带 `WWW-Authenticate`**（不弹浏览器框）。
    - 使用 Web Crypto 计算 SHA-256 后**定长比较**，避免时序侧信道。
    - 凭据只存服务端 env，不进客户端 bundle。
    - matcher：`/admin/:path*`、`/api/cos/sign`、`/api/oss/sign`；
