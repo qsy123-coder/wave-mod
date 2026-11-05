@@ -271,6 +271,31 @@ npm run lint         # 代码检查
 npm run test         # 测试
 ```
 
+## 本机网络与代理（必须知道）
+
+- **系统代理是关闭的**：Clash Verge 只开了混合端口 `127.0.0.1:7897`，git / npm / curl 默认**不会**走代理。
+  访问 GitHub 等外网时显式指定：
+
+  ```powershell
+  $env:HTTPS_PROXY='http://127.0.0.1:7897'; $env:HTTP_PROXY=$env:HTTPS_PROXY; git push origin main
+  curl.exe --proxy http://127.0.0.1:7897 -s https://api.github.com
+  ```
+
+- **节点可能挂了**：节点失效时代理口照样在监听，但会返回 `502` 或
+  `schannel: failed to receive handshake` —— 这不是网络断了，是当前节点不可用。直接切节点：
+
+  ```powershell
+  powershell -File scripts/local-proxy.ps1          # 列出可用节点（按延迟）
+  powershell -File scripts/local-proxy.ps1 -Best    # 自动切到最快节点
+  powershell -File scripts/local-proxy.ps1 -Verify  # 用 7897 实测 GitHub API
+  ```
+
+  原理：Clash Verge（Tauri 版）没开 TCP 外部控制器，只开命名管道 `\\.\pipe\verge-mihomo`，
+  脚本通过命名管道调 mihomo API（`/group/GLOBAL/delay` 测速、`PUT /proxies/GLOBAL` 切换）。
+  脚本本身是 UTF-8 **带 BOM** 保存的，PowerShell 5.1 才能正确读中文；改这个脚本时别把 BOM 弄丢了。
+
+- 直连国内站正常、GitHub 超时/握手失败 ⇒ 先怀疑节点，按上面切完再重试，不要反复重试原节点。
+
 ## 质量检查策略（重要）
 
 - **提交前**：必须执行完整质量门禁（`npm run lint` + `npx tsc --noEmit` + `npm run build`）
