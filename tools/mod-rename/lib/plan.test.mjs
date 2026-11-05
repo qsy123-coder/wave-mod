@@ -40,6 +40,50 @@ describe("planItem", () => {
     expect(row.dedup).toBe("今汐|粉丝福利UHD（丝袜黑） by 문지기");
   });
 
+  it("别名角色「心（含大招）」→ 归一成 心月狐，不再拦成未知角色", () => {
+    const row = planItem({
+      item: item("x.exe"),
+      suggestion: sug(["心（含大招）"], "含大招-夜月守望者（9）", { author: "辉映星辰允如光" }),
+      knownCharacters: known,
+      existingDedup: new Set(),
+      existingNames: new Set(),
+      glossary,
+    });
+    expect(row.applicable).toBe(true);
+    expect(row.characters).toEqual(["心月狐"]);
+    expect(row.to).toBe("心月狐-含大招-夜月守望者（9） by 辉映星辰允如光");
+    expect(row.character).toBe("心月狐");
+    // 归一不静默：要让用户看见「心（含大招）」被归到了哪一类
+    expect(row.issues.map((i) => i.code)).toContain("character-alias");
+    expect(row.issues.some((i) => i.level === "block")).toBe(false);
+  });
+
+  it("半角/全角括号的别名都认（心(含大招) → 心月狐）", () => {
+    const row = planItem({
+      item: item("x"),
+      suggestion: sug(["心(含大招)"], "深海魔女v1.0"),
+      knownCharacters: known,
+      existingDedup: new Set(),
+      existingNames: new Set(),
+      glossary,
+    });
+    expect(row.applicable).toBe(true);
+    expect(row.to).toBe("心月狐-深海魔女v1.0");
+  });
+
+  it("库里存的是历史别名（陆赫斯）时也能匹配（比较前双向归一）", () => {
+    const row = planItem({
+      item: item("x"),
+      suggestion: sug(["陆赫斯"], "西装"),
+      knownCharacters: new Set(["陆赫斯"]),
+      existingDedup: new Set(),
+      existingNames: new Set(),
+      glossary,
+    });
+    expect(row.applicable).toBe(true);
+    expect(row.characters).toEqual(["路赫斯"]);
+  });
+
   it("角色不在库内 → 禁止应用（防止凭空多一个分类）", () => {
     const row = planItem({
       item: item("x"),
@@ -77,6 +121,24 @@ describe("planItem", () => {
     });
     expect(row.applicable).toBe(false);
     expect(row.issues.map((i) => i.code)).toEqual(expect.arrayContaining(["no-character", "empty-name"]));
+  });
+
+  it("图片组认不出单一角色（多角色帖子截图）→ 不拦，按纯名称改名", () => {
+    const row = planItem({
+      item: item("合集_1.png", { kind: "image", images: ["合集_2.png", "合集_3.png"] }),
+      suggestion: sug([], "合集预览"),
+      knownCharacters: known,
+      existingDedup: new Set(),
+      existingNames: new Set(),
+      glossary,
+    });
+    expect(row.applicable).toBe(true);
+    expect(row.issues.map((i) => i.code)).not.toContain("no-character");
+    expect(row.targets).toEqual([
+      { from: "合集_1.png", to: "合集预览.png" },
+      { from: "合集_2.png", to: "合集预览-1.png" },
+      { from: "合集_3.png", to: "合集预览-2.png" },
+    ]);
   });
 
   it("目标目录已有同名 → 冲突，不覆盖", () => {

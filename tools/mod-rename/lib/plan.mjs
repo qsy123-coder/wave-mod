@@ -6,7 +6,11 @@
  */
 import { extname } from "node:path";
 
-import { dedupKey, resolveCharacterAndTitle } from "../../../scripts/daily-classify.mjs";
+import {
+  dedupKey,
+  normalizeCharacter,
+  resolveCharacterAndTitle,
+} from "../../../scripts/daily-classify.mjs";
 
 import { composeKey, looksLikeEndfield } from "./naming.mjs";
 
@@ -48,12 +52,32 @@ function buildTargets(item, newBase) {
  */
 export function planItem({ item, suggestion, knownCharacters, existingDedup, existingNames, glossary }) {
   const issues = [];
-  const characters = (suggestion.characters ?? []).map((c) => String(c).trim()).filter(Boolean);
+  // 角色名先过站内别名表：`心（含大招）`→`心月狐`、`陆赫斯`→`路赫斯`…
+  // 不归一的话这里会比网站本身更严格 —— 前台分类、列表筛选、每日上传脚本
+  // 全都是「先归一化再比较」（见 scripts/daily-classify.mjs 的 CHARACTER_ALIASES），
+  // 只有这个工具拿原始输入做全等比对，于是别名一律被当成「库里没有这个角色」。
+  const rawCharacters = (suggestion.characters ?? []).map((c) => String(c).trim()).filter(Boolean);
+  const characters = [...new Set(rawCharacters.map((c) => normalizeCharacter(c)))];
+  // 归一过程不静默：改写了用户填的名字就明说一句，方便确认归到哪一类
+  const folded = rawCharacters
+    .map((from) => ({ from, to: normalizeCharacter(from) }))
+    .filter(({ from, to }) => from !== to);
+  if (folded.length) {
+    issues.push(
+      info(
+        "character-alias",
+        `按站内别名归一：${folded.map(({ from, to }) => `「${from}」→「${to}」`).join("、")}`
+      )
+    );
+  }
+  // 图片组（一篇帖子的多张预览图）可能是多角色合集的截图，本来就没有单一角色，
+  // 不能按 Mod 包的标准拦成「认不出角色」——否则这种行永远无法改名。
+  const isImageGroup = item.kind === "image";
 
   if (looksLikeEndfield(item.name, glossary)) {
     issues.push(block("endfield", "非鸣潮（终末地）条目，应挪到 _Endfield/，不参与命名"));
   }
-  if (!characters.length) {
+  if (!characters.length && !isImageGroup) {
     issues.push(block("no-character", "认不出角色，请手动选一个站内已有角色"));
   }
   if (characters.length > 1) {
@@ -62,8 +86,11 @@ export function planItem({ item, suggestion, knownCharacters, existingDedup, exi
     );
   }
   if (knownCharacters) {
+    // 库里的历史值也可能是别名（`陆赫斯` 与 `路赫斯` 并存），比较前同样归一，
+    // 否则「输入归一后变成 路赫斯，但集合里只有 陆赫斯」仍会误判成未知角色。
+    const known = new Set([...knownCharacters].map((c) => normalizeCharacter(String(c).trim())));
     for (const c of characters) {
-      if (!knownCharacters.has(c)) {
+      if (!known.has(c)) {
         issues.push(block("unknown-character", `库里没有「${c}」这个角色，落地会凭空多一个分类`, { character: c }));
       }
     }

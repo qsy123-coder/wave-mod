@@ -7,7 +7,7 @@
  */
 import { psqlJson } from "../../../scripts/psql-db.mjs";
 
-import { dedupKey } from "../../../scripts/daily-classify.mjs";
+import { dedupKey, normalizeCharacter } from "../../../scripts/daily-classify.mjs";
 
 const CACHE_MS = 60_000;
 let cache = { at: 0, value: null };
@@ -25,8 +25,11 @@ export async function loadKnownMods({ force = false } = {}) {
     const existingDedup = new Set();
     for (const r of list) {
       if (!r?.character) continue;
-      knownCharacters.add(r.character);
-      existingDedup.add(dedupKey(r.character, r.title ?? ""));
+      // 与读取侧（src/lib/mods-domain/public.ts）和上传脚本同一口径：先归一化再入集合。
+      // 库里有历史别名值（`陆赫斯` / `路赫斯` 并存），不归一的话去重键会和脚本算出来的对不上。
+      const character = normalizeCharacter(String(r.character).trim());
+      knownCharacters.add(character);
+      existingDedup.add(dedupKey(character, r.title ?? ""));
     }
     cache = { at: Date.now(), value: { knownCharacters, existingDedup, error: "" } };
     return cache.value;
