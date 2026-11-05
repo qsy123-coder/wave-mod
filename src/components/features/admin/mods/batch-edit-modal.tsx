@@ -29,7 +29,7 @@ import {
 } from "@/actions/admin/batch-actions";
 import { StorageImageUpload } from "@/components/features/admin/upload/storage-image-upload";
 import { games } from "@/config/games";
-import { splitImageUrls } from "@/lib/admin/mod-form";
+import { splitDriveLinks, splitImageUrls } from "@/lib/admin/mod-form";
 import {
   joinPreviewImageUrls,
   movePreviewImage,
@@ -54,6 +54,7 @@ type ModFormData = {
   gameKey: string;
   downloadUrl: string;
   videoUrl: string;
+  driveLinksText: string;
   imageUrls: string;
   nsfw: boolean;
 };
@@ -66,6 +67,7 @@ function modToFormData(mod: SiteMod): ModFormData {
     gameKey: mod.gameKey ?? "",
     downloadUrl: mod.downloadUrl ?? "",
     videoUrl: (mod as Record<string, unknown>).videoUrl as string ?? "",
+    driveLinksText: mod.driveLinks.map((link) => `${link.platform} ${link.url}`).join("\n"),
     imageUrls: ((mod as Record<string, unknown>).images as string[])?.join("\n") ?? mod.coverImage ?? "",
     nsfw: mod.nsfw ?? false,
   };
@@ -79,6 +81,7 @@ function formDataToFields(form: ModFormData): ModUpdateFields {
     gameKey: form.gameKey,
     downloadUrl: form.downloadUrl,
     videoUrl: form.videoUrl,
+    driveLinks: splitDriveLinks(form.driveLinksText),
     imageUrls: splitImageUrls(form.imageUrls),
     nsfw: form.nsfw,
   };
@@ -368,6 +371,23 @@ export function BatchEditModal({ selectedIds, onClose, onComplete }: BatchEditMo
                       placeholder="https://..."
                       className="w-full border-[3px] border-black bg-white px-3 py-2 text-sm font-bold text-black shadow-[3px_3px_0px_0px_#000] outline-none" />
                   </div>
+                </div>
+
+                {/* 网盘链接 */}
+                <div>
+                  <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-black/60">
+                    网盘下载链接（每行一条）
+                  </label>
+                  <textarea
+                    value={activeForm.driveLinksText}
+                    onChange={(e) => updateField("driveLinksText", e.target.value)}
+                    rows={3}
+                    placeholder={"格式：平台名 链接\n例如：\n夸克网盘 https://pan.quark.cn/s/xxxx\n迅雷网盘 https://pan.xunlei.com/s/xxxx"}
+                    className="w-full border-[3px] border-black bg-white px-3 py-2 text-sm font-bold text-black shadow-[3px_3px_0px_0px_#000] outline-none"
+                  />
+                  <p className="mt-1 text-[10px] font-bold text-black/40">
+                    平台名建议沿用「夸克网盘 / 迅雷网盘」，前台按钮文案与统计都按它识别
+                  </p>
                 </div>
 
                 {/* 预览图 */}

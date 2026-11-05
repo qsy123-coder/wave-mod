@@ -182,6 +182,8 @@ export type ModUpdateFields = {
   description?: string;
   downloadUrl?: string;
   videoUrl?: string;
+  /** 网盘链接；drive_links 是 jsonb，写库前必须 JSON.stringify（见下方） */
+  driveLinks?: { platform: string; url: string }[];
   imageUrls?: string[];
   nsfw?: boolean;
 };
@@ -202,6 +204,8 @@ export async function batchUpdateModsIndividually(
         ...(fields.description?.trim() ? { description: fields.description.trim() } : {}),
         ...(fields.downloadUrl !== undefined ? { download_url: fields.downloadUrl.trim() } : {}),
         ...(fields.videoUrl !== undefined ? { video_url: fields.videoUrl.trim() } : {}),
+        // drive_links 是 jsonb：对象数组必须显式 JSON.stringify，否则 pg 会按 Postgres 数组编码
+        ...(fields.driveLinks !== undefined ? { drive_links: JSON.stringify(fields.driveLinks) } : {}),
         ...(fields.imageUrls !== undefined ? { images: fields.imageUrls.filter(Boolean) } : {}),
         ...(fields.nsfw !== undefined ? { nsfw: fields.nsfw } : {}),
       };
