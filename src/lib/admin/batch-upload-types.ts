@@ -13,6 +13,19 @@ export type BatchRowStatus =
   | "unknown-character"
   | "missing-link";
 
+/**
+ * 预览表里的一张待上传图片。
+ *
+ * `id` 给 React / dnd-kit 当稳定标识；`original` 是打码前的原图（按项保存，
+ * 不靠下标对齐 —— 删图和拖拽换序后下标会变）；`censored` 标记当前是否用了打码版本。
+ */
+export type BatchPreviewImage = {
+  id: string;
+  file: File;
+  original: File;
+  censored: boolean;
+};
+
 /** 浏览器预览表里的一行（含尚未上传的本地图片） */
 export type BatchUploadRow = {
   id: string;
@@ -26,9 +39,8 @@ export type BatchUploadRow = {
   nsfw: boolean;
   driveLinks: BatchDriveLink[];
   images: string[];
-  imageFiles: File[];
-  /** 打码前的原图，用于「还原」；imageFiles 是当前要上传的版本 */
-  originalImageFiles: File[];
+  /** 当前要上传的图片，顺序即最终顺序（第 0 张是主图） */
+  previewImages: BatchPreviewImage[];
   include: boolean;
   status: BatchRowStatus;
   /** 用户在预览里改过的字段；服务端只覆盖这些字段 */

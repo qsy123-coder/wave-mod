@@ -20,6 +20,13 @@ import type {
   BatchUploadResult,
   BatchUploadRow,
 } from "@/lib/admin/batch-upload-types";
+import {
+  createUploadPreviewImages,
+  moveUploadPreviewImage,
+  removeUploadPreviewImage,
+  replaceUploadPreviewImage,
+  restoreUploadPreviewImages,
+} from "@/lib/admin/upload-preview-images";
 
 import {
   dedupKey,
@@ -229,8 +236,7 @@ function buildRows(
       nsfw: false,
       driveLinks,
       images: [],
-      imageFiles,
-      originalImageFiles: imageFiles,
+      previewImages: createUploadPreviewImages(imageFiles),
       include: status !== "unknown-character" && status !== "missing-link",
       status,
       editedFields: [],
@@ -261,8 +267,7 @@ function buildRows(
       nsfw: false,
       driveLinks,
       images: [],
-      imageFiles,
-      originalImageFiles: imageFiles,
+      previewImages: createUploadPreviewImages(imageFiles),
       include: false,
       status,
       editedFields: [],
@@ -299,7 +304,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
     (row) => row.include && row.status !== "unknown-character" && row.driveLinks.length > 0,
   );
   const unknownCount = rows.filter((row) => row.status === "unknown-character").length;
-  const missingImageCount = rows.filter((row) => row.imageFiles.length === 0).length;
+  const missingImageCount = rows.filter((row) => row.previewImages.length === 0).length;
 
   const rebuild = (
     nextQuark: QuarkRecord[],
@@ -370,26 +375,45 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
           resolveCanonicalKey(stripRenameSuffix(row.sourceKey)),
           row.title,
         );
-        return { ...row, imageFiles: nextFiles, originalImageFiles: nextFiles };
+        return { ...row, previewImages: createUploadPreviewImages(nextFiles) };
       }),
     );
   };
 
   const applyCensoredImage = (rowId: string, index: number, file: File) => {
     setRows((previous) =>
-      previous.map((row) => {
-        if (row.id !== rowId) return row;
-        const nextFiles = [...row.imageFiles];
-        nextFiles[index] = file;
-        return { ...row, imageFiles: nextFiles };
-      }),
+      previous.map((row) =>
+        row.id === rowId
+          ? { ...row, previewImages: replaceUploadPreviewImage(row.previewImages, index, file) }
+          : row,
+      ),
     );
   };
 
   const resetCensoredImages = (rowId: string) => {
     setRows((previous) =>
       previous.map((row) =>
-        row.id === rowId ? { ...row, imageFiles: [...row.originalImageFiles] } : row,
+        row.id === rowId ? { ...row, previewImages: restoreUploadPreviewImages(row.previewImages) } : row,
+      ),
+    );
+  };
+
+  const removeRowImage = (rowId: string, index: number) => {
+    setRows((previous) =>
+      previous.map((row) =>
+        row.id === rowId
+          ? { ...row, previewImages: removeUploadPreviewImage(row.previewImages, index) }
+          : row,
+      ),
+    );
+  };
+
+  const moveRowImage = (rowId: string, from: number, to: number) => {
+    setRows((previous) =>
+      previous.map((row) =>
+        row.id === rowId
+          ? { ...row, previewImages: moveUploadPreviewImage(row.previewImages, from, to) }
+          : row,
       ),
     );
   };
@@ -462,7 +486,9 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
 
     for (const row of includedRows) {
       draftIdByRow.set(row.id, crypto.randomUUID());
-      const files = row.imageFiles.slice(0, MAX_IMAGES_PER_MOD);
+      const files = row.previewImages
+        .slice(0, MAX_IMAGES_PER_MOD)
+        .map((image) => image.file);
       imageSlotsByRow.set(row.id, Array.from({ length: files.length }, () => null));
       files.forEach((file, index) => imageTasks.push({ row, file, index }));
     }
@@ -829,9 +855,10 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
                     </td>
                     <td className="px-2 py-2">
                       <CensorImageThumbs
-                        files={row.imageFiles}
-                        originals={row.originalImageFiles}
+                        images={row.previewImages}
                         onCensor={(index) => setCensorTarget({ rowId: row.id, index })}
+                        onRemove={(index) => removeRowImage(row.id, index)}
+                        onReorder={(from, to) => moveRowImage(row.id, from, to)}
                         onReset={() => resetCensoredImages(row.id)}
                       />
                     </td>
@@ -948,7 +975,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
 
       <CensorDialog
         open={Boolean(censorTarget)}
-        file={censorRow && censorTarget ? censorRow.originalImageFiles[censorTarget.index] ?? null : null}
+        file={censorRow && censorTarget ? censorRow.previewImages[censorTarget.index]?.original ?? null : null}
         onOpenChange={(open) => {
           if (!open) setCensorTarget(null);
         }}
@@ -975,4 +1002,3 @@ function StatusBadge({ row }: { row: BatchUploadRow }) {
   }
   return <span className="border-4 border-black bg-[#d8f5c8] px-2 py-1 font-black">新增</span>;
 }
-

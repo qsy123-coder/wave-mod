@@ -7,9 +7,17 @@ import { toast } from "sonner";
 import { batchUploadModsAction } from "@/actions/admin/batch-upload-actions";
 import type {
   BatchDriveLink,
+  BatchPreviewImage,
   BatchUploadResult,
 } from "@/lib/admin/batch-upload-types";
 import { uploadRowImage } from "@/lib/admin/batch-image-upload";
+import {
+  createUploadPreviewImages,
+  moveUploadPreviewImage,
+  removeUploadPreviewImage,
+  replaceUploadPreviewImage,
+  restoreUploadPreviewImages,
+} from "@/lib/admin/upload-preview-images";
 
 import {
   dedupKey,
@@ -49,8 +57,7 @@ export function SingleModForm({ characters, existingSet, date, onDateChange }: S
   const [quarkUrl, setQuarkUrl] = useState("");
   const [xunleiUrl, setXunleiUrl] = useState("");
 
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [originalFiles, setOriginalFiles] = useState<File[]>([]);
+  const [previewImages, setPreviewImages] = useState<BatchPreviewImage[]>([]);
   const [censorIndex, setCensorIndex] = useState<number | null>(null);
 
   const [editedFields, setEditedFields] = useState<Set<string>>(new Set());
@@ -89,11 +96,7 @@ export function SingleModForm({ characters, existingSet, date, onDateChange }: S
 
   const applyCensored = (file: File) => {
     if (censorIndex === null) return;
-    setImageFiles((previous) => {
-      const next = [...previous];
-      next[censorIndex] = file;
-      return next;
-    });
+    setPreviewImages((previous) => replaceUploadPreviewImage(previous, censorIndex, file));
   };
 
   const handleSubmit = async () => {
@@ -114,11 +117,11 @@ export function SingleModForm({ characters, existingSet, date, onDateChange }: S
       const draftId = crypto.randomUUID();
       const images: string[] = [];
 
-      for (const [index, file] of imageFiles.entries()) {
+      for (const [index, image] of previewImages.entries()) {
         images.push(
           await uploadRowImage({
             character,
-            file,
+            file: image.file,
             index,
             draftId,
           }),
@@ -325,8 +328,7 @@ export function SingleModForm({ characters, existingSet, date, onDateChange }: S
               className="hidden"
               onChange={(event) => {
                 const files = Array.from(event.target.files ?? []);
-                setImageFiles(files);
-                setOriginalFiles(files);
+                setPreviewImages(createUploadPreviewImages(files));
                 setCensorIndex(null);
               }}
             />
@@ -340,10 +342,15 @@ export function SingleModForm({ characters, existingSet, date, onDateChange }: S
           </div>
 
           <CensorImageThumbs
-            files={imageFiles}
-            originals={originalFiles}
+            images={previewImages}
             onCensor={(index) => setCensorIndex(index)}
-            onReset={() => setImageFiles([...originalFiles])}
+            onRemove={(index) =>
+              setPreviewImages((previous) => removeUploadPreviewImage(previous, index))
+            }
+            onReorder={(from, to) =>
+              setPreviewImages((previous) => moveUploadPreviewImage(previous, from, to))
+            }
+            onReset={() => setPreviewImages((previous) => restoreUploadPreviewImages(previous))}
             emptyLabel="未选图片（会用占位图）"
           />
         </div>
@@ -375,7 +382,7 @@ export function SingleModForm({ characters, existingSet, date, onDateChange }: S
 
       <CensorDialog
         open={censorIndex !== null}
-        file={censorIndex !== null ? originalFiles[censorIndex] ?? null : null}
+        file={censorIndex !== null ? previewImages[censorIndex]?.original ?? null : null}
         onOpenChange={(open) => {
           if (!open) setCensorIndex(null);
         }}
