@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-06T10:11:19.049Z",
+  "generatedAt": "2026-11-07T09:28:31.460Z",
   "source": {
     "projectRef": "db",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,12 +8,12 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20261106-101010.dump",
-    "sha256": "757e3e4cb917e5946164382ab4124703627be585c17f07d725e13c0469df3afa",
-    "sizeBytes": 1176102,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261106-101010",
+    "file": "db/wavemod-20261107-092648.dump",
+    "sha256": "64f3b2bed3f564eb28d63393e5f987fd151f25a886cf240ea06673a580aa4401",
+    "sizeBytes": 1176456,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261107-092648",
     "tableCounts": {
-      "mods": 5642,
+      "mods": 5644,
       "profiles": 136,
       "favorites": 34,
       "likes": 10,
@@ -28,15 +28,15 @@
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5642,
+    "publishedRows": 5644,
     "refreshedThisRun": true,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 6934,
-    "totalBytes": 473830960,
-    "downloadedThisRun": 86,
+    "remoteCount": 6936,
+    "totalBytes": 473987978,
+    "downloadedThisRun": 2,
     "failedThisRun": 2,
     "failures": [
       {
@@ -8755,6 +8755,18 @@
         "file": "images/mods/mod/2b31560f-c07a-422e-8aeb-7bdd767e5ea3/preview.webp",
         "size": 58196,
         "etag": "\"12470b3c00c767c7c06a8a64265ce729\""
+      },
+      {
+        "key": "mods/mod/2d3cfafc-1b0c-42e5-a80a-c005acf742cb/preview-2.webp",
+        "file": "images/mods/mod/2d3cfafc-1b0c-42e5-a80a-c005acf742cb/preview-2.webp",
+        "size": 80442,
+        "etag": "\"f9b8af5db0763b448fd26e7c864233d6\""
+      },
+      {
+        "key": "mods/mod/2d3cfafc-1b0c-42e5-a80a-c005acf742cb/preview.webp",
+        "file": "images/mods/mod/2d3cfafc-1b0c-42e5-a80a-c005acf742cb/preview.webp",
+        "size": 76576,
+        "etag": "\"44627fc0d817a6f774c5e82363c75f16\""
       },
       {
         "key": "mods/mod/304906ea-7637-4511-9de0-5082ef30f762/preview-2.webp",
