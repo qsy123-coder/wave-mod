@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { ArrowUpRight, Eye, Heart, ImageOff } from "lucide-react";
 
 import { CardFavoriteButton } from "@/components/common/card-favorite-button";
 import { Badge } from "@/components/ui/badge";
 import { COS_IMG_CARD, COS_IMG_THUMB, cosImageSrcSet, withCosImageTransform } from "@/lib/cos/shared";
 import { useEngagement } from "@/lib/engagement/use-engagement";
+import { appendImageRetryParam, appendImageRetryParamToSrcSet } from "@/lib/image-retry";
 import { normalizeCharacterName } from "@/lib/mods-domain/sorting";
 import { isPlainLeftClick } from "@/lib/navigation-url";
 import type { SiteMod } from "@/lib/mods";
@@ -16,6 +17,14 @@ import { cn } from "@/lib/utils";
 type MetaBadgeTone = "default" | "site";
 type LinkMode = "card" | "split" | "none";
 type ModCardVariant = "default" | "home" | "list";
+
+/**
+ * 卡片封面加载失败后的重试节奏（毫秒），合计约 1 分钟。
+ *
+ * 放模块级是为了让 `scheduleRetry` 的依赖数组保持稳定（组件内常量会让
+ * useCallback 每次渲染都换一个新引用）。
+ */
+const IMAGE_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000, 30000] as const;
 
 type ModCardProps = {
   mod: SiteMod;
@@ -313,8 +322,11 @@ export function ModCard({
   // 刷新命中缓存时，load 事件可能在 React 水合前就已触发，onLoad 不会再被调用，
   // 因此额外用 ref 回调兜底：挂载时若 img.complete 已为 true，直接读取 naturalWidth/Height。
   const [imageRatio, setImageRatio] = useState<number | null>(null);
-  // 图片是否已就位：用于把加载期间的纯黑占位换成骨架动画
-  const [imageLoaded, setImageLoaded] = useState(false);
+  // 图片是否已就位：用于把加载期间的纯黑占位换成骨架动画。
+  // 存的是「哪一张封面加载好了」，而不是布尔值 —— 后台换图后 URL 变了，
+  // 旧封面留下的 true 会自动失效，不需要在 effect 里清状态。
+  const [loadedCover, setLoadedCover] = useState<string | null>(null);
+  const imageLoaded = loadedCover === mod.coverImage;
 
   /**
    * 渲染用的比例：**布局给的优先**，其次是自己量到的，最后是 3/4。
@@ -330,10 +342,10 @@ export function ModCard({
     if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
       const ratio = img.naturalWidth / img.naturalHeight;
       setImageRatio(ratio);
-      setImageLoaded(true);
+      setLoadedCover(mod.coverImage);
       onImageRatioChange?.(ratio);
     }
-  }, [onImageRatioChange]);
+  }, [mod.coverImage, onImageRatioChange]);
 
   const handleImageLoad = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -350,21 +362,86 @@ export function ModCard({
     [readImageRatio],
   );
 
-  // 图片加载失败自动重试（指数退避：1s → 2s → 4s，最多 3 次）
-  const retryCount = useRef(0);
-  const maxRetries = 3;
-  const [imageError, setImageError] = useState(false);
-  const [retryTimestamp, setRetryTimestamp] = useState(0);
+  /**
+   * 图片加载失败后的自动重试（1s → 2s → 4s → 8s → 15s → 30s，共约 1 分钟）。
+   *
+   * 为什么要退避到 30s：卡片图走 CDN，后台换图/编辑后的几十秒里，边缘节点可能持续
+   * 命中旧的失败结果；以前只重试 3 次（约 7s）就放弃并永久显示 ImageOff，用户看到
+   * 「封面图又没了」，过一阵手动刷新才好（2026-11-07 反馈）。现在重试窗口覆盖这段
+   * 时间，且标签页重新可见时会再给一轮，不刷新也能自己恢复。
+   */
+  const retryBudget = useRef({ cover: mod.coverImage, attempt: 0 });
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 记录「哪一张封面失败了」而不是布尔值：后台换了封面 URL 后，旧封面的失败状态
+  // 和重试预算会自动作废，不需要在 effect 里 setState 清状态。
+  const [failedCover, setFailedCover] = useState<string | null>(null);
+  const [blurFailedCover, setBlurFailedCover] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
-  const handleImageError = useCallback(() => {
-    if (retryCount.current < maxRetries) {
-      const delay = Math.pow(2, retryCount.current) * 1000;
-      retryCount.current += 1;
-      setTimeout(() => setRetryTimestamp(Date.now()), delay);
-    } else {
-      setImageError(true);
+  const imageError = failedCover === mod.coverImage;
+  const blurFailed = blurFailedCover === mod.coverImage;
+
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current);
+      retryTimer.current = null;
     }
   }, []);
+
+  const scheduleRetry = useCallback(() => {
+    // 已经有一次重试排队时不再叠加：blur 底图和前景图都会触发失败回调，
+    // 不拦住的话一轮失败会吃掉两份重试预算。
+    if (retryTimer.current) return;
+
+    // 换过封面就把预算重置：旧图的重试次数不该算到新图头上
+    if (retryBudget.current.cover !== mod.coverImage) {
+      retryBudget.current = { cover: mod.coverImage, attempt: 0 };
+    }
+
+    const attempt = retryBudget.current.attempt;
+    if (attempt >= IMAGE_RETRY_DELAYS_MS.length) {
+      setFailedCover(mod.coverImage);
+      return;
+    }
+
+    retryBudget.current.attempt = attempt + 1;
+    retryTimer.current = setTimeout(() => {
+      retryTimer.current = null;
+      setRetryToken((token) => token + 1);
+    }, IMAGE_RETRY_DELAYS_MS[attempt]);
+  }, [mod.coverImage]);
+
+  const handleImageError = useCallback(() => {
+    scheduleRetry();
+  }, [scheduleRetry]);
+
+  // 模糊底图是装饰层：它自己失败只隐藏自己，不占用前景图的重试预算
+  const handleBlurError = useCallback(() => {
+    setBlurFailedCover(mod.coverImage);
+  }, [mod.coverImage]);
+
+  // 标签页重新可见 / 网络恢复时再给一轮：手机切后台再回来是最常见的使用路径，
+  // 这时代 CDN 通常已经恢复，不该逼用户手动刷新。
+  useEffect(() => {
+    if (!imageError) return;
+
+    const retryNow = () => {
+      if (document.visibilityState !== "visible") return;
+      retryBudget.current = { cover: mod.coverImage, attempt: 0 };
+      setFailedCover(null);
+      setRetryToken((token) => token + 1);
+    };
+
+    document.addEventListener("visibilitychange", retryNow);
+    window.addEventListener("online", retryNow);
+    return () => {
+      document.removeEventListener("visibilitychange", retryNow);
+      window.removeEventListener("online", retryNow);
+    };
+  }, [imageError, mod.coverImage]);
+
+  useEffect(() => clearRetryTimer, [clearRetryTimer]);
+
 
   // 原始图是 2560px 直出（452KB），卡片位只显示一两百 CSS px，先按卡片档缩一档再渲染。
   // 变换必须在拼 `_retry` 之前做：实测 `?imageMogr2/...&_retry=` 两种顺序结果一致。
@@ -390,11 +467,18 @@ export function ModCard({
   // 重试要绕过缓存，src 与 srcSet **都得带** `_retry` —— 只给 src 的话浏览器会从 srcSet
   // 里挑回那张已经失败的。srcSet 必须由**未变换**的原 URL 现算：已经把 imageMogr2 拼进去的
   // URL 再喂给 cosImageSrcSet 会被它幂等短路，每个档返回同一个地址。
+  //
+  // ⚠️ `_retry` 必须逐条加到候选 URL 上，不能拼在整串尾部：那会把描述符写成
+  // `1000w&_retry=...`，浏览器视作非法描述符后会**整条丢弃** srcSet。
   const withRetry = (url: string | undefined) =>
-    !url || retryTimestamp === 0 ? url : `${url}${url.includes("?") ? "&" : "?"}_retry=${retryTimestamp}`;
+    !url || retryToken === 0 ? url : appendImageRetryParam(url, retryToken);
 
   const imageSrc = withRetry(coverImage) ?? coverImage;
-  const imageSrcSet = withRetry(cosImageSrcSet(mod.coverImage, CARD_IMAGE_WIDTHS));
+  const imageSrcSet = (() => {
+    const computed = cosImageSrcSet(mod.coverImage, CARD_IMAGE_WIDTHS);
+    if (!computed || retryToken === 0) return computed;
+    return appendImageRetryParamToSrcSet(computed, retryToken);
+  })();
 
   const media = (
     // 内层预览图不再叠第二层硬阴影：卡片本身已有 neo-card 的边框 + 阴影，
@@ -466,6 +550,7 @@ export function ModCard({
           />
         ) : (
           <>
+            {/* 模糊底图是装饰层：它失败只隐藏自己，不占用前景图的重试预算 */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={blurImage}
@@ -474,8 +559,11 @@ export function ModCard({
               fetchPriority="low"
               decoding="async"
               referrerPolicy="no-referrer"
-              onError={handleImageError}
-              className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
+              onError={handleBlurError}
+              className={cn(
+                "absolute inset-0 h-full w-full scale-110 object-cover blur-xl",
+                blurFailed && "hidden",
+              )}
               aria-hidden="true"
             />
             {/* 前景图必须跟随 imagePriority：无限滚动每次追加 16 张卡，若一律 eager，
