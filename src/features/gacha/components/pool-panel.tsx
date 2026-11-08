@@ -1,6 +1,7 @@
 "use client";
 
 import { formatPity, formatRate } from "@/features/gacha/lib/format";
+import { expectedFiveStarPulls, theoreticalMedianPull } from "@/features/gacha/lib/theory";
 import type { PoolInsight } from "@/features/gacha/lib/types";
 
 import { CumulativeChart, PityHistogram } from "./pity-charts";
@@ -61,6 +62,12 @@ export function PoolPanel({ pool }: { pool: PoolInsight }) {
         <Stat label="最欧" value={pool.bestPity === null ? "—" : String(pool.bestPity)} />
         <Stat label="最非" value={pool.worstPity === null ? "—" : String(pool.worstPity)} />
       </div>
+
+      <p className="mt-1.5 text-[10px] font-bold text-black/45">
+        {pool.hardPity === 50
+          ? "新手池硬保底 50 抽，不套用分段软保底模型。"
+          : `理论：平均 ${expectedFiveStarPulls().toFixed(1)} 抽 · 中位 ${theoreticalMedianPull()} 抽`}
+      </p>
 
       {hasFeatured ? (
         <div className="mt-3 border-2 border-black bg-white px-3 py-2.5">

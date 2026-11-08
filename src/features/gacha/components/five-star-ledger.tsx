@@ -4,12 +4,21 @@ import { useMemo, useState } from "react";
 
 import { formatDay, formatPity } from "@/features/gacha/lib/format";
 import { buildCostProfile } from "@/features/gacha/lib/stats";
-import type { GachaRecord, Overview } from "@/features/gacha/lib/types";
+import type {
+  GachaRecord,
+  Overview,
+  QualityLevel,
+  ResourceType,
+} from "@/features/gacha/lib/types";
+
+import { ResourceAvatar } from "./resource-avatar";
 
 type LedgerRow = {
   poolType: string;
   poolName: string;
   resourceId: number;
+  resourceType: ResourceType;
+  qualityLevel: QualityLevel;
   name: string;
   time: string;
   pulls: number;
@@ -38,6 +47,8 @@ export function FiveStarLedger({
           poolType: pool.poolType,
           poolName: pool.poolName,
           resourceId: interval.record.resourceId,
+          resourceType: interval.record.resourceType,
+          qualityLevel: interval.record.qualityLevel,
           name: interval.record.name,
           time: interval.record.time,
           pulls: interval.pulls,
@@ -91,6 +102,12 @@ export function FiveStarLedger({
                   <span className="border-2 border-black bg-[var(--neo-secondary)] px-1.5 py-0.5 text-[10px] font-black">
                     5★
                   </span>
+                  <ResourceAvatar
+                    name={row.name}
+                    resourceType={row.resourceType}
+                    qualityLevel={row.qualityLevel}
+                    size="sm"
+                  />
                   <span className="min-w-0 flex-1 truncate text-xs font-black">{row.name}</span>
                   {row.isOffRate ? (
                     <span className="border-2 border-black bg-[var(--neo-accent)] px-1.5 py-0.5 text-[9px] font-black text-black">
@@ -114,17 +131,25 @@ export function FiveStarLedger({
 
       {selected && profile ? (
         <section className="border-4 border-black bg-[var(--neo-panel)] p-4 text-black shadow-[6px_6px_0px_0px_#000]">
-          <header className="flex flex-wrap items-baseline justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-black">
-                {profile.name}
-                <span className="ml-2 text-[10px] font-black text-black/45">
-                  {profile.poolName}
-                </span>
-              </h3>
-              <p className="mt-0.5 text-[10px] font-bold text-black/45">
-                {profile.acquisitions.length} 次获取 · 每次成本从上一个同名目标算起，含前置歪
-              </p>
+          <header className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <ResourceAvatar
+                name={profile.name}
+                resourceType={profile.resourceType}
+                qualityLevel={5}
+                size="lg"
+              />
+              <div>
+                <h3 className="text-sm font-black">
+                  {profile.name}
+                  <span className="ml-2 text-[10px] font-black text-black/45">
+                    {profile.poolName}
+                  </span>
+                </h3>
+                <p className="mt-0.5 text-[10px] font-bold text-black/45">
+                  {profile.acquisitions.length} 次获取 · 每次成本从上一个同名目标算起，含前置歪
+                </p>
+              </div>
             </div>
             <button
               type="button"

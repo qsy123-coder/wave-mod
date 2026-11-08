@@ -3,6 +3,7 @@
 import { formatPity, formatRate } from "@/features/gacha/lib/format";
 import { expectedFiveStarPulls, expectedUpPulls } from "@/features/gacha/lib/theory";
 import type { Overview } from "@/features/gacha/lib/types";
+import { buildVerdict } from "@/features/gacha/lib/verdict";
 
 import { PityBar } from "./pity-bar";
 
@@ -32,6 +33,16 @@ function MetricTile({
 export function GachaOverview({ overview }: { overview: Overview }) {
   const theoryAverage = expectedFiveStarPulls();
   const theoryUp = expectedUpPulls();
+  const verdict = buildVerdict(overview);
+
+  const verdictBg =
+    verdict.tone === "lucky"
+      ? "bg-[var(--neo-secondary)]"
+      : verdict.tone === "unlucky"
+        ? "bg-[var(--neo-accent)]"
+        : verdict.tone === "normal"
+          ? "bg-[var(--neo-muted)]"
+          : "bg-white";
 
   const averageDelta =
     overview.averagePity === null ? null : overview.averagePity - theoryAverage;
@@ -40,6 +51,13 @@ export function GachaOverview({ overview }: { overview: Overview }) {
 
   return (
     <div className="space-y-6">
+      <div
+        className={`border-4 border-black px-4 py-3 text-black shadow-[4px_4px_0px_0px_#000] ${verdictBg}`}
+      >
+        <p className="text-sm font-black">{verdict.title}</p>
+        <p className="mt-1 text-[11px] font-bold text-black/60">{verdict.detail}</p>
+      </div>
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <MetricTile label="总唤取" value={overview.totalPulls} unit="抽" />
         <MetricTile
