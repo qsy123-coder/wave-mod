@@ -223,6 +223,7 @@ export async function POST(request: NextRequest) {
 
   const failedPools: { poolType: string; message: string }[] = [];
   const collected: GachaRecord[] = [];
+  let succeededPools = 0;
   let fatalExpired = false;
   let fatalTimeout = false;
 
@@ -251,6 +252,7 @@ export async function POST(request: NextRequest) {
 
       for (const result of results) {
         if (result.ok) {
+          succeededPools += 1;
           collected.push(...result.records);
           continue;
         }
@@ -275,7 +277,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (collected.length === 0 && failedPools.length > 0) {
+  // 只有「一个池都没成功」才算上游不可用。部分池失败 + 0 条记录是正常场景
+  // （新账号、或某个池临时抽风），必须返回 200 让前端显示空态和失败清单。
+  if (succeededPools === 0 && failedPools.length > 0) {
     return jsonError(
       fatalTimeout ? "upstream_timeout" : "upstream_error",
       fatalTimeout ? "官方接口响应超时，请稍后重试" : "官方接口暂时不可用，请稍后重试",

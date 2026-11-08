@@ -120,6 +120,54 @@ describe("POST /api/gacha/fetch", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("所有卡池成功但账号没有记录时返回 200 空列表", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => apiResponse([])),
+    );
+
+    const response = await POST(makeRequest({ url: VALID_URL }, "10.0.2.1"));
+    const body = (await response.json()) as { records: unknown[]; failedPools: unknown[] };
+
+    expect(response.status).toBe(200);
+    expect(body.records).toEqual([]);
+    expect(body.failedPools).toEqual([]);
+  });
+
+  it("部分卡池失败且没有记录时仍返回 200（空态，不是服务不可用）", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body ?? "{}")) as { cardPoolType?: string };
+        if (body.cardPoolType === "3") {
+          return { ok: false, status: 500, json: async () => ({}) };
+        }
+        return apiResponse([]);
+      }),
+    );
+
+    const response = await POST(makeRequest({ url: VALID_URL }, "10.0.2.2"));
+    const body = (await response.json()) as {
+      records: unknown[];
+      failedPools: { poolType: string }[];
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.records).toEqual([]);
+    expect(body.failedPools.map((pool) => pool.poolType)).toContain("3");
+  });
+
+  it("所有卡池都失败时返回 502", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) })),
+    );
+
+    const response = await POST(makeRequest({ url: VALID_URL }, "10.0.2.3"));
+
+    expect(response.status).toBe(502);
+  });
+
   it("同一 IP 超过 10 次/分钟返回 429", async () => {
     vi.stubGlobal(
       "fetch",
