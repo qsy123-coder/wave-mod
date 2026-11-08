@@ -1,0 +1,62 @@
+name: Prune Vercel Deployments
+
+# 每天把 Vercel 上残留的部署裁到最近 N 个。
+#
+# 为什么需要：Hobby 的 Deployment Storage 只有 10 GB（2026-09 起还取消了超额宽限期，
+# 超了会阻塞新部署）。本站一天推 3~4 个部署、项目保留策略是 30 天，稳态约 100 个
+# ≈ 8~9 GB，正好贴着上限。脚本每天裁到最近 20 个，存储稳定在 ~1.7 GB。
+# 规则与安全边界见 scripts/vercel-prune-deployments.mjs 顶部注释，单测见同名 .test.mjs。
+#
+# 首次启用前必须在仓库 Settings → Secrets and variables → Actions 里添加
+# VERCEL_TOKEN（本机值在 C:\Users\WINDOWS11\.wavemod-secrets\vercel.env）。
+# 没配 secret 时 job 会直接报红，不会静默跳过。
+
+on:
+  schedule:
+    # UTC 04:43 = 北京 12:43。刻意避开整点，别和备份、巡检挤在同一秒。
+    - cron: "43 4 * * *"
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: "保留最近多少个部署（默认 20）"
+        type: string
+        default: "20"
+      dry_run:
+        description: "只打印计划，不真删"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prune-vercel-deployments
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: Prune old deployments
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 脚本只用 Node 内置模块（fetch），不需要 npm ci
+      - name: Prune
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          KEEP="${{ github.event.inputs.keep || '20' }}"
+          ARGS="--keep=${KEEP}"
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          echo "运行：node scripts/vercel-prune-deployments.mjs $ARGS"
+          node scripts/vercel-prune-deployments.mjs $ARGS
