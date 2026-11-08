@@ -52,6 +52,10 @@ jobs:
       - name: Prune
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # .vercel/ 被 gitignore 了，runner 里没有 project.json，必须显式给坐标。
+          # 这两个 ID 不是机密（Vercel 链接里就有），和 backup.yml 硬编码 COS_BUCKET 同理。
+          VERCEL_PROJECT_ID: prj_W9fgQ4IkezyshouTUgzp1BGhjwD9
+          VERCEL_TEAM_ID: team_vVEiSd01t8RrQ4qcgO21innr
         run: |
           KEEP="${{ github.event.inputs.keep || '20' }}"
           ARGS="--keep=${KEEP}"
