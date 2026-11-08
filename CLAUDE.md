@@ -273,12 +273,22 @@ npm run test         # 测试
 
 ## 本机网络与代理（必须知道）
 
+- **Claude 必须自己加代理，不要问用户、不要让用户去开系统代理。** 本机一直有可用的
+  `127.0.0.1:7897`（Clash Verge 混合端口）。任何访问 GitHub / 外网的动作 —— `git push/pull`、
+  `curl`、`npm install`、`node` 里的 `fetch`、GitHub/Vercel API、网页抓取 —— **默认直接带上代理**，
+  这是既定环境，不需要每次确认，也不要把「你去开一下代理」当成解决方案。
+- Node 的 `fetch` **不认** `HTTPS_PROXY`，要额外设 `NODE_USE_ENV_PROXY=1`（Node 22/26 实测可用）；
+  而 `vercel` CLI 即使设了也仍然 `fetch failed`，直接用 curl 调 API 代替。
+- 代理返回 `502` / `schannel: failed to receive handshake` ⇒ **节点挂了，不是网络断了**：
+  跑 `scripts/local-proxy.ps1 -Best` 切节点后重试，不要停下来问用户。
 - **系统代理是关闭的**：Clash Verge 只开了混合端口 `127.0.0.1:7897`，git / npm / curl 默认**不会**走代理。
   访问 GitHub 等外网时显式指定：
 
   ```powershell
   $env:HTTPS_PROXY='http://127.0.0.1:7897'; $env:HTTP_PROXY=$env:HTTPS_PROXY; git push origin main
   curl.exe --proxy http://127.0.0.1:7897 -s https://api.github.com
+  # Node 脚本里的 fetch（npx / node xxx.mjs）还要加这一行
+  $env:NODE_USE_ENV_PROXY='1'; node scripts/xxx.mjs
   ```
 
 - **节点可能挂了**：节点失效时代理口照样在监听，但会返回 `502` 或
