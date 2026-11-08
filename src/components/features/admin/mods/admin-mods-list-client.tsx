@@ -13,6 +13,7 @@ import { isCosStorageUrl } from "@/lib/cos/shared";
 import { BatchActionBar } from "./batch-action-bar";
 import { FixCreatorButton } from "./fix-creator-button";
 import { ManageFeaturedButton } from "./featured-mods-manager";
+import { ModImagesDialog } from "./mod-images-dialog";
 import { AdminModsToolbar } from "./admin-mods-toolbar";
 import type { AdminMod } from "@/lib/mods";
 import type { AdminModsFilters } from "@/lib/admin/mods-filters";
@@ -38,9 +39,11 @@ export function AdminModsListClient({
   // 批量选择模式：只有点击「批量选择」按钮后才进入，勾选框才出现
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [censorMod, setCensorMod] = useState<AdminMod | null>(null);
+  // 预览图管理：先选择这条 MOD 的哪一张图，再打开打码弹窗
+  const [imagesMod, setImagesMod] = useState<AdminMod | null>(null);
+  const [censorTarget, setCensorTarget] = useState<{ mod: AdminMod; index: number } | null>(null);
   const [censorFile, setCensorFile] = useState<File | null>(null);
-  const [censorLoading, setCensorLoading] = useState(false);
+  const [censorLoadingIndex, setCensorLoadingIndex] = useState<number | null>(null);
   const [censorSaving, setCensorSaving] = useState(false);
 
   // 勾选框直接点击：按 checked 值精确设置（勾选框内部 stopPropagation，不会触发卡片点击）
@@ -80,18 +83,34 @@ export function AdminModsListClient({
     setSelectedIds(new Set());
   }, []);
 
-  const openCensor = async (mod: AdminMod) => {
-    if (censorLoading || censorSaving) return;
+  const openImages = (mod: AdminMod) => {
+    if (censorLoadingIndex !== null || censorSaving) return;
 
-    const imageUrl = mod.images?.[0] ?? mod.coverImage;
+    const images = mod.images ?? [];
+    const hasAny = images.length > 0 || Boolean(mod.coverImage);
+
+    if (!hasAny) {
+      toast.error("这条 MOD 没有预览图，无法打码。");
+      return;
+    }
+
+    setImagesMod(mod);
+  };
+
+  /** 从预览图管理里选一张读取原图，读取成功后打开打码弹窗 */
+  const startCensor = async (index: number) => {
+    if (!imagesMod || censorLoadingIndex !== null || censorSaving) return;
+
+    const images = imagesMod.images ?? [];
+    const imageUrl = images.length > 0 ? images[index] : index === 0 ? imagesMod.coverImage : undefined;
 
     if (!imageUrl || !isCosStorageUrl(imageUrl)) {
-      toast.error("这条 MOD 没有 COS 预览图，无法打码。");
+      toast.error("这张预览图不在 COS（旧图或占位图），无法打码。");
       return;
     }
 
     const loadingToast = toast.loading("正在读取预览图…");
-    setCensorLoading(true);
+    setCensorLoadingIndex(index);
 
     try {
       // 优先浏览器直连 COS：Vercel hkg1 → 广州 COS 有已知超时问题（见 hk-proxy-runbook 7.1），
@@ -119,35 +138,40 @@ export function AdminModsListClient({
         blob = await response.blob();
       }
 
-      setCensorMod(mod);
-      setCensorFile(new File([blob], `${mod.id}-cover.webp`, { type: blob.type || "image/webp" }));
+      setCensorTarget({ mod: imagesMod, index });
+      setCensorFile(
+        new File([blob], `${imagesMod.id}-preview-${index + 1}.webp`, {
+          type: blob.type || "image/webp",
+        }),
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "读取预览图失败");
     } finally {
       toast.dismiss(loadingToast);
-      setCensorLoading(false);
+      setCensorLoadingIndex(null);
     }
   };
 
   const applyCensoredImage = async (file: File) => {
-    if (!censorMod || censorSaving) return;
+    if (!censorTarget || censorSaving) return;
 
+    const { mod, index } = censorTarget;
     const savingToast = toast.loading("正在上传打码图…");
     setCensorSaving(true);
 
     try {
       const imageUrl = await uploadRowImage({
-        character: censorMod.character,
+        character: mod.character,
         file,
-        index: 0,
+        index,
         // 每次打码都用新前缀：COS 对象键不带内容哈希，复用同一个 key 时
         // max-age=604800 的缓存会让前台继续看到旧图。
         draftId: crypto.randomUUID(),
       });
 
       const result = await replaceModImageAction({
-        modId: censorMod.id,
-        imageIndex: 0,
+        modId: mod.id,
+        imageIndex: index,
         imageUrl,
       });
 
@@ -155,8 +179,19 @@ export function AdminModsListClient({
         throw new Error(result.error ?? "更新图片失败");
       }
 
-      toast.success("封面已打码并更新。");
-      setCensorMod(null);
+      const nextImages = result.images;
+
+      // 管理弹窗还开着：立刻换成新 URL，可以接着处理同一批图，不用关掉重来
+      if (nextImages) {
+        setImagesMod((current) =>
+          current && current.id === mod.id
+            ? { ...current, images: nextImages, coverImage: nextImages[0] ?? current.coverImage }
+            : current,
+        );
+      }
+
+      toast.success(index === 0 ? "封面已打码并更新。" : `第 ${index + 1} 张预览图已打码并更新。`);
+      setCensorTarget(null);
       setCensorFile(null);
       router.refresh();
     } catch (error) {
@@ -233,8 +268,8 @@ export function AdminModsListClient({
                   onCheckboxChange={selectionMode ? (checked) => setSelect(mod.id, checked) : undefined}
                   // 选择模式下卡片不是链接（点了只勾选，不能导航；href 是给编辑页用的）
                   onCardSelect={selectionMode ? () => toggleSelect(mod.id) : undefined}
-                  // 正常模式点封面直接打开打码；标题仍是编辑页链接
-                  onImageClick={selectionMode ? undefined : () => void openCensor(mod)}
+                  // 正常模式点封面打开预览图管理；标题仍是编辑页链接
+                  onImageClick={selectionMode ? undefined : () => openImages(mod)}
                   extraMetaBadges={
                     <span className={`inline-flex items-center border-2 border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-black shadow-[2px_2px_0_0_#000] ${mod.isPublished ? "bg-[#4ade80]" : "bg-[#ffd84f]"}`}>
                       {mod.isPublished ? "已发布" : "草稿"}
@@ -250,12 +285,21 @@ export function AdminModsListClient({
         </>
       )}
 
+      <ModImagesDialog
+        mod={imagesMod}
+        loadingIndex={censorLoadingIndex}
+        onOpenChange={(open) => {
+          if (!open) setImagesMod(null);
+        }}
+        onCensor={(index) => void startCensor(index)}
+      />
+
       <CensorDialog
-        open={Boolean(censorMod && censorFile)}
+        open={Boolean(censorTarget && censorFile)}
         file={censorFile}
         onOpenChange={(open) => {
           if (!open) {
-            setCensorMod(null);
+            setCensorTarget(null);
             setCensorFile(null);
           }
         }}
