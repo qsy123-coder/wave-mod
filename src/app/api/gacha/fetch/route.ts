@@ -23,6 +23,23 @@ export const maxDuration = 60;
 const CN_API_URL = "https://gmserver-api.aki-game2.com/gacha/record/query";
 const GLOBAL_API_URL = "https://gmserver-api.aki-game2.net/gacha/record/query";
 
+/**
+ * 香港 nginx 的抓取代理。
+ *
+ * 2026-11-08 实测：官方接口对 Vercel 出口无响应（生产函数 25s 超时），
+ * 同一请求从香港机 2.6s 就能拿到响应。配置了 GACHA_PROXY_URL 后，
+ * 所有上游请求改走 `https://go.sunnyrose.xyz/__gacha/query*`，
+ * 由 nginx 转发；key 用于挡住匿名调用。
+ * 本地开发不配这两个变量，仍然直连官方接口。
+ */
+const PROXY_BASE = process.env.GACHA_PROXY_URL?.trim().replace(/\/+$/, "");
+const PROXY_KEY = process.env.GACHA_PROXY_KEY?.trim();
+
+function upstreamUrl(region: ServerRegion): string {
+  if (!PROXY_BASE) return region === "cn" ? CN_API_URL : GLOBAL_API_URL;
+  return `${PROXY_BASE}/__gacha/query${region === "global" ? "-global" : ""}`;
+}
+
 const POOL_TIMEOUT_MS = 8_000;
 const TOTAL_TIMEOUT_MS = 25_000;
 const CONCURRENCY = 4;
@@ -114,14 +131,17 @@ async function fetchPool(
   const { signal, cleanup } = withTimeout(parentSignal, POOL_TIMEOUT_MS);
 
   try {
-    const response = await fetch(params.region === "cn" ? CN_API_URL : GLOBAL_API_URL, {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      // 官方页面自己带 UA，缺省 UA 容易被网关拒绝
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    };
+    if (PROXY_BASE && PROXY_KEY) headers["X-Wavemod-Key"] = PROXY_KEY;
+
+    const response = await fetch(upstreamUrl(params.region), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // 官方页面自己带 UA，缺省 UA 容易被网关拒绝
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-      },
+      headers,
       body: JSON.stringify({
         playerId: params.playerId,
         recordId: params.recordId,

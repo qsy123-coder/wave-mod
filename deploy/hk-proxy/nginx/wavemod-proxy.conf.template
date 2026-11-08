@@ -529,6 +529,56 @@ server {
         error_page 502 503 504 = @maintenance_api;
     }
 
+    # ── 抽卡记录抓取代理（Vercel → 本机 → 官方接口） ────────────────────────
+    # 2026-11-08：官方 gacha 接口对 Vercel 出口完全不响应（直连生产函数 25s 超时，
+    # 同一请求从本机 2.6s 就能拿到 code=-1），所以抓取链路改成走香港机转发。
+    # 只暴露固定上游 + 固定方法，应用侧用 X-Wavemod-Key 鉴权（key 由装机时的
+    # 环境变量渲染进来，不写进仓库）。
+    location = /__gacha/query {
+        access_log off;
+        if ($http_x_wavemod_key != "{{GACHA_PROXY_KEY}}") { return 403; }
+
+        proxy_pass https://gmserver-api.aki-game2.com/gacha/record/query;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host gmserver-api.aki-game2.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_ssl_server_name on;
+        proxy_ssl_name gmserver-api.aki-game2.com;
+        proxy_ssl_verify on;
+        proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 15s;
+        proxy_read_timeout 20s;
+
+        proxy_cache off;
+        add_header X-Cache-Status "BYPASS" always;
+    }
+
+    # 国际服（player_id 不以 1 开头）
+    location = /__gacha/query-global {
+        access_log off;
+        if ($http_x_wavemod_key != "{{GACHA_PROXY_KEY}}") { return 403; }
+
+        proxy_pass https://gmserver-api.aki-game2.net/gacha/record/query;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host gmserver-api.aki-game2.net;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_ssl_server_name on;
+        proxy_ssl_name gmserver-api.aki-game2.net;
+        proxy_ssl_verify on;
+        proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 15s;
+        proxy_read_timeout 20s;
+
+        proxy_cache off;
+        add_header X-Cache-Status "BYPASS" always;
+    }
+
     # ── 后台：不缓存 ──────────────────────────────────────────────────────
     # 访问控制只在应用层（`src/proxy.ts`）：
     #   - 未登录的整页访问 → 302 到 `/admin/login`

@@ -158,15 +158,23 @@
 ```
 用户粘贴链接
    ↓ 前端只做基本格式校验
-POST /api/gacha/fetch { url }
+POST /api/gacha/fetch { url }          （Vercel hkg1）
    ↓ 服务端解析 query + hash（hash 优先），只取参数，不请求用户给的域名
-   ↓ 按 player_id 选固定上游（国服/国际服）
+   ↓ 按 player_id 选上游；生产环境走香港 nginx 代理
+POST https://go.sunnyrose.xyz/__gacha/query   （香港 nginx，带 X-Wavemod-Key）
+   ↓ nginx 固定转发到官方接口
 13 次 POST /gacha/record/query（并发 3–4，单池 8s 超时）
    ↓ 归一化 + 按池分组
 返回 { uid, region, pools, records, warnings }
    ↓ 浏览器内存中计算统计
 页面渲染（不落库、不写日志）
 ```
+
+**为什么绕香港**：2026-11-08 实测，官方接口对 Vercel 出口完全不响应（直连生产函数 25s 超时），
+同一请求从香港机 1.3–2.6s 就能拿到响应（含 `code=-1`）。因此生产环境通过
+`GACHA_PROXY_URL` + `GACHA_PROXY_KEY` 走香港 nginx 的 `/__gacha/query`；
+本地开发不配这两个变量时仍直连官方接口。nginx 侧只暴露固定上游、固定方法，
+无 key 或 key 不符直接 403。
 
 **上游接口（固定白名单，杜绝 SSRF）**
 

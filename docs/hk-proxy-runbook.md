@@ -381,3 +381,23 @@ curl -s -o /dev/null -w '%{http_code} %{time_total}s\n' https://go.sunnyrose.xyz
 - 国内 CDN / 备案；
 - 多香港节点与自动故障转移（当前是单机 + DNS 回滚）；
 - 限流/防刷（如需，在 `location` 里加 `limit_req`，不要动缓存策略）。
+
+---
+
+## 11. 抽卡抓取代理（2026-11-08）
+
+官方 `gmserver-api.aki-game2.com` 对 Vercel 出口不响应（生产函数 25s 超时），
+但对香港机正常（1–3s）。因此 `/__gacha/query` 与 `/__gacha/query-global` 由本机
+固定转发到官方接口，应用侧带 `X-Wavemod-Key` 调用。
+
+- **key 不写进仓库**：装机时用环境变量渲染，未设置时替换成 `disabled`：
+  ```bash
+  GACHA_PROXY_KEY=<key> bash scripts/setup-hk-proxy.sh
+  ```
+- Vercel 侧需要同一组变量：`GACHA_PROXY_URL=https://go.sunnyrose.xyz`、
+  `GACHA_PROXY_KEY=<key>`（production + preview）。
+- 手工验证（不带 key 应 403）：
+  ```bash
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST https://go.sunnyrose.xyz/__gacha/query
+  ```
+- 回滚：恢复 `/etc/nginx/conf.d/wavemod-proxy.conf.bak-*` 并 `nginx -t && systemctl reload nginx`。

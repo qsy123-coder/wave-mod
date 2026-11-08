@@ -107,7 +107,7 @@ render() {
   fi
 
   local sd
-  sd='s|{{DOMAIN}}|'"$DOMAIN"'|g; s|{{UPSTREAM_HOST}}|'"$UPSTREAM"'|g; s|{{CERT_FILE}}|'"$CERT_FILE"'|g; s|{{KEY_FILE}}|'"$KEY_FILE"'|g'
+  sd='s|{{DOMAIN}}|'"$DOMAIN"'|g; s|{{UPSTREAM_HOST}}|'"$UPSTREAM"'|g; s|{{CERT_FILE}}|'"$CERT_FILE"'|g; s|{{KEY_FILE}}|'"$KEY_FILE"'|g; s|{{GACHA_PROXY_KEY}}|'"${GACHA_PROXY_KEY:-disabled}"'|g'
 
   sed "$sd" "$CONF_COMMON" > /etc/nginx/snippets/wavemod-proxy-common.conf
   sed "$sd" "$CONF_MAIN"   > /etc/nginx/conf.d/wavemod-proxy.conf
