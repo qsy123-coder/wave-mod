@@ -6,6 +6,7 @@ export const siteConfig = {
     { label: "角色分类", href: "/mods" },
     { label: "图库", href: "/gallery" },
     { label: "教程", href: "/guide" },
+    { label: "唤取分析", href: "/gacha" },
     { label: "问题解答", href: "/troubleshooting" },
     { label: "转载声明", href: "/support" },
   ],
