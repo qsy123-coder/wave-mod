@@ -46,7 +46,8 @@
 - **不做排行 / 欧非榜**：与「公开访客 + 不落库」冲突，任何聚合都需要存储与匿名上报治理，二期再评估。
 - **不做账号体系**，不保存历史记录，不支持多 UID 切换。
 - **不做截图 OCR**、不做 JSON 文件导入、不做手动补录（链接抓取已覆盖绝大多数场景）。
-- **不打包分发角色/武器图标**：v1 用「名称 + 品质色块 + 首字」展示；角色优先复用站内 `characterImageMap` 的头像。
+- **不打包分发角色/武器图标**：v1 用「名称 + 品质色块 + 首字」展示。~~角色优先复用站内 `characterImageMap` 的头像。~~
+  → **2026-11-08 调整**：改为按 `resourceId` 从 COS 读取开源资源包图标，见 4.7。
 - 不做云鸣潮/客户端日志自动抓取（需要桌面端能力，网页做不到）。
 - 不做个人概率校准倍率（二期）。
 
@@ -256,6 +257,23 @@ POST /api/gacha/fetch { url }
 
 用户明确选择「不落库、不做排行」。技术上排行需要：明细或聚合数据入库 → 匿名身份 → 防刷 → 数据删除入口 → 合规声明。这与「公开访客、分析完即弃」的承诺直接冲突，因此整块移出本期。
 
+### 4.7 角色 / 武器素材
+
+**问题**：站内 `characterImageMap` 按角色名匹配，官方新增的形态名（`漂泊者·衍射`、`漂泊者·气动`、`莉莉`、`陆·赫斯` 等）不在表里，五星账本会退回首字色块。
+
+**方案**：改用开源项目 `juliy819/wuwa-gacha-tool-resources` 的资源包（nanoka.cc 快照），文件按 `resourceId` 命名：
+
+```
+COS: /gacha-res/icons/<resourceId>.webp       ← 187 个，覆盖角色与武器
+COS: /gacha-res/portraits/<resourceId>.webp   ← 65 个，备用
+```
+
+- 上传脚本：`scripts/upload-gacha-resources-to-cos.mjs --dir=<解压目录>`
+- 页面取图顺序：资源包（按 ID）→ 站内 `characterImageMap`（按名）→ 品质色块 + 首字。
+- 不再依赖角色名，官方新增角色只要更新资源包并重跑脚本即可。
+- COS 已配置 CORS（允许 `go.sunnyrose.xyz`），后续可把图标画进分享图。
+- 素材版权与归属见 `src/features/gacha/lib/NOTICE.md`。
+
 ---
 
 ## 五、数据与接口变更
@@ -284,10 +302,13 @@ src/
         ├── normalize.ts                   # API 响应归一化（服务端）
         ├── stats.ts                       # 垫抽 / 50-50 / UP 周期 / 分布
         ├── theory.ts                      # 软保底模型与理论阈值
-        └── NOTICE.md                      # Apache-2.0 署名
+        ├── asset-urls.ts                  # resourceId → COS 素材地址
+        └── NOTICE.md                      # Apache-2.0 署名与素材来源
 ```
 
 **不改动**：数据库、`src/lib/db`、每日上传脚本、`dedupKey`、角色分类。本功能与 mod 数据完全隔离。
+
+**新增脚本**：`scripts/upload-gacha-resources-to-cos.mjs`（把资源包的 icons/portraits 传到 COS）。
 
 ### 5.2 接口契约
 
@@ -385,6 +406,7 @@ type GachaRecord = {
 - [ ] 五星分布直方图各桶之和 = 完整区间数。
 - [ ] 累计出金率曲线单调不减，终点为 100%。
 - [ ] 点击任意五星能打开成本档案并显示逐次记录。
+- [ ] 五星账本与成本档案显示角色/武器图标（按 resourceId 取 COS 素材，缺失时退回站内头像或首字）。
 - [ ] 分享图能下载为 PNG，UID 已打码。
 
 **质量**

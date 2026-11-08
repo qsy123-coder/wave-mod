@@ -17,6 +17,18 @@
 修改说明：原实现为 Rust + Tauri 桌面应用，本仓库改写为纯 TypeScript 模块并适配
 `wave-mod` 的站内页面结构；算法口径保持一致，I/O、存储与 UI 全部重写。
 
+## 角色 / 武器素材
+
+五星图标与角色立绘来自同一项目的资源包仓库：
+
+- **仓库**：https://github.com/juliy819/wuwa-gacha-tool-resources
+- **发布**：GitHub Releases 的 `resource-pack.zip`（`resources-2026.11.07-769922de`）
+- **上游数据**：nanoka.cc 的资源快照（`catalog.json` + `icons/` + `portraits/`）
+- **本站处理**：按 `resourceId` 命名上传到 COS 的 `gacha-res/icons|<portraits>/<id>.webp`，
+  由 `scripts/upload-gacha-resources-to-cos.mjs` 执行；页面按 ID 取图，不依赖角色名。
+- 该资源包仓库未声明开源许可；素材版权归游戏厂商及原数据站所有，仅用于本站的
+  非商业展示，与 mod 预览图同一性质。
+
 Apache License 2.0 全文见：https://www.apache.org/licenses/LICENSE-2.0
 
 ```

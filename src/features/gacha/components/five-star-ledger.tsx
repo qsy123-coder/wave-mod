@@ -103,6 +103,7 @@ export function FiveStarLedger({
                     5★
                   </span>
                   <ResourceAvatar
+                    resourceId={row.resourceId}
                     name={row.name}
                     resourceType={row.resourceType}
                     qualityLevel={row.qualityLevel}
@@ -134,6 +135,7 @@ export function FiveStarLedger({
           <header className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <ResourceAvatar
+                resourceId={profile.resourceId}
                 name={profile.name}
                 resourceType={profile.resourceType}
                 qualityLevel={5}

@@ -34,6 +34,16 @@ export function SharePanel({ overview, uid }: { overview: Overview; uid: string 
           pity: pool.currentPity,
           hardPity: pool.hardPity,
         })),
+      fiveStars: overview.pools
+        .flatMap((pool) => pool.intervals)
+        .slice()
+        .sort((a, b) => (a.record.time < b.record.time ? 1 : a.record.time > b.record.time ? -1 : 0))
+        .slice(0, 6)
+        .map((interval) => ({
+          resourceId: interval.record.resourceId,
+          name: interval.record.name,
+          qualityLevel: interval.record.qualityLevel,
+        })),
     }),
     [overview, uid],
   );

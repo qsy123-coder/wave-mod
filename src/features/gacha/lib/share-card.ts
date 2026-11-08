@@ -11,6 +11,12 @@ export type ShareCardPool = {
   hardPity: number;
 };
 
+export type ShareCardFiveStar = {
+  resourceId: number;
+  name: string;
+  qualityLevel: number;
+};
+
 export type ShareCardPayload = {
   uidMasked: string;
   range: string;
@@ -19,7 +25,10 @@ export type ShareCardPayload = {
   averagePity: number | null;
   winRate: number | null;
   pools: ShareCardPool[];
+  fiveStars: ShareCardFiveStar[];
 };
+
+import { gachaIconUrl } from "./asset-urls";
 
 const WIDTH = 1080;
 const HEIGHT = 1350;
@@ -74,6 +83,32 @@ function drawStatTile(
   ctx.fillStyle = MUTED;
   ctx.font = "700 24px system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif";
   ctx.fillText(unit, x + 34 + valueWidth, y + 130);
+}
+
+const ICON_TIMEOUT_MS = 4000;
+
+/**
+ * 加载 COS 图标。COS 桶已配置 CORS（允许 go.sunnyrose.xyz），所以带
+ * `crossOrigin="anonymous"` 画进 canvas 不会污染画布；任何失败都只是少一张图。
+ */
+function loadIcon(resourceId: number): Promise<HTMLImageElement | null> {
+  const url = gachaIconUrl(resourceId);
+  if (!url) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    const timer = setTimeout(() => resolve(null), ICON_TIMEOUT_MS);
+    image.onload = () => {
+      clearTimeout(timer);
+      resolve(image);
+    };
+    image.onerror = () => {
+      clearTimeout(timer);
+      resolve(null);
+    };
+    image.src = url;
+  });
 }
 
 export async function renderShareCard(payload: ShareCardPayload): Promise<Blob> {
@@ -145,17 +180,37 @@ export async function renderShareCard(payload: ShareCardPayload): Promise<Blob> 
   ctx.font = `900 44px ${fontStack}`;
   ctx.fillText(payload.winRate === null ? "—" : `${payload.winRate.toFixed(1)}%`, 246, 636);
 
+  // 最近五星（图标按 resourceId 从 COS 取；跨域失败就整排跳过，不影响主图）
+  const icons = await Promise.all(payload.fiveStars.slice(0, 6).map((item) => loadIcon(item.resourceId)));
+  const availableIcons = icons.filter((icon): icon is HTMLImageElement => icon !== null);
+
+  if (availableIcons.length > 0) {
+    ctx.fillStyle = MUTED;
+    ctx.font = `700 26px ${fontStack}`;
+    ctx.fillText("最近五星", 72, 690);
+
+    const iconSize = 64;
+    const iconGap = 14;
+    availableIcons.forEach((icon, index) => {
+      const x = 72 + index * (iconSize + iconGap);
+      ctx.drawImage(icon, x, 706, iconSize, iconSize);
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(x, 706, iconSize, iconSize);
+    });
+  }
+
   // 卡池垫抽
   ctx.fillStyle = INK;
   ctx.font = `900 36px ${fontStack}`;
-  ctx.fillText("各卡池当前垫抽", 72, 722);
+  ctx.fillText("各卡池当前垫抽", 72, 810);
 
-  const maxRows = 8;
+  const maxRows = 7;
   const rows = payload.pools.slice(0, maxRows);
-  const rowHeight = 62;
+  const rowHeight = 54;
 
   rows.forEach((pool, index) => {
-    const y = 760 + index * rowHeight;
+    const y = 848 + index * rowHeight;
     const progress = Math.min(1, pool.pity / pool.hardPity);
 
     ctx.fillStyle = INK;
@@ -183,7 +238,7 @@ export async function renderShareCard(payload: ShareCardPayload): Promise<Blob> 
   if (payload.pools.length > maxRows) {
     ctx.fillStyle = MUTED;
     ctx.font = `700 22px ${fontStack}`;
-    ctx.fillText(`另有 ${payload.pools.length - maxRows} 个卡池未显示`, 72, 760 + maxRows * rowHeight + 8);
+    ctx.fillText(`另有 ${payload.pools.length - maxRows} 个卡池未显示`, 72, 848 + maxRows * rowHeight + 8);
   }
 
   // 页脚
