@@ -108,6 +108,25 @@ describe("POST /api/gacha/fetch", () => {
     expect(calls.length).toBe(4);
   });
 
+  it("链接参数无效（负数错误码）返回 422 并停止后续请求", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        calls.push(String(input));
+        // -4：serverId 查不到区服
+        return apiResponse(null, -4);
+      }),
+    );
+
+    const response = await POST(makeRequest({ url: VALID_URL }, "10.0.0.8"));
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(422);
+    expect(body.error).toBe("invalid_link");
+    expect(calls.length).toBe(4);
+  });
+
   it("缺少参数返回 400 且不请求上游", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);

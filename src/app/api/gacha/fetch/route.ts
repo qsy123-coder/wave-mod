@@ -55,7 +55,11 @@ const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
 } as const;
 
-type UpstreamErrorCode = "expired_link" | "upstream_timeout" | "upstream_error";
+type UpstreamErrorCode =
+  | "expired_link"
+  | "invalid_link"
+  | "upstream_timeout"
+  | "upstream_error";
 
 class UpstreamError extends Error {
   constructor(
@@ -168,6 +172,12 @@ async function fetchPool(
       throw new UpstreamError("expired_link", "链接已失效");
     }
 
+    // 负数错误码都表示链接/参数本身有问题（例如 -4：serverId 查不到区服），
+    // 不是上游故障 —— 必须让用户看到「重新取链接」，而不是「服务不可用」。
+    if (typeof payload.code === "number" && payload.code < 0) {
+      throw new UpstreamError("invalid_link", "链接参数无效");
+    }
+
     if (payload.code !== 0) {
       throw new UpstreamError("upstream_error", `接口返回 ${payload.code ?? "unknown"}`);
     }
@@ -225,6 +235,7 @@ export async function POST(request: NextRequest) {
   const collected: GachaRecord[] = [];
   let succeededPools = 0;
   let fatalExpired = false;
+  let fatalInvalid = false;
   let fatalTimeout = false;
 
   try {
@@ -257,13 +268,14 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // 链接失效对所有池都一样，没必要继续烧请求
+        // 链接失效 / 参数无效对所有池都一样，没必要继续烧请求
         if (result.error.code === "expired_link") fatalExpired = true;
+        if (result.error.code === "invalid_link") fatalInvalid = true;
         if (result.error.code === "upstream_timeout") fatalTimeout = true;
         failedPools.push({ poolType: result.poolType, message: result.error.message });
       }
 
-      if (fatalExpired) break;
+      if (fatalExpired || fatalInvalid) break;
     }
   } finally {
     clearTimeout(totalTimer);
@@ -273,6 +285,14 @@ export async function POST(request: NextRequest) {
     return jsonError(
       "expired_link",
       "链接已失效（约 1 小时有效），请重新从游戏内复制唤取记录链接",
+      422,
+    );
+  }
+
+  if (fatalInvalid) {
+    return jsonError(
+      "invalid_link",
+      "链接参数无效（区服或账号信息对不上），请重新从游戏内复制唤取记录链接",
       422,
     );
   }
