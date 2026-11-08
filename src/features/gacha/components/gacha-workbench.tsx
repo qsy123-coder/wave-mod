@@ -102,7 +102,7 @@ export function GachaWorkbench() {
           粘贴官方唤取记录链接
         </label>
         <p className="mt-1 text-[11px] font-bold text-black/50">
-          游戏内「唤取 → 唤取记录」页面里复制。链接包含一次性凭证，约 1 小时有效。
+          从云鸣潮网页版或客户端日志提取（见下方「怎么拿到这条链接」）。链接含一次性凭证，约 1 小时有效。
         </p>
 
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -138,13 +138,40 @@ export function GachaWorkbench() {
           <summary className="cursor-pointer text-[11px] font-black text-black/60">
             怎么拿到这条链接？
           </summary>
-          <ol className="mt-2 list-decimal space-y-1 pl-4 text-[11px] font-semibold leading-relaxed text-black/55">
-            <li>打开游戏，进入「唤取」页面，切到「唤取记录」。</li>
-            <li>在记录页面复制官方提供的链接（PC 端也可从 Client.log 中提取）。</li>
+
+          <p className="mt-2 text-[11px] font-black text-black/60">
+            方法一：云鸣潮网页版（推荐，不用启动游戏）
+          </p>
+          <ol className="mt-1 list-decimal space-y-1 pl-4 text-[11px] font-semibold leading-relaxed text-black/55">
+            <li>
+              打开库洛云游戏工具页{" "}
+              <a
+                href="https://mc.kurogames.com/cloud/index.html#/tools"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="font-black text-black underline decoration-2 underline-offset-2"
+              >
+                mc.kurogames.com/cloud/index.html#/tools
+              </a>
+              ，登录库洛账号。
+            </li>
+            <li>点「唤取记录」卡片，页面会打开抽卡记录。</li>
+            <li>
+              在电脑浏览器按 <kbd className="border border-black/40 px-1">F12</kbd> → Network（网络）→
+              刷新记录页，找到发往 <code className="font-mono">aki-gm-resources</code> 的请求，右键复制完整 URL。
+            </li>
             <li>整条粘贴到上面的输入框，点击「开始分析」。</li>
           </ol>
+
+          <p className="mt-2 text-[11px] font-black text-black/60">方法二：PC 客户端日志</p>
+          <p className="mt-1 text-[11px] font-semibold leading-relaxed text-black/55">
+            先在游戏里打开一次「唤取记录」，链接会写进 <code className="font-mono">Client.log</code>。
+            3.4 版本起官方加密了日志，旧的手动搜索已失效，可以用 wuwatracker 的导入页/脚本、
+            NekoGame 或 WaveTools 一键提取。
+          </p>
+
           <p className="mt-2 text-[11px] font-bold text-[var(--neo-accent)]">
-            链接大约 1 小时失效；失效后重新从游戏里复制即可。
+            链接约 1 小时失效，官方只保留约 180 天记录；失效后重新取一次即可。
           </p>
         </details>
       </form>
