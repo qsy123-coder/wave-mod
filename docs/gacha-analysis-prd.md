@@ -282,6 +282,16 @@ COS: /gacha-res/portraits/<resourceId>.webp   ← 65 个，备用
 - COS 已配置 CORS（允许 `go.sunnyrose.xyz`），后续可把图标画进分享图。
 - 素材版权与归属见 `src/features/gacha/lib/NOTICE.md`。
 
+### 4.8 角色 ↔ 专武合并成本
+
+- **映射来源**：资源包 `catalog.json` 的 `signature_weapon_id`（40 个角色，对应武器全部在库），
+  由 `scripts/generate-signature-weapons.mjs` 生成 `src/features/gacha/lib/signature-weapons.ts`。
+- **口径**：角色成本取点开时所在的角色池；专武成本合并 2 / 9 / 11 三个限定武器池，
+  **常驻武器池 4 不计入**；两边都沿用「含前置歪」的池内成本口径，直接相加。
+- **UI**：有专武映射的角色，成本档案显示「角色 / 专武 / 合计」切换；
+  没抽到专武时专武页显示「未获取」，合计只算角色。
+- 首批只覆盖资源包里有映射的角色；新角色等上游 catalog 更新后重跑生成脚本即可。
+
 ---
 
 ## 五、数据与接口变更
@@ -310,13 +320,16 @@ src/
         ├── normalize.ts                   # API 响应归一化（服务端）
         ├── stats.ts                       # 垫抽 / 50-50 / UP 周期 / 分布
         ├── theory.ts                      # 软保底模型与理论阈值
+        ├── verdict.ts                     # 样本感知的欧非结论
         ├── asset-urls.ts                  # resourceId → COS 素材地址
+        ├── signature-weapons.ts           # 角色 → 专武映射（生成文件）
         └── NOTICE.md                      # Apache-2.0 署名与素材来源
 ```
 
 **不改动**：数据库、`src/lib/db`、每日上传脚本、`dedupKey`、角色分类。本功能与 mod 数据完全隔离。
 
-**新增脚本**：`scripts/upload-gacha-resources-to-cos.mjs`（把资源包的 icons/portraits 传到 COS）。
+**新增脚本**：`scripts/upload-gacha-resources-to-cos.mjs`（素材上传）、
+`scripts/generate-signature-weapons.mjs`（从 catalog.json 生成角色→专武映射）。
 
 ### 5.2 接口契约
 
@@ -475,7 +488,8 @@ type GachaRecord = {
 | P0 | 路由 + 代理 + 链接解析 + 基础统计 + 每池垫抽 + 保底进度 | 1 天 |
 | P1 | 进阶分析：不歪率、直方图、累计/逐出概率、趋势 | 1 天 |
 | P2 | 成本档案 + 分享图 | 1 天 |
-| P3（可选） | 个人校准倍率、JSON 导入、图标资源包 | 待评估 |
+| P3（已完成 2026-11-08） | 素材图标、结论文案、**角色 ↔ 专武合并成本** | — |
+| P4（可选） | 个人校准倍率、JSON 导入 | 待评估 |
 
 每期独立可上线；P0 完成即可给用户使用。
 

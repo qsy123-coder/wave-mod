@@ -18,8 +18,10 @@ import {
   getPoolGroupLabel,
   hardPityForPool,
 } from "./pools";
+import { SIGNATURE_WEAPONS } from "./signature-weapons";
 import type {
   Acquisition,
+  CombinedCostProfile,
   CostProfile,
   DistributionBin,
   FeaturedCycle,
@@ -299,6 +301,76 @@ export function buildCostProfile(
     bestPulls: Math.min(...costs),
     worstPulls: Math.max(...costs),
     isLowerBound: acquisitions[0].isLowerBound,
+  };
+}
+
+/** 限定武器池：专武只会出现在这三类池里 */
+const LIMITED_WEAPON_POOL_IDS = ["2", "9", "11"] as const;
+
+/** 把多个池的成本档案合成一份（专武可能横跨活动/新旅/联动武器池） */
+function mergeCostProfiles(profiles: (CostProfile | null)[]): CostProfile | null {
+  const valid = profiles.filter((profile): profile is CostProfile => profile !== null);
+  if (valid.length === 0) return null;
+  if (valid.length === 1) return valid[0];
+
+  const acquisitions = valid
+    .flatMap((profile) => profile.acquisitions)
+    .sort((a, b) => (a.record.time < b.record.time ? -1 : a.record.time > b.record.time ? 1 : 0));
+  const costs = acquisitions.map((acquisition) => acquisition.costPulls);
+  const totalPulls = valid.reduce((sum, profile) => sum + profile.totalPulls, 0);
+
+  return {
+    resourceId: valid[0].resourceId,
+    name: valid[0].name,
+    resourceType: valid[0].resourceType,
+    poolType: valid[0].poolType,
+    poolName: [...new Set(valid.map((profile) => profile.poolName))].join(" / "),
+    acquisitions,
+    totalPulls,
+    averagePulls: costs.reduce((sum, value) => sum + value, 0) / costs.length,
+    bestPulls: Math.min(...costs),
+    worstPulls: Math.max(...costs),
+    isLowerBound: valid.some((profile) => profile.isLowerBound),
+  };
+}
+
+/** 某把武器在全部限定武器池里的获取成本 */
+export function buildWeaponCostProfile(
+  records: readonly GachaRecord[],
+  weaponId: number,
+): CostProfile | null {
+  return mergeCostProfiles(
+    LIMITED_WEAPON_POOL_IDS.map((poolType) => buildCostProfile(poolType, records, weaponId)),
+  );
+}
+
+/**
+ * 角色 + 专武的总成本。
+ *
+ * 角色成本来自它在角色池的获取记录，专武成本来自它在 2/9/11 武器池的获取记录；
+ * 两边都沿用各自池的「含前置歪」口径，直接相加。
+ */
+export function buildCombinedCostProfile(
+  records: readonly GachaRecord[],
+  rolePoolType: string,
+  roleId: number,
+): CombinedCostProfile {
+  const role = buildCostProfile(rolePoolType, records, roleId);
+  const signature = SIGNATURE_WEAPONS[roleId] ?? null;
+  const weapon = signature ? buildWeaponCostProfile(records, signature.weaponId) : null;
+
+  const totalPulls = (role?.totalPulls ?? 0) + (weapon?.totalPulls ?? 0);
+  const totalCount = (role?.acquisitions.length ?? 0) + (weapon?.acquisitions.length ?? 0);
+
+  return {
+    role,
+    weapon,
+    signatureWeaponId: signature?.weaponId ?? null,
+    weaponName: signature?.weaponName ?? null,
+    totalPulls,
+    totalCount,
+    averagePulls: totalCount > 0 ? totalPulls / totalCount : null,
+    isLowerBound: Boolean(role?.isLowerBound || weapon?.isLowerBound),
   };
 }
 

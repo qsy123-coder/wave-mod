@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCostProfile, buildOverview, buildPoolInsight, isOffRateRecord } from "./stats";
+import {
+  buildCombinedCostProfile,
+  buildCostProfile,
+  buildOverview,
+  buildPoolInsight,
+  buildWeaponCostProfile,
+  isOffRateRecord,
+} from "./stats";
 import type { GachaRecord } from "./types";
 
 function at(day: number): string {
@@ -167,8 +174,7 @@ describe("buildOverview", () => {
   });
 });
 
-describe("buildCostProfile", () => {
-  it("成本包含前置歪，并按同名目标分段", () => {
+describe("buildCostProfile", () => {  it("成本包含前置歪，并按同名目标分段", () => {
     const records = [
       record({ time: at(1) }),
       record({ time: at(2), qualityLevel: 5, resourceId: 1104, name: "维里奈" }),
@@ -203,5 +209,107 @@ describe("buildCostProfile", () => {
 
   it("没有获取过该目标时返回 null", () => {
     expect(buildCostProfile("1", [record({ time: at(1) })], 9999)).toBeNull();
+  });
+});
+
+describe("角色 ↔ 专武合并", () => {
+  // 1105 折枝 → 21050026（来自资源包 catalog）
+  const ROLE_ID = 1105;
+  const WEAPON_ID = 21050026;
+
+  function records() {
+    return [
+      // 角色池：2 抽拿到折枝
+      record({ time: at(1) }),
+      record({ time: at(2), poolType: "1", qualityLevel: 5, resourceId: ROLE_ID, name: "折枝" }),
+      // 武器池 2：2 抽拿到专武
+      record({
+        time: at(3),
+        poolType: "2",
+        poolName: "武器精准调谐",
+        resourceType: "weapon",
+      }),
+      record({
+        time: at(4),
+        poolType: "2",
+        poolName: "武器精准调谐",
+        qualityLevel: 5,
+        resourceType: "weapon",
+        resourceId: WEAPON_ID,
+        name: "琼枝冰绡",
+      }),
+      // 武器池 9：又抽到一次专武，1 抽
+      record({
+        time: at(5),
+        poolType: "9",
+        poolName: "武器新旅调谐",
+        qualityLevel: 5,
+        resourceType: "weapon",
+        resourceId: WEAPON_ID,
+        name: "琼枝冰绡",
+      }),
+      // 常驻武器池 4 的同一把武器不算进专武成本（专武只统计 2/9/11）
+      record({
+        time: at(6),
+        poolType: "4",
+        poolName: "武器常驻调谐",
+        qualityLevel: 5,
+        resourceType: "weapon",
+        resourceId: WEAPON_ID,
+        name: "琼枝冰绡",
+      }),
+    ];
+  }
+
+  it("专武跨 2/9/11 汇总，忽略常驻武器池", () => {
+    const weapon = buildWeaponCostProfile(records(), WEAPON_ID);
+
+    expect(weapon?.acquisitions).toHaveLength(2);
+    expect(weapon?.totalPulls).toBe(3);
+    expect(weapon?.averagePulls).toBe(1.5);
+    expect(weapon?.bestPulls).toBe(1);
+    expect(weapon?.worstPulls).toBe(2);
+    expect(weapon?.isLowerBound).toBe(true);
+  });
+
+  it("角色与专武成本相加", () => {
+    const combined = buildCombinedCostProfile(records(), "1", ROLE_ID);
+
+    expect(combined.signatureWeaponId).toBe(WEAPON_ID);
+    expect(combined.weaponName).toBe("琼枝冰绡");
+    expect(combined.role?.totalPulls).toBe(2);
+    expect(combined.weapon?.totalPulls).toBe(3);
+    expect(combined.totalPulls).toBe(5);
+    expect(combined.totalCount).toBe(3);
+    expect(combined.averagePulls).toBeCloseTo(5 / 3, 6);
+    expect(combined.isLowerBound).toBe(true);
+  });
+
+  it("有专武映射但没抽到专武时，合计只算角色", () => {
+    const combined = buildCombinedCostProfile(
+      [
+        record({ time: at(1) }),
+        record({ time: at(2), qualityLevel: 5, resourceId: ROLE_ID, name: "折枝" }),
+      ],
+      "1",
+      ROLE_ID,
+    );
+
+    expect(combined.signatureWeaponId).toBe(WEAPON_ID);
+    expect(combined.weapon).toBeNull();
+    expect(combined.totalPulls).toBe(combined.role?.totalPulls);
+    expect(combined.totalCount).toBe(1);
+  });
+
+  it("没有专武映射的角色只有角色成本", () => {
+    const combined = buildCombinedCostProfile(
+      [record({ time: at(1), qualityLevel: 5, resourceId: 999999, name: "无专武角色" })],
+      "1",
+      999999,
+    );
+
+    expect(combined.signatureWeaponId).toBeNull();
+    expect(combined.weapon).toBeNull();
+    expect(combined.totalPulls).toBe(1);
   });
 });

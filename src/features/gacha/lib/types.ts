@@ -118,3 +118,15 @@ export type CostProfile = {
   worstPulls: number | null;
   isLowerBound: boolean;
 };
+
+/** 角色 + 专武的合并成本（专武可能没抽到，或该角色没有专武映射） */
+export type CombinedCostProfile = {
+  role: CostProfile | null;
+  weapon: CostProfile | null;
+  signatureWeaponId: number | null;
+  weaponName: string | null;
+  totalPulls: number;
+  totalCount: number;
+  averagePulls: number | null;
+  isLowerBound: boolean;
+};
