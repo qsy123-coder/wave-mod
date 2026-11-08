@@ -273,10 +273,10 @@ export function FiveStarLedger({
                 </h3>
                 <p className="mt-0.5 text-[10px] font-bold text-black/45">
                   {mode === "combined"
-                    ? "角色 + 专武合计，成本均含前置歪"
+                    ? "角色 + 专武合计；角色按 UP 周期计成本，前置歪计入下一个 UP"
                     : mode === "weapon"
                       ? "专武获取成本，含前置歪"
-                      : `${selectedProfile.acquisitions.length} 次获取 · 每次成本从上一个同名目标算起，含前置歪`}
+                      : `${selectedProfile.acquisitions.length} 次获取 · 成本按 UP 周期计算，前置歪计入下一个 UP`}
                 </p>
               </div>
             </div>

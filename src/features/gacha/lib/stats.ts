@@ -242,7 +242,11 @@ export function buildOverview(records: readonly GachaRecord[]): Overview {
 /**
  * 单个角色/武器的获取成本档案。
  *
- * costPulls = 从上一个同名目标（或历史起点）到本次获取的全部抽数，含前置歪。
+ * 口径与源项目 `resource_acquisition_insights_with_boundaries` 一致：
+ *   - 普通池：每次五星的成本 = 距上一个五星的抽数
+ *   - 限定角色池：歪出来的常驻五星不计入自己的条目，而是挂到下一个 UP 上，
+ *     所以每次 UP 的成本 = 期间所有歪的区间之和 + 本次出金区间。
+ *     （不是「距上次抽到同一个角色」，否则中间隔了别的 UP 就会虚高。）
  */
 export function buildCostProfile(
   poolType: string,
@@ -250,38 +254,68 @@ export function buildCostProfile(
   resourceId: number,
 ): CostProfile | null {
   const sorted = sortDrawOrder(records.filter((record) => record.poolType === poolType));
+  const limitedCharPool = LIMITED_CHAR_POOL_IDS.has(poolType);
   const acquisitions: Acquisition[] = [];
 
   let lastFiveStarIndex = -1;
-  let lastTargetIndex = -1;
-  let offRateSinceTarget = 0;
+  let pendingPulls = 0;
+  let pendingOffRateCount = 0;
+  let pendingLowerBound = false;
   let cumulativePulls = 0;
+
+  const resetPending = () => {
+    pendingPulls = 0;
+    pendingOffRateCount = 0;
+    pendingLowerBound = false;
+  };
 
   sorted.forEach((record, index) => {
     if (record.qualityLevel !== 5) return;
 
-    const pulls = index - lastFiveStarIndex;
+    const pity = index - lastFiveStarIndex;
+    const isFirstFiveStar = lastFiveStarIndex < 0;
     lastFiveStarIndex = index;
 
-    if (record.resourceId !== resourceId) {
-      // 只把同池的歪计入目标成本
-      if (isOffRateRecord(record, poolType)) offRateSinceTarget += 1;
+    const isOffRate = isOffRateRecord(record, poolType);
+
+    if (limitedCharPool && isOffRate) {
+      pendingPulls += pity;
+      pendingOffRateCount += 1;
+      pendingLowerBound ||= isFirstFiveStar;
+
+      // 用户点的恰好是这个常驻五星：给它一个独立条目，成本只算本区间；
+      // 挂起成本仍留给下一个 UP（与源项目一致）。
+      if (record.resourceId === resourceId) {
+        cumulativePulls += pity;
+        acquisitions.push({
+          record,
+          pulls: pity,
+          isLowerBound: isFirstFiveStar,
+          offRateBefore: 0,
+          costPulls: pity,
+          cumulativePulls,
+        });
+      }
       return;
     }
 
-    const costPulls = index - lastTargetIndex;
+    if (record.resourceId !== resourceId) {
+      // 这个 UP 不是目标：挂起的歪属于它，清空
+      resetPending();
+      return;
+    }
+
+    const costPulls = pendingPulls + pity;
     cumulativePulls += costPulls;
     acquisitions.push({
       record,
-      pulls,
-      isLowerBound: acquisitions.length === 0,
-      offRateBefore: offRateSinceTarget,
+      pulls: pity,
+      isLowerBound: isFirstFiveStar || pendingLowerBound,
+      offRateBefore: pendingOffRateCount,
       costPulls,
       cumulativePulls,
     });
-
-    lastTargetIndex = index;
-    offRateSinceTarget = 0;
+    resetPending();
   });
 
   const firstTarget = acquisitions[0]?.record;
@@ -300,7 +334,7 @@ export function buildCostProfile(
     averagePulls: average(costs),
     bestPulls: Math.min(...costs),
     worstPulls: Math.max(...costs),
-    isLowerBound: acquisitions[0].isLowerBound,
+    isLowerBound: acquisitions.some((acquisition) => acquisition.isLowerBound),
   };
 }
 

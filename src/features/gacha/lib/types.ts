@@ -98,9 +98,9 @@ export type Acquisition = {
   /** 本次出金用了多少抽（距上一个五星） */
   pulls: number;
   isLowerBound: boolean;
-  /** 本次获取之前、同一个目标周期内歪了几次 */
+  /** 本次获取之前、同一个 UP 周期内歪了几次 */
   offRateBefore: number;
-  /** 从上一个同名目标（或历史起点）到本次的全部抽数，含前置歪 */
+  /** 本次 UP 周期的成本：前置歪的区间之和 + 本次出金区间 */
   costPulls: number;
   cumulativePulls: number;
 };

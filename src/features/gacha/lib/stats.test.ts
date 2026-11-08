@@ -210,6 +210,58 @@ describe("buildCostProfile", () => {  it("成本包含前置歪，并按同名�
   it("没有获取过该目标时返回 null", () => {
     expect(buildCostProfile("1", [record({ time: at(1) })], 9999)).toBeNull();
   });
+
+  it("中间隔着别的 UP 时，本次成本只算自己的 UP 周期", () => {
+    const profile = buildCostProfile(
+      "1",
+      [
+        record({ time: at(1), qualityLevel: 5, resourceId: 1001, name: "A" }),
+        record({ time: at(2) }),
+        record({ time: at(3) }),
+        record({ time: at(4), qualityLevel: 5, resourceId: 2002, name: "B" }),
+        record({ time: at(5) }),
+        record({ time: at(6), qualityLevel: 5, resourceId: 1001, name: "A" }),
+      ],
+      1001,
+    );
+
+    expect(profile?.acquisitions).toHaveLength(2);
+    expect(profile?.acquisitions[0]).toMatchObject({ pulls: 1, costPulls: 1 });
+    // 旧实现会算成 6（距上次同名角色），正确值是 2（距上一个 UP）
+    expect(profile?.acquisitions[1]).toMatchObject({ pulls: 2, costPulls: 2 });
+    expect(profile?.totalPulls).toBe(3);
+  });
+
+  it("前置歪只计入紧接着的那个 UP", () => {
+    const profile = buildCostProfile(
+      "1",
+      [
+        record({ time: at(1), qualityLevel: 5, resourceId: 1001, name: "A" }),
+        record({ time: at(2), qualityLevel: 5, resourceId: 2002, name: "B" }),
+        record({ time: at(3), qualityLevel: 5, resourceId: 1104, name: "维里奈" }),
+        record({ time: at(4), qualityLevel: 5, resourceId: 1001, name: "A" }),
+      ],
+      1001,
+    );
+
+    expect(profile?.acquisitions[0]).toMatchObject({ costPulls: 1, offRateBefore: 0 });
+    expect(profile?.acquisitions[1]).toMatchObject({ costPulls: 2, offRateBefore: 1 });
+    expect(profile?.totalPulls).toBe(3);
+  });
+
+  it("在限定池点歪出来的常驻五星也能看到自己的区间", () => {
+    const profile = buildCostProfile(
+      "1",
+      [
+        record({ time: at(1), qualityLevel: 5, resourceId: 1104, name: "维里奈" }),
+        record({ time: at(2), qualityLevel: 5, resourceId: 1001, name: "A" }),
+      ],
+      1104,
+    );
+
+    expect(profile?.acquisitions).toHaveLength(1);
+    expect(profile?.totalPulls).toBe(1);
+  });
 });
 
 describe("角色 ↔ 专武合并", () => {
