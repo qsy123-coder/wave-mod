@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { INSERT_COLUMNS, buildInsertSql, buildMergeDriveLinksSql, buildRedateSql } from "./mod-upload-sql.mjs";
+import { INSERT_COLUMNS, buildImageUpdateSql, buildInsertSql, buildMergeDriveLinksSql, buildRedateSql } from "./mod-upload-sql.mjs";
 
 const row = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -29,6 +29,20 @@ describe("buildRedateSql", () => {
     expect(sql).toContain("set created_at = incoming.created_at");
     expect(sql).toContain("updated_at = now()");
     expect(sql).not.toContain("drive_links");
+  });
+});
+
+describe("buildImageUpdateSql", () => {
+  it("only updates images for the given rows", () => {
+    const sql = buildImageUpdateSql([
+      { id: row.id, images: ["https://cos.test/a.webp", "https://cos.test/b.webp"] },
+    ]);
+
+    expect(sql).toContain("set images = i.images");
+    expect(sql).toContain("updated_at = now()");
+    expect(sql).not.toContain("drive_links");
+    expect(sql).toContain("https://cos.test/a.webp");
+    expect(sql).toContain(row.id);
   });
 });
 

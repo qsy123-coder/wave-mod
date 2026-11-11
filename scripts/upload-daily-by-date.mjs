@@ -25,6 +25,9 @@
  *   node scripts/upload-daily-by-date.mjs              # 正式上传
  *   node scripts/upload-daily-by-date.mjs --dates=2026.9.11,2026.9.12
  *                                                      # 只处理指定日期目录（其余目录跳过）
+ *   node scripts/upload-daily-by-date.mjs --dates=2026.11.11 --refresh-images
+ *                                                      # 只给已有行补/换封面（占位图 → 本地图），
+ *                                                      # 不改标题/链接，用于首次上传时图片还没放到位的修复
  */
 
 import { readFileSync, existsSync, readdirSync, rmSync } from "node:fs";
@@ -51,8 +54,8 @@ import {
 } from "./daily-classify.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { readModGroupsFile } from "./mod-groups.mjs";
-import { matchRecordsToGroups } from "./mod-groups-pure.mjs";
-import { buildInsertSql, buildMergeDriveLinksSql, buildRedateSql } from "./mod-upload-sql.mjs";
+import { matchRecordsToGroups, normalizeGroupKey } from "./mod-groups-pure.mjs";
+import { buildImageUpdateSql, buildInsertSql, buildMergeDriveLinksSql, buildRedateSql } from "./mod-upload-sql.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true });
@@ -60,6 +63,8 @@ config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
 const args = process.argv.slice(2);
 const isDryRun = args.includes("--dry-run");
+/** 只刷新已有行的预览图（占位图 → 本地图），不改标题/链接 */
+const refreshImages = args.includes("--refresh-images");
 
 // --dates=2026.9.11,2026.9.12 → 只处理这些日期目录；未指定则处理全部
 const datesArg = args.find((a) => a.startsWith("--dates="));
@@ -371,6 +376,11 @@ function buildImageIndex(dir) {
   // 先扫顶层，再扫「预览图」子目录（子目录可能被顶层同名覆盖，需顶层优先）
   indexFilesInto(byBase, dir);
   indexFilesInto(byBase, join(dir, "预览图"));
+  // 爬虫把附件预览图放在来源子目录（GameBanana/arca.live），只扫顶层会一律落到占位图。
+  // 放在最后扫：同 base 时顶层/预览图的条目排在前面，保持「顶层优先」。
+  for (const source of ["GameBanana", "arca.live"]) {
+    indexFilesInto(byBase, join(dir, source));
+  }
   const primary = new Map();
   for (const [base, list] of byBase) {
     list.sort((a, b) => PREFERRED_EXTS.indexOf(a.ext) - PREFERRED_EXTS.indexOf(b.ext));
@@ -485,6 +495,10 @@ function shanghaiDayKey(iso) {
 // 构造器在 scripts/mod-upload-sql.mjs —— 单独拆出去后 vitest 才能测，
 // 本文件在模块加载阶段就要求 DATABASE_URL / COS 环境变量。
 
+function isPlaceholderImage(url) {
+  return !url || /placeholder/i.test(String(url));
+}
+
 /**
  * 合并组的链接去重：同一变体同一网盘只留一条。
  *
@@ -554,6 +568,7 @@ select coalesce(
     'title', title,
     'character', character,
     'created_at', created_at,
+    'images', images,
     'xunlei', coalesce(drive_links @> '[{"platform":"迅雷网盘"}]'::jsonb, false)
   )),
   '[]'::json
@@ -589,6 +604,9 @@ where game_key = ${dollarQuote(GAME_KEY)};
   const redated = [];
   // 合并记录命中库内基础行时，链接要和旧行求并集（新变体/新链接补进去）
   const mergedUpdates = [];
+  // --refresh-images：已有行的封面还是占位图时，用本次目录里的本地图补上
+  const imageUpdates = [];
+  let refreshedImages = 0;
   let mergedGroups = 0;
   let mergedVariants = 0;
   let skippedLegacyGroups = 0;
@@ -636,6 +654,30 @@ where game_key = ${dollarQuote(GAME_KEY)};
     const imageIndex = buildImageIndex(dirPath);
     console.log(`   预览图索引: ${imageIndex.primary.size} 个唯一 base`);
 
+    /**
+     * `--refresh-images`：按 canonicalKey 重新找图，覆盖该行自己的 COS 前缀。
+     * 用于首次上传时预览图还没放到顶层/来源目录、导致落了占位图的情况。
+     */
+    const refreshRowImages = async (canonicalKey, rowId, character) => {
+      const overrideUrl = IMAGE_URL_OVERRIDES.get(canonicalKey);
+      const entries = overrideUrl ? [] : lookupImages(imageIndex, canonicalKey);
+      if (!overrideUrl && entries.length === 0) return null;
+      const urls = [];
+      if (overrideUrl) {
+        urls.push(overrideUrl);
+      } else {
+        const slug = slugify(character);
+        for (const [idx, entry] of entries.entries()) {
+          const name = idx === 0 ? "preview" : `preview-${idx + 1}`;
+          const { buffer } = await convertToWebP(entry.file);
+          const objectKey = `mods/${slug}/${rowId}/${name}.webp`;
+          if (!isDryRun) await uploadToCos(objectKey, buffer, "image/webp");
+          urls.push(buildCosUrl(objectKey));
+        }
+      }
+      return urls.length ? urls : null;
+    };
+
     // 3d. 该目录的迅雷导出（可能没有：那就只有夸克一个盘）
     const xunleiDay = xunleiIndex.get(dir.name) || null;
     driveCoverage[dateLabel] = { quark: unique.length, xunlei: 0, xunleiExported: xunleiDay?.exported ?? 0 };
@@ -656,7 +698,11 @@ where game_key = ${dollarQuote(GAME_KEY)};
       const baseKey = dedupKey(gm.group.character, gm.group.title);
       // 历史行保护：这个帖子以前已经按变体分卡入库时，不再合并，
       // 否则会同时留下「新合并行 + 旧变体行」。
+      // 基变体的 title 就是合并行自己的 title，必须排除 —— 否则重跑时会把基行误判成
+      // 「历史分版本行」，其余变体再被逐条插成多张卡。
+      const baseName = normalizeGroupKey(gm.group.baseName || gm.group.variants[0]?.name || "");
       const legacy = gm.matches.some(({ variant }) => {
+        if (normalizeGroupKey(variant.name) === baseName) return false;
         const parsed = resolveCharacterAndTitle(variant.name);
         return existingSet.has(dedupKey(parsed.character, parsed.title));
       });
@@ -729,6 +775,15 @@ where game_key = ${dollarQuote(GAME_KEY)};
           // 库内已有这条，本轮不会写库。只在「这次拿到了迅雷链接」且「库里那条还没有」
           // 时才提醒 —— 否则每次都把已经补好的记录再列一遍，提醒就没人看了。
           if (xunlei && !existingHasXunlei.has(dkey)) xunleiBacklog.push(`${dateLabel} · ${character} | ${title}`);
+          // 封面还是占位图（首次上传时本地图还没就位）：--refresh-images 时补一张
+          if (refreshImages && isPlaceholderImage(hit?.images?.[0])) {
+            const urls = await refreshRowImages(canonicalKey, hit.id, character);
+            if (urls) {
+              imageUpdates.push({ id: hit.id, images: urls });
+              refreshedImages++;
+              console.log(`   🖼  ${dateLabel} ${character} | ${title}  (补封面)`);
+            }
+          }
           continue;
         }
       }
@@ -865,7 +920,21 @@ where game_key = ${dollarQuote(GAME_KEY)};
 
       if (existingSet.has(gm.baseKey)) {
         // 基础行已在库：链接求并集、created_at 只前进；不再重复插一条
-        mergedUpdates.push({ id: existingByKey.get(gm.baseKey).id, createdAt: created_at, driveLinks });
+        const existingRow = existingByKey.get(gm.baseKey);
+        mergedUpdates.push({ id: existingRow.id, createdAt: created_at, driveLinks });
+        // 合并行首次上传时若也没拿到封面，同样按基础名补一张
+        if (refreshImages && isPlaceholderImage(existingRow?.images?.[0])) {
+          const urls = await refreshRowImages(
+            resolveCanonicalKey(gm.group.baseName || gm.title),
+            existingRow.id,
+            gm.character,
+          );
+          if (urls) {
+            imageUpdates.push({ id: existingRow.id, images: urls });
+            refreshedImages++;
+            console.log(`   🖼  ${gm.character} | ${gm.title}  (补封面)`);
+          }
+        }
       } else {
         results.push(merged);
       }
@@ -945,7 +1014,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
 
   if (isDryRun) {
     console.log(
-      `\n🔍 DRY-RUN: 跳过入库，共 ${results.length} 条记录（含合并 ${mergedGroups} 条），重新上架 ${redated.length} 条，合并链接更新 ${mergedUpdates.length} 条`,
+      `\n🔍 DRY-RUN: 跳过入库，共 ${results.length} 条记录（含合并 ${mergedGroups} 条），重新上架 ${redated.length} 条，合并链接更新 ${mergedUpdates.length} 条，封面更新 ${imageUpdates.length} 条`,
     );
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`⏱ 耗时 ${elapsed}s`);
@@ -1002,6 +1071,19 @@ where game_key = ${dollarQuote(GAME_KEY)};
   }
   if (mergedUpdates.length) console.log(`🔗 合并链接更新: 成功 ${mergedUpdated}/${mergedUpdates.length} 条`);
 
+  // --refresh-images：把占位封面替换成本地图（只改 images，尺寸由 syncCoverSizes 重算）
+  let imagesUpdated = 0;
+  for (let i = 0; i < imageUpdates.length; i += BATCH_SIZE) {
+    const batch = imageUpdates.slice(i, i + BATCH_SIZE);
+    try {
+      const outcome = await psqlJson(buildImageUpdateSql(batch));
+      imagesUpdated += Number(outcome?.updated ?? 0);
+    } catch (err) {
+      console.error(`   ❌ 封面更新批次失败: ${err.message}`);
+    }
+  }
+  if (imageUpdates.length) console.log(`🖼  封面更新: 成功 ${imagesUpdated}/${imageUpdates.length} 条`);
+
   const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
   console.log(`\n📊 完成: 成功 ${inserted} 条, 失败 ${failed} 条 (耗时 ${elapsed} 分钟)`);
 
@@ -1009,7 +1091,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
   // 失败不影响脚本退出码：数据已经入库了，最坏是等一个 TTL 自然到期。
   // 顺序不能反：**先发布快照、再 ping**（理由见 notifyRevalidate 的注释）。
   // --dry-run 天然走不到这里（上面已 return）。
-  if (inserted > 0 || reDated > 0 || mergedUpdated > 0) {
+  if (inserted > 0 || reDated > 0 || mergedUpdated > 0 || imagesUpdated > 0) {
     // 先补封面尺寸再发快照：快照要带上 cover_width/cover_height，否则新入库的这批
     // 在瀑布流里又要走「先按 3/4 排一遍再重排」的老路（见 scripts/cover-size.mjs）。
     // 只处理封面变过的行，正常一天十几条，几秒的事。

@@ -89,6 +89,30 @@ select json_build_object('updated', (select count(*) from upd))::text;
 }
 
 /**
+ * 刷新已有行的预览图数组（`--refresh-images` 用）。
+ *
+ * 只改 images，不动标题/链接/created_at；封面尺寸由随后的 syncCoverSizes 按新首图重算。
+ */
+export function buildImageUpdateSql(batch) {
+  const rows = batch.map((r) => ({ id: r.id, images: r.images }));
+  return `
+with incoming as (
+  select j.id, j.images
+  from jsonb_populate_recordset(null::mods, ${dollarQuote(JSON.stringify(rows))}::jsonb) j
+),
+upd as (
+  update mods m
+  set images = i.images,
+      updated_at = now()
+  from incoming i
+  where m.id = i.id
+  returning 1
+)
+select json_build_object('updated', (select count(*) from upd))::text;
+`;
+}
+
+/**
  * 合并网盘链接（同帖多变体重新上传时用）。
  *
  * 关键点：
