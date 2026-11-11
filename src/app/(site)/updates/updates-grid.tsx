@@ -5,10 +5,12 @@ import { Download } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
+import { CardDownloadAction } from "@/components/features/mods/detail/card-download-action";
 import { useGuestViewer as useSession } from "@/lib/viewer/guest-viewer";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import type { DailyUpdateDay } from "@/lib/mods";
+import { groupDriveLinksByVariant } from "@/lib/mods-domain/variants";
 
 type UpdatesGridProps = {
   days: DailyUpdateDay[];
@@ -68,7 +70,10 @@ export function UpdatesGrid({ days }: UpdatesGridProps) {
                       imageFetchPriority={dayIdx === 0 && idx < 4 ? "high" : "auto"}
                       imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
                       mediaTopRight={
-                        mod.downloadUrl ? (
+                        groupDriveLinksByVariant(mod.driveLinks ?? []).hasVariants ? (
+                          // 同帖多版本：复用列表页的「N 个版本」徽章
+                          <CardDownloadAction driveLinks={mod.driveLinks ?? []} />
+                        ) : mod.downloadUrl ? (
                           <div className="flex items-center gap-1">
                             <span className="inline-flex items-center border-2 border-black bg-[var(--neo-success)] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-black shadow-[2px_2px_0px_0px_#000]">
                               直链下载
