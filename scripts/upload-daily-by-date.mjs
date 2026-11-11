@@ -569,6 +569,7 @@ select coalesce(
     'character', character,
     'created_at', created_at,
     'images', images,
+    'is_published', is_published,
     'xunlei', coalesce(drive_links @> '[{"platform":"迅雷网盘"}]'::jsonb, false)
   )),
   '[]'::json
@@ -582,6 +583,11 @@ where game_key = ${dollarQuote(GAME_KEY)};
     process.exit(1);
   }
   const existingSet = new Set(existing.map((m) => dedupKey(m.character, m.title)));
+  // 历史分卡保护只看「已发布」的行：被修复脚本下架的重复行不能阻止后续合并，
+  // 否则新增的变体链接永远写不进合并卡（去重键已被下架行占着）。
+  const publishedExistingSet = new Set(
+    existing.filter((m) => m.is_published).map((m) => dedupKey(m.character, m.title)),
+  );
   // 去重键 → 库内那一行。命中时要把它的 created_at 推到本目录日期（重新上架），
   // 需要 id 才能定位；顺带拿到原 created_at 判断「是否已经在更晚的日期上」。
   const existingByKey = new Map(existing.map((m) => [dedupKey(m.character, m.title), m]));
@@ -704,7 +710,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
       const legacy = gm.matches.some(({ variant }) => {
         if (normalizeGroupKey(variant.name) === baseName) return false;
         const parsed = resolveCharacterAndTitle(variant.name);
-        return existingSet.has(dedupKey(parsed.character, parsed.title));
+        return publishedExistingSet.has(dedupKey(parsed.character, parsed.title));
       });
       if (legacy) {
         skippedLegacyGroups++;
