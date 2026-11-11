@@ -76,6 +76,13 @@ function ModDetailDrawerSkeleton() {
   );
 }
 
+/** 详情标题跟着选中版本走：`名称 by 作者` → `名称（变体）by 作者` */
+function withVariantSuffix(title: string, label: string | null): string {
+  if (!label) return title;
+  const match = /^(.*?)(\s+by\s+.*)$/i.exec(title);
+  return match ? `${match[1]}（${label}）${match[2]}` : `${title}（${label}）`;
+}
+
 export function ModDetailDrawer({
   isLoggedIn = false,
   modId,
@@ -137,6 +144,9 @@ export function ModDetailDrawer({
         : mod?.images ?? [],
     [effectiveVariant, mod],
   );
+
+  // 标题跟着版本走，避免用户在 9 个版本里切来切去却只看到同一个名字
+  const displayTitle = mod ? withVariantSuffix(mod.title, effectiveVariant) : "";
 
   // 切换版本时由 handleVariantChange 把画廊重置到第一张（见下方），
   // 不在 effect 里 setState，避免 React Compiler 的级联渲染告警。
@@ -309,7 +319,7 @@ export function ModDetailDrawer({
                 data-slot="drawer-title"
                 className="line-clamp-2 text-xl font-black leading-tight tracking-[0.01em] sm:text-2xl"
               >
-                {mod.title}
+                {displayTitle}
               </h1>
 
               {/* ── 徽章行：每个网盘一张卡 + 更新时间 ── */}
@@ -363,7 +373,7 @@ export function ModDetailDrawer({
               {/* ── 预览画廊：横图铺满 / 竖图限高居中，画框始终满宽 ── */}
               <DrawerPreviewGallery
                 images={galleryImages}
-                title={mod.title}
+                title={displayTitle}
                 index={previewIndex}
                 onIndexChange={setPreviewIndex}
                 onOpenImage={openLightbox}
@@ -511,7 +521,7 @@ export function ModDetailDrawer({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={galleryImages[previewIndex] ?? galleryImages[0]}
-              alt={`${mod.title} 预览 ${previewIndex + 1}`}
+              alt={`${displayTitle} 预览 ${previewIndex + 1}`}
               className="max-h-[85vh] max-w-[90vw] border-4 border-black object-contain shadow-[10px_10px_0px_0px_#000]"
             />
           </div>

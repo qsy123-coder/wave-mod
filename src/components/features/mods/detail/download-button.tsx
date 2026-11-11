@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Copy, Download, LoaderCircle, X } from "lucide-react";
+import { Check, ChevronDown, Copy, Download, LoaderCircle, X } from "lucide-react";
 import Image from "next/image";
 
 import { copyToClipboard, copyToClipboardSync } from "@/lib/clipboard";
@@ -326,25 +326,34 @@ export function DownloadButton({
     <label
       className={
         layout === "bar"
-          ? "flex w-full min-w-0 items-center gap-1"
-          : `${hasDownload ? "mb-2" : "mb-1.5"} flex w-full min-w-0 items-center gap-1`
+          ? "flex w-full min-w-0 items-center gap-1.5"
+          : `${hasDownload ? "mb-2" : "mb-1.5"} flex w-full min-w-0 items-center gap-1.5`
       }
     >
-      <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.12em] text-black/55">版本</span>
-      <select
-        value={effectiveVariant ?? ""}
-        onChange={(event) => selectVariant(event.target.value || null)}
-        aria-label="选择版本"
-        className={`min-w-0 flex-1 border-2 border-black bg-white font-black text-black shadow-[2px_2px_0px_0px_#000] outline-none ${
-          layout === "bar" ? "h-8 px-1 text-[10px]" : "h-9 px-2 text-[11px]"
-        }`}
-      >
-        {variantSummary.groups.map((group) => (
-          <option key={group.key} value={group.label ?? ""}>
-            {`${group.label ?? "默认"} · ${group.links.length} 个链接`}
-          </option>
-        ))}
-      </select>
+      <span className="shrink-0 border-2 border-black bg-black px-1.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white shadow-[2px_2px_0px_0px_#000]">
+        版本
+      </span>
+      <span className="relative min-w-0 flex-1">
+        <select
+          value={effectiveVariant ?? ""}
+          onChange={(event) => selectVariant(event.target.value || null)}
+          aria-label="选择版本"
+          className={`w-full appearance-none border-2 border-black bg-[#FFD93D] pl-2 pr-7 font-black text-black shadow-[2px_2px_0px_0px_#000] outline-none transition active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
+            layout === "bar" ? "h-8 text-[10px]" : "h-9 text-[11px]"
+          }`}
+        >
+          {variantSummary.groups.map((group) => (
+            <option key={group.key} value={group.label ?? ""}>
+              {`${group.label ?? "默认"} · ${group.links.length} 个链接`}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden="true"
+          strokeWidth={3}
+          className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-black"
+        />
+      </span>
     </label>
   ) : null;
 
