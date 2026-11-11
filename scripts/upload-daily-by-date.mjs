@@ -904,9 +904,17 @@ where game_key = ${dollarQuote(GAME_KEY)};
     // 3g. 生成合并记录：一个帖子一条，链接按变体分组，图片也按变体存
     for (const gm of groupAcc.values()) {
       if (gm.items.length < 2) continue;
-      const baseItem = gm.items.find((item) => item.hit.variant === gm.group.variants[0]) ?? gm.items[0];
+      // CSV 的记录顺序不等于清单的版本顺序；按清单排一次，
+      // 保证基变体（Normal SFW / Slim SFW）排第一，前台默认选中它、封面与画廊一致。
+      const variantRank = new Map(gm.group.variants.map((variant, index) => [variant.label, index]));
+      const orderedItems = [...gm.items].sort(
+        (a, b) =>
+          (variantRank.get(a.hit.variant.label) ?? Number.MAX_SAFE_INTEGER) -
+          (variantRank.get(b.hit.variant.label) ?? Number.MAX_SAFE_INTEGER),
+      );
+      const baseItem = orderedItems.find((item) => item.hit.variant === gm.group.variants[0]) ?? orderedItems[0];
       const variantImages = Object.fromEntries(
-        gm.items
+        orderedItems
           .filter((item) => item.imageUrls.length > 0)
           .map((item) => [item.hit.variant.label, item.imageUrls]),
       );
@@ -914,13 +922,13 @@ where game_key = ${dollarQuote(GAME_KEY)};
       const coverImages =
         baseItem.imageUrls.length > 0
           ? baseItem.imageUrls
-          : gm.items.find((item) => item.imageUrls.length > 0)?.imageUrls ?? [PLACEHOLDER_IMAGE_URL];
-      const driveLinks = dedupeGroupLinks(gm.items.flatMap((item) => item.driveLinks));
-      const labels = [...new Set(gm.items.map((item) => item.hit.variant.label))];
+          : orderedItems.find((item) => item.imageUrls.length > 0)?.imageUrls ?? [PLACEHOLDER_IMAGE_URL];
+      const driveLinks = dedupeGroupLinks(orderedItems.flatMap((item) => item.driveLinks));
+      const labels = [...new Set(orderedItems.map((item) => item.hit.variant.label))];
       const platforms = [...new Set(driveLinks.map((link) => link.platform))];
       const nsfw =
         labels.some((label) => /nsfw/i.test(label)) ||
-        gm.items.some((item) => /nsfw/i.test(item.hit.variant.sourceName ?? ""));
+        orderedItems.some((item) => /nsfw/i.test(item.hit.variant.sourceName ?? ""));
 
       const merged = {
         id: gm.modId,

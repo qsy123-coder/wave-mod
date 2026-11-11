@@ -59,11 +59,11 @@ describe("buildMergeDriveLinksSql", () => {
     const sql = buildMergeDriveLinksSql([{ id: row.id, createdAt: row.created_at, driveLinks }]);
 
     expect(sql).toContain("distinct on (coalesce(link->>'variant', ''), link->>'platform')");
-    expect(sql).toContain("order by coalesce(link->>'variant', ''), link->>'platform', ord desc");
+    expect(sql).toContain("order by coalesce(link->>'variant', ''), link->>'platform', dedupe_ord desc");
     expect(sql).toContain("created_at = greatest(m.created_at, i.created_at)");
     // 旧行里本次没出现的变体也要保留 → 两边 union + 并集聚合
     expect(sql).toContain("union all");
-    expect(sql).toContain("jsonb_agg(link order by variant_key, platform_key)");
+    expect(sql).toContain("jsonb_agg(link order by sort_key)");
   });
 
   it("embeds the variant tags and URLs in the batch payload", () => {

@@ -133,20 +133,21 @@ with incoming as (
 upd as (
   update mods m
   set drive_links = (
-        select coalesce(jsonb_agg(link order by variant_key, platform_key), '[]'::jsonb)
+        select coalesce(jsonb_agg(link order by sort_key), '[]'::jsonb)
         from (
           select distinct on (coalesce(link->>'variant', ''), link->>'platform')
                  link,
                  coalesce(link->>'variant', '') as variant_key,
-                 link->>'platform' as platform_key
+                 link->>'platform' as platform_key,
+                 sort_key
           from (
-            select value as link, 0 as ord
-            from jsonb_array_elements(coalesce(m.drive_links, '[]'::jsonb))
+            select value as link, 0 as dedupe_ord, 1000000 + idx as sort_key
+            from jsonb_array_elements(coalesce(m.drive_links, '[]'::jsonb)) with ordinality as e(value, idx)
             union all
-            select value as link, ord
+            select value as link, ord as dedupe_ord, ord as sort_key
             from jsonb_array_elements(i.drive_links) with ordinality as t(value, ord)
           ) candidates
-          order by coalesce(link->>'variant', ''), link->>'platform', ord desc
+          order by coalesce(link->>'variant', ''), link->>'platform', dedupe_ord desc
         ) picked
       ),
       created_at = greatest(m.created_at, i.created_at),
