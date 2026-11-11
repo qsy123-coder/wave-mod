@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { INSERT_COLUMNS, buildImageUpdateSql, buildInsertSql, buildMergeDriveLinksSql, buildRedateSql } from "./mod-upload-sql.mjs";
+import { INSERT_COLUMNS, buildImageUpdateSql, buildInsertSql, buildMergeDriveLinksSql, buildRedateSql, buildUnpublishSql } from "./mod-upload-sql.mjs";
 
 const row = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -60,6 +60,7 @@ describe("buildMergeDriveLinksSql", () => {
 
     expect(sql).toContain("distinct on (coalesce(link->>'variant', ''), link->>'platform')");
     expect(sql).toContain("order by coalesce(link->>'variant', ''), link->>'platform', dedupe_ord desc");
+    expect(sql).toContain("is_published = true");
     expect(sql).toContain("created_at = greatest(m.created_at, i.created_at)");
     // 旧行里本次没出现的变体也要保留 → 两边 union + 并集聚合
     expect(sql).toContain("union all");
@@ -73,5 +74,14 @@ describe("buildMergeDriveLinksSql", () => {
     expect(sql).toContain("Thicc NSFW");
     expect(sql).toContain("https://pan.quark.cn/s/nsfw");
     expect(sql).toContain(row.id);
+  });
+});
+
+describe("buildUnpublishSql", () => {
+  it("only unpublishes the given ids", () => {
+    const sql = buildUnpublishSql([row.id]);
+    expect(sql).toContain("set is_published = false");
+    expect(sql).toContain(row.id);
+    expect(sql).not.toContain("delete from");
   });
 });

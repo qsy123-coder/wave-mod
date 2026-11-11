@@ -55,7 +55,7 @@ import {
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { readModGroupsFile } from "./mod-groups.mjs";
 import { matchRecordsToGroups, normalizeGroupKey } from "./mod-groups-pure.mjs";
-import { buildImageUpdateSql, buildInsertSql, buildMergeDriveLinksSql, buildRedateSql } from "./mod-upload-sql.mjs";
+import { buildImageUpdateSql, buildInsertSql, buildMergeDriveLinksSql, buildRedateSql, buildUnpublishSql } from "./mod-upload-sql.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true });
@@ -381,6 +381,13 @@ function buildImageIndex(dir) {
   for (const source of ["GameBanana", "arca.live"]) {
     indexFilesInto(byBase, join(dir, source));
   }
+  // 用户临时把改名好的包放进「新建文件夹」等暂存目录时，预览图也在那一层。
+  // 只扫一级（不递归进包内），且放在最后，保证正式目录的同名图优先。
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (["预览图", "GameBanana", "arca.live"].includes(entry.name)) continue;
+    indexFilesInto(byBase, join(dir, entry.name));
+  }
   const primary = new Map();
   for (const [base, list] of byBase) {
     list.sort((a, b) => PREFERRED_EXTS.indexOf(a.ext) - PREFERRED_EXTS.indexOf(b.ext));
@@ -583,11 +590,6 @@ where game_key = ${dollarQuote(GAME_KEY)};
     process.exit(1);
   }
   const existingSet = new Set(existing.map((m) => dedupKey(m.character, m.title)));
-  // 历史分卡保护只看「已发布」的行：被修复脚本下架的重复行不能阻止后续合并，
-  // 否则新增的变体链接永远写不进合并卡（去重键已被下架行占着）。
-  const publishedExistingSet = new Set(
-    existing.filter((m) => m.is_published).map((m) => dedupKey(m.character, m.title)),
-  );
   // 去重键 → 库内那一行。命中时要把它的 created_at 推到本目录日期（重新上架），
   // 需要 id 才能定位；顺带拿到原 created_at 判断「是否已经在更晚的日期上」。
   const existingByKey = new Map(existing.map((m) => [dedupKey(m.character, m.title), m]));
@@ -616,6 +618,9 @@ where game_key = ${dollarQuote(GAME_KEY)};
   let mergedGroups = 0;
   let mergedVariants = 0;
   let skippedLegacyGroups = 0;
+  // 自动合并当天被逐条插出来的变体行：合并成功后把这些重复行下架
+  let autoHealGroups = 0;
+  const autoUnpublishIds = [];
   const charCount = {};
   let matchedImage = 0;
   let placeholder = 0;
@@ -756,23 +761,49 @@ where game_key = ${dollarQuote(GAME_KEY)};
     }
 
     const groupAcc = new Map();
+    const dirDay = paddedDayKey(dir.date);
     for (const gm of matchPlan.groups) {
       const baseKey = dedupKey(gm.group.character, gm.group.title);
-      // 历史行保护：这个帖子以前已经按变体分卡入库时，不再合并，
-      // 否则会同时留下「新合并行 + 旧变体行」。
-      // 基变体的 title 就是合并行自己的 title，必须排除 —— 否则重跑时会把基行误判成
-      // 「历史分版本行」，其余变体再被逐条插成多张卡。
       const baseName = normalizeGroupKey(gm.group.baseName || gm.group.variants[0]?.name || "");
-      const legacy = gm.matches.some(({ variant }) => {
-        if (normalizeGroupKey(variant.name) === baseName) return false;
+      /**
+       * 一个变体在库里对应哪一行（没有就是 undefined）。
+       * 同一天被逐条插出来的「拆分行」可以自动合并；更早日期的已发布变体卡
+       * 仍然按历史数据保护，避免把用户以前单独发布过的内容吞掉。
+       */
+      const variantRow = (variant) => {
         const parsed = resolveCharacterAndTitle(variant.name);
-        return publishedExistingSet.has(dedupKey(parsed.character, parsed.title));
+        const key = dedupKey(parsed.character, parsed.title);
+        return { parsed, key, row: existingByKey.get(key) };
+      };
+      const sameDaySplitRows = gm.matches
+        .map(({ variant }) => {
+          if (normalizeGroupKey(variant.name) === baseName) return null;
+          const { row } = variantRow(variant);
+          if (!row?.is_published) return null;
+          if (shanghaiDayKey(row.created_at) !== dirDay) return null;
+          // 基行永远保留（哪怕它的名字解析和 baseName 有细微差异）
+          if (row.id === existingByKey.get(baseKey)?.id) return null;
+          return { id: row.id, variant };
+        })
+        .filter(Boolean);
+      const hasOlderPublishedVariant = gm.matches.some(({ variant }) => {
+        if (normalizeGroupKey(variant.name) === baseName) return false;
+        const { row } = variantRow(variant);
+        return Boolean(row?.is_published) && shanghaiDayKey(row.created_at) !== dirDay;
       });
-      if (legacy) {
+
+      if (hasOlderPublishedVariant) {
         skippedLegacyGroups++;
         console.log(`   ⚠️ 帖子已有历史分版本行，跳过合并: ${gm.group.postUrl}`);
         for (const match of gm.matches) matchPlan.recordHits.delete(match.record);
         continue;
+      }
+      if (sameDaySplitRows.length > 0) {
+        autoHealGroups++;
+        autoUnpublishIds.push(...sameDaySplitRows.map((item) => item.id));
+        console.log(
+          `   🩹 合并同一天被拆开的 ${sameDaySplitRows.length} 行: ${gm.group.postUrl}`,
+        );
       }
       // 清单里的基础标题必须仍能解析成同一个角色，否则宁可不合并
       const parsedBase = gm.group.baseName ? resolveCharacterAndTitle(gm.group.baseName) : null;
@@ -783,6 +814,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
       }
       // matchRecordsToGroups 的 recordHits.group 指向清单里的内层 group，
       // 而 gm 是外层包装；两边共享同一份状态，循环和后处理都读得到。
+      const autoHeal = sameDaySplitRows.length > 0;
       const state = {
         baseKey,
         // 已有合并行时沿用它的 id：--refresh-images 上传的对象前缀要和库内那行一致
@@ -790,8 +822,10 @@ where game_key = ${dollarQuote(GAME_KEY)};
         character: gm.group.character || parsedBase?.character || "",
         title: gm.group.title || parsedBase?.title || "",
         items: [],
-        // 基础行已在库时这次只会补链接，不重复传图（图片沿用库里那张）
-        skipImages: existingSet.has(baseKey),
+        autoHeal,
+        // 基础行已在库时这次只会补链接，不重复传图（图片沿用库里那张）。
+        // 但自动合并当天拆分行时，基础行本身只是一张拆分卡，必须重新整理图片。
+        skipImages: existingSet.has(baseKey) && !autoHeal,
       };
       Object.assign(gm, state);
       Object.assign(gm.group, state);
@@ -1017,8 +1051,8 @@ where game_key = ${dollarQuote(GAME_KEY)};
         // 基础行已在库：链接求并集、created_at 只前进；不再重复插一条
         const existingRow = existingByKey.get(gm.baseKey);
         mergedUpdates.push({ id: existingRow.id, createdAt: created_at, driveLinks });
-        // --refresh-images：把每个变体这一轮传上去的图写回 variant_images
-        if (refreshImages && Object.keys(variantImages).length > 0) {
+        // --refresh-images 或自动合并当天拆分行：把每个变体这一轮传上去的图写回
+        if ((refreshImages || gm.autoHeal) && Object.keys(variantImages).length > 0) {
           imageUpdates.push({ id: existingRow.id, images: coverImages, variantImages });
           refreshedImages++;
           console.log(`   🖼  ${gm.character} | ${gm.title}  (刷新 ${Object.keys(variantImages).length} 个版本预览图)`);
@@ -1102,7 +1136,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
 
   if (isDryRun) {
     console.log(
-      `\n🔍 DRY-RUN: 跳过入库，共 ${results.length} 条记录（含合并 ${mergedGroups} 条），重新上架 ${redated.length} 条，合并链接更新 ${mergedUpdates.length} 条，封面更新 ${imageUpdates.length} 条`,
+      `\n🔍 DRY-RUN: 跳过入库，共 ${results.length} 条记录（含合并 ${mergedGroups} 条），重新上架 ${redated.length} 条，合并链接更新 ${mergedUpdates.length} 条，封面更新 ${imageUpdates.length} 条，下架拆分行 ${new Set(autoUnpublishIds).size} 条`,
     );
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`⏱ 耗时 ${elapsed}s`);
@@ -1172,6 +1206,22 @@ where game_key = ${dollarQuote(GAME_KEY)};
   }
   if (imageUpdates.length) console.log(`🖼  封面更新: 成功 ${imagesUpdated}/${imageUpdates.length} 条`);
 
+  // 自动合并当天被拆开的变体行：合并完成后把这些重复行下架（不删除）
+  let unpublished = 0;
+  const uniqueUnpublishIds = [...new Set(autoUnpublishIds)];
+  for (let i = 0; i < uniqueUnpublishIds.length; i += BATCH_SIZE) {
+    const batch = uniqueUnpublishIds.slice(i, i + BATCH_SIZE);
+    try {
+      const outcome = await psqlJson(buildUnpublishSql(batch));
+      unpublished += Number(outcome?.updated ?? 0);
+    } catch (err) {
+      console.error(`   ❌ 下架重复行批次失败: ${err.message}`);
+    }
+  }
+  if (uniqueUnpublishIds.length) {
+    console.log(`🧹 下架重复拆分行: 成功 ${unpublished}/${uniqueUnpublishIds.length} 条`);
+  }
+
   const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
   console.log(`\n📊 完成: 成功 ${inserted} 条, 失败 ${failed} 条 (耗时 ${elapsed} 分钟)`);
 
@@ -1179,7 +1229,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
   // 失败不影响脚本退出码：数据已经入库了，最坏是等一个 TTL 自然到期。
   // 顺序不能反：**先发布快照、再 ping**（理由见 notifyRevalidate 的注释）。
   // --dry-run 天然走不到这里（上面已 return）。
-  if (inserted > 0 || reDated > 0 || mergedUpdated > 0 || imagesUpdated > 0) {
+  if (inserted > 0 || reDated > 0 || mergedUpdated > 0 || imagesUpdated > 0 || unpublished > 0) {
     // 先补封面尺寸再发快照：快照要带上 cover_width/cover_height，否则新入库的这批
     // 在瀑布流里又要走「先按 3/4 排一遍再重排」的老路（见 scripts/cover-size.mjs）。
     // 只处理封面变过的行，正常一天十几条，几秒的事。

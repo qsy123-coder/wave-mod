@@ -115,6 +115,24 @@ select json_build_object('updated', (select count(*) from upd))::text;
 }
 
 /**
+ * 下架同一帖子被拆成多条卡片的重复行（自动合并当天拆分行时用）。
+ * 只改 is_published，不删除，方便回滚。
+ */
+export function buildUnpublishSql(ids) {
+  const list = ids.map((id) => dollarQuote(String(id))).join(", ");
+  return `
+with upd as (
+  update mods
+  set is_published = false,
+      updated_at = now()
+  where id in (${list})
+  returning 1
+)
+select json_build_object('updated', (select count(*) from upd))::text;
+`;
+}
+
+/**
  * 合并网盘链接（同帖多变体重新上传时用）。
  *
  * 关键点：
@@ -150,6 +168,7 @@ upd as (
           order by coalesce(link->>'variant', ''), link->>'platform', dedupe_ord desc
         ) picked
       ),
+      is_published = true,
       created_at = greatest(m.created_at, i.created_at),
       updated_at = now()
   from incoming i
