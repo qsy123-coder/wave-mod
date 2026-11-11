@@ -684,6 +684,62 @@ where game_key = ${dollarQuote(GAME_KEY)};
       return urls.length ? urls : null;
     };
 
+    /**
+     * 同一帖子除了「每个变体一张主图」之外，还常有一组**帖子级预览图**
+     * （命名工坊把它们留成 `角色-名称-5 by 作者-1.jpg` 这种孤儿组）。
+     * 它们不属于任何变体，但都是这个 mod 的可用图，应该并进每个版本的画廊。
+     *
+     * 识别：帖子基础名去掉末尾编号得到 `角色-名称`，再要求同一个 `by 作者`；
+     * 排除所有变体自己的 base。这样不会把别的 mod 的图卷进来。
+     */
+    const uploadSharedImages = async (gm) => {
+      const baseName = gm.group.baseName || gm.title;
+      const authorMatch = /\s+by\s+(.+)$/i.exec(baseName);
+      const author = authorMatch ? authorMatch[1].trim() : "";
+      const stem = (authorMatch ? baseName.slice(0, authorMatch.index) : baseName)
+        .replace(/\s+\d+\s*$/, "")
+        .trim();
+      if (!stem) return [];
+      const stemKey = normalizeGroupKey(stem);
+      const authorKey = author ? normalizeGroupKey(`by ${author}`) : "";
+      const variantKeys = new Set(gm.group.variants.map((variant) => normalizeGroupKey(variant.name)));
+      const sharedBases = [...imageIndex.byBase.keys()]
+        .filter((base) => {
+          const key = normalizeGroupKey(base);
+          if (!key.startsWith(stemKey)) return false;
+          if (authorKey && !key.includes(authorKey)) return false;
+          return !variantKeys.has(key);
+        })
+        .sort();
+
+      const entries = [];
+      const seenFiles = new Set();
+      for (const base of sharedBases) {
+        for (const entry of lookupImages(imageIndex, base)) {
+          if (seenFiles.has(entry.file)) continue;
+          seenFiles.add(entry.file);
+          entries.push(entry);
+        }
+      }
+      if (entries.length === 0) return [];
+
+      const urls = [];
+      const slug = slugify(gm.character);
+      for (const [idx, entry] of entries.entries()) {
+        const name = idx === 0 ? "preview" : `preview-${idx + 1}`;
+        const objectKey = `mods/${slug}/${gm.modId}/shared/${name}.webp`;
+        if (isDryRun) {
+          urls.push(buildCosUrl(objectKey));
+          continue;
+        }
+        const { buffer } = await convertToWebP(entry.file);
+        await uploadToCos(objectKey, buffer, "image/webp");
+        urls.push(buildCosUrl(objectKey));
+      }
+      console.log(`   🖼  ${gm.character} | ${gm.title}  (帖子级预览图 ${urls.length} 张)`);
+      return urls;
+    };
+
     // 3d. 该目录的迅雷导出（可能没有：那就只有夸克一个盘）
     const xunleiDay = xunleiIndex.get(dir.name) || null;
     driveCoverage[dateLabel] = { quark: unique.length, xunlei: 0, xunleiExported: xunleiDay?.exported ?? 0 };
@@ -729,7 +785,8 @@ where game_key = ${dollarQuote(GAME_KEY)};
       // 而 gm 是外层包装；两边共享同一份状态，循环和后处理都读得到。
       const state = {
         baseKey,
-        modId: randomUUID(),
+        // 已有合并行时沿用它的 id：--refresh-images 上传的对象前缀要和库内那行一致
+        modId: existingByKey.get(baseKey)?.id ?? randomUUID(),
         character: gm.group.character || parsedBase?.character || "",
         title: gm.group.title || parsedBase?.title || "",
         items: [],
@@ -913,16 +970,20 @@ where game_key = ${dollarQuote(GAME_KEY)};
           (variantRank.get(b.hit.variant.label) ?? Number.MAX_SAFE_INTEGER),
       );
       const baseItem = orderedItems.find((item) => item.hit.variant === gm.group.variants[0]) ?? orderedItems[0];
+      // 帖子级预览图（不属于任何变体的孤儿组）并入每个版本的画廊
+      const sharedUrls = !gm.skipImages || refreshImages ? await uploadSharedImages(gm) : [];
       const variantImages = Object.fromEntries(
         orderedItems
-          .filter((item) => item.imageUrls.length > 0)
-          .map((item) => [item.hit.variant.label, item.imageUrls]),
+          .map((item) => {
+            const own = item.imageUrls.filter((url) => url !== PLACEHOLDER_IMAGE_URL);
+            return [item.hit.variant.label, [...own, ...sharedUrls]];
+          })
+          .filter(([, urls]) => urls.length > 0),
       );
       // 封面优先用基变体的图；基变体没图就退到任意一个有图的变体，再退占位图
-      const coverImages =
-        baseItem.imageUrls.length > 0
-          ? baseItem.imageUrls
-          : orderedItems.find((item) => item.imageUrls.length > 0)?.imageUrls ?? [PLACEHOLDER_IMAGE_URL];
+      const baseOwn = baseItem.imageUrls.filter((url) => url !== PLACEHOLDER_IMAGE_URL);
+      const coverImages = [...baseOwn, ...sharedUrls];
+      if (coverImages.length === 0) coverImages.push(PLACEHOLDER_IMAGE_URL);
       const driveLinks = dedupeGroupLinks(orderedItems.flatMap((item) => item.driveLinks));
       const labels = [...new Set(orderedItems.map((item) => item.hit.variant.label))];
       const platforms = [...new Set(driveLinks.map((link) => link.platform))];
