@@ -376,6 +376,7 @@ CREATE TABLE public.mods (
     downloads_count integer DEFAULT 0 NOT NULL,
     game_key text DEFAULT 'wuthering-waves'::text NOT NULL,
     drive_links jsonb DEFAULT '[]'::jsonb,
+    variant_images jsonb DEFAULT '{}'::jsonb,
     is_featured boolean DEFAULT false,
     featured_order integer,
     cover_width integer,

@@ -15,6 +15,7 @@ describe("buildInsertSql", () => {
     const sql = buildInsertSql([row]);
 
     expect(INSERT_COLUMNS).toContain("drive_links");
+    expect(INSERT_COLUMNS).toContain("variant_images");
     expect(sql).toContain("jsonb_populate_recordset(null::mods");
     expect(sql).toContain("where not exists");
     expect(sql).toContain("m.game_key = j.game_key");
@@ -39,6 +40,7 @@ describe("buildImageUpdateSql", () => {
     ]);
 
     expect(sql).toContain("set images = i.images");
+    expect(sql).toContain("variant_images");
     expect(sql).toContain("updated_at = now()");
     expect(sql).not.toContain("drive_links");
     expect(sql).toContain("https://cos.test/a.webp");

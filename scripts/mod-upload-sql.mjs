@@ -22,6 +22,7 @@ export const INSERT_COLUMNS = [
   "description",
   "download_url",
   "drive_links",
+  "variant_images",
   "nsfw",
   "is_published",
   "is_available",
@@ -94,15 +95,16 @@ select json_build_object('updated', (select count(*) from upd))::text;
  * 只改 images，不动标题/链接/created_at；封面尺寸由随后的 syncCoverSizes 按新首图重算。
  */
 export function buildImageUpdateSql(batch) {
-  const rows = batch.map((r) => ({ id: r.id, images: r.images }));
+  const rows = batch.map((r) => ({ id: r.id, images: r.images, variant_images: r.variantImages ?? {} }));
   return `
 with incoming as (
-  select j.id, j.images
+  select j.id, j.images, j.variant_images
   from jsonb_populate_recordset(null::mods, ${dollarQuote(JSON.stringify(rows))}::jsonb) j
 ),
 upd as (
   update mods m
   set images = i.images,
+      variant_images = coalesce(i.variant_images, '{}'::jsonb),
       updated_at = now()
   from incoming i
   where m.id = i.id

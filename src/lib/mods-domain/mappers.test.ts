@@ -18,6 +18,7 @@ const BASE_ROW: ModRow = {
   download_url: null,
   downloads_count: 0,
   drive_links: [],
+  variant_images: {},
   favorites_count: 0,
   featured_order: null,
   game_key: "wuthering-waves",

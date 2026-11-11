@@ -208,6 +208,7 @@ export type Database = {
           version: string;
           video_url: string | null;
           views: number;
+          variant_images: Json;
           xxmi_install_guide: string;
         };
         Insert: {
@@ -240,6 +241,7 @@ export type Database = {
           version: string;
           video_url?: string | null;
           views?: number;
+          variant_images?: Json;
           xxmi_install_guide: string;
         };
         Update: {
@@ -272,6 +274,7 @@ export type Database = {
           version?: string;
           video_url?: string | null;
           views?: number;
+          variant_images?: Json;
           xxmi_install_guide?: string;
         };
         Relationships: [

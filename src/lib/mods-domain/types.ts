@@ -32,6 +32,11 @@ export type SiteMod = {
   downloadUrl: string | null;
   downloads: number;
   driveLinks: DriveLink[];
+  /**
+   * 同帖多变体各自的预览图：变体标签 → 图片 URL 数组。
+   * 历史行 / 单版本 mod 是空对象，前台回退到 `images`。
+   */
+  variantImages?: Record<string, string[]>;
   favorites: number;
   gameKey: string;
   gameVersion: string;

@@ -29,6 +29,12 @@ type DownloadButtonProps = {
   layout?: "stacked" | "bar";
   /** 解压码：bar 版式下显示在按钮第二行的括号里（点下去就要输，放点击处最省事） */
   unzipCode?: string;
+  /**
+   * 受控的版本选择。详情抽屉需要把「当前版本」同步给画廊（每个版本一套预览图），
+   * 所以由抽屉持有状态；其它调用方不传，组件自己管理。
+   */
+  activeVariant?: string | null;
+  onVariantChange?: (variant: string | null) => void;
 };
 
 export function DownloadButton({
@@ -39,6 +45,8 @@ export function DownloadButton({
   driveLinks,
   layout = "stacked",
   unzipCode,
+  activeVariant: controlledVariant,
+  onVariantChange,
 }: DownloadButtonProps) {
   const [isPending, setIsPending] = useState(false);
   /**
@@ -68,33 +76,41 @@ export function DownloadButton({
    * 只有 ≥2 个不同版本时才出现顶部的版本切换条。
    */
   const variantSummary = useMemo(() => groupDriveLinksByVariant(driveLinks), [driveLinks]);
-  const [activeVariant, setActiveVariant] = useState<string | null>(null);
+  const [internalVariant, setInternalVariant] = useState<string | null>(null);
+  const isControlled = controlledVariant !== undefined;
+  const currentVariant = isControlled ? controlledVariant : internalVariant;
+
+  const selectVariant = (next: string | null) => {
+    if (!isControlled) setInternalVariant(next);
+    onVariantChange?.(next);
+  };
 
   useEffect(() => {
+    if (isControlled) return;
     if (!variantSummary.hasVariants) {
-      setActiveVariant(null);
+      setInternalVariant(null);
       return;
     }
-    setActiveVariant((prev) =>
+    setInternalVariant((prev) =>
       prev !== null && variantSummary.groups.some((group) => group.label === prev)
         ? prev
         : variantSummary.groups[0]?.label ?? null,
     );
-  }, [variantSummary]);
+  }, [variantSummary, isControlled]);
 
   // 两个版本可能共用同一个网盘名，切换后不能沿用上一个版本的「已复制」状态
   useEffect(() => {
     setCopiedDrive(null);
-  }, [activeVariant]);
+  }, [currentVariant]);
 
   /**
-   * 首帧 activeVariant 还是 null（effect 尚未跑）时，也要有明确的选中项：
-   * 直接回退到第一组，避免闪一下空按钮区 / 没有高亮的 chip。
+   * 首帧 currentVariant 还是 null（effect 尚未跑）时，也要有明确的选中项：
+   * 直接回退到第一组，避免闪一下空按钮区 / 没有高亮的选项。
    * 选中的组被数据更新移除时也走同一条回退。
    */
   const effectiveVariant =
-    activeVariant !== null && variantSummary.groups.some((group) => group.label === activeVariant)
-      ? activeVariant
+    currentVariant !== null && variantSummary.groups.some((group) => group.label === currentVariant)
+      ? currentVariant
       : variantSummary.groups[0]?.label ?? null;
 
   const visibleLinks = variantSummary.hasVariants
@@ -301,37 +317,35 @@ export function DownloadButton({
   );
 
   /**
-   * 版本切换条：只有 ≥2 个变体才渲染，stacked / bar 两种版式共用。
-   * 无标签的组（历史数据混进来时）显示「默认」，避免有链接却点不到。
+   * 版本选择：只有 ≥2 个变体才渲染，stacked / bar 两种版式共用。
+   *
+   * 用原生 `<select>` 而不是一排 chip：9 个版本（莫宁）时 chip 会把底栏撑到
+   * 抽屉外面，右侧收藏/直链被裁掉；下拉框宽度固定，版本再多也不会撑破。
    */
   const variantSelector = variantSummary.hasVariants ? (
-    <div
-      role="tablist"
-      aria-label="选择版本"
+    <label
       className={
         layout === "bar"
-          ? "flex w-full gap-1 overflow-x-auto pb-0.5"
-          : `${hasDownload ? "mb-2" : "mb-1.5"} flex flex-wrap gap-1`
+          ? "flex w-full min-w-0 items-center gap-1"
+          : `${hasDownload ? "mb-2" : "mb-1.5"} flex w-full min-w-0 items-center gap-1`
       }
     >
-      {variantSummary.groups.map((group) => {
-        const active = group.label === effectiveVariant;
-        return (
-          <button
-            key={group.key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => setActiveVariant(group.label)}
-            className={`shrink-0 whitespace-nowrap border-2 border-black font-black uppercase tracking-[0.08em] shadow-[2px_2px_0px_0px_#000] transition active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
-              layout === "bar" ? "px-1.5 py-1 text-[9px]" : "px-2 py-1 text-[10px]"
-            } ${active ? "bg-black text-white" : "bg-white text-black hover:bg-[#FFD93D]"}`}
-          >
-            {group.label ?? "默认"}
-          </button>
-        );
-      })}
-    </div>
+      <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.12em] text-black/55">版本</span>
+      <select
+        value={effectiveVariant ?? ""}
+        onChange={(event) => selectVariant(event.target.value || null)}
+        aria-label="选择版本"
+        className={`min-w-0 flex-1 border-2 border-black bg-white font-black text-black shadow-[2px_2px_0px_0px_#000] outline-none ${
+          layout === "bar" ? "h-8 px-1 text-[10px]" : "h-9 px-2 text-[11px]"
+        }`}
+      >
+        {variantSummary.groups.map((group) => (
+          <option key={group.key} value={group.label ?? ""}>
+            {`${group.label ?? "默认"} · ${group.links.length} 个链接`}
+          </option>
+        ))}
+      </select>
+    </label>
   ) : null;
 
   /**
@@ -368,7 +382,7 @@ export function DownloadButton({
     );
 
     return (
-      <div className="relative flex flex-1 flex-wrap items-stretch gap-2">
+      <div className="relative flex min-w-0 flex-1 flex-wrap items-stretch gap-2">
         {variantSelector}
         {visibleLinks.map((drive) => {
           const copied = copiedDrive?.platform === drive.platform && copiedDrive.copied;

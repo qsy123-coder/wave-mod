@@ -91,6 +91,8 @@ export function ModDetailDrawer({
   const [previewIndex, setPreviewIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxVisible, setLightboxVisible] = useState(false);
+  // 当前选中的版本：同时驱动底栏网盘按钮和上方预览画廊（每个版本一套图）
+  const [activeVariant, setActiveVariant] = useState<string | null>(null);
 
   // 打开抽屉时记录一次浏览（设备 + 日期的去重在服务端，重复打开不会重复计数）
   useEffect(() => {
@@ -121,6 +123,23 @@ export function ModDetailDrawer({
     () => groupDriveLinksByVariant(mod?.driveLinks ?? []),
     [mod?.driveLinks],
   );
+
+  // 受控版本选择：底栏 DownloadButton 与上方画廊共用同一个值
+  const effectiveVariant =
+    activeVariant !== null && variantSummary.groups.some((group) => group.label === activeVariant)
+      ? activeVariant
+      : variantSummary.groups[0]?.label ?? null;
+
+  const galleryImages = useMemo(
+    () =>
+      effectiveVariant && mod?.variantImages?.[effectiveVariant]?.length
+        ? mod.variantImages[effectiveVariant]
+        : mod?.images ?? [],
+    [effectiveVariant, mod],
+  );
+
+  // 切换版本时由 handleVariantChange 把画廊重置到第一张（见下方），
+  // 不在 effect 里 setState，避免 React Compiler 的级联渲染告警。
 
   /**
    * 分享链接用规范域名，不用 `window.location.origin`：旧域名 wave-mod.top 现在是 410，
@@ -165,6 +184,12 @@ export function ModDetailDrawer({
     }
   };
 
+  /** 底栏切换版本：同步选中版本 + 把画廊重置到第一张 */
+  const handleVariantChange = useCallback((next: string | null) => {
+    setActiveVariant(next);
+    setPreviewIndex(0);
+  }, []);
+
   // Lightbox open/close with animation
   const openLightbox = useCallback((index: number) => {
     setPreviewIndex(index);
@@ -180,16 +205,16 @@ export function ModDetailDrawer({
   }, []);
 
   const lightboxPrev = useCallback(() => {
-    if (mod && mod.images.length > 0) {
-      setPreviewIndex((prev) => (prev - 1 + mod.images.length) % mod.images.length);
+    if (galleryImages.length > 0) {
+      setPreviewIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
     }
-  }, [mod]);
+  }, [galleryImages]);
 
   const lightboxNext = useCallback(() => {
-    if (mod && mod.images.length > 0) {
-      setPreviewIndex((prev) => (prev + 1) % mod.images.length);
+    if (galleryImages.length > 0) {
+      setPreviewIndex((prev) => (prev + 1) % galleryImages.length);
     }
-  }, [mod]);
+  }, [galleryImages]);
 
   // Keyboard nav for lightbox
   useEffect(() => {
@@ -337,7 +362,7 @@ export function ModDetailDrawer({
 
               {/* ── 预览画廊：横图铺满 / 竖图限高居中，画框始终满宽 ── */}
               <DrawerPreviewGallery
-                images={mod.images ?? []}
+                images={galleryImages}
                 title={mod.title}
                 index={previewIndex}
                 onIndexChange={setPreviewIndex}
@@ -346,7 +371,7 @@ export function ModDetailDrawer({
 
               {/* 简介只在**单图**时出现：多图时下面还有缩略图条，再塞简介就会顶出滚动条。
                   两行截断 + 紧凑字号，保证任何情况下都不撑高内容区。 */}
-              {(mod.images?.length ?? 0) === 1 ? (
+              {(galleryImages.length ?? 0) === 1 ? (
                 <div
                   data-slot="drawer-description"
                   className="border-[3px] border-black bg-white px-2 py-1.5 shadow-[3px_3px_0px_0px_#000]"
@@ -399,6 +424,8 @@ export function ModDetailDrawer({
                 downloadUrl={mod.downloadUrl}
                 downloadCount={mod.downloads}
                 driveLinks={mod.driveLinks}
+                activeVariant={effectiveVariant}
+                onVariantChange={handleVariantChange}
                 unzipCode="x77syq"
               />
             ) : null}
@@ -448,11 +475,11 @@ export function ModDetailDrawer({
 
           {/* Counter */}
           <div className="absolute left-5 top-5 z-[135] border-4 border-black bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-black shadow-[6px_6px_0px_0px_#000]">
-            {previewIndex + 1} / {mod.images.length}
+            {previewIndex + 1} / {galleryImages.length}
           </div>
 
           {/* Prev / Next arrows */}
-          {mod.images.length > 1 && (
+          {galleryImages.length > 1 && (
             <>
               <button
                 type="button"
@@ -483,7 +510,7 @@ export function ModDetailDrawer({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={mod.images[previewIndex] ?? mod.images[0]}
+              src={galleryImages[previewIndex] ?? galleryImages[0]}
               alt={`${mod.title} 预览 ${previewIndex + 1}`}
               className="max-h-[85vh] max-w-[90vw] border-4 border-black object-contain shadow-[10px_10px_0px_0px_#000]"
             />

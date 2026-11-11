@@ -785,7 +785,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
           if (refreshImages && isPlaceholderImage(hit?.images?.[0])) {
             const urls = await refreshRowImages(canonicalKey, hit.id, character);
             if (urls) {
-              imageUpdates.push({ id: hit.id, images: urls });
+              imageUpdates.push({ id: hit.id, images: urls, variantImages: {} });
               refreshedImages++;
               console.log(`   🖼  ${dateLabel} ${character} | ${title}  (补封面)`);
             }
@@ -800,22 +800,30 @@ where game_key = ${dollarQuote(GAME_KEY)};
       // 多图：首图 → preview.webp，第 2 张起 → preview-2.webp / preview-3.webp …
       // images 数组的顺序就是站内顺序（images[0] 是封面，见 mappers.ts）。
       // 覆盖表命中的条目直接复用站内图片 URL，不读、不传本地预览图。
-      // 合并组只给清单里第一个变体传图，其余变体跳过（省时间，也避免重复封面）。
-      const shouldProcessImages =
-        !groupHit || (groupHit.isImageSource && !groupHit.group.skipImages);
+      // 合并组每个变体都要传自己的图：基变体沿用根前缀（旧封面路径不变），
+      // 其余变体放到 `v2-xxx/` 子目录，避免互相覆盖。
+      const shouldProcessImages = !groupHit || refreshImages || !groupHit.group.skipImages;
+      const variantIndex = groupHit
+        ? groupHit.group.variants.findIndex((variant) => variant.label === groupHit.variant.label)
+        : -1;
+      const variantFolder =
+        groupHit && variantIndex > 0 ? `${variantIndex + 1}-${slugify(groupHit.variant.label)}` : "";
       const overrideUrl = shouldProcessImages ? IMAGE_URL_OVERRIDES.get(canonicalKey) : undefined;
       const imageEntries = shouldProcessImages && !overrideUrl ? lookupImages(imageIndex, canonicalKey) : [];
       const imageUrls = [];
       if (!shouldProcessImages) {
-        // 非首图变体 / 基础行已存在：图片由组内第一个变体或库内旧行负责
+        // 已有合并行且不是 --refresh-images：图片沿用库里那套
       } else if (overrideUrl) {
         imageUrls.push(overrideUrl);
         matchedImage++;
         console.log(`   🖼  ${dateLabel} ${character} | ${title}  (复用站内图)`);
       } else if (imageEntries.length === 0) {
-        imageUrls.push(PLACEHOLDER_IMAGE_URL);
-        placeholder++;
-        placeholderKeys.push(`${dateLabel} · ${character} | ${title}`);
+        // 非基变体没有本地图时留空，前台回退到基变体的图；不给它塞占位图
+        if (!groupHit || variantIndex === 0) {
+          imageUrls.push(PLACEHOLDER_IMAGE_URL);
+          placeholder++;
+          placeholderKeys.push(`${dateLabel} · ${character} | ${title}`);
+        }
       } else {
         if (imageEntries.length > 1) {
           multiImageMods++;
@@ -827,7 +835,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
           const label = idx === 0 ? "" : `  [图 ${idx + 1}]`;
           try {
             const { buffer, origSizeKB, webpSizeKB, reduction } = await convertToWebP(entry.file);
-            const objectKey = `mods/${slug}/${modId}/${name}.webp`;
+            const objectKey = `mods/${slug}/${modId}/${variantFolder ? `${variantFolder}/` : ""}${name}.webp`;
             if (isDryRun) {
               imageUrls.push(buildCosUrl(objectKey));
               console.log(
@@ -841,7 +849,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
           } catch (err) {
             console.error(`   ❌ ${entry.file}: ${err.message}`);
             // 首图失败才落占位图；额外图失败只是少一张，不把主图挤掉
-            if (idx === 0) {
+            if (idx === 0 && (!groupHit || variantIndex === 0)) {
               imageUrls.push(PLACEHOLDER_IMAGE_URL);
               placeholder++;
               placeholderKeys.push(`${dateLabel} · ${character} | ${title}`);
@@ -880,6 +888,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
         description: `${character} ${title} MOD，${driveLinks.map((d) => d.platform).join(" / ")}下载。`,
         download_url: null,
         drive_links: driveLinks,
+        variant_images: {},
         nsfw: false,
         is_published: true,
         is_available: true,
@@ -892,10 +901,20 @@ where game_key = ${dollarQuote(GAME_KEY)};
       });
     }
 
-    // 3g. 生成合并记录：一个帖子一条，链接按变体分组
+    // 3g. 生成合并记录：一个帖子一条，链接按变体分组，图片也按变体存
     for (const gm of groupAcc.values()) {
       if (gm.items.length < 2) continue;
-      const imageItem = gm.items.find((item) => item.hit.isImageSource) ?? gm.items[0];
+      const baseItem = gm.items.find((item) => item.hit.variant === gm.group.variants[0]) ?? gm.items[0];
+      const variantImages = Object.fromEntries(
+        gm.items
+          .filter((item) => item.imageUrls.length > 0)
+          .map((item) => [item.hit.variant.label, item.imageUrls]),
+      );
+      // 封面优先用基变体的图；基变体没图就退到任意一个有图的变体，再退占位图
+      const coverImages =
+        baseItem.imageUrls.length > 0
+          ? baseItem.imageUrls
+          : gm.items.find((item) => item.imageUrls.length > 0)?.imageUrls ?? [PLACEHOLDER_IMAGE_URL];
       const driveLinks = dedupeGroupLinks(gm.items.flatMap((item) => item.driveLinks));
       const labels = [...new Set(gm.items.map((item) => item.hit.variant.label))];
       const platforms = [...new Set(driveLinks.map((link) => link.platform))];
@@ -913,10 +932,11 @@ where game_key = ${dollarQuote(GAME_KEY)};
         description: `${gm.character} ${gm.title} MOD，共 ${labels.length} 个版本：${labels.join(" / ")}；${platforms.join(" / ")}下载。`,
         download_url: null,
         drive_links: driveLinks,
+        variant_images: variantImages,
         nsfw,
         is_published: true,
         is_available: true,
-        images: imageItem.imageUrls,
+        images: coverImages,
         xxmi_install_guide: XXMI_GUIDE,
         mod_author_url: null,
         video_url: null,
@@ -928,18 +948,11 @@ where game_key = ${dollarQuote(GAME_KEY)};
         // 基础行已在库：链接求并集、created_at 只前进；不再重复插一条
         const existingRow = existingByKey.get(gm.baseKey);
         mergedUpdates.push({ id: existingRow.id, createdAt: created_at, driveLinks });
-        // 合并行首次上传时若也没拿到封面，同样按基础名补一张
-        if (refreshImages && isPlaceholderImage(existingRow?.images?.[0])) {
-          const urls = await refreshRowImages(
-            resolveCanonicalKey(gm.group.baseName || gm.title),
-            existingRow.id,
-            gm.character,
-          );
-          if (urls) {
-            imageUpdates.push({ id: existingRow.id, images: urls });
-            refreshedImages++;
-            console.log(`   🖼  ${gm.character} | ${gm.title}  (补封面)`);
-          }
+        // --refresh-images：把每个变体这一轮传上去的图写回 variant_images
+        if (refreshImages && Object.keys(variantImages).length > 0) {
+          imageUpdates.push({ id: existingRow.id, images: coverImages, variantImages });
+          refreshedImages++;
+          console.log(`   🖼  ${gm.character} | ${gm.title}  (刷新 ${Object.keys(variantImages).length} 个版本预览图)`);
         }
       } else {
         results.push(merged);
