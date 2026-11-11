@@ -704,13 +704,41 @@ async function applySelected() {
     return (row.targets ?? []).map((t) => ({ ...t, source: row.source }));
   });
   if (!entries.length) return;
+
+  // 同一 GameBanana 帖子的多个附件 → 服务端写 .mod-groups.json。
+  // 只提交「至少有一行被勾选」的帖子，但带上该帖子的全部变体（有些可能已经命名好、没勾选）。
+  const pickedPosts = new Set(picked.map((n) => state.plan[n]?.postUrl).filter(Boolean));
+  const byPost = new Map();
+  for (const row of Object.values(state.plan)) {
+    if (!row?.postUrl || !row.variantLabel || !pickedPosts.has(row.postUrl)) continue;
+    const group = byPost.get(row.postUrl) ?? { postUrl: row.postUrl, variants: [] };
+    const name = String(row.applicable ? (row.display ?? row.to ?? row.from) : row.from).replace(
+      /\.(exe|zip|7z|rar)$/i,
+      ""
+    );
+    group.variants.push({
+      label: row.variantLabel,
+      name,
+      localName: row.from ?? "",
+      sourceName: row.src ?? "",
+      isBase: Boolean(row.isBaseVariant),
+    });
+    byPost.set(row.postUrl, group);
+  }
+  const postGroups = [...byPost.values()]
+    .map((group) => ({
+      ...group,
+      variants: [...new Map(group.variants.map((variant) => [variant.name, variant])).values()],
+    }))
+    .filter((group) => group.variants.length >= 2);
+
   if (!confirm(`将改名 ${entries.length} 项（${picked.length} 个 mod，只改名、不动内容），继续？`)) return;
 
   $("btn-apply").disabled = true;
   try {
     const res = await api("/api/apply", {
       method: "POST",
-      body: { dir: state.dir, confirm: true, entries, label: state.dir },
+      body: { dir: state.dir, confirm: true, entries, label: state.dir, postGroups },
     });
     await loadScan();
     await loadJournals();

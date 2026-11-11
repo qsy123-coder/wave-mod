@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy, Download, LoaderCircle, X } from "lucide-react";
 import Image from "next/image";
@@ -13,6 +13,7 @@ import { driveOpenHref } from "@/lib/drive-client";
 import { launchDriveClient } from "@/lib/drive-client-launch";
 import { DIRECT_DOWNLOAD_UNAVAILABLE, resolveDownloadResponse } from "@/lib/mods-domain/download-result";
 import type { DriveLink } from "@/lib/mods-domain/types";
+import { groupDriveLinksByVariant } from "@/lib/mods-domain/variants";
 
 type DownloadButtonProps = {
   compact?: boolean;
@@ -59,6 +60,47 @@ export function DownloadButton({
   const [showTip, setShowTip] = useState(false);
   // 直链失败时的提示。非空即渲染 —— 绝不再静默返回，见 download-result.ts 的说明。
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
+
+  /**
+   * 同帖多版本：按 `drive_links[].variant` 分组。
+   *
+   * 历史数据没有 variant，`hasVariants=false`，下面全部按原来的平铺逻辑走；
+   * 只有 ≥2 个不同版本时才出现顶部的版本切换条。
+   */
+  const variantSummary = useMemo(() => groupDriveLinksByVariant(driveLinks), [driveLinks]);
+  const [activeVariant, setActiveVariant] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!variantSummary.hasVariants) {
+      setActiveVariant(null);
+      return;
+    }
+    setActiveVariant((prev) =>
+      prev !== null && variantSummary.groups.some((group) => group.label === prev)
+        ? prev
+        : variantSummary.groups[0]?.label ?? null,
+    );
+  }, [variantSummary]);
+
+  // 两个版本可能共用同一个网盘名，切换后不能沿用上一个版本的「已复制」状态
+  useEffect(() => {
+    setCopiedDrive(null);
+  }, [activeVariant]);
+
+  /**
+   * 首帧 activeVariant 还是 null（effect 尚未跑）时，也要有明确的选中项：
+   * 直接回退到第一组，避免闪一下空按钮区 / 没有高亮的 chip。
+   * 选中的组被数据更新移除时也走同一条回退。
+   */
+  const effectiveVariant =
+    activeVariant !== null && variantSummary.groups.some((group) => group.label === activeVariant)
+      ? activeVariant
+      : variantSummary.groups[0]?.label ?? null;
+
+  const visibleLinks = variantSummary.hasVariants
+    ? variantSummary.groups.find((group) => group.label === effectiveVariant)?.links ?? []
+    : driveLinks;
+
   const hasDownload = Boolean(downloadUrl?.trim());
   // 只有迅雷/夸克有「粘贴链接」教程图，其它网盘不展示「?」（文案与图见 lib/cloud-drive.ts）
   // client 传的是「这次真的唤起了没有」—— 同网盘再点就是 already-open，文案不能说会打开
@@ -259,6 +301,40 @@ export function DownloadButton({
   );
 
   /**
+   * 版本切换条：只有 ≥2 个变体才渲染，stacked / bar 两种版式共用。
+   * 无标签的组（历史数据混进来时）显示「默认」，避免有链接却点不到。
+   */
+  const variantSelector = variantSummary.hasVariants ? (
+    <div
+      role="tablist"
+      aria-label="选择版本"
+      className={
+        layout === "bar"
+          ? "flex w-full gap-1 overflow-x-auto pb-0.5"
+          : `${hasDownload ? "mb-2" : "mb-1.5"} flex flex-wrap gap-1`
+      }
+    >
+      {variantSummary.groups.map((group) => {
+        const active = group.label === effectiveVariant;
+        return (
+          <button
+            key={group.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => setActiveVariant(group.label)}
+            className={`shrink-0 whitespace-nowrap border-2 border-black font-black uppercase tracking-[0.08em] shadow-[2px_2px_0px_0px_#000] transition active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
+              layout === "bar" ? "px-1.5 py-1 text-[9px]" : "px-2 py-1 text-[10px]"
+            } ${active ? "bg-black text-white" : "bg-white text-black hover:bg-[#FFD93D]"}`}
+          >
+            {group.label ?? "默认"}
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
+
+  /**
    * bar 版式：每个网盘一个按钮，直接排进详情底部操作条的「分享」右边。
    *
    * 复制后的操作教程浮在操作条**上方**（绝对定位），不占内容高度 —— 否则提示卡一出现
@@ -292,8 +368,9 @@ export function DownloadButton({
     );
 
     return (
-      <div className="relative flex flex-1 items-stretch gap-2">
-        {driveLinks.map((drive) => {
+      <div className="relative flex flex-1 flex-wrap items-stretch gap-2">
+        {variantSelector}
+        {visibleLinks.map((drive) => {
           const copied = copiedDrive?.platform === drive.platform && copiedDrive.copied;
           const openHref = driveOpenHref(drive.url);
           // 底栏很窄，按钮上去掉「网盘」后缀（夸克网盘 → 夸克），aria/title 里保留全称
@@ -301,7 +378,7 @@ export function DownloadButton({
           const unzipHint = unzipCode ? `，解压密码 ${unzipCode}` : "";
 
           return (
-            <div key={`${drive.platform}-${drive.url}`} className="flex flex-1">
+            <div key={`${drive.variant ?? ""}-${drive.platform}-${drive.url}`} className="flex flex-1">
               {/* 手机端：复制链接 + 打开分享页（与 PC 同一个动作顺序）。
                   链接缺 scheme 等脏数据没法跳，就退化成只复制。 */}
               {openHref ? (
@@ -370,6 +447,8 @@ export function DownloadButton({
 
   return (
     <div>
+      {variantSelector}
+
       {hasDownload ? (
         <button
           type="button"
@@ -391,14 +470,14 @@ export function DownloadButton({
         </p>
       ) : null}
 
-      {driveLinks.length > 0 ? (
-        <div className={`${hasDownload ? "mt-2 " : ""}${driveLinks.length > 1 ? "grid grid-cols-2 gap-2" : "space-y-1.5"}`}>
-          {driveLinks.map((drive) => {
+      {visibleLinks.length > 0 ? (
+        <div className={`${hasDownload ? "mt-2 " : ""}${visibleLinks.length > 1 ? "grid grid-cols-2 gap-2" : "space-y-1.5"}`}>
+          {visibleLinks.map((drive) => {
             const copied = copiedDrive?.platform === drive.platform && copiedDrive.copied;
             // 手机端：复制链接 + 打开分享页；链接缺 scheme 等脏数据没法跳，就退化成只复制
             const openHref = driveOpenHref(drive.url);
             return (
-              <div key={`${drive.platform}-${drive.url}`}>
+              <div key={`${drive.variant ?? ""}-${drive.platform}-${drive.url}`}>
                 {openHref ? (
                   <a
                     href={openHref}

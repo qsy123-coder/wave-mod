@@ -5,6 +5,8 @@ import { BATCH_DRIVE_PLATFORMS } from "@/lib/admin/batch-upload-types";
 const driveLinkSchema = z.object({
   platform: z.enum(BATCH_DRIVE_PLATFORMS),
   url: z.url("网盘链接格式不正确"),
+  // 同一帖子的多版本：夸克/迅雷链接各自带版本标签；普通批量导入不填
+  variant: z.string().trim().min(1).max(40).optional(),
 });
 
 const rowSchema = z.object({

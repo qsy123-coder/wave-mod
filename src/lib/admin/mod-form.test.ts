@@ -4,6 +4,8 @@ import {
   adminModFormSchema,
   adminModUpdateFormSchema,
   buildAdminModFieldErrors,
+  formatDriveLink,
+  formatDriveLinksText,
   parseAdminModFormData,
   parseAdminModUpdateFormData,
   splitDriveLinks,
@@ -84,6 +86,31 @@ describe("admin mod form helpers", () => {
       { platform: "阿里云盘", url: "https://www.alipan.com/abc" },
     ]);
     expect(splitDriveLinks("")).toEqual([]);
+  });
+
+  it("parses variant-prefixed drive link lines", () => {
+    const text = [
+      "Slim SFW | 夸克网盘 https://pan.quark.cn/s/slim",
+      "Thicc Heavy NSFW VIP｜迅雷网盘 https://pan.xunlei.com/s/thicc",
+      "# 这是注释，不上传",
+      "百度网盘 https://pan.baidu.com/s/legacy",
+    ].join("\n");
+
+    expect(splitDriveLinks(text)).toEqual([
+      { platform: "夸克网盘", url: "https://pan.quark.cn/s/slim", variant: "Slim SFW" },
+      { platform: "迅雷网盘", url: "https://pan.xunlei.com/s/thicc", variant: "Thicc Heavy NSFW VIP" },
+      { platform: "百度网盘", url: "https://pan.baidu.com/s/legacy" },
+    ]);
+  });
+
+  it("round-trips drive links through format and parse", () => {
+    const links = [
+      { platform: "夸克网盘", url: "https://pan.quark.cn/s/slim", variant: "Slim SFW" },
+      { platform: "百度网盘", url: "https://pan.baidu.com/s/legacy" },
+    ];
+
+    expect(splitDriveLinks(formatDriveLinksText(links))).toEqual(links);
+    expect(formatDriveLink({ platform: "夸克网盘", url: "https://x", variant: "  " })).toBe("夸克网盘 https://x");
   });
 
 });

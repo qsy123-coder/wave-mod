@@ -50,6 +50,9 @@ import {
   stripRenameSuffix,
 } from "./daily-classify.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
+import { readModGroupsFile } from "./mod-groups.mjs";
+import { matchRecordsToGroups } from "./mod-groups-pure.mjs";
+import { buildInsertSql, buildMergeDriveLinksSql, buildRedateSql } from "./mod-upload-sql.mjs";
 import { dollarQuote, psqlJson, requireDatabaseUrl } from "./psql-db.mjs";
 
 config({ path: resolve(process.cwd(), ".env"), override: true });
@@ -479,87 +482,32 @@ function shanghaiDayKey(iso) {
 }
 
 // ==================== 入库 SQL 生成 ====================
-
-/** 与 results 里的字段一一对应；其余列（计数器、updated_at 等）交给库表默认值 */
-const INSERT_COLUMNS = [
-  "id",
-  "title",
-  "character",
-  "game_key",
-  "game_version",
-  "version",
-  "description",
-  "download_url",
-  "drive_links",
-  "nsfw",
-  "is_published",
-  "is_available",
-  "images",
-  "xxmi_install_guide",
-  "mod_author_url",
-  "video_url",
-  "created_by",
-  "created_at",
-];
+// 构造器在 scripts/mod-upload-sql.mjs —— 单独拆出去后 vitest 才能测，
+// 本文件在模块加载阶段就要求 DATABASE_URL / COS 环境变量。
 
 /**
- * 把一批记录编成一条 insert 语句。
+ * 合并组的链接去重：同一变体同一网盘只留一条。
  *
- * 用 jsonb_populate_recordset(null::mods, ...) 让 Postgres 按 mods 的真实列类型
- * 自己解析 JSON —— text[]、jsonb、timestamptz、boolean 都不必在这里手写转义，
- * 也就不怕标题里的引号 / 反斜杠 / 换行把 SQL 拼坏。
- *
- * where not exists 是第二道去重：上游已用 existingSet 跳过重复，这里再兜一次，
- * 防止脚本重跑或两次运行撞车时插出双份。
+ * CSV 里偶尔会有同一个包的两行分享（不同 URL），如果都保留，前台会出现两个
+ * 一模一样的「夸克」按钮。保留第一条并打日志，避免静默丢链接。
  */
-function buildInsertSql(batch) {
-  const columnList = INSERT_COLUMNS.join(", ");
-  const selectList = INSERT_COLUMNS.map((column) => `j.${column}`).join(", ");
-
-  return `
-with incoming as (
-  select * from jsonb_populate_recordset(null::mods, ${dollarQuote(JSON.stringify(batch))}::jsonb)
-),
-ins as (
-  insert into mods (${columnList})
-  select ${selectList}
-  from incoming j
-  where not exists (
-    select 1
-    from mods m
-    where m.game_key = j.game_key
-      and m.character = j.character
-      and m.title = j.title
-  )
-  returning 1
-)
-select json_build_object('inserted', (select count(*) from ins))::text;
-`;
-}
-
-/**
- * 重新上架：把库内已存在的行 `created_at` 推到本目录日期（只改这一列 + updated_at）。
- *
- * 与插入共用 `jsonb_populate_recordset(null::mods, …)`：让 Postgres 按真实列类型解析
- * 时间串，不必手工拼字面量；只取 id 与 created_at 两列参与赋值，其余列保持原值。
- */
-function buildRedateSql(batch) {
-  const rows = batch.map((r) => ({ id: r.id, created_at: r.createdAt }));
-  return `
-with incoming as (
-  select j.id, j.created_at
-  from jsonb_populate_recordset(null::mods, ${dollarQuote(JSON.stringify(rows))}::jsonb) j
-),
-upd as (
-  update mods
-  set created_at = incoming.created_at,
-      updated_at = now()
-  from incoming
-  where mods.id = incoming.id
-  returning 1
-)
-select json_build_object('updated', (select count(*) from upd))::text;
-`;
+function dedupeGroupLinks(links) {
+  const slots = new Set();
+  const seen = new Set();
+  const out = [];
+  for (const link of links) {
+    const key = `${link.variant ?? ""}|${link.platform}|${link.url}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const slot = `${link.variant ?? ""}|${link.platform}`;
+    if (slots.has(slot)) {
+      console.warn(`   ⚠️ 变体「${link.variant ?? "默认"}」有多个${link.platform}分享，保留第一条`);
+      continue;
+    }
+    slots.add(slot);
+    out.push(link);
+  }
+  return out;
 }
 
 // ==================== 主流程 ====================
@@ -639,6 +587,11 @@ where game_key = ${dollarQuote(GAME_KEY)};
   const skipDupKeys = [];
   // 库内已存在、但要「重新上架」到本目录日期的行（只推 created_at，不新增记录）
   const redated = [];
+  // 合并记录命中库内基础行时，链接要和旧行求并集（新变体/新链接补进去）
+  const mergedUpdates = [];
+  let mergedGroups = 0;
+  let mergedVariants = 0;
+  let skippedLegacyGroups = 0;
   const charCount = {};
   let matchedImage = 0;
   let placeholder = 0;
@@ -688,7 +641,55 @@ where game_key = ${dollarQuote(GAME_KEY)};
     driveCoverage[dateLabel] = { quark: unique.length, xunlei: 0, xunleiExported: xunleiDay?.exported ?? 0 };
     if (xunleiDay) console.log(`   迅雷导出: ${xunleiDay.exported} 条`);
 
-    // 3e. 逐条处理
+    // 3e. 读取分组清单：同一 GameBanana 帖子的多个附件合并成一条记录
+    const manifest = readModGroupsFile(dirPath);
+    const matchPlan = manifest
+      ? matchRecordsToGroups(unique, manifest)
+      : { groups: [], recordHits: new Map(), unmatched: [] };
+    if (!manifest) console.log("   （无 .mod-groups.json，按旧逻辑逐条入库）");
+    for (const item of matchPlan.unmatched) {
+      console.log(`   ⚠️ 清单变体未匹配到分享: ${item.group.postUrl} / ${item.variant.label}`);
+    }
+
+    const groupAcc = new Map();
+    for (const gm of matchPlan.groups) {
+      const baseKey = dedupKey(gm.group.character, gm.group.title);
+      // 历史行保护：这个帖子以前已经按变体分卡入库时，不再合并，
+      // 否则会同时留下「新合并行 + 旧变体行」。
+      const legacy = gm.matches.some(({ variant }) => {
+        const parsed = resolveCharacterAndTitle(variant.name);
+        return existingSet.has(dedupKey(parsed.character, parsed.title));
+      });
+      if (legacy) {
+        skippedLegacyGroups++;
+        console.log(`   ⚠️ 帖子已有历史分版本行，跳过合并: ${gm.group.postUrl}`);
+        for (const match of gm.matches) matchPlan.recordHits.delete(match.record);
+        continue;
+      }
+      // 清单里的基础标题必须仍能解析成同一个角色，否则宁可不合并
+      const parsedBase = gm.group.baseName ? resolveCharacterAndTitle(gm.group.baseName) : null;
+      if (parsedBase && gm.group.character && parsedBase.character !== gm.group.character) {
+        console.log(`   ⚠️ 清单基础标题解析出的角色不一致，跳过合并: ${gm.group.postUrl}`);
+        for (const match of gm.matches) matchPlan.recordHits.delete(match.record);
+        continue;
+      }
+      // matchRecordsToGroups 的 recordHits.group 指向清单里的内层 group，
+      // 而 gm 是外层包装；两边共享同一份状态，循环和后处理都读得到。
+      const state = {
+        baseKey,
+        modId: randomUUID(),
+        character: gm.group.character || parsedBase?.character || "",
+        title: gm.group.title || parsedBase?.title || "",
+        items: [],
+        // 基础行已在库时这次只会补链接，不重复传图（图片沿用库里那张）
+        skipImages: existingSet.has(baseKey),
+      };
+      Object.assign(gm, state);
+      Object.assign(gm.group, state);
+      groupAcc.set(gm.group.postUrl, gm);
+    }
+
+    // 3f. 逐条处理
     for (const record of unique) {
       // 导出名 → 本地规范名（见 KEY_ALIASES）。分类与预览图走规范名，
       // 迅雷链接仍按导出名查（xlsx 侧的键就是导出名）。
@@ -699,44 +700,54 @@ where game_key = ${dollarQuote(GAME_KEY)};
       // 会显示成「有导出但一条都没匹配上」，把正常的去重误报成漏盘。
       if (xunlei) driveCoverage[dateLabel].xunlei++;
 
-      const dkey = dedupKey(character, title);
-      if (existingSet.has(dkey)) {
-        skipDup++;
-        skipDupKeys.push(`${dateLabel} · ${character} | ${title}`);
-        // 2026-10-30 用户要求：**不管库里有没有，这一天上传的东西都要出现在「每日更新」**。
-        // 做法是把库内那一行的 created_at 推到本目录日期 —— 本项目的 created_at 一直是
-        // 「归属哪一天上传」的语义（见文件头第 2 条、noonShanghaiISO），不新增行，
-        // 去重键 `character|title` 也不变，所以不会重复入库。
-        // 只往前推：单跑一个老目录（--dates=2026.10.19）时不能把已经在更晚日期上架过的
-        // 记录挪回过去，否则「最新」和每日更新都会倒退。
-        const hit = existingByKey.get(dkey);
-        const fromDay = hit ? shanghaiDayKey(hit.created_at) : "";
-        if (hit && fromDay && fromDay < paddedDayKey(dir.date)) {
-          redated.push({
-            id: hit.id,
-            character,
-            title,
-            fromDay,
-            toDay: paddedDayKey(dir.date),
-            createdAt: created_at,
-          });
+      const groupHit = matchPlan.recordHits.get(record);
+
+      // 没命中清单的记录完全保持旧行为：库内有就只重新上架，没有就单条入库
+      if (!groupHit) {
+        const dkey = dedupKey(character, title);
+        if (existingSet.has(dkey)) {
+          skipDup++;
+          skipDupKeys.push(`${dateLabel} · ${character} | ${title}`);
+          // 2026-10-30 用户要求：**不管库里有没有，这一天上传的东西都要出现在「每日更新」**。
+          // 做法是把库内那一行的 created_at 推到本目录日期 —— 本项目的 created_at 一直是
+          // 「归属哪一天上传」的语义（见文件头第 2 条、noonShanghaiISO），不新增行，
+          // 去重键 `character|title` 也不变，所以不会重复入库。
+          // 只往前推：单跑一个老目录（--dates=2026.10.19）时不能把已经在更晚日期上架过的
+          // 记录挪回过去，否则「最新」和每日更新都会倒退。
+          const hit = existingByKey.get(dkey);
+          const fromDay = hit ? shanghaiDayKey(hit.created_at) : "";
+          if (hit && fromDay && fromDay < paddedDayKey(dir.date)) {
+            redated.push({
+              id: hit.id,
+              character,
+              title,
+              fromDay,
+              toDay: paddedDayKey(dir.date),
+              createdAt: created_at,
+            });
+          }
+          // 库内已有这条，本轮不会写库。只在「这次拿到了迅雷链接」且「库里那条还没有」
+          // 时才提醒 —— 否则每次都把已经补好的记录再列一遍，提醒就没人看了。
+          if (xunlei && !existingHasXunlei.has(dkey)) xunleiBacklog.push(`${dateLabel} · ${character} | ${title}`);
+          continue;
         }
-        // 库内已有这条，本轮不会写库。只在「这次拿到了迅雷链接」且「库里那条还没有」
-        // 时才提醒 —— 否则每次都把已经补好的记录再列一遍，提醒就没人看了。
-        if (xunlei && !existingHasXunlei.has(dkey)) xunleiBacklog.push(`${dateLabel} · ${character} | ${title}`);
-        continue;
       }
 
-      const modId = randomUUID();
-      const version = extractVersion(title);
+      const modId = groupHit ? groupHit.group.modId : randomUUID();
+      const version = extractVersion(groupHit ? groupHit.group.title : title);
 
       // 多图：首图 → preview.webp，第 2 张起 → preview-2.webp / preview-3.webp …
       // images 数组的顺序就是站内顺序（images[0] 是封面，见 mappers.ts）。
-      // 覆盖表命中的条目直接复用站内图片 URL，不读、不传本地预览图
-      const overrideUrl = IMAGE_URL_OVERRIDES.get(canonicalKey);
-      const imageEntries = overrideUrl ? [] : lookupImages(imageIndex, canonicalKey);
+      // 覆盖表命中的条目直接复用站内图片 URL，不读、不传本地预览图。
+      // 合并组只给清单里第一个变体传图，其余变体跳过（省时间，也避免重复封面）。
+      const shouldProcessImages =
+        !groupHit || (groupHit.isImageSource && !groupHit.group.skipImages);
+      const overrideUrl = shouldProcessImages ? IMAGE_URL_OVERRIDES.get(canonicalKey) : undefined;
+      const imageEntries = shouldProcessImages && !overrideUrl ? lookupImages(imageIndex, canonicalKey) : [];
       const imageUrls = [];
-      if (overrideUrl) {
+      if (!shouldProcessImages) {
+        // 非首图变体 / 基础行已存在：图片由组内第一个变体或库内旧行负责
+      } else if (overrideUrl) {
         imageUrls.push(overrideUrl);
         matchedImage++;
         console.log(`   🖼  ${dateLabel} ${character} | ${title}  (复用站内图)`);
@@ -779,9 +790,6 @@ where game_key = ${dollarQuote(GAME_KEY)};
         if (imageUrls.length > 0 && imageUrls[0] !== PLACEHOLDER_IMAGE_URL) matchedImage++;
       }
 
-      if (!charCount[character]) charCount[character] = 0;
-      charCount[character]++;
-
       // 夸克恒有（来自 CSV）；迅雷有就一起写进去，免得事后还得跑第二个脚本补
       const driveLinks = [{ platform: "夸克网盘", url: record.url }];
       if (xunlei) {
@@ -790,6 +798,16 @@ where game_key = ${dollarQuote(GAME_KEY)};
         driveLinks.push({ platform: "迅雷网盘", url: withXunleiPwd(xunlei.link, xunlei.pwd) });
         xunleiAttached++;
       }
+
+      if (groupHit) {
+        // 链接带上变体标签，前台据此分组；真正入库在循环结束后统一做
+        for (const link of driveLinks) link.variant = groupHit.variant.label;
+        groupHit.group.items.push({ record, hit: groupHit, driveLinks, imageUrls });
+        continue;
+      }
+
+      if (!charCount[character]) charCount[character] = 0;
+      charCount[character]++;
 
       results.push({
         id: modId,
@@ -812,6 +830,54 @@ where game_key = ${dollarQuote(GAME_KEY)};
         created_at, // 显式设置：归属该日期，保证每日更新页按日期分组
       });
     }
+
+    // 3g. 生成合并记录：一个帖子一条，链接按变体分组
+    for (const gm of groupAcc.values()) {
+      if (gm.items.length < 2) continue;
+      const imageItem = gm.items.find((item) => item.hit.isImageSource) ?? gm.items[0];
+      const driveLinks = dedupeGroupLinks(gm.items.flatMap((item) => item.driveLinks));
+      const labels = [...new Set(gm.items.map((item) => item.hit.variant.label))];
+      const platforms = [...new Set(driveLinks.map((link) => link.platform))];
+      const nsfw =
+        labels.some((label) => /nsfw/i.test(label)) ||
+        gm.items.some((item) => /nsfw/i.test(item.hit.variant.sourceName ?? ""));
+
+      const merged = {
+        id: gm.modId,
+        title: gm.title,
+        character: gm.character,
+        game_key: GAME_KEY,
+        game_version: GAME_VERSION,
+        version: extractVersion(gm.title),
+        description: `${gm.character} ${gm.title} MOD，共 ${labels.length} 个版本：${labels.join(" / ")}；${platforms.join(" / ")}下载。`,
+        download_url: null,
+        drive_links: driveLinks,
+        nsfw,
+        is_published: true,
+        is_available: true,
+        images: imageItem.imageUrls,
+        xxmi_install_guide: XXMI_GUIDE,
+        mod_author_url: null,
+        video_url: null,
+        created_by: null,
+        created_at, // 显式设置：归属该日期，保证每日更新页按日期分组
+      };
+
+      if (existingSet.has(gm.baseKey)) {
+        // 基础行已在库：链接求并集、created_at 只前进；不再重复插一条
+        mergedUpdates.push({ id: existingByKey.get(gm.baseKey).id, createdAt: created_at, driveLinks });
+      } else {
+        results.push(merged);
+      }
+      charCount[gm.character] = (charCount[gm.character] ?? 0) + 1;
+      mergedGroups++;
+      mergedVariants += gm.items.length;
+      console.log(
+        `   🧩 合并: ${gm.character} | ${gm.title}（${gm.items
+          .map((item) => `${item.hit.variant.label} ${item.driveLinks.length} 链接`)
+          .join(" / ")}）`,
+      );
+    }
     console.log("");
   }
 
@@ -820,6 +886,12 @@ where game_key = ${dollarQuote(GAME_KEY)};
     console.log(`🖼  多图预览: ${multiImageMods} 条（首图之外的额外图 ${extraImageCount} 张）`);
   }
   console.log(`⚡ 附上迅雷链接: ${xunleiAttached} 条`);
+  if (mergedGroups > 0 || skippedLegacyGroups > 0) {
+    console.log(
+      `🧩 合并帖子: ${mergedGroups} 个（版本 ${mergedVariants} 条，历史分卡跳过 ${skippedLegacyGroups} 个）`,
+    );
+  }
+  if (mergedUpdates.length > 0) console.log(`🔗 合并链接待更新: ${mergedUpdates.length} 条`);
 
   // 网盘覆盖表：一个日期目录里认出了哪几个盘、实际挂上了几个。
   // 「导出条数」与「挂上条数」不等就是漏网盘的前兆，所以单独标出来而不是只打总数。
@@ -872,7 +944,9 @@ where game_key = ${dollarQuote(GAME_KEY)};
   }
 
   if (isDryRun) {
-    console.log(`\n🔍 DRY-RUN: 跳过入库，共 ${results.length} 条记录，重新上架 ${redated.length} 条`);
+    console.log(
+      `\n🔍 DRY-RUN: 跳过入库，共 ${results.length} 条记录（含合并 ${mergedGroups} 条），重新上架 ${redated.length} 条，合并链接更新 ${mergedUpdates.length} 条`,
+    );
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`⏱ 耗时 ${elapsed}s`);
     return;
@@ -914,6 +988,20 @@ where game_key = ${dollarQuote(GAME_KEY)};
   }
   if (redated.length) console.log(`🔁 重新上架: 成功 ${reDated}/${redated.length} 条`);
 
+  // 合并记录的基础行已在库：把本次拿到的变体链接并进去，created_at 只前进。
+  // 不能走 buildRedateSql（它只改日期），否则新变体的链接会静默丢失。
+  let mergedUpdated = 0;
+  for (let i = 0; i < mergedUpdates.length; i += BATCH_SIZE) {
+    const batch = mergedUpdates.slice(i, i + BATCH_SIZE);
+    try {
+      const outcome = await psqlJson(buildMergeDriveLinksSql(batch));
+      mergedUpdated += Number(outcome?.updated ?? 0);
+    } catch (err) {
+      console.error(`   ❌ 合并链接更新批次失败: ${err.message}`);
+    }
+  }
+  if (mergedUpdates.length) console.log(`🔗 合并链接更新: 成功 ${mergedUpdated}/${mergedUpdates.length} 条`);
+
   const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
   console.log(`\n📊 完成: 成功 ${inserted} 条, 失败 ${failed} 条 (耗时 ${elapsed} 分钟)`);
 
@@ -921,7 +1009,7 @@ where game_key = ${dollarQuote(GAME_KEY)};
   // 失败不影响脚本退出码：数据已经入库了，最坏是等一个 TTL 自然到期。
   // 顺序不能反：**先发布快照、再 ping**（理由见 notifyRevalidate 的注释）。
   // --dry-run 天然走不到这里（上面已 return）。
-  if (inserted > 0 || reDated > 0) {
+  if (inserted > 0 || reDated > 0 || mergedUpdated > 0) {
     // 先补封面尺寸再发快照：快照要带上 cover_width/cover_height，否则新入库的这批
     // 在瀑布流里又要走「先按 3/4 排一遍再重排」的老路（见 scripts/cover-size.mjs）。
     // 只处理封面变过的行，正常一天十几条，几秒的事。

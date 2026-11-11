@@ -29,7 +29,7 @@ import {
 } from "@/actions/admin/batch-actions";
 import { StorageImageUpload } from "@/components/features/admin/upload/storage-image-upload";
 import { games } from "@/config/games";
-import { splitDriveLinks, splitImageUrls } from "@/lib/admin/mod-form";
+import { formatDriveLinksText, splitDriveLinks, splitImageUrls } from "@/lib/admin/mod-form";
 import {
   joinPreviewImageUrls,
   movePreviewImage,
@@ -67,7 +67,7 @@ function modToFormData(mod: SiteMod): ModFormData {
     gameKey: mod.gameKey ?? "",
     downloadUrl: mod.downloadUrl ?? "",
     videoUrl: (mod as Record<string, unknown>).videoUrl as string ?? "",
-    driveLinksText: mod.driveLinks.map((link) => `${link.platform} ${link.url}`).join("\n"),
+    driveLinksText: formatDriveLinksText(mod.driveLinks),
     imageUrls: ((mod as Record<string, unknown>).images as string[])?.join("\n") ?? mod.coverImage ?? "",
     nsfw: mod.nsfw ?? false,
   };
@@ -382,7 +382,7 @@ export function BatchEditModal({ selectedIds, onClose, onComplete }: BatchEditMo
                     value={activeForm.driveLinksText}
                     onChange={(e) => updateField("driveLinksText", e.target.value)}
                     rows={3}
-                    placeholder={"格式：平台名 链接\n例如：\n夸克网盘 https://pan.quark.cn/s/xxxx\n迅雷网盘 https://pan.xunlei.com/s/xxxx"}
+                    placeholder={"格式：平台名 链接\n多版本：变体 | 平台名 链接\n例如：\nNormal SFW | 夸克网盘 https://pan.quark.cn/s/xxxx\nThicc NSFW | 迅雷网盘 https://pan.xunlei.com/s/xxxx"}
                     className="w-full border-[3px] border-black bg-white px-3 py-2 text-sm font-bold text-black shadow-[3px_3px_0px_0px_#000] outline-none"
                   />
                   <p className="mt-1 text-[10px] font-bold text-black/40">

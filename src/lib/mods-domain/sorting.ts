@@ -103,9 +103,13 @@ const QUERY_FIELD_WEIGHTS = [3, 2, 1, 1] as const; // title / character / descri
 
 /** 一条 mod 参与匹配的四个字段（顺序与 QUERY_FIELD_WEIGHTS 对齐，值为小写） */
 function modQueryFields(mod: SiteMod): string[] {
-  return [mod.title, mod.character, mod.description, mod.driveLinks.map((d) => d.platform).join(" ")].map((value) =>
-    (value ?? "").toLowerCase(),
-  );
+  return [
+    mod.title,
+    mod.character,
+    mod.description,
+    // 网盘平台名 + 变体标签（搜 "Thicc" 能命中合并卡）
+    mod.driveLinks.map((d) => [d.platform, d.variant].filter(Boolean).join(" ")).join(" "),
+  ].map((value) => (value ?? "").toLowerCase());
 }
 
 export function parseQueryKeywords(query: string | undefined): string[] {

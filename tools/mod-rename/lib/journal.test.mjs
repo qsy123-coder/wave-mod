@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -55,6 +55,20 @@ describe("applyPlan / undoJournal", () => {
     expect(readdirSync(dir).sort()).toEqual(["今汐.zip", "어흐.png", "금희.zip"].sort());
   });
 
+  it("同批两条改成同一个名字：整批拒绝，一条都不动", () => {
+    expect(() =>
+      applyPlan({
+        dir,
+        journalDir,
+        entries: [
+          { from: "금희.zip", to: "同名.zip" },
+          { from: "어흐.png", to: "同名.zip" },
+        ],
+      })
+    ).toThrow(/同一个名字/);
+    expect(readdirSync(dir).sort()).toEqual(["금희.zip", "어흐.png"].sort());
+  });
+
   it("名字含非法字符时整批拒绝", () => {
     expect(() =>
       applyPlan({ dir, journalDir, entries: [{ from: "금희.zip", to: "a/b.zip" }] })
@@ -79,5 +93,65 @@ describe("applyPlan / undoJournal", () => {
     const list = listJournals(journalDir);
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({ status: "applied", count: 1 });
+  });
+});
+
+describe("分组清单随改名一起落盘", () => {
+  const manifestPath = () => join(dir, ".mod-groups.json");
+
+  it("写入清单，撤销时恢复改前内容", () => {
+    const before = '{"version":1,"groups":{}}\n';
+    writeFileSync(manifestPath(), before);
+
+    const { id } = applyPlan({
+      dir,
+      journalDir,
+      entries: [{ from: "금희.zip", to: "今汐.zip" }],
+      manifest: { path: manifestPath(), content: '{"version":1,"groups":{"a":{}}}\n' },
+    });
+    expect(readFileSync(manifestPath(), "utf8")).toBe('{"version":1,"groups":{"a":{}}}\n');
+
+    undoJournal({ journalDir, id });
+    expect(readFileSync(manifestPath(), "utf8")).toBe(before);
+  });
+
+  it("本批之前没有清单时，撤销会把它删掉", () => {
+    const { id } = applyPlan({
+      dir,
+      journalDir,
+      entries: [{ from: "금희.zip", to: "今汐.zip" }],
+      manifest: { path: manifestPath(), content: '{"version":1,"groups":{"a":{}}}\n' },
+    });
+    expect(existsSync(manifestPath())).toBe(true);
+
+    undoJournal({ journalDir, id });
+    expect(existsSync(manifestPath())).toBe(false);
+  });
+
+  it("清单后来被改过时，撤销不覆盖它", () => {
+    writeFileSync(manifestPath(), '{"version":1,"groups":{}}\n');
+    const { id } = applyPlan({
+      dir,
+      journalDir,
+      entries: [{ from: "금희.zip", to: "今汐.zip" }],
+      manifest: { path: manifestPath(), content: '{"version":1,"groups":{"a":{}}}\n' },
+    });
+    writeFileSync(manifestPath(), '{"version":1,"groups":{"newer":{}}}\n');
+
+    undoJournal({ journalDir, id });
+    expect(readFileSync(manifestPath(), "utf8")).toBe('{"version":1,"groups":{"newer":{}}}\n');
+  });
+
+  it("清单写失败时连同改名一起回滚", () => {
+    expect(() =>
+      applyPlan({
+        dir,
+        journalDir,
+        entries: [{ from: "금희.zip", to: "今汐.zip" }],
+        // 目录不存在 → 写清单必然失败
+        manifest: { path: join(root, "missing", ".mod-groups.json"), content: '{"version":1}\n' },
+      })
+    ).toThrow();
+    expect(readdirSync(dir).sort()).toEqual(["금희.zip", "어흐.png"].sort());
   });
 });

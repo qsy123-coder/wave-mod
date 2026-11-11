@@ -1,7 +1,7 @@
 "use client";
 
 import { type KeyboardEvent, type MouseEvent } from "react";
-import { Download } from "lucide-react";
+import { Download, Layers } from "lucide-react";
 import { toast } from "sonner";
 
 import { copyToClipboard } from "@/lib/clipboard";
@@ -9,6 +9,7 @@ import { driveCopyTip } from "@/lib/cloud-drive";
 import { launchDriveClient } from "@/lib/drive-client-launch";
 import { reportDriveClick } from "@/lib/drive-stats/client";
 import type { DriveLink } from "@/lib/mods-domain/types";
+import { groupDriveLinksByVariant, variantCountLabel } from "@/lib/mods-domain/variants";
 
 type CardDownloadActionProps = {
   driveLinks: DriveLink[];
@@ -35,7 +36,19 @@ function platformStyle(platform: string): { bg: string; fg: string } {
  * 点击复制对应链接到剪贴板并弹一句话 toast 引导到该网盘客户端打开。
  */
 export function CardDownloadAction({ driveLinks, className = "" }: CardDownloadActionProps) {
+  const summary = groupDriveLinksByVariant(driveLinks);
   if (driveLinks.length === 0) return null;
+
+  // 同帖多版本不逐个铺网盘按钮（9 个版本 × 2 个盘会糊满卡片）；
+  // 只标「N 个版本」，点进详情再选版本。无变体的历史数据保持原样。
+  if (summary.hasVariants) {
+    return (
+      <span className="inline-flex items-center gap-1 border-2 border-black bg-[#FFD93D] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] text-black shadow-[2px_2px_0px_0px_#000]">
+        <Layers className="size-3" strokeWidth={3} />
+        {variantCountLabel(summary.variantCount)}
+      </span>
+    );
+  }
 
   const copy = async (drive: DriveLink) => {
     const ok = await copyToClipboard(drive.url);

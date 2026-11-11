@@ -16,6 +16,10 @@ export const IMG_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 /** 来源目录里这些前缀不是待处理的 mod：`_合集原包`、`_Endfield`、`arca_需手动下载.txt` */
 const SKIP_PREFIX = ["_", "arca_需手动下载"];
 
+/** 日期目录顶层也算一个来源：整理好/搬上去的包仍要能改名（见 listDateRoot） */
+export const ROOT_SOURCE = "根目录";
+const ROOT_SKIP = new Set(["arca.live", "GameBanana", "预览图"]);
+
 function readJson(path) {
   try {
     return JSON.parse(readFileSync(path, "utf8"));
@@ -91,6 +95,11 @@ export function arcaMetaMap(crawlDir) {
     for (const mod of item.mods ?? []) {
       for (const f of mod.files ?? []) if (f.file) map.set(f.file, meta);
     }
+    // 用户把下载的目录解压/整理过之后，状态里的文件名就对不上了（比如
+    // `.../111.ini` 还在，但主条目已经变成同名的目录或重新打的 exe）。
+    // 下载器记的 `base` 是标题清洗后的基名，正好和这些条目的 base 一致，
+    // 补一层兜底，作者/分类才不至于丢 —— 丢了会导致 AI 乱猜角色。
+    if (item.base && !map.has(item.base)) map.set(item.base, meta);
   }
   return map;
 }
@@ -133,16 +142,30 @@ export function gbMetaMap(crawlDir, summaryDir) {
       url: item.page_url ?? extra.pageUrl ?? "",
       status: item.status ?? "",
     };
-    for (const img of item.images ?? []) if (img.file) map.set(img.file, meta);
-    for (const f of item.files ?? []) if (f.file) map.set(f.file, meta);
+    // 每个附件单独带一份 meta：`src` 是下载前的原始文件名，里面通常有
+    // `_sfw` / `_nsfw` / `_thicc` 这类变体词，用于同一帖子多附件时区分名字。
+    for (const img of item.images ?? []) {
+      if (img.file) map.set(img.file, { ...meta, src: img.src ?? "" });
+    }
+    for (const f of item.files ?? []) {
+      if (f.file) map.set(f.file, { ...meta, src: f.src ?? "" });
+    }
+    // 同 arca：下载后解压成目录、再用 SFX 打成同名 exe 时，state 里记的还是
+    // 原来的 `X.zip`，主条目却已经变成 `X` / `X.exe`。用下载器记的
+    // `file_base` / `image_base` 兜底，才能拿回作者和 GameBanana 子分类
+    // （子分类是角色提示的唯一可靠来源，丢了 AI 会猜成多角色）。
+    for (const key of [item.file_base, item.image_base]) {
+      if (key && !map.has(key)) map.set(key, meta);
+    }
   }
   return map;
 }
 
-function listEntries(dir) {
+function listEntries(dir, skipNames = null) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true })
     .filter((e) => !SKIP_PREFIX.some((p) => e.name.startsWith(p)))
+    .filter((e) => !skipNames?.has(e.name))
     .filter((e) => !e.isSymbolicLink())
     .map((e) => {
       const full = join(dir, e.name);
@@ -168,6 +191,22 @@ export function stripNumberSuffix(base) {
   return String(base).replace(/[-_]\d+$/, "");
 }
 
+/** 预览图编号：没有后缀的是封面（0），`-1`/`_1` 是第 1 张。 */
+function imageOrder(img) {
+  const m = /[-_](\d+)$/.exec(img.base);
+  return m ? Number(m[1]) : 0;
+}
+
+/**
+ * 预览图必须按「封面 → -1 → -2 …」排序。
+ * 目录项是按名字排序读进来的，而 `-` 比 `.` 小，所以 `X-1.jpg` 会排在 `X.jpg` 前面；
+ * 直接拿这个顺序去改名，会把 `-1` 当成封面、把封面当成 `-N`，整个编号错位 ——
+ * 对已经命名好的条目再点一次应用就会撞名失败。
+ */
+function sortImages(list) {
+  return list.sort((a, b) => imageOrder(a) - imageOrder(b) || a.name.localeCompare(b.name, "zh"));
+}
+
 /**
  * 把「一堆文件」整理成「一行一个 mod」：
  *   - mod 文件 / 目录是主条目；
@@ -190,6 +229,19 @@ export function buildRows(entries, metaMap = new Map()) {
     bucket.get(key).push(img);
   }
 
+  // 封面必须排在 `-1` 前面，否则重新应用时编号会整体错位（见 sortImages）
+  for (const list of attached.values()) sortImages(list);
+  for (const list of orphans.values()) sortImages(list);
+
+  // 同一 base 可能同时有目录和打好的 exe（build.ps1 不删源目录）。
+  // 预览图只能挂给其中一条：否则两行都去改同一张图，第二行必定撞名/找不到源文件。
+  // 优先挂给可发布的那份（exe/zip/rar），没有才挂目录。
+  const ownerByBase = new Map();
+  for (const p of primaries) {
+    const current = ownerByBase.get(p.base);
+    if (!current || (current.isDir && !p.isDir)) ownerByBase.set(p.base, p);
+  }
+
   const rows = primaries.map((p) => ({
     name: p.name,
     base: p.base,
@@ -197,7 +249,7 @@ export function buildRows(entries, metaMap = new Map()) {
     ext: p.ext,
     size: p.size,
     isDir: p.isDir,
-    images: (attached.get(p.base) ?? []).map((i) => i.name),
+    images: ownerByBase.get(p.base) === p ? (attached.get(p.base) ?? []).map((i) => i.name) : [],
     meta: metaMap.get(p.name) ?? metaMap.get(p.base) ?? null,
   }));
 
@@ -236,5 +288,15 @@ export function scanDateDir(dateDir, { crawlDir, summaryDir } = {}) {
     const items = buildRows(listEntries(dir), metaMap).map((r) => ({ ...r, source: sourceName }));
     sources.push({ name: sourceName, path: dir, items });
   }
+
+  // 日期目录顶层：用户把命名好的包/打好的 exe 搬上来之后，工具仍要能看见它们
+  // （以前只能扫两个来源子目录，搬走后就「改不了」了）。脚本、日志、预览图目录、
+  // 来源子目录都排除；能识别成 mod 的才列出来。
+  const rootItems = buildRows(
+    listEntries(dateDir, ROOT_SKIP),
+    new Map([...arca, ...gb])
+  ).map((r) => ({ ...r, source: ROOT_SOURCE }));
+  if (rootItems.length) sources.push({ name: ROOT_SOURCE, path: dateDir, items: rootItems });
+
   return { dateDir, sources };
 }

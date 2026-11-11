@@ -11,6 +11,7 @@ import {
   normalizeCharacter,
   resolveCharacterAndTitle,
 } from "../../../scripts/daily-classify.mjs";
+import { applyPostVariantLabels } from "../../../scripts/mod-groups-pure.mjs";
 
 import { composeKey, looksLikeEndfield } from "./naming.mjs";
 
@@ -150,6 +151,12 @@ export function planItem({ item, suggestion, knownCharacters, existingDedup, exi
   return {
     from: item.name,
     source: item.source,
+    // 多附件分组时用来排除「没有主文件的孤儿预览图」，它们不是帖子附件
+    kind: item.kind,
+    url: item.meta?.url ?? "",
+    src: item.meta?.src ?? "",
+    author: item.meta?.author ?? "",
+    postTitle: item.meta?.title ?? "",
     to: newBase,
     display: targets[0]?.to ?? newBase,
     targets,
@@ -164,9 +171,148 @@ export function planItem({ item, suggestion, knownCharacters, existingDedup, exi
   };
 }
 
+/** 页面顶部要显示的数字；跨来源合并冲突后要重算，所以单独抽出来 */
+export function summarize(rows) {
+  return {
+    total: rows.length,
+    applicable: rows.filter((r) => r.applicable).length,
+    blocked: rows.filter((r) => !r.applicable && !r.alreadyNamed).length,
+    already: rows.filter((r) => r.alreadyNamed).length,
+    duplicates: rows.filter((r) => r.issues.some((i) => i.code === "duplicate")).length,
+  };
+}
+
+/**
+ * 一批里两行拼出同一个目标名 —— `planItem` 只能看见目录里**已经存在**的名字，
+ * 看不见同一批里别的行，所以要等全部行算完再补这一刀。
+ *
+ * 最常见的来源是爬虫把同一条帖子的分享链接下了两遍（帖子正文里同一链接出现两次，
+ * 或第二次后面粘了韩文），于是目录里躺着两个字节相同的副本，两行自然同名。
+ * 不提前拦住的话，页面会把两条都勾上，提交时第二条撞名，整批回滚 —— 就是「命名失败」。
+ *
+ * 处理：保留第一条可应用的行，后面的行判 block 并写明撞了谁，让用户自己删副本
+ * （工具按设计不删文件）。跨来源也要一起查，因为一次应用可以横跨两个来源目录。
+ */
+/** 原始文件名里的变体词 → 名字后缀（`（SFW）` / `（Thicc NSFW）`） */
+function variantSuffix(src) {
+  const s = String(src || "").toLowerCase();
+  if (!s) return "";
+  const parts = [];
+  if (/thicc|thick/.test(s)) parts.push("Thicc");
+  if (/nsfw/.test(s)) parts.push("NSFW");
+  else if (/(^|[^a-z])sfw($|[^a-z])/.test(s)) parts.push("SFW");
+  if (/free/.test(s)) parts.push("Free");
+  if (/alt(ernative)?($|[^a-z])/.test(s)) parts.push("Alt");
+  return parts.length ? `（${parts.join(" ")}）` : "";
+}
+
+/** 把后缀插在 ` by 作者` 之前，保持 `角色-名称（SFW）by 作者` 的顺序 */
+function withSuffix(base, suffix) {
+  if (!suffix) return base;
+  const m = /^(.*?)(\s+by\s+.*)$/i.exec(String(base));
+  return m ? `${m[1]}${suffix}${m[2]}` : `${base}${suffix}`;
+}
+
+function suffixRow(row, suffix) {
+  if (!suffix) return;
+  const targets = (row.targets ?? []).map((t) => {
+    const ext = extname(t.to);
+    const stem = ext ? t.to.slice(0, t.to.length - ext.length) : t.to;
+    return { ...t, to: `${withSuffix(stem, suffix)}${ext}` };
+  });
+  const title = row.title ? withSuffix(row.title, suffix) : row.title;
+  Object.assign(row, {
+    to: row.to ? withSuffix(row.to, suffix) : row.to,
+    display: targets[0]?.to ?? row.display,
+    targets,
+    title,
+    dedup: title && row.character ? dedupKey(row.character, title) : row.dedup,
+    issues: [
+      ...(row.issues ?? []),
+      {
+        code: "auto-suffixed",
+        level: "warn",
+        message: `同一帖子的多个附件，已自动加后缀「${suffix}」区分`,
+      },
+    ],
+  });
+}
+
+/**
+ * 同一个帖子（`meta.url` 相同）挂了多个附件时，给第 2 个以后的条目自动加后缀。
+ *
+ * 下载器把 6 个附件存成 `X_1.zip`…`X_6.zip`，扫描后每个都是独立条目、建议名
+ * 却都是 `角色-名称`，于是全部互相撞名、整批不可应用。优先用原始文件名里的
+ * SFW/NSFW/Thicc 当后缀；没有就退回 `-2`、`-3`。
+ */
+export function applySamePostSuffixes(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    if (!row.applicable || !(row.changed > 0)) continue;
+    // 只有拿得到帖子 URL 才敢认定「同一个帖子的多个附件」；
+    // 没有 URL 的两行同名（例如旧爬虫下了两遍）仍然按重复副本 block。
+    const key = row.url;
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const used = new Set();
+    const srcOwner = new Map();   // 原始文件名 → 第一次出现的行
+    group.forEach((row, i) => {
+      if (i === 0) {
+        if (row.src) srcOwner.set(row.src, row);
+        return;
+      }
+      // 同一个原始文件出现两次 = 爬虫把同一条链接下了两遍，留给 markBatchConflicts 拦重复
+      if (row.src && srcOwner.has(row.src)) return;
+      if (row.src) srcOwner.set(row.src, row);
+      let suffix = variantSuffix(row.src) || `-${i + 1}`;
+      if (used.has(suffix)) suffix = `${suffix}-${i + 1}`;
+      used.add(suffix);
+      suffixRow(row, suffix);
+    });
+  }
+  return rows;
+}
+
+export function markBatchConflicts(rows) {
+  const owner = new Map(); // 目标名 → 第一条占住它的行
+  for (const row of rows) {
+    if (!row.applicable || !(row.changed > 0)) continue;
+    const taken = (row.targets ?? []).filter((t) => owner.has(t.to));
+    if (taken.length) {
+      const claimants = [...new Map(taken.map((t) => [owner.get(t.to).from, owner.get(t.to)])).values()];
+      const first = claimants
+        .map((r) => (r.source && r.source !== row.source ? `${r.source} / ${r.from}` : r.from))
+        .join("、");
+      // 同名不等于重复：arca 和 GameBanana 各有一篇标题相同的帖子时，两个包内容
+      // 可能完全不同，提醒用户补作者/改名称区分，而不是叫他去删文件。
+      const crossSource = claimants.some((r) => r.source && r.source !== row.source);
+      row.issues.push(
+        block(
+          "duplicate-target",
+          crossSource
+            ? `与「${first}」改名后的目标重名（不同来源的同名包）；补作者或改名称区分后再应用`
+            : `与本批「${first}」改名后的目标重名（疑似同一文件被下载了两份）；` +
+                `先删掉多余副本，或手动改一个名字再应用`,
+          { conflictWith: first }
+        )
+      );
+      row.applicable = false;
+      continue;
+    }
+    for (const t of row.targets ?? []) owner.set(t.to, row);
+  }
+  return rows;
+}
+
 /** 一次算完一批；顺便统计好页面顶部要显示的数字 */
 export function planAll({ items, suggestions, knownCharacters, existingDedup, glossary }) {
-  const existingNames = new Set(items.map((i) => i.name));
+  // 预览图也算「目录里已存在的名字」：否则对已命名条目再应用时，编号错位产生的
+  // 目标名（`X.jpg` 被改成 `X-1.jpg`）不会被冲突检查拦住，落盘才报「目标已存在」。
+  const existingNames = new Set(items.flatMap((i) => [i.name, ...(i.images ?? [])]));
   const rows = items.map((item) =>
     planItem({
       item,
@@ -177,14 +323,10 @@ export function planAll({ items, suggestions, knownCharacters, existingDedup, gl
       glossary,
     })
   );
-  return {
-    rows,
-    stats: {
-      total: rows.length,
-      applicable: rows.filter((r) => r.applicable).length,
-      blocked: rows.filter((r) => !r.applicable && !r.alreadyNamed).length,
-      already: rows.filter((r) => r.alreadyNamed).length,
-      duplicates: rows.filter((r) => r.issues.some((i) => i.code === "duplicate")).length,
-    },
-  };
+  // 先处理「同一帖子多个附件」的同名问题，再给整批补分组元数据（写 .mod-groups.json 用），
+  // 最后检查跨帖/跨来源真冲突
+  applySamePostSuffixes(rows);
+  applyPostVariantLabels(rows);
+  markBatchConflicts(rows);
+  return { rows, stats: summarize(rows) };
 }

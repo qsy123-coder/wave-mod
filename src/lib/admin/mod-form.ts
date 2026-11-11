@@ -77,16 +77,56 @@ export function splitImageUrls(value: string) {
     .filter(Boolean);
 }
 
-export function splitDriveLinks(value: string) {
+/** 后台编辑表单里一行网盘链接的解析结果 */
+export type ParsedDriveLink = { platform: string; url: string; variant?: string };
+
+/**
+ * 解析网盘链接文本。两种行格式：
+ *
+ *   夸克网盘 https://pan.quark.cn/s/xxxx          ← 历史格式，无变体
+ *   Slim SFW | 夸克网盘 https://pan.quark.cn/s/x  ← 同一帖子的多版本
+ *
+ * 只切第一个竖线（全角 `｜` 也认），标签里可以带空格；`#` 开头的行是注释。
+ * 行格式不合法时整行丢弃（与旧实现一致，不猜 URL）。
+ */
+export function splitDriveLinks(value: string): ParsedDriveLink[] {
   return value
     .split(/\r?\n/)
-    .map((line) => {
-      const parts = line.trim().split(/\s+/);
+    .map((raw) => {
+      let line = raw.trim();
+      if (!line || line.startsWith("#")) return null;
+
+      // 变体标签与「平台 链接」之间用竖线分隔；全角竖线在中文输入法下很常见
+      const half = line.indexOf("|");
+      const full = line.indexOf("｜");
+      const separator = half === -1 ? full : full === -1 ? half : Math.min(half, full);
+
+      let variant: string | undefined;
+      if (separator !== -1) {
+        variant = line.slice(0, separator).trim() || undefined;
+        line = line.slice(separator + 1).trim();
+      }
+
+      const parts = line.split(/\s+/).filter(Boolean);
       if (parts.length < 2) return null;
       const url = parts.pop()!;
-      const platform = parts.join(" ");
-      return { platform, url };
+      const platform = parts.join(" ").trim();
+      if (!platform || !url) return null;
+
+      return variant ? { platform, url, variant } : { platform, url };
     })
-    .filter((item): item is { platform: string; url: string } => item !== null && item.url.length > 0);
+    .filter((item): item is ParsedDriveLink => item !== null);
+}
+
+/** 单行回填格式，与 `splitDriveLinks` 互为逆运算 */
+export function formatDriveLink(link: ParsedDriveLink): string {
+  const platform = String(link.platform ?? "").trim();
+  const url = String(link.url ?? "").trim();
+  const variant = String(link.variant ?? "").trim();
+  return variant ? `${variant} | ${platform} ${url}` : `${platform} ${url}`;
+}
+
+export function formatDriveLinksText(links: readonly ParsedDriveLink[]): string {
+  return links.map(formatDriveLink).join("\n");
 }
 

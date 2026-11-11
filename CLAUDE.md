@@ -171,6 +171,20 @@ node scripts/check-mod-keys.mjs              # 默认取最新 W-* 目录，也�
 `EFFECT_BUCKET_PREFIXES`（非角色包，如 `隐藏座椅虚化`）／`CHARACTER_PREFIX_MAP`（角色包）
 加前缀规则，再跑一次直到 ✅ 全绿。规则改动和重命名一起 commit。
 
+### 同一帖子的多个附件（变体）合并成一张卡
+
+GameBanana 一个帖子可能挂多个附件（Slim/Thicc × SFW/NSFW/VIP）。命名工坊改名时会在
+日期目录根下写 `.mod-groups.json`（帖子 URL → 基础标题 → 变体名），每日上传脚本据它把
+多个分享合并成一条 `mods` 记录：
+
+- 卡片标题 = 基础名（去掉 `（Slim SFW）` 之类的变体后缀）；变体名写进 `drive_links[].variant`；
+- 每个变体保留自己的夸克/迅雷链接，前台详情先选版本再选网盘；
+- 没有清单 / 清单对不上 / 只匹配到一个变体时，按旧逻辑逐条入库（多张卡），不会报错；
+- 历史上已经按变体分卡入库的帖子，脚本检测到后跳过合并，不产生重复；
+- 合并行的链接是并集：删除某个变体要在后台编辑表单里手动删，脚本不会自动删链接；
+- `apply-daily-xunlei-by-date.mjs` / `update-drive-links-from-reshare.mjs` 仍按平台合并，
+  **不要对合并行跑**，否则会丢变体标签。
+
 ### 一条命令
 
 ```bash

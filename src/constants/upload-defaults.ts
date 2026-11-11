@@ -1,4 +1,5 @@
 import { defaultGameKey } from "@/config/games";
+import { formatDriveLinksText } from "@/lib/admin/mod-form";
 import { defaultGameVersion, defaultModVersion } from "@/lib/constants/characters";
 import { xxmiInstallGuideText } from "@/lib/constants/install-guide";
 import type { AdminMod } from "@/lib/mods";
@@ -43,7 +44,7 @@ export function getUploadFormValuesFromMod(mod: AdminMod): UploadFormValues {
     character: mod.character,
     description: mod.description,
     downloadUrl: mod.downloadUrl ?? "",
-    driveLinksText: mod.driveLinks.map((d) => `${d.platform} ${d.url}`).join("\n"),
+    driveLinksText: formatDriveLinksText(mod.driveLinks),
     gameKey: mod.gameKey,
     imageUrls: mod.images.join("\n"),
     nsfw: mod.nsfw,

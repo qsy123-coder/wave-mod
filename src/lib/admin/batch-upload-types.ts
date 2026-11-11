@@ -5,6 +5,8 @@ export type BatchDrivePlatform = (typeof BATCH_DRIVE_PLATFORMS)[number];
 export type BatchDriveLink = {
   platform: BatchDrivePlatform;
   url: string;
+  /** 同一帖子的附件变体标签；批量导入目前不产生它，编辑已有合并卡时会被保留 */
+  variant?: string;
 };
 
 export type BatchRowStatus =

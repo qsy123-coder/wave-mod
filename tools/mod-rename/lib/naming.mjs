@@ -8,6 +8,16 @@
 /** 韩文音节：出现即说明还有没翻译干净的词，建议名要标黄 */
 export const HANGUL_RE = /[가-힣]/;
 
+/** 没有角色但明显是界面类 Mod → 归站内已有的 `UI` 分类 */
+const UI_RE =
+  /(?<![A-Za-z])ui(?![A-Za-z])|(?<![A-Za-z])cursor|(?<![A-Za-z])guidebook|(?<![A-Za-z])backpack|first[\s-]*person|(?<![A-Za-z])shoulder|(?<![A-Za-z])hud(?![A-Za-z])|(?<![A-Za-z])interface|界面|光标|背包/i;
+
+/** 英文角色名按“整词”匹配，避免 `Lupa` 命中 `LupaLand` 这种 */
+function latinWordRe(word) {
+  const escaped = String(word).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![A-Za-z])${escaped}(?![A-Za-z])`, "i");
+}
+
 /** 站内标题里的括号统一用全角（与现有标题一致） */
 export function canonicalParens(text) {
   return String(text).replace(/\(/g, "（").replace(/\)/g, "）");
@@ -88,9 +98,29 @@ export function translate(rawBase, glossary, meta = {}) {
     if (mapped) characters = [mapped];
   }
 
+  // 2.5) 标题里直接出现英文角色名（GameBanana 的 UI/皮肤包很常见：
+  //      `NSFW Jinhsi Ui`、`Cantarella Ui`）。categories 原本只做子分类精确匹配，
+  //      这里补一个按整词扫描的兜底，否则这些包全被判成「认不出角色」。
+  const nameHits = [];
+  if (!characters.length) {
+    for (const [en, zh] of sortedEntries(glossary.categories ?? {})) {
+      if (!en || en.startsWith("_") || !zh) continue;
+      const re = latinWordRe(en);
+      const m = re.exec(text);
+      if (m) nameHits.push({ en, zh, idx: m.index });
+    }
+    nameHits.sort((a, b) => a.idx - b.idx);
+    characters = [...new Set(nameHits.map((h) => h.zh))];
+  }
+
+  // 2.6) 认不出角色、但一眼就是界面类 Mod（光标 / 背包 / 第一人称 / UI）：
+  //      站内角色表里本来就有 `UI`，不要再拦成「不可应用」。
+  if (!characters.length && UI_RE.test(text)) characters = ["UI"];
+
   // 3) 把角色词与常见皮肤词换成中文
   let rest = text;
   for (const h of hits) rest = rest.split(h.ko).join(" ");
+  for (const h of nameHits) rest = rest.replace(latinWordRe(h.en), " ");
   for (const [ko, zh] of sortedEntries(glossary.words ?? {})) {
     rest = rest.split(ko).join(zh ? ` ${zh} ` : " ");
   }
@@ -98,6 +128,7 @@ export function translate(rawBase, glossary, meta = {}) {
   // 4) 收尾：去掉多余分隔符，保留括号里的内容（先把括号统一成全角，才好处理前面的空格）
   rest = canonicalParens(rest)
     .replace(/[,，、]/g, " ")
+    .replace(/\bui\b/gi, "UI")
     .replace(/\s+/g, " ")
     // 全角括号前不留空格：`Longyan （長髮+胧嫣）` → `Longyan（長髮+胧嫣）`
     .replace(/\s+（/g, "（")

@@ -191,9 +191,10 @@ function parseLooseXunleiTxt(text: string): TxtRecord[] {
 }
 
 function mergeDriveLinks(a: BatchDriveLink[], b: BatchDriveLink[]): BatchDriveLink[] {
-  const byPlatform = new Map<string, BatchDriveLink>();
-  for (const link of [...a, ...b]) byPlatform.set(link.platform, link);
-  return [...byPlatform.values()];
+  // 同一平台在不同变体下是两个不同分享，不能按平台直接覆盖
+  const bySlot = new Map<string, BatchDriveLink>();
+  for (const link of [...a, ...b]) bySlot.set(`${link.variant ?? ""}|${link.platform}`, link);
+  return [...bySlot.values()];
 }
 
 function buildRows(

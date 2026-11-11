@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import glossary from "../data/glossary.json";
-import { planAll, planItem } from "./plan.mjs";
+import { markBatchConflicts, planAll, planItem } from "./plan.mjs";
 
 const known = new Set(["今汐", "吟霖", "椿", "珂莱塔", "散华", "折枝", "锁暝", "心月狐"]);
 const item = (name, extra = {}) => ({
@@ -257,5 +257,82 @@ describe("planAll", () => {
       glossary,
     });
     expect(res.stats).toEqual({ total: 3, applicable: 2, blocked: 1, already: 0, duplicates: 1 });
+  });
+
+  it("同一批两行改成同一个目标名：后一条 block，不会拖到 apply 才撞车", () => {
+    const res = planAll({
+      items: [item("原帖_副本一", { isDir: true }), item("原帖_副本二", { isDir: true })],
+      suggestions: {
+        原帖_副本一: sug(["锁暝"], "同一套"),
+        原帖_副本二: sug(["锁暝"], "同一套"),
+      },
+      knownCharacters: known,
+      existingDedup: new Set(),
+      glossary,
+    });
+    expect(res.rows[0].applicable).toBe(true);
+    expect(res.rows[1].applicable).toBe(false);
+    expect(res.rows[1].issues.find((i) => i.code === "duplicate-target")?.conflictWith).toBe("原帖_副本一");
+    expect(res.stats).toEqual({ total: 2, applicable: 1, blocked: 1, already: 0, duplicates: 0 });
+  });
+});
+
+describe("同一帖子的分组元数据", () => {
+  const postItem = (name, src) =>
+    item(name, {
+      meta: {
+        url: "https://gamebanana.com/mods/626205",
+        title: "Augusta Champion of Sunlight",
+        author: "Alunoop3D",
+        src,
+      },
+    });
+
+  it("给同帖的每个附件写 postUrl / variantLabel / isBaseVariant", () => {
+    const res = planAll({
+      items: [
+        postItem("Augusta_1.zip", "Augusta Champion of Sunlight Slim SFW.zip"),
+        postItem("Augusta_2.zip", "Augusta Champion of Sunlight Thicc NSFW.zip"),
+      ],
+      suggestions: {
+        "Augusta_1.zip": sug(["奥古斯塔"], "Champion of Sunlight", { author: "Alunoop3D" }),
+        "Augusta_2.zip": sug(["奥古斯塔"], "Champion of Sunlight", { author: "Alunoop3D" }),
+      },
+      knownCharacters: new Set(["奥古斯塔"]),
+      existingDedup: new Set(),
+      glossary,
+    });
+
+    expect(res.rows.map((row) => row.postUrl)).toEqual([
+      "https://gamebanana.com/mods/626205",
+      "https://gamebanana.com/mods/626205",
+    ]);
+    expect(res.rows.map((row) => row.variantLabel)).toEqual(["Slim SFW", "Thicc NSFW"]);
+    expect(res.rows.map((row) => row.isBaseVariant)).toEqual([true, false]);
+    // 基行保持无后缀，第二行由 applySamePostSuffixes 加后缀
+    expect(res.rows[0].title).toBe("Champion of Sunlight by Alunoop3D");
+    expect(res.rows[1].title).toBe("Champion of Sunlight（Thicc NSFW） by Alunoop3D");
+  });
+});
+
+describe("markBatchConflicts", () => {
+  const row = (from, source, to) => ({
+    from,
+    source,
+    to,
+    targets: [{ from, to }],
+    changed: 1,
+    applicable: true,
+    issues: [],
+  });
+
+  it("跨来源同名：提示补作者/改名称，而不是让用户删文件", () => {
+    const rows = [row("청순한 여우", "arca.live", "心月狐-狐狸座"), row("청순한 여우", "GameBanana", "心月狐-狐狸座")];
+    markBatchConflicts(rows);
+    expect(rows[0].applicable).toBe(true);
+    expect(rows[1].applicable).toBe(false);
+    const issue = rows[1].issues.find((i) => i.code === "duplicate-target");
+    expect(issue.conflictWith).toBe("arca.live / 청순한 여우");
+    expect(issue.message).toContain("不同来源");
   });
 });

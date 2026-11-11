@@ -183,7 +183,7 @@ export type ModUpdateFields = {
   downloadUrl?: string;
   videoUrl?: string;
   /** 网盘链接；drive_links 是 jsonb，写库前必须 JSON.stringify（见下方） */
-  driveLinks?: { platform: string; url: string }[];
+  driveLinks?: { platform: string; url: string; variant?: string }[];
   imageUrls?: string[];
   nsfw?: boolean;
 };

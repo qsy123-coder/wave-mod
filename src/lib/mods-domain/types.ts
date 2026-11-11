@@ -1,6 +1,16 @@
 import type { Tables } from "@/types/db";
 
-export type DriveLink = { platform: string; url: string };
+export type DriveLink = {
+  platform: string;
+  url: string;
+  /**
+   * 同一 GameBanana 帖子的附件变体标签，例如 `Slim SFW` / `Thicc Heavy NSFW VIP`。
+   *
+   * 历史记录没有这个字段，前台按原来的「一个网盘一个按钮」渲染；只有 ≥2 个不同
+   * 变体时才进入版本切换 UI。写入方见 `scripts/mod-groups-pure.mjs`。
+   */
+  variant?: string;
+};
 
 export type ModSort = "default" | "latest" | "favorites" | "rating" | "hot";
 

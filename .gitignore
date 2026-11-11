@@ -92,3 +92,6 @@ next-env.d.ts
 
 # 命名工坊的改名记录：含本机绝对路径，只该留在本机
 tools/mod-rename/.journal/
+# 启动时的一次性 token / 接口错误日志
+tools/mod-rename/.url
+tools/mod-rename/.errors.log

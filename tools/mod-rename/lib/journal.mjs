@@ -10,6 +10,8 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { restoreModGroupsFile, writeModGroupsFileAtomic } from "../../../scripts/mod-groups.mjs";
+
 const ILLEGAL = /[\\/:*?"<>|]/;
 const KEEP_JOURNALS = 30;
 
@@ -22,12 +24,21 @@ export function assertSafeName(name) {
 /**
  * 执行一批改名。
  *
- * @param {{dir:string, entries:{from:string,to:string}[], journalDir:string, label?:string}} args
+ * `manifest` 可选：`{ path, content }` 指向日期目录的 `.mod-groups.json`。
+ * 改名成功后原子写清单；清单写失败会连同已改的文件一起回滚 —— 否则会出现
+ * 「文件名已经变了、清单却没有」，上传脚本按旧名匹配不到，整批静默多卡。
+ *
+ * @param {{dir:string, entries:{from:string,to:string}[], journalDir:string, label?:string,
+ *          manifest?:{path:string, content:string|null}|null}} args
  * @returns {{id:string, ops:object[], skipped:object[]}}
  */
-export function applyPlan({ dir, entries, journalDir, label = "" }) {
+export function applyPlan({ dir, entries, journalDir, label = "", manifest = null }) {
   const ops = [];
   const skipped = [];
+  // 同批内校验：磁盘上的 `existsSync` 看不见「后面那条也要改成同一个名字」，
+  // 两条撞名会一路走到 rename 才报错（Windows 报 EEXIST），整批回滚。
+  const targetOwner = new Map(); // 目标名 → 抢先改到它的来源名
+  const sourceSeen = new Set();
 
   // 先整体校验，任何一条不合法就一条都不动 —— 半套改动最难收拾。
   // 一条 entry 可以带自己的 `dir`（一次改名跨 arca.live / GameBanana 两个来源）。
@@ -47,16 +58,30 @@ export function applyPlan({ dir, entries, journalDir, label = "" }) {
     }
     if (!existsSync(src)) throw new Error(`源条目不存在：${e.from}`);
     if (existsSync(dst)) throw new Error(`目标已存在，拒绝覆盖：${e.to}`);
+    if (sourceSeen.has(e.from)) throw new Error(`同一批里「${e.from}」出现了两次`);
+    const claimed = targetOwner.get(e.to);
+    if (claimed) {
+      throw new Error(`「${claimed}」和「${e.from}」要改成同一个名字，拒绝覆盖：${e.to}`);
+    }
+    sourceSeen.add(e.from);
+    targetOwner.set(e.to, e.from);
     ops.push({ type: "rename", dir: baseDir, from: e.from, to: e.to });
   }
 
   if (!ops.length) return { id: "", ops: [], skipped };
+
+  // 清单的「改前」内容要在任何落盘动作之前读，撤销时才能精确还原
+  const manifestBefore =
+    manifest?.path && existsSync(manifest.path) ? readFileSync(manifest.path, "utf8") : null;
 
   const done = [];
   try {
     for (const op of ops) {
       renameSync(join(op.dir, op.from), join(op.dir, op.to));
       done.push(op);
+    }
+    if (manifest?.path && manifest.content != null) {
+      writeModGroupsFileAtomic(manifest.path, manifest.content);
     }
   } catch (err) {
     for (const op of done.reverse()) {
@@ -66,6 +91,14 @@ export function applyPlan({ dir, entries, journalDir, label = "" }) {
         // 回滚再失败就只能靠 journal 里没有这条记录、由人工处理，这里不掩盖原始错误
       }
     }
+    // 改名回滚了，清单也要回到改前状态，否则会留下指向不存在文件的分组
+    if (manifest?.path && manifest.content != null) {
+      try {
+        restoreModGroupsFile(manifest.path, manifestBefore);
+      } catch {
+        // 清单恢复失败不能盖住原始错误，交给调用方看上面的 throw
+      }
+    }
     throw err;
   }
 
@@ -73,7 +106,20 @@ export function applyPlan({ dir, entries, journalDir, label = "" }) {
   mkdirSync(journalDir, { recursive: true });
   writeFileSync(
     join(journalDir, `${id}.json`),
-    JSON.stringify({ id, dir, createdAt: new Date().toISOString(), label, status: "applied", ops }, null, 2),
+    JSON.stringify(
+      {
+        id,
+        dir,
+        createdAt: new Date().toISOString(),
+        label,
+        status: "applied",
+        ops,
+        manifest: manifest?.path
+          ? { path: manifest.path, before: manifestBefore, after: manifest.content ?? null }
+          : null,
+      },
+      null,
+      2),
     "utf8"
   );
   pruneJournals(journalDir);
@@ -110,8 +156,24 @@ export function undoJournal({ journalDir, id }) {
     renameSync(src, dst);
   }
 
-  journal.status = failures.length ? "partially-undone" : "undone";
   journal.undoneAt = new Date().toISOString();
+
+  // 清单只在「还是本批写进去的那份」时恢复；用户后来手工改过/别批写过就不动它，
+  // 否则撤销一个旧批次会把新批次的分组抹掉。
+  if (journal.manifest?.path) {
+    try {
+      const current = existsSync(journal.manifest.path) ? readFileSync(journal.manifest.path, "utf8") : null;
+      if (current === (journal.manifest.after ?? null)) {
+        restoreModGroupsFile(journal.manifest.path, journal.manifest.before ?? null);
+      } else {
+        failures.push("清单已被后续操作修改，未恢复");
+      }
+    } catch (err) {
+      failures.push(`清单恢复失败：${err.message}`);
+    }
+  }
+
+  journal.status = failures.length ? "partially-undone" : "undone";
   journal.failures = failures;
   writeFileSync(join(journalDir, `${id}.json`), JSON.stringify(journal, null, 2), "utf8");
   return { id, restored: journal.ops.length - failures.length, failures };

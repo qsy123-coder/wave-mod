@@ -14,6 +14,7 @@ import {
 } from "@/lib/admin/mod-form";
 import { execute, queryOne } from "@/lib/db/query";
 import { revalidatePublicModCaches } from "@/lib/mod-cache";
+import type { DriveLink } from "@/lib/mods-domain/types";
 
 const modIdSchema = z.uuid("无效的 MOD ID。");
 
@@ -137,7 +138,7 @@ export async function getEditableMod(id: string) {
     description: data.description,
     downloadUrl: data.download_url,
     downloads: data.downloads_count ?? 0,
-    driveLinks: (data.drive_links as Array<{ platform: string; url: string }>) ?? [],
+    driveLinks: (data.drive_links as DriveLink[]) ?? [],
     favorites: data.favorites_count ?? 0,
     gameKey: data.game_key,
     gameVersion: data.game_version,

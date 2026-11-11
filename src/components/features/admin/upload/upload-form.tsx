@@ -158,7 +158,7 @@ export function UploadForm({ characters, formValues = defaultUploadFormValues, m
                 </Field>
 
                 <Field label="网盘下载链接（可选）" error={getFieldError("driveLinksText")}>
-                  <Textarea {...register("driveLinksText")} placeholder={"每行一条，格式：平台名 链接\n例如：\n百度网盘 https://pan.baidu.com/s/xxxx\n阿里云盘 https://www.alipan.com/xxxx"} rows={3} />
+                  <Textarea {...register("driveLinksText")} placeholder={"每行一条，格式：平台名 链接\n多版本：变体 | 平台名 链接\n例如：\nNormal SFW | 夸克网盘 https://pan.quark.cn/s/xxxx\n阿里云盘 https://www.alipan.com/xxxx"} rows={3} />
                 </Field>
 
                 <Field label="演示视频地址（可选）" error={getFieldError("videoUrl")}>

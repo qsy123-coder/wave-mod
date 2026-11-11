@@ -12,11 +12,13 @@
 import { createServer } from "node:http";
 import { exec } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resolveCharacterAndTitle } from "../../scripts/daily-classify.mjs";
+import { buildModGroupsFileContent, modGroupsPath, readModGroupsFile } from "../../scripts/mod-groups.mjs";
+import { normalizeGameBananaUrl } from "../../scripts/mod-groups-pure.mjs";
 
 import { aiConfig, needsAi, suggestWithModel } from "./lib/ai.mjs";
 import { loadEnvFiles } from "./lib/env.mjs";
@@ -24,8 +26,8 @@ import { loadKnownMods } from "./lib/db.mjs";
 import { injectToken } from "./lib/html.mjs";
 import { applyPlan, listJournals, undoJournal } from "./lib/journal.mjs";
 import { HANGUL_RE, looksLikeEndfield, splitExistingName, translate } from "./lib/naming.mjs";
-import { planAll } from "./lib/plan.mjs";
-import { dateDirToDay, listDateDirs, scanDateDir } from "./lib/scan.mjs";
+import { markBatchConflicts, planAll, summarize } from "./lib/plan.mjs";
+import { dateDirToDay, listDateDirs, ROOT_SOURCE, scanDateDir } from "./lib/scan.mjs";
 import { inspectZip, siblingsOf, splitZip } from "./lib/split.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -76,6 +78,7 @@ function safeDateDir(name) {
 const SOURCES = ["arca.live", "GameBanana"];
 
 function safeSourceDir(dateDir, source) {
+  if (source === ROOT_SOURCE) return dateDir; // 日期目录顶层：整理/搬上去的包
   if (!SOURCES.includes(source)) throw new Error(`未知来源：${source}`);
   const p = resolve(dateDir, source);
   if (!p.startsWith(resolve(dateDir) + sep)) throw new Error("路径越界");
@@ -91,6 +94,41 @@ function safeEntryPath(sourceDir, name) {
   if (!p.startsWith(resolve(sourceDir) + sep)) throw new Error("路径越界");
   if (!existsSync(p) || !statSync(p).isFile()) throw new Error(`文件不存在：${b}`);
   return p;
+}
+
+/**
+ * 校验页面提交的分组元数据，再交给 `mergeModGroups` 合并。
+ *
+ * 页面是本地可信的，但请求体仍然按外部输入处理：只认 GameBanana 帖子 URL，
+ * 组数/变体数/标签长度都设上限，避免一个坏请求把 `.mod-groups.json` 写成巨型对象。
+ */
+function normalizeIncomingPostGroups(raw) {
+  if (!Array.isArray(raw)) return [];
+  const groups = [];
+  for (const group of raw.slice(0, 200)) {
+    const postUrl = normalizeGameBananaUrl(group?.postUrl);
+    if (!postUrl) continue;
+    const variants = [];
+    const seen = new Set();
+    for (const variant of (Array.isArray(group?.variants) ? group.variants : []).slice(0, 30)) {
+      const label = String(variant?.label ?? "").trim();
+      const name = String(variant?.name ?? "").trim();
+      if (!label || label.length > 60 || /[\r\n]/.test(label)) continue;
+      if (!name || name.length > 300 || /[\r\n]/.test(name)) continue;
+      const identity = `${String(variant?.sourceName ?? "").trim()}|${String(variant?.localName ?? "").trim()}|${name}`;
+      if (seen.has(identity)) continue;
+      seen.add(identity);
+      variants.push({
+        label,
+        name,
+        localName: String(variant?.localName ?? "").trim().slice(0, 300),
+        sourceName: String(variant?.sourceName ?? "").trim().slice(0, 300),
+        isBase: Boolean(variant?.isBase),
+      });
+    }
+    if (variants.length >= 2) groups.push({ postUrl, variants });
+  }
+  return groups;
 }
 
 // ---------------- 业务 ----------------
@@ -152,6 +190,10 @@ async function planRows(dateDir, rows) {
       ...planAll({ items: source.items, suggestions, knownCharacters, existingDedup, glossary }),
     };
   });
+  // 一次应用可以横跨 arca.live / GameBanana：同一目标名要在两个来源之间也查一遍，
+  // 否则页面照样会把两条都勾上，提交时才在 applyPlan 撞车。
+  markBatchConflicts(results.flatMap((r) => r.rows));
+  for (const r of results) r.stats = summarize(r.rows);
   return { knownError: error, sources: results };
 }
 
@@ -346,7 +388,14 @@ const server = createServer(async (req, res) => {
         // 每条自己带来源：一次应用可以横跨 arca.live 与 GameBanana
         dir: e.source ? safeSourceDir(dateDir, e.source) : dateDir,
       }));
-      const result = applyPlan({ dir: dateDir, entries, journalDir: JOURNAL_DIR, label: body.label ?? "" });
+      // 同一帖子的多个附件：把分组写进日期目录的 .mod-groups.json，供每日上传脚本合并
+      const postGroups = normalizeIncomingPostGroups(body.postGroups ?? []);
+      let manifest = null;
+      if (postGroups.length > 0) {
+        const content = buildModGroupsFileContent(readModGroupsFile(dateDir), postGroups);
+        if (content) manifest = { path: modGroupsPath(dateDir), content };
+      }
+      const result = applyPlan({ dir: dateDir, entries, journalDir: JOURNAL_DIR, label: body.label ?? "", manifest });
       return send(res, 200, result);
     }
 
@@ -364,6 +413,17 @@ const server = createServer(async (req, res) => {
   } catch (err) {
     // 本地工具，栈比「友好文案」有用：出错就原样打到终端
     console.error(`[${req.method} ${url.pathname}]`, err);
+    // 控制台窗口经常被最小化/关掉，页面只显示一行 message；同时落一份到文件，
+    // 事后才能看出是哪条改名/哪个目标出的问题。
+    try {
+      appendFileSync(
+        join(HERE, ".errors.log"),
+        `${new Date().toISOString()}\t${req.method} ${url.pathname}\t${String(err?.stack ?? err)}\n`,
+        "utf8"
+      );
+    } catch {
+      // 写日志失败不影响返回错误
+    }
     return send(res, 400, { error: String(err?.message ?? err) });
   }
 });
@@ -392,6 +452,13 @@ server.on("error", (err) => {
 server.listen(PORT, HOST, () => {
   const url = `http://${HOST}:${PORT}/?t=${TOKEN}`;
   console.log(`\n  Mod 命名工坊\n  ${url}\n`);
+  // token 只在控制台里，窗口关掉/最小化后经常找不到；同时落一份文件方便找回
+  // （本机 127.0.0.1 工具，token 只防别的网页跨站调用，不是账号凭证）
+  try {
+    writeFileSync(join(HERE, ".url"), `${url}\n`, "utf8");
+  } catch {
+    // 写不进去也不影响启动
+  }
   console.log(`  数据目录：${BASE}`);
   console.log(`  爬虫状态：${CRAWL_DIR}${existsSync(CRAWL_DIR) ? "" : "（不存在，只能靠文件名猜）"}`);
   console.log(`  撤销记录：${JOURNAL_DIR}`);

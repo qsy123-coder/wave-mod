@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Share2, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { reportView } from "@/lib/engagement/client";
@@ -10,6 +10,7 @@ import { isDownloadBaseFromZero } from "@/lib/engagement/downloads-policy";
 import { useEngagement } from "@/lib/engagement/use-engagement";
 import { buildModShareUrl } from "@/lib/mod-share";
 import type { SiteMod } from "@/lib/mods";
+import { groupDriveLinksByVariant, variantCountLabel } from "@/lib/mods-domain/variants";
 import { getSiteUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";
 
@@ -114,6 +115,12 @@ export function ModDetailDrawer({
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
+
+  // 徽章行用：有 ≥2 个版本时显示版本标签，否则保持每个网盘一张卡
+  const variantSummary = useMemo(
+    () => groupDriveLinksByVariant(mod?.driveLinks ?? []),
+    [mod?.driveLinks],
+  );
 
   /**
    * 分享链接用规范域名，不用 `window.location.origin`：旧域名 wave-mod.top 现在是 410，
@@ -282,14 +289,30 @@ export function ModDetailDrawer({
 
               {/* ── 徽章行：每个网盘一张卡 + 更新时间 ── */}
               <div data-slot="drawer-badges" className="flex flex-wrap items-center gap-1.5">
-                {(mod.driveLinks ?? []).map((drive) => (
-                  <span
-                    key={`${drive.platform}-${drive.url}`}
-                    className="border-[3px] border-black bg-[#22D3EE] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[2px_2px_0px_0px_#000]"
-                  >
-                    {drive.platform}
-                  </span>
-                ))}
+                {variantSummary.hasVariants ? (
+                  <>
+                    <span className="border-[3px] border-black bg-[#FFD93D] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[2px_2px_0px_0px_#000]">
+                      {variantCountLabel(variantSummary.variantCount)}
+                    </span>
+                    {[...new Set((mod.driveLinks ?? []).map((drive) => drive.platform))].map((platform) => (
+                      <span
+                        key={platform}
+                        className="border-[3px] border-black bg-[#22D3EE] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[2px_2px_0px_0px_#000]"
+                      >
+                        {platform}
+                      </span>
+                    ))}
+                  </>
+                ) : (
+                  (mod.driveLinks ?? []).map((drive) => (
+                    <span
+                      key={`${drive.platform}-${drive.url}`}
+                      className="border-[3px] border-black bg-[#22D3EE] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-black shadow-[2px_2px_0px_0px_#000]"
+                    >
+                      {drive.platform}
+                    </span>
+                  ))
+                )}
                 <span className="border-[3px] border-black bg-white px-2.5 py-1 text-[11px] font-black tracking-[0.06em] text-black shadow-[2px_2px_0px_0px_#000]">
                   更新于 {formatUpdatedAt(mod.createdAt)}
                 </span>

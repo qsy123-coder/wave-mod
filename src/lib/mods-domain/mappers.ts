@@ -1,5 +1,5 @@
 import { xxmiInstallGuideText } from "@/lib/constants/install-guide";
-import type { CommentRow, ModComment, ModRow, SiteMod } from "@/lib/mods-domain/types";
+import type { CommentRow, DriveLink, ModComment, ModRow, SiteMod } from "@/lib/mods-domain/types";
 
 export const fallbackCoverImage =
   "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80";
@@ -76,7 +76,7 @@ export function mapMod(row: MappableModRow): SiteMod {
     description: row.description,
     downloadUrl: row.download_url ?? null,
     downloads: row.downloads_count ?? 0,
-    driveLinks: (row.drive_links as Array<{ platform: string; url: string }>) ?? [],
+    driveLinks: (row.drive_links as DriveLink[]) ?? [],
     favorites: row.favorites_count ?? 0,
     gameKey: row.game_key,
     gameVersion: row.game_version,
