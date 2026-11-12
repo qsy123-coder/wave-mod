@@ -18,6 +18,10 @@ const rowSchema = z.object({
   nsfw: z.boolean().default(false),
   driveLinks: z.array(driveLinkSchema).min(1, "至少需要一个网盘链接").max(10),
   images: z.array(z.url("图片地址格式不正确")).max(20).default([]),
+  // 同帖多版本：标签 → 该变体画廊。普通行不填
+  variantImages: z
+    .record(z.string().trim().min(1).max(40), z.array(z.url("图片地址格式不正确")).max(20))
+    .default({}),
   editedFields: z.array(z.string()).max(20).default([]),
 });
 

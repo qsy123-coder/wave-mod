@@ -97,11 +97,16 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
       }
 
       duplicates++;
+      const variantImages: Record<string, string[]> = { ...previous.variantImages };
+      for (const [label, urls] of Object.entries(row.variantImages ?? {})) {
+        variantImages[label] = [...new Set([...(variantImages[label] ?? []), ...urls])];
+      }
       merged.set(key, {
         ...previous,
         ...row,
         driveLinks: mergeDriveLinks(previous.driveLinks, row.driveLinks),
         images: [...new Set([...previous.images, ...row.images])],
+        variantImages,
         editedFields: [...new Set([...previous.editedFields, ...row.editedFields])],
       });
     }
@@ -114,6 +119,7 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
       for (const [key, row] of merged) {
         const existing = existingByKey.get(key);
         const images = row.images.length > 0 ? row.images : [PLACEHOLDER_IMAGE_URL];
+        const variantImages = row.variantImages ?? {};
         const edited = new Set(row.editedFields);
         const nextCreatedAt = createdAt;
 
@@ -124,13 +130,14 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
             `update public.mods set
                drive_links = $1::jsonb,
                images = case when cardinality($2::text[]) > 0 then $2::text[] else images end,
+               variant_images = case when $12::jsonb <> '{}'::jsonb then $12::jsonb else variant_images end,
                created_at = case when created_at < $3::timestamptz then $3::timestamptz else created_at end,
                updated_at = now(),
                description = case when $4::boolean then $5 else description end,
                version = case when $6::boolean then $7 else version end,
                game_version = case when $8::boolean then $9 else game_version end,
                nsfw = case when $10::boolean then $11 else nsfw end
-             where id = $12`,
+             where id = $13`,
             [
               JSON.stringify(row.driveLinks),
               images,
@@ -143,6 +150,7 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
               row.gameVersion,
               edited.has("nsfw"),
               row.nsfw,
+              JSON.stringify(variantImages),
               existing.id,
             ],
           );
@@ -153,8 +161,8 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
           await client.query(
             `insert into public.mods
                (title, character, version, game_version, description, images, drive_links,
-                nsfw, xxmi_install_guide, game_key, is_published, is_available, created_at)
-             values ($1, $2, $3, $4, $5, $6::text[], $7::jsonb, $8, $9, $10, true, true, $11)`,
+                variant_images, nsfw, xxmi_install_guide, game_key, is_published, is_available, created_at)
+             values ($1, $2, $3, $4, $5, $6::text[], $7::jsonb, $8::jsonb, $9, $10, $11, true, true, $12)`,
             [
               row.title,
               row.character,
@@ -163,6 +171,7 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
               row.description,
               images,
               JSON.stringify(row.driveLinks),
+              JSON.stringify(variantImages),
               row.nsfw,
               xxmiInstallGuideText,
               GAME_KEY,

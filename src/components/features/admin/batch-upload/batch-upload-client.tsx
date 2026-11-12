@@ -29,6 +29,13 @@ import {
 } from "@/lib/admin/upload-preview-images";
 
 import {
+  MAX_IMAGES_PER_MOD,
+  buildImageIndex,
+  lookupImages,
+  lookupSharedImages,
+} from "../../../../../scripts/admin-image-match.mjs";
+import { mergeVariantRows } from "../../../../../scripts/admin-variant-merge.mjs";
+import {
   dedupKey,
   extractVersion,
   resolveCanonicalKey,
@@ -36,6 +43,7 @@ import {
   stripRenameSuffix,
 } from "../../../../../scripts/daily-classify.mjs";
 import { looseImageKey } from "../../../../../scripts/image-name-match.mjs";
+import { normalizeManifest } from "../../../../../scripts/mod-groups-pure.mjs";
 import { parseQuarkCsvText } from "../../../../../scripts/quark-csv-parse.mjs";
 import { parseXunleiTxt, withXunleiPwd } from "../../../../../scripts/xunlei-txt-parse.mjs";
 
@@ -47,7 +55,6 @@ const PLACEHOLDER_IMAGE_URL =
   "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/placeholder/mod-placeholder.webp";
 
 const DEFAULT_GAME_VERSION = "未标注";
-const MAX_IMAGES_PER_MOD = 20;
 const UPLOAD_CONCURRENCY = 3;
 
 type QuarkRecord = {
@@ -66,6 +73,15 @@ type TxtRecord = {
 type ImageEntry = {
   file: File;
   order: number;
+};
+
+/**
+ * `exact` 按「图名 → 该 mod 自己的图」查；
+ * `gallery` 按「帖子级键 → 同帖全部图」查，用来补帖子级预览图（见 `postGalleryKey`）。
+ */
+type ImageIndex = {
+  exact: Map<string, ImageEntry[]>;
+  gallery: Map<string, ImageEntry[]>;
 };
 
 type Props = {
@@ -103,85 +119,6 @@ function rowStatus(
   return existingSet.has(dedupKey(character, title)) ? "existing" : "new";
 }
 
-function buildImageIndex(files: File[]): Map<string, ImageEntry[]> {
-  const index = new Map<string, ImageEntry[]>();
-  // 命名工坊给同帖第二个附件加的版本后缀（`（Free）` / `-2`）不在分享名里，
-  // 精确匹配会全落空。宽松键单独收集，最后只补在「没有精确同名图」的键上，
-  // 保证不会盖过正常的精确匹配。
-  const loose = new Map<string, ImageEntry[]>();
-
-  for (const file of files) {
-    if (!/^image\//i.test(file.type) && !/\.(png|jpe?g|webp|gif)$/i.test(file.name)) continue;
-
-    const base = file.name.replace(/\.[^.]+$/, "");
-    const withoutUuid = base.replace(
-      /-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-      "",
-    );
-    const numbered = withoutUuid.match(/^(.*?)[-_](\d+)$/);
-    const baseKey = numbered ? numbered[1] : withoutUuid;
-    const order = numbered ? Number(numbered[2]) : 0;
-
-    const keys = new Set([
-      resolveCanonicalKey(stripRenameSuffix(baseKey)),
-      stripRenameSuffix(baseKey),
-      baseKey,
-    ]);
-
-    for (const rawKey of keys) {
-      const key = rawKey.trim().toLowerCase();
-      if (!key) continue;
-      const list = index.get(key) ?? [];
-      list.push({ file, order });
-      index.set(key, list);
-    }
-
-    const looseKey = looseImageKey(baseKey);
-    if (looseKey) {
-      const list = loose.get(looseKey) ?? [];
-      list.push({ file, order });
-      loose.set(looseKey, list);
-    }
-  }
-
-  for (const [key, list] of loose) {
-    if (!index.has(key)) index.set(key, list);
-  }
-
-  for (const list of index.values()) {
-    list.sort((a, b) => a.order - b.order);
-  }
-
-  return index;
-}
-
-function lookupImages(
-  index: Map<string, ImageEntry[]>,
-  sourceKey: string,
-  canonicalKey: string,
-  title: string,
-): File[] {
-  // 先精确、后宽松：宽松键会去掉 `（Free）` / `-2` 这类版本后缀，可能把同一帖子的
-  // 多个变体并到同一个键，所以只能作为精确匹配全部落空时的兜底。
-  const candidates = [
-    canonicalKey,
-    sourceKey,
-    title,
-    stripRenameSuffix(canonicalKey),
-    stripRenameSuffix(sourceKey),
-    looseImageKey(canonicalKey),
-    looseImageKey(sourceKey),
-    looseImageKey(title),
-  ];
-
-  for (const candidate of candidates) {
-    const list = index.get(String(candidate).trim().toLowerCase());
-    if (list?.length) return list.slice(0, MAX_IMAGES_PER_MOD).map((entry) => entry.file);
-  }
-
-  return [];
-}
-
 function readFileText(file: File): Promise<string> {
   return file.arrayBuffer().then((buffer) => {
     const utf8 = new TextDecoder("utf-8").decode(buffer);
@@ -211,19 +148,13 @@ function parseLooseXunleiTxt(text: string): TxtRecord[] {
   return records;
 }
 
-function mergeDriveLinks(a: BatchDriveLink[], b: BatchDriveLink[]): BatchDriveLink[] {
-  // 同一平台在不同变体下是两个不同分享，不能按平台直接覆盖
-  const bySlot = new Map<string, BatchDriveLink>();
-  for (const link of [...a, ...b]) bySlot.set(`${link.variant ?? ""}|${link.platform}`, link);
-  return [...bySlot.values()];
-}
-
 function buildRows(
   quarkRecords: QuarkRecord[],
   txtRecords: TxtRecord[],
-  imageIndex: Map<string, ImageEntry[]>,
+  imageIndex: ImageIndex,
   characterSet: Set<string>,
   existingSet: Set<string>,
+  manifest: unknown,
 ): BatchUploadRow[] {
   const txtByName = new Map<string, TxtRecord>();
   for (const record of txtRecords) txtByName.set(normalizeName(record.name), record);
@@ -297,7 +228,57 @@ function buildRows(
     });
   }
 
-  return rows;
+  return mergeVariantRows(attachSharedImages(rows, imageIndex), manifest);
+}
+
+/**
+ * 重建行时把用户改过的字段按 id 带回来。
+ *
+ * 合并行的 id 是 `group:<基行 id>`，基行 id 稳定（`csv:<sourceKey>`），
+ * 所以重选图片/重载清单不会把整卡改回默认值。
+ */
+function carryRowEdits(next: BatchUploadRow[], previous: BatchUploadRow[]): BatchUploadRow[] {
+  const byId = new Map(previous.map((row) => [row.id, row]));
+  return next.map((row) => {
+    const old = byId.get(row.id);
+    if (!old || old.editedFields.length === 0) return row;
+
+    const merged = { ...row, editedFields: [...old.editedFields] };
+    for (const field of old.editedFields) {
+      if (field === "character") merged.character = old.character;
+      else if (field === "title") merged.title = old.title;
+      else if (field === "version") merged.version = old.version;
+      else if (field === "gameVersion") merged.gameVersion = old.gameVersion;
+      else if (field === "description") merged.description = old.description;
+      else if (field === "nsfw") merged.nsfw = old.nsfw;
+    }
+    return merged;
+  });
+}
+
+/**
+ * 给每行补同帖的「帖子级预览图」，并裁到上限。
+ *
+ * 后台只有 CSV + 图片，没有 `.mod-groups.json`，所以靠 `postGalleryKey` 从名字推断
+ * 帖子边界；`variantKeys` 用所有行自己的宽松键，避免把别的变体主图并进来。
+ */
+function attachSharedImages(rows: BatchUploadRow[], index: ImageIndex): BatchUploadRow[] {
+  const variantKeys = new Set<string>();
+  for (const row of rows) {
+    for (const key of [row.sourceKey, row.title]) {
+      const loose = looseImageKey(key);
+      if (loose) variantKeys.add(loose);
+    }
+  }
+
+  return rows.map((row) => {
+    const ownFiles = row.previewImages.map((image) => image.file);
+    const shared = lookupSharedImages(index, row.sourceKey, row.title, ownFiles, variantKeys);
+    if (shared.length === 0) return row;
+
+    const merged = [...ownFiles, ...shared].slice(0, MAX_IMAGES_PER_MOD);
+    return { ...row, previewImages: createUploadPreviewImages(merged) };
+  });
 }
 
 export function BatchUploadClient({ characters, existingKeys }: Props) {
@@ -307,11 +288,17 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
   const csvInputRef = useRef<HTMLInputElement>(null);
   const txtInputRef = useRef<HTMLInputElement>(null);
   const imagesInputRef = useRef<HTMLInputElement>(null);
+  const manifestInputRef = useRef<HTMLInputElement>(null);
 
   const [quarkRecords, setQuarkRecords] = useState<QuarkRecord[]>([]);
   const [txtRecords, setTxtRecords] = useState<TxtRecord[]>([]);
-  const [imageIndex, setImageIndex] = useState<Map<string, ImageEntry[]>>(new Map());
+  const [imageIndex, setImageIndex] = useState<ImageIndex>(() => ({
+    exact: new Map(),
+    gallery: new Map(),
+  }));
   const [imageFileCount, setImageFileCount] = useState(0);
+  const [manifest, setManifest] = useState<unknown>(null);
+  const [manifestName, setManifestName] = useState("");
 
   const [rows, setRows] = useState<BatchUploadRow[]>([]);
   const [date, setDate] = useState(todayShanghai);
@@ -331,9 +318,10 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
   const rebuild = (
     nextQuark: QuarkRecord[],
     nextTxt: TxtRecord[],
-    nextImages: Map<string, ImageEntry[]>,
+    nextImages: ImageIndex,
+    nextManifest: unknown = manifest,
   ) => {
-    setRows(buildRows(nextQuark, nextTxt, nextImages, characterSet, existingSet));
+    setRows(buildRows(nextQuark, nextTxt, nextImages, characterSet, existingSet, nextManifest));
   };
 
   const handleCsv = async (file: File) => {
@@ -389,17 +377,30 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
     const index = buildImageIndex(list);
     setImageIndex(index);
     setImageFileCount(list.length);
+    // 行可能是已合并的「同帖多版本」卡片，按源记录重新构建整批，合并才不会被拆散；
+    // 用户在表里改过的字段要按行 id 带回来，否则重选图片会把改动抹掉。
     setRows((previous) =>
-      previous.map((row) => {
-        const nextFiles = lookupImages(
-          index,
-          row.sourceKey,
-          resolveCanonicalKey(stripRenameSuffix(row.sourceKey)),
-          row.title,
-        );
-        return { ...row, previewImages: createUploadPreviewImages(nextFiles) };
-      }),
+      carryRowEdits(buildRows(quarkRecords, txtRecords, index, characterSet, existingSet, manifest), previous),
     );
+  };
+
+  const handleManifest = async (file: File) => {
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown;
+      const normalized = normalizeManifest(parsed);
+      if (!normalized) {
+        setParseError("分组清单格式不对：需要 version=1 且至少含 2 个变体的 group。");
+        return;
+      }
+      setParseError("");
+      setManifest(normalized);
+      setManifestName(file.name);
+      rebuild(quarkRecords, txtRecords, imageIndex, normalized);
+      const groupCount = Object.keys(normalized.groups ?? {}).length;
+      toast.success(`分组清单已载入：${groupCount} 个帖子`);
+    } catch (error) {
+      setParseError(error instanceof Error ? error.message : "分组清单解析失败");
+    }
   };
 
   const applyCensoredImage = (rowId: string, index: number, file: File) => {
@@ -502,42 +503,82 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
     setBusy(true);
     setResult(null);
 
-    const imageTasks: { row: BatchUploadRow; file: File; index: number }[] = [];
-    const draftIdByRow = new Map<string, string>();
-    const imageSlotsByRow = new Map<string, (string | null)[]>();
+    type Gallery = {
+      row: BatchUploadRow;
+      /** null = 普通行（没有变体概念）；否则是该变体标签 */
+      label: string | null;
+      images: { file: File }[];
+    };
+    const galleries: Gallery[] = [];
+    const draftIdByGallery = new Map<string, string>();
+    const imageSlotsByGallery = new Map<string, (string | null)[]>();
+    const imageTasks: { gallery: Gallery; file: File; index: number }[] = [];
+
+    const galleryKeyOf = (row: BatchUploadRow, label: string | null) =>
+      `${row.id}::${label ?? ""}`;
 
     for (const row of includedRows) {
-      draftIdByRow.set(row.id, crypto.randomUUID());
-      const files = row.previewImages
-        .slice(0, MAX_IMAGES_PER_MOD)
-        .map((image) => image.file);
-      imageSlotsByRow.set(row.id, Array.from({ length: files.length }, () => null));
-      files.forEach((file, index) => imageTasks.push({ row, file, index }));
+      // 合并行：每个变体单独一套 COS 前缀，避免不同版本的 preview.webp 互相覆盖。
+      // 基变体（variantImages 的第一个键）用表格里那一套图 —— 用户可能在表里删/打码过。
+      const labels = row.variantImages ? Object.keys(row.variantImages) : [];
+      const entries: Gallery[] = [];
+
+      if (labels.length === 0) {
+        entries.push({ row, label: null, images: row.previewImages });
+      } else {
+        const baseLabel = row.baseVariantLabel ?? labels[0];
+        for (const label of labels) {
+          // 基变体复用表格里那套可编辑的图（用户可能删过/打过码），其余用各自画廊
+          const images = label === baseLabel ? row.previewImages : row.variantImages?.[label] ?? [];
+          if (images.length > 0) entries.push({ row, label, images });
+        }
+      }
+
+      for (const gallery of entries) {
+        const gkey = galleryKeyOf(row, gallery.label);
+        draftIdByGallery.set(gkey, crypto.randomUUID());
+        const files = gallery.images.slice(0, MAX_IMAGES_PER_MOD);
+        imageSlotsByGallery.set(gkey, Array.from({ length: files.length }, () => null));
+        files.forEach((image, index) => imageTasks.push({ gallery, file: image.file, index }));
+        galleries.push(gallery);
+      }
     }
 
     setProgress({ done: 0, total: imageTasks.length, label: "上传预览图" });
 
     const failedRows = new Map<string, string>();
+    // 合并行的「帖子级附加图」在每个变体画廊里是同一个 File 引用：
+    // 同一张图只传一次，其余画廊复用 URL（否则 6 个版本会把同样 11 张图传 6 遍）。
+    const uploadedByFile = new Map<File, Promise<string>>();
 
     try {
       let done = 0;
 
       await withConcurrency(imageTasks, UPLOAD_CONCURRENCY, async (task) => {
         try {
-          const draftId = draftIdByRow.get(task.row.id);
+          const gkey = galleryKeyOf(task.gallery.row, task.gallery.label);
+          const draftId = draftIdByGallery.get(gkey);
           if (!draftId) throw new Error("缺少上传标识");
-          const url = await uploadRowImage({
-            character: task.row.character,
-            file: task.file,
-            index: task.index,
-            draftId,
-          });
+
+          let pending = uploadedByFile.get(task.file);
+          if (!pending) {
+            pending = uploadRowImage({
+              character: task.gallery.row.character,
+              file: task.file,
+              index: task.index,
+              draftId,
+            });
+            uploadedByFile.set(task.file, pending);
+            // 失败不要缓存，后面的画廊还能重试
+            pending.catch(() => uploadedByFile.delete(task.file));
+          }
+          const url = await pending;
           // 写下标而不是 push：并发完成后 images[0] 仍然必须是主图
-          const slots = imageSlotsByRow.get(task.row.id);
+          const slots = imageSlotsByGallery.get(gkey);
           if (slots) slots[task.index] = url;
         } catch (error) {
           failedRows.set(
-            task.row.id,
+            task.gallery.row.id,
             error instanceof Error ? error.message : "预览图上传失败",
           );
         } finally {
@@ -546,13 +587,38 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
         }
       });
 
-      const uploadedImages = (rowId: string) =>
-        (imageSlotsByRow.get(rowId) ?? []).filter((url): url is string => Boolean(url));
+      const uploadedGallery = (row: BatchUploadRow, label: string | null) =>
+        (imageSlotsByGallery.get(galleryKeyOf(row, label)) ?? []).filter(
+          (url): url is string => Boolean(url),
+        );
 
       const payloadRows = includedRows
         .filter((row) => !failedRows.has(row.id))
         .map((row) => {
-          const images = uploadedImages(row.id);
+          const labels = row.variantImages ? Object.keys(row.variantImages) : [];
+
+          if (labels.length === 0) {
+            const images = uploadedGallery(row, null);
+            return {
+              title: row.title,
+              character: row.character,
+              version: row.version || "未标注",
+              gameVersion: row.gameVersion || DEFAULT_GAME_VERSION,
+              description: row.description,
+              nsfw: row.nsfw,
+              driveLinks: row.driveLinks,
+              images: images.length > 0 ? images : [PLACEHOLDER_IMAGE_URL],
+              editedFields: row.editedFields,
+            };
+          }
+
+          const variantImages: Record<string, string[]> = {};
+          for (const label of labels) {
+            const urls = uploadedGallery(row, label);
+            if (urls.length > 0) variantImages[label] = urls;
+          }
+          const cover = uploadedGallery(row, row.baseVariantLabel ?? labels[0]);
+
           return {
             title: row.title,
             character: row.character,
@@ -561,7 +627,8 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
             description: row.description,
             nsfw: row.nsfw,
             driveLinks: row.driveLinks,
-            images: images.length > 0 ? images : [PLACEHOLDER_IMAGE_URL],
+            images: cover.length > 0 ? cover : [PLACEHOLDER_IMAGE_URL],
+            variantImages,
             editedFields: row.editedFields,
           };
         });
@@ -723,6 +790,32 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
           </div>
 
           <div className="border-4 border-black bg-white p-4 shadow-[5px_5px_0px_0px_#000]">
+            <p className="mb-2 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em]">
+              <FileSpreadsheet className="size-4" /> 分组清单（可选）
+            </p>
+            <input
+              ref={manifestInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void handleManifest(file);
+              }}
+            />
+            <button
+              type="button"
+              className="neo-button-outline w-full px-3 py-2 text-xs font-black"
+              onClick={() => manifestInputRef.current?.click()}
+            >
+              {manifestName ? `已载入 ${manifestName}，重新选择` : "选择 .mod-groups.json"}
+            </button>
+            <p className="mt-1 text-[10px] font-bold text-black/55">
+              传了清单才能拿到 `Base SFW` 这类准确版本名；不传则按名字推断
+            </p>
+          </div>
+
+          <div className="border-4 border-black bg-white p-4 shadow-[5px_5px_0px_0px_#000]">
             <p className="mb-2 text-xs font-black uppercase tracking-[0.14em]">归属日期</p>
             <input
               type="date"
@@ -833,6 +926,21 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
                         <span className="ml-1 border-2 border-black bg-[#ffd84f] px-1 py-0.5 text-[9px]">
                           仅迅雷
                         </span>
+                      ) : null}
+                      {row.variantImages ? (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          <span className="border-2 border-black bg-black px-1 py-0.5 text-[9px] text-white">
+                            合并 {Object.keys(row.variantImages).length} 个版本
+                          </span>
+                          {Object.keys(row.variantImages).map((label) => (
+                            <span
+                              key={label}
+                              className="border-2 border-black bg-[#d8f5c8] px-1 py-0.5 text-[9px]"
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
                       ) : null}
                     </td>
                     <td className="px-2 py-2">

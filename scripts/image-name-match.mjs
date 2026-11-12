@@ -42,3 +42,51 @@ export function looseImageKey(value) {
   }
   return text.replace(/\s+/g, " ").trim().toLowerCase();
 }
+
+/** 帖子级画廊名末尾的编号：`… by 作者-3`（命名工坊/爬虫给同一帖子的附加图编号） */
+const POST_GALLERY_NUMBER_RE = /[-_]\d{1,3}\s*$/;
+
+/** 命名工坊把变体序号插在 ` by 作者` 前面：`角色-名称 2 by 作者` */
+const POST_VARIANT_SPACE_NUMBER_RE = /\s+\d{1,3}\s*$/;
+
+/**
+ * 预览图名 → 「帖子级」键：同一 GameBanana 帖子的所有图落到同一个键。
+ *
+ * 后台批量上传没有 `.mod-groups.json`，无法像每日脚本那样按清单分组，
+ * 只能从名字推断。规则：
+ *   - 必须有 ` by 作者`，否则返回 null（避免跨作者串图）；
+ *   - 先削掉画廊编号 `-1` / `-2`…（在作者之后）；
+ *   - 再削掉命名工坊插在作者前的变体后缀 `（Free）` / `-2` / ` 2`。
+ *
+ * 例（同一帖子）：
+ *   `女漂-星界调制器 1 by Alunoop.jpg`        → `女漂-星界调制器 :: alunoop`
+ *   `女漂-星界调制器 by Alunoop-7.jpg`         → `女漂-星界调制器 :: alunoop`
+ *
+ * 与 `looseImageKey` 的区别：后者会丢掉作者、只看名字，用于「分享名 vs 图片名」
+ * 的精确匹配兜底；这里要保留作者，才敢把多行并进同一个帖子级画廊。
+ */
+export function postGalleryKey(value) {
+  let text = String(value ?? "").trim();
+  text = text.replace(/\.[^./\\]+$/, "");
+  // 作者名里可能有括号，所以只在结尾匹配
+  const authorMatch = /\s+by\s+([^()（）]+)$/i.exec(text);
+  if (!authorMatch) return null;
+
+  // 画廊编号有时挂在作者后面（`by Alunoop-7`），不属于作者名
+  const author = authorMatch[1].replace(POST_GALLERY_NUMBER_RE, "").trim().toLowerCase();
+  if (!author) return null;
+  let stem = text.slice(0, authorMatch.index).replace(POST_GALLERY_NUMBER_RE, "");
+  // 版本后缀可能连着出现（`X（Free）-2 by 作者`），循环削到不再变化
+  for (;;) {
+    const next = stem
+      .replace(VARIANT_NUMBER_RE, "")
+      .replace(POST_VARIANT_SPACE_NUMBER_RE, "")
+      .replace(VARIANT_PAREN_RE, "");
+    if (next === stem) break;
+    stem = next;
+  }
+
+  const cleanStem = stem.replace(/\s+/g, " ").trim();
+  if (!cleanStem) return null;
+  return `${cleanStem.toLowerCase()} :: ${author}`;
+}

@@ -43,6 +43,10 @@ export type BatchUploadRow = {
   images: string[];
   /** 当前要上传的图片，顺序即最终顺序（第 0 张是主图） */
   previewImages: BatchPreviewImage[];
+  /** 同帖多版本：变体标签 → 该变体的图片。普通行不填 */
+  variantImages?: Record<string, BatchPreviewImage[]>;
+  /** 合并行的基变体标签（封面与默认选中的版本）；普通行不填 */
+  baseVariantLabel?: string;
   include: boolean;
   status: BatchRowStatus;
   /** 用户在预览里改过的字段；服务端只覆盖这些字段 */
@@ -60,6 +64,8 @@ export type BatchUploadInputRow = {
   nsfw: boolean;
   driveLinks: BatchDriveLink[];
   images: string[];
+  /** 同帖多版本：变体标签 → 该变体画廊 URL。普通行不填 */
+  variantImages?: Record<string, string[]>;
   editedFields: string[];
 };
 
