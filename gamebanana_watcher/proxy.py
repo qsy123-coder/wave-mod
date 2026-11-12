@@ -151,6 +151,124 @@ def make_session(proxy: str | None = None, user_agent: str | None = None) -> req
     return sess
 
 
+def https_alive(
+    proxy: str | None,
+    url: str,
+    *,
+    timeout: float = 12.0,
+    max_status: int = 500,
+) -> bool:
+    """真实 HTTPS 出站探活（不只是本地端口 TCP）。
+
+    Clash 节点掉线时 7897 端口仍然能连，`tcp_alive()` 会误判「代理已就绪」；
+    这里发一个极小的 Range 请求，只有真正拿到 HTTP 响应才算通。
+    Cloudflare 挑战返回 403 也算「出站可用」（上游确实连上了），由 max_status 控制。
+    """
+    sess = make_session(proxy)
+    try:
+        resp = sess.get(
+            url,
+            timeout=(5, max(5.0, timeout)),
+            allow_redirects=False,
+            headers={"Range": "bytes=0-0", "Accept-Encoding": "identity"},
+        )
+        return 200 <= resp.status_code < max_status
+    except requests.RequestException:
+        return False
+    finally:
+        sess.close()
+
+
+def _as_urls(probe_urls: str | list[str] | tuple[str, ...]) -> list[str]:
+    if isinstance(probe_urls, str):
+        return [probe_urls]
+    return [str(u) for u in probe_urls if u]
+
+
+def prepare_proxy(
+    proxy: str | None,
+    probe_urls: str | list[str] | tuple[str, ...],
+    *,
+    timeout: float = 12.0,
+    max_status: int = 500,
+    direct_max_status: int | None = None,
+    allow_direct: bool = True,
+    autoswitch: bool = True,
+) -> str | None:
+    """下载前的代理准备：能用就用；不能用先自动换 Clash 节点，再考虑直连。
+
+    返回本轮应使用的代理（None = 直连）。
+    """
+    if not proxy:
+        return None
+    urls = _as_urls(probe_urls)
+    if not urls:
+        return proxy
+    if all(https_alive(proxy, u, timeout=timeout, max_status=max_status) for u in urls):
+        return proxy
+
+    log.warning("代理端口可用，但 HTTPS 出站失败（节点掉线？）：%s", proxy)
+    if autoswitch:
+        try:
+            from .clash import switch_to_working_node
+
+            result = switch_to_working_node(
+                urls,
+                proxy_url=proxy,
+                timeout_ms=max(3000, int(timeout * 500)),
+            )
+            if result.get("ok"):
+                log.warning(
+                    "代理节点不可用，已自动切换：%s → %s",
+                    result.get("previous") or "—", result.get("node"),
+                )
+                return proxy
+            log.warning("自动换节点未成功：%s", result.get("error") or "")
+        except Exception as exc:  # noqa: BLE001 - 换节点失败不应阻断直连兜底
+            log.warning("自动换节点不可用：%s", exc)
+
+    direct_limit = max_status if direct_max_status is None else direct_max_status
+    if allow_direct and all(
+        https_alive(None, u, timeout=timeout, max_status=direct_limit) for u in urls
+    ):
+        log.warning("直连实测可用，本轮改走直连（速度可能较慢）")
+        return None
+    log.warning("直连也不可用，仍尝试使用代理")
+    return proxy
+
+
+def ensure_working_proxy(
+    proxy: str | None,
+    probe_url: str,
+    *,
+    timeout: float = 12.0,
+    max_status: int = 500,
+    direct_max_status: int | None = None,
+    allow_direct: bool = True,
+) -> str | None:
+    """代理端口通了但节点掉线时，优先降级直连；直连也不通就保留代理。
+
+    `max_status` 用于判断**代理**是否通（Cloudflare 403 也算通，说明上游到了）；
+    `direct_max_status` 用于判断**直连**是否可用（arca.live 直连的 403 是
+    Cloudflare 挑战，不能算可用）。不传则和 max_status 相同。
+
+    返回本轮应使用的代理（None = 直连）。
+    """
+    if not proxy:
+        return None
+    if https_alive(proxy, probe_url, timeout=timeout, max_status=max_status):
+        return proxy
+    log.warning("代理端口可用，但 HTTPS 出站失败（节点掉线？）：%s", proxy)
+    direct_limit = max_status if direct_max_status is None else direct_max_status
+    if allow_direct and https_alive(
+        None, probe_url, timeout=timeout, max_status=direct_limit
+    ):
+        log.warning("直连实测可用，本轮改走直连（速度可能较慢）")
+        return None
+    log.warning("直连也不可用，仍尝试使用代理")
+    return proxy
+
+
 def _candidates() -> list[str | None]:
     """系统代理 + 常见本地端口。"""
     candidates: list[str | None] = []

@@ -18,11 +18,40 @@ def ts_to_iso(ts: Any) -> str:
         return ""
 
 
+def preview_images(rec: dict[str, Any]) -> list[dict[str, Any]]:
+    """收集记录里的预览图（兼容 apiv11 与 apiv13 两种结构）。
+
+    - apiv11 / ProfilePage：`_aPreviewMedia._aImages` 或 `_aPreviewContent.screenshots`
+    - apiv13 Subfeed：`_aPreviewContent` 是按类型分组的 dict（`screenshot` 单图）
+    """
+    images: list[dict[str, Any]] = []
+
+    media = rec.get("_aPreviewMedia") or {}
+    images.extend(x for x in (media.get("_aImages") or []) if isinstance(x, dict))
+
+    content = rec.get("_aPreviewContent") or {}
+    for value in content.values():
+        if isinstance(value, list):
+            images.extend(x for x in value if isinstance(x, dict))
+        elif isinstance(value, dict):
+            images.append(value)
+
+    # 按原图文件名去重（ProfilePage 可能同时给 screenshot/screenshots）
+    seen: set[str] = set()
+    unique: list[dict[str, Any]] = []
+    for img in images:
+        key = str(img.get("_sFile") or "") or str(img.get("_sBaseUrl") or "")
+        if key and key in seen:
+            continue
+        if key:
+            seen.add(key)
+        unique.append(img)
+    return unique
+
+
 def pick_image(rec: dict[str, Any]) -> str:
     """取一张预览图 URL（优先 530 尺寸）。"""
-    media = rec.get("_aPreviewMedia") or {}
-    images = media.get("_aImages") or []
-    for img in images:
+    for img in preview_images(rec):
         base = (img.get("_sBaseUrl") or "").rstrip("/")
         if not base:
             continue

@@ -23,9 +23,10 @@ from arca_watcher.downloader import (  # noqa: E402
     find_csv,
     load_settings,
     process_queue,
+    requeue_manual,
 )
 from arca_watcher.poller import BASE_DIR, load_config  # noqa: E402
-from gamebanana_watcher.proxy import resolve_proxy  # noqa: E402
+from gamebanana_watcher.proxy import prepare_proxy, resolve_proxy  # noqa: E402
 from kekehxl_watcher.notify import Notifier  # noqa: E402
 
 
@@ -33,6 +34,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="arca.live 图片 + Mod 文件下载")
     parser.add_argument("--plan-only", action="store_true", help="只规划，不下载")
     parser.add_argument("--limit", type=int, default=None, help="本轮最多处理几个帖子")
+    parser.add_argument(
+        "--retry-manual", action="store_true",
+        help="把「需手动」的帖子重新放回队列（例如 nahida 分享链接现在能自动下了）",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -57,6 +62,15 @@ def main(argv: list[str] | None = None) -> int:
         app_path=(net.get("app_path", "").strip() or None) if net else None,
         wait_seconds=net.getint("autostart_wait", 40) if net else 40,
     )
+    # arca.live 直连会被 Cloudflare 拦，所以只有直连确实返回 2xx/3xx 才降级；
+    # 节点掉线时先自动切节点，切不了再保留代理，避免把任务切到注定失败的直连。
+    settings.proxy = prepare_proxy(
+        settings.proxy,
+        "https://arca.live/",
+        max_status=500,          # 代理回 403 也说明节点是通的
+        direct_max_status=400,   # 直连回 403 = Cloudflare 拦，不能算可用
+        autoswitch=net.getboolean("auto_switch_node", True) if net else True,
+    )
     if settings.proxy:
         log.info("使用代理：%s", settings.proxy)
     else:
@@ -76,6 +90,11 @@ def main(argv: list[str] | None = None) -> int:
     added = enqueue_from_csv(csv_path, state_path, settings)
     if added:
         log.info("新入队 %d 个帖子", added)
+
+    if args.retry_manual:
+        retried = requeue_manual(state_path)
+        if retried:
+            log.info("已把 %d 个「需手动」帖子重新放回队列", retried)
 
     stats = process_queue(
         settings,

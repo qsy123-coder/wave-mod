@@ -6,7 +6,7 @@
     python web_status.py --no-browser   # 不自动开浏览器
     python web_status.py --host 0.0.0.0 --port 9000   # 局域网可访问（注意隐私）
 
-数据来源（只读，不修改任何队列）：
+数据来源：
     state.arca_downloads.json     arca.live 图片 + Mod 下载队列
     state.gb_downloads.json       GameBanana 原图 + 附件下载队列
     A_每日更新/W-*/              当天产物与 .part 实时进度
@@ -15,11 +15,16 @@
 
 页面每 5 秒拉一次 /api/status，展示：
   - 总览卡片（完成 / 排队 / 下载中 / 需手动 / 失败 / 已下载大小 / 磁盘剩余）
-  - 正在下载的 .part（实时字节数）
+  - 未完成的 .part（实时字节数；标出是否真的正在写盘）
   - 每条队列的进度、大小、失败原因，点「详情」看每个文件
   - 无法自动下载的链接（点开即去原页面）
   - 各采集源的累计条数、最近发现时间
   - 两个下载日志的尾部
+
+写操作只有两个，且默认只允许本机访问：
+  - POST /api/retry         把失败/卡住的条目重新入队（可选立即拉起下载器）
+  - POST /api/proxy/switch  通过 Clash 命名管道自动切到一个能用的节点
+重试和下载器共用同一把 `<state>.lock`，不会互相覆盖队列。
 """
 
 from __future__ import annotations
@@ -30,11 +35,15 @@ import csv
 import json
 import logging
 import os
+import re
 import shutil
 import socket
+import subprocess
+import sys
 import threading
 import time
 import webbrowser
+from contextlib import contextmanager
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -125,6 +134,17 @@ def _pid_alive(pid: int) -> bool:
         return True
     except OSError:
         return False
+
+
+def _run_pid(state_path: Path) -> int:
+    """读取下载器的 run.lock；返回仍然存活的 PID，0 表示没在跑。"""
+    lock = state_path.with_suffix(state_path.suffix + ".run.lock")
+    try:
+        raw = lock.read_text(encoding="ascii", errors="ignore").strip()
+        pid = int(raw) if raw.isdigit() else 0
+    except (OSError, ValueError):
+        return 0
+    return pid if _pid_alive(pid) else 0
 
 
 def _safe_size(path: Path) -> int:
@@ -239,6 +259,22 @@ def _collect_arca(state: dict[str, Any], paths: Paths, part_map: dict[tuple[str,
                             "error": str(f.get("error") or ""),
                             "part": part_map.get((day, name)),
                         })
+            elif kind == "nahida_link":
+                for f in plan.get("files") or []:
+                    name = str(f.get("file") or "")
+                    actual, on_disk = _file_info(day_base, "arca.live", name)
+                    items.append({
+                        "type": "file",
+                        "kind": "nahida_link",
+                        "collection": str(plan.get("root_name") or ""),
+                        "name": name,
+                        "status": _status(f.get("status")),
+                        "size": actual,
+                        "planned": int(f.get("size") or 0),
+                        "on_disk": on_disk,
+                        "error": str(f.get("error") or ""),
+                        "part": part_map.get((day, name)),
+                    })
         out.append(_entry_record(
             source="arca.live", key=str(key), title=title,
             day=day, publish_date=_parse_day(str(entry.get("date") or "")),
@@ -247,6 +283,8 @@ def _collect_arca(state: dict[str, Any], paths: Paths, part_map: dict[tuple[str,
             page_url=str(entry.get("page_url") or ""),
             items=items, manual=list(entry.get("manual") or []),
             kind=_arca_kind(entry),
+            retry_after=str(entry.get("retry_after") or ""),
+            retry_exhausted=bool(entry.get("retry_exhausted")),
         ))
     return out
 
@@ -298,6 +336,8 @@ def _collect_gb(state: dict[str, Any], paths: Paths, part_map: dict[tuple[str, s
             last_error=str(entry.get("last_error") or ""),
             page_url=str(entry.get("page_url") or ""),
             items=items, manual=[], kind="gamebanana",
+            retry_after=str(entry.get("retry_after") or ""),
+            retry_exhausted=bool(entry.get("retry_exhausted")),
         ))
     return out
 
@@ -316,15 +356,28 @@ def _entry_record(
     items: list[dict[str, Any]],
     manual: list[dict[str, Any]],
     kind: str,
+    retry_after: str = "",
+    retry_exhausted: bool = False,
 ) -> dict[str, Any]:
     images = [x for x in items if x["type"] == "image"]
     files = [x for x in items if x["type"] == "file"]
     done = sum(1 for x in items if x["status"] == "done")
+    failed_items = sum(1 for x in items if x["status"] == "failed")
     on_disk = sum(1 for x in items if x.get("on_disk"))
     images_on_disk = sum(1 for x in images if x.get("on_disk"))
     files_on_disk = sum(1 for x in files if x.get("on_disk"))
     part_bytes = sum(int((x.get("part") or {}).get("size") or 0) for x in items)
-    bytes_done = sum(int(x["size"] or 0) for x in items) + part_bytes
+    # 「已下载」按下载事实算：文件还在原位就用实际大小，已经被用户重命名/搬到别处
+    # 的（状态 done、但原路径找不到）用队列里记的计划大小。否则挪过之后这里会变成
+    # 0 B，一条早已下完的 2GB 条目会显示成「0 B / 2 GB」。
+    bytes_done = sum(
+        int(x["size"] or 0)
+        if x.get("on_disk")
+        else int(x.get("planned") or 0)
+        if x["status"] == "done"
+        else int(x["size"] or 0)
+        for x in items
+    ) + part_bytes
     bytes_total = sum(
         int(x["size"] or 0) or int(x.get("planned") or 0) for x in items
     )
@@ -338,10 +391,16 @@ def _entry_record(
         "publish_date": publish_date,
         "status": status,
         "status_label": STATUS_LABELS.get(status, status),
+        "status_class": "",
         "attempts": attempts,
         "last_error": last_error,
         "page_url": page_url,
         "kind": kind,
+        "failed_items": failed_items,
+        "retry_after": retry_after,
+        "retry_exhausted": bool(retry_exhausted),
+        "auto_retry": bool(retry_after) and status == "failed",
+        "can_retry": status in ("failed", "partial", "manual"),
         "images": {"done": sum(1 for x in images if x["status"] == "done"),
                    "on_disk": images_on_disk, "total": len(images)},
         "files": {"done": sum(1 for x in files if x["status"] == "done"),
@@ -360,6 +419,11 @@ def _entry_record(
     }
 
 
+# 上一轮扫描到的 .part 大小：Windows 在文件仍打开时可能延迟更新 mtime，
+# 只看 mtime 会把正在写盘的大文件误判成「没在下载」。用两次扫描的大小差兜底。
+_PART_PREV: dict[str, tuple[int, float]] = {}
+
+
 def _scan_parts(
     dest_root: Path, prefix: str, days: set[str], source_name: str
 ) -> dict[tuple[str, str], dict[str, Any]]:
@@ -376,7 +440,8 @@ def _scan_parts(
             if not root.exists():
                 continue
             try:
-                parts = list(root.rglob("*.part"))
+                # .part 是普通文件；.dlpart 是 nahida 分享链接先落盘的压缩数据
+                parts = list(root.rglob("*.part")) + list(root.rglob("*.dlpart"))
             except OSError:
                 continue
             for part in parts:
@@ -388,11 +453,25 @@ def _scan_parts(
                 if not is_source and rel_path.parts and rel_path.parts[0] == source_name:
                     continue
                 rel = str(rel_path).replace("\\", "/")
-                name = rel[:-5] if rel.endswith(".part") else rel
+                if rel.endswith(".dlpart"):
+                    name = rel[:-7]
+                elif rel.endswith(".part"):
+                    name = rel[:-5]
+                else:
+                    name = rel
+                prev = _PART_PREV.get(str(part))
+                grew = bool(
+                    prev
+                    and st.st_size > prev[0]
+                    and time.time() - prev[1] < 120
+                )
+                _PART_PREV[str(part)] = (st.st_size, time.time())
                 found[(day, name)] = {
                     "name": rel,
                     "size": st.st_size,
                     "mtime": datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds"),
+                    "age": max(0.0, time.time() - st.st_mtime),
+                    "growing": grew,
                 }
     return found
 
@@ -464,15 +543,63 @@ def _log_tail(path: Path, lines: int = 200) -> list[str]:
             raw = fh.read()
     except OSError:
         return []
-    for enc in ("utf-8", "gbk", "cp936"):
-        try:
-            text = raw.decode(enc)
-            break
-        except UnicodeDecodeError:
+    # 日志文件里混着历史 GBK 行和新写入的 UTF-8 行，逐行探测编码，
+    # 整块解码只要有一行不是 UTF-8 就会把整段显示成乱码。
+    out: list[str] = []
+    for row in raw.split(b"\n"):
+        row = row.rstrip(b"\r")
+        for enc in ("utf-8", "gbk", "cp936"):
+            try:
+                out.append(row.decode(enc))
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            out.append(row.decode("utf-8", errors="replace"))
+    return out[-lines:]
+
+
+def _clash_proxy_notice() -> str:
+    """Clash 节点掉线时，sidecar 日志会刷 `dial ... i/o timeout`。
+
+    看板把这条原因直接显示出来，免得把环境问题误当成下载器坏了。
+    """
+    if os.name != "nt":
+        return ""
+    appdata = os.environ.get("APPDATA") or ""
+    if not appdata:
+        return ""
+    path = (
+        Path(appdata)
+        / "io.github.clash-verge-rev.clash-verge-rev"
+        / "logs" / "sidecar" / "sidecar_latest.log"
+    )
+    try:
+        if not path.exists() or time.time() - path.stat().st_mtime > 900:
+            return ""
+    except OSError:
+        return ""
+    now = time.time()
+    for line in reversed(_log_tail(path, 120)):
+        m = re.match(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
+        if not m:
             continue
-    else:
-        text = raw.decode("utf-8", errors="replace")
-    return text.splitlines()[-lines:]
+        try:
+            ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").timestamp()
+        except ValueError:
+            continue
+        if now - ts > 900:
+            break
+        low = line.lower()
+        if "dial" in low and (
+            "i/o timeout" in low or "connection refused" in low
+            or "failed to create session" in low
+        ):
+            return (
+                "Clash 最近出现出站连接超时（节点可能掉线）；"
+                "下载任务会自动换节点，也可以点右上角「自动换节点」。"
+            )
+    return ""
 
 
 # ---------------------------------------------------------------- 快照
@@ -506,12 +633,31 @@ class Snapshot:
                 if d:
                     days.add(d)
 
+        # 两个下载器现在都有 run.lock；先算出来，后面给状态标签和看板提示用
+        running = {"arca": False, "gb": False, "pid": 0, "gb_pid": 0}
+        pid = _run_pid(paths.arca_state)
+        if pid:
+            running.update(arca=True, pid=pid)
+        pid = _run_pid(paths.gb_state)
+        if pid:
+            running.update(gb=True, gb_pid=pid)
+
         arca_parts = _scan_parts(paths.arca_dest, paths.arca_prefix, days, "arca.live")
         gb_parts = _scan_parts(paths.gb_dest, paths.gb_prefix, days, "GameBanana")
 
         entries = _collect_arca(arca_state, paths, arca_parts)
         entries += _collect_gb(gb_state, paths, gb_parts)
         entries.sort(key=lambda e: (STATUS_RANK.get(e["status"], 9), e["day"] or "0", e["title"]))
+        # 状态文案按真实情况修正：失败但会自动重试 / 重试用尽 / 卡住的续传
+        for e in entries:
+            if e["status"] == "failed":
+                if e.get("auto_retry"):
+                    e["status_label"] = "失败·将重试"
+                elif e.get("retry_exhausted"):
+                    e["status_label"] = "失败·需手动"
+            elif e["status"] == "partial" and e.get("failed_items"):
+                e["status_label"] = "待重试"
+                e["status_class"] = "manual"
 
         manual: list[dict[str, Any]] = []
         for e in entries:
@@ -533,12 +679,38 @@ class Snapshot:
             if key in seen_parts:
                 continue
             seen_parts.add(key)
+            # 一条失败/已完成后留下的 .part 只是可续传的残片，不代表还在下载。
+            # 只有条目仍待续传、且文件在最近 30 秒内被写过，才算「正在写盘」。
+            # （下载是流式写盘，正常每几秒就会更新 mtime；超过 30 秒没动静
+            # 说明连接已经断了/进程没在跑，不能继续标成「正在下载」。）
+            active = (
+                (
+                    (p.get("age") is not None and p["age"] < 30)
+                    or p.get("growing")
+                )
+                and e["status"] in ("partial", "pending", "failed")
+            )
             parts.append({
                 "source": e["source"], "title": e["title"], "day": e["day"],
+                "entry_key": e.get("key"),
                 "name": p.get("name"), "size": p.get("size"), "mtime": p.get("mtime"),
                 "entry_status": e["status"], "entry_total": e["total"],
-                "entry_done": e["done"],
+                "entry_done": e["done"], "active": active,
+                "auto_retry": e.get("auto_retry"),
+                "can_retry": e.get("can_retry"),
             })
+
+        # 文件确实在写盘的条目显示「下载中」，比「待下载/续传中」准确
+        active_keys = {
+            (p["source"], str(p.get("entry_key"))) for p in parts if p["active"]
+        }
+        for e in entries:
+            if (
+                (e["source"], str(e.get("key"))) in active_keys
+                and e["status"] in ("pending", "partial")
+            ):
+                e["status_label"] = "下载中"
+                e["status_class"] = "active"
 
         counts = {"total": len(entries), "done": 0, "active": 0, "queued": 0,
                   "manual": 0, "failed": 0, "skipped": 0}
@@ -556,6 +728,8 @@ class Snapshot:
                 counts["failed"] += 1
             else:
                 counts["skipped"] += 1
+        counts["failed_items"] = sum(int(e.get("failed_items") or 0) for e in entries)
+        counts["auto_retry"] = sum(1 for e in entries if e.get("auto_retry"))
 
         bytes_done = sum(int(e["bytes_done"] or 0) for e in entries)
         bytes_total = sum(int(e["bytes_total"] or 0) for e in entries)
@@ -567,27 +741,40 @@ class Snapshot:
         except OSError:
             disk = {"free_gb": 0.0, "total_gb": 0.0}
 
-        # 下载进程：arca 有 run.lock；GB 没有，用日志时间判断
-        run_lock = paths.arca_state.with_suffix(paths.arca_state.suffix + ".run.lock")
-        running = {"arca": False, "pid": 0}
-        try:
-            raw = run_lock.read_text(encoding="ascii", errors="ignore").strip()
-            pid = int(raw) if raw.isdigit() else 0
-            running = {"arca": _pid_alive(pid), "pid": pid}
-        except (OSError, ValueError):
-            pass
-
         log_paths = {
             "arca": BASE_DIR / "arca_download.log",
             "gb": BASE_DIR / "gamebanana_download.log",
         }
         logs = {k: _log_tail(p, 200) for k, p in log_paths.items()}
         log_mtimes = {}
+        log_ages = {}
         for k, p in log_paths.items():
             try:
-                log_mtimes[k] = datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")
+                mtime = p.stat().st_mtime
+                log_mtimes[k] = datetime.fromtimestamp(mtime).isoformat(timespec="seconds")
+                log_ages[k] = max(0.0, time.time() - mtime)
             except OSError:
                 log_mtimes[k] = ""
+                log_ages[k] = 10 ** 9
+
+        notices: list[str] = []
+        proxy_notice = _clash_proxy_notice()
+        if proxy_notice:
+            notices.append(proxy_notice)
+        # 有未完成条目，但对应下载日志 2 小时没动 → 计划任务/下载进程可能没跑
+        pending_by_source = {"arca": False, "gb": False}
+        for e in entries:
+            if e["status"] in ("queued", "pending", "partial", "failed"):
+                pending_by_source["arca" if e["source"] == "arca.live" else "gb"] = True
+        for key, label in (("arca", "arca.live"), ("gb", "GameBanana")):
+            if (
+                pending_by_source[key]
+                and not running.get(key)
+                and log_ages.get(key, 0) > 2 * 3600
+            ):
+                notices.append(
+                    f"{label} 下载日志已超过 2 小时没有更新，计划任务可能没在运行。"
+                )
 
         sources = _sources(paths.dest_root / "_Mod每日汇总")
 
@@ -602,17 +789,403 @@ class Snapshot:
             "manual": manual,
             "sources": sources,
             "logs": logs,
+            "notices": notices,
         }
 
 
 SNAPSHOT = Snapshot()
 
 
+# ---------------------------------------------------------------- 重试
+
+
+@contextmanager
+def _state_lock(path: Path, timeout: float = 10.0):
+    """和下载器完全一致的跨进程锁；看板改队列时不会和下载进程互相覆盖。"""
+    lock = path.with_suffix(path.suffix + ".lock")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.time() + timeout
+    acquired = False
+    while True:
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode("ascii", "ignore"))
+            os.close(fd)
+            acquired = True
+            break
+        except FileExistsError:
+            try:
+                if time.time() - lock.stat().st_mtime > 300:
+                    lock.unlink()          # 下载进程被强杀留下的锁
+                    continue
+            except FileNotFoundError:
+                continue
+            if time.time() > deadline:
+                raise TimeoutError("下载队列正被占用，请稍后再试")
+            time.sleep(0.2)
+        except OSError:
+            break                          # 无权限时降级为不加锁
+    try:
+        yield
+    finally:
+        if acquired:
+            try:
+                lock.unlink()
+            except OSError:
+                pass
+
+
+def _write_state(path: Path, state: dict[str, Any]) -> None:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(
+        json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
+    os.replace(tmp, path)
+
+
+def _has_failed_items(entry: dict[str, Any]) -> bool:
+    for arr in ("images", "files"):
+        if any(x.get("status") == "failed" for x in entry.get(arr) or []):
+            return True
+    for plan in entry.get("mods") or []:
+        if any(f.get("status") == "failed" for f in plan.get("files") or []):
+            return True
+        for coll in plan.get("collections") or []:
+            if any(f.get("status") == "failed" for f in coll.get("files") or []):
+                return True
+    return False
+
+
+def _reset_gb_entry(entry: dict[str, Any]) -> bool:
+    if str(entry.get("status") or "") in ("done", "skipped"):
+        return False
+    for arr in ("images", "files"):
+        for item in entry.get(arr) or []:
+            if item.get("status") != "done":
+                item["status"] = "pending"
+                item.pop("error", None)
+    entry["status"] = "pending" if entry.get("planned") else "queued"
+    entry["attempts"] = 0
+    entry["last_error"] = ""
+    for key in ("alerted", "alerted_final", "retry_after", "retry_exhausted"):
+        entry.pop(key, None)
+    return True
+
+
+def _reset_arca_entry(entry: dict[str, Any]) -> bool:
+    status = str(entry.get("status") or "")
+    if status in ("done", "skipped"):
+        return False
+    for img in entry.get("images") or []:
+        if img.get("status") not in ("done", "skipped"):
+            img["status"] = "pending"
+            img.pop("error", None)
+    for plan in entry.get("mods") or []:
+        for f in plan.get("files") or []:
+            if f.get("status") != "done":
+                f["status"] = "pending"
+                f.pop("error", None)
+        for coll in plan.get("collections") or []:
+            for f in coll.get("files") or []:
+                if f.get("status") != "done":
+                    f["status"] = "pending"
+                    f.pop("error", None)
+    if status == "manual":
+        # 「需手动」重新解析一次，也许现在有可自动下载的链接了
+        entry["planned"] = False
+    entry["status"] = "pending"
+    entry["attempts"] = 0
+    entry["last_error"] = ""
+    for key in ("alerted", "alerted_final", "retry_after", "retry_exhausted"):
+        entry.pop(key, None)
+    return True
+
+
+def _retry_state_file(
+    path: Path,
+    reset,
+    *,
+    key: str | None,
+    scope: str | None,
+) -> int:
+    if not path.exists():
+        return 0
+    with _state_lock(path):
+        state = _load_json(path) or {}
+        items = state.get("items") or {}
+        changed = 0
+        for item_key, entry in items.items():
+            if key is not None:
+                if str(item_key) != key:
+                    continue
+            elif scope == "failed":
+                status = str(entry.get("status") or "")
+                if status not in ("failed", "partial") and not _has_failed_items(entry):
+                    continue
+            else:
+                continue
+            if reset(entry):
+                changed += 1
+        if changed:
+            _write_state(path, state)
+        return changed
+
+
+def _configured_proxy(paths: Paths) -> str:
+    """看板「自动换节点」用的本地代理地址。"""
+    try:
+        from gamebanana_watcher.proxy import normalize_proxy, tcp_alive
+    except Exception:  # noqa: BLE001 - 没有依赖时退回默认端口
+        return "http://127.0.0.1:7897"
+    for cfg in (paths.gb_cfg, paths.arca_cfg):
+        if not cfg.has_section("net"):
+            continue
+        raw = cfg["net"].get("proxy", "auto").strip()
+        if raw.lower() not in ("", "auto", "off", "none", "direct",
+                               "false", "0", "no"):
+            candidate = normalize_proxy(raw)
+            if candidate:
+                return candidate
+    for port in (7897, 7890, 10809, 10808, 7891, 8889):
+        candidate = f"http://127.0.0.1:{port}"
+        if tcp_alive(candidate):
+            return candidate
+    return "http://127.0.0.1:7897"
+
+
+DOWNLOAD_SCRIPTS = {
+    "GameBanana": "run_gb_download.py",
+    "arca.live": "run_arca_download.py",
+}
+DOWNLOAD_LOGS = {
+    "GameBanana": "gamebanana_download.log",
+    "arca.live": "arca_download.log",
+}
+
+
+def _launch_downloader(source: str, paths: Paths) -> tuple[bool, int, str]:
+    """重置后立即拉起对应下载器；已有进程在跑就直接复用。"""
+    state_path = paths.gb_state if source == "GameBanana" else paths.arca_state
+    pid = _run_pid(state_path)
+    if pid:
+        return False, pid, "下载进程已在运行，已重新入队，马上会处理"
+    script = DOWNLOAD_SCRIPTS.get(source)
+    if not script:
+        return False, 0, "未知来源"
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUNBUFFERED"] = "1"
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+    log_path = BASE_DIR / DOWNLOAD_LOGS[source]
+    try:
+        with log_path.open("ab") as fh:
+            proc = subprocess.Popen(
+                [sys.executable, str(BASE_DIR / script)],
+                cwd=str(BASE_DIR),
+                stdin=subprocess.DEVNULL,
+                stdout=fh,
+                stderr=subprocess.STDOUT,
+                close_fds=True,
+                creationflags=flags,
+                env=env,
+            )
+        return True, proc.pid, "下载已启动"
+    except OSError as exc:
+        log.warning("启动下载器失败：%s", exc)
+        return False, 0, f"重新入队成功，但启动下载器失败：{exc}"
+
+
+def retry_entries(
+    paths: Paths,
+    *,
+    source: str | None = None,
+    key: str | None = None,
+    scope: str | None = None,
+    start: bool = True,
+) -> dict[str, Any]:
+    """把失败/卡住的条目重新放回队列，并按需拉起下载器。"""
+    specs = [
+        ("GameBanana", paths.gb_state, _reset_gb_entry),
+        ("arca.live", paths.arca_state, _reset_arca_entry),
+    ]
+    # 下载进程还在跑时改同一条队列，可能被它收尾时用旧 entry 覆盖。
+    # 单条重试直接拒绝；批量重试跳过正在跑的来源、处理另一个来源。
+    blocked: dict[str, int] = {}
+    for name, state_path, _reset in specs:
+        if source and name != source:
+            continue
+        pid = _run_pid(state_path)
+        if pid:
+            blocked[name] = pid
+    if source and blocked.get(source):
+        return {
+            "ok": False,
+            "updated": 0,
+            "sources": [],
+            "started": False,
+            "pid": blocked[source],
+            "error": (
+                f"{source} 下载进程正在运行（PID {blocked[source]}），"
+                "请等本轮结束后再重试"
+            ),
+        }
+
+    updated = 0
+    touched_sources: list[str] = []
+    skipped_running: list[str] = []
+    for name, state_path, reset in specs:
+        if source and name != source:
+            continue
+        if name in blocked:
+            skipped_running.append(name)
+            continue
+        count = _retry_state_file(
+            state_path, reset, key=key if source else None, scope=scope if not key else None
+        )
+        if count:
+            updated += count
+            touched_sources.append(name)
+
+    started = False
+    pid = 0
+    messages: list[str] = []
+    for name in skipped_running:
+        messages.append(f"{name} 下载进程正在运行，已跳过")
+    if updated and start:
+        for name in touched_sources:
+            ok, child_pid, msg = _launch_downloader(name, paths)
+            started = started or ok
+            pid = pid or child_pid
+            messages.append(f"{name}：{msg}")
+    elif updated:
+        messages.append("已重新入队，下一轮计划任务会自动处理")
+    elif not skipped_running:
+        messages.append("没有可重试的条目")
+
+    if not updated and skipped_running:
+        return {
+            "ok": False,
+            "updated": 0,
+            "sources": [],
+            "started": False,
+            "pid": next(iter(blocked.values()), 0),
+            "error": "；".join(messages),
+        }
+
+    return {
+        "ok": True,
+        "updated": updated,
+        "sources": touched_sources,
+        "started": started,
+        "pid": pid,
+        "message": "；".join(messages),
+    }
+
+
 # ---------------------------------------------------------------- HTTP
+
+
+ALLOW_REMOTE_RETRY = False
 
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "ModStatus/1.0"
+
+    def _is_loopback(self) -> bool:
+        addr = (self.client_address or ("",))[0]
+        return addr in ("127.0.0.1", "::1") or addr.startswith("::ffff:127.")
+
+    def _send_json(self, code: int, payload: dict[str, Any]) -> None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self._send(code, body, "application/json; charset=utf-8")
+
+    def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        path = urlsplit(self.path).path
+        if path not in ("/api/retry", "/api/proxy/switch"):
+            self._send(404, b"not found", "text/plain; charset=utf-8")
+            return
+        if not ALLOW_REMOTE_RETRY and not self._is_loopback():
+            self._send_json(403, {"ok": False, "error": "该接口只允许本机访问"})
+            return
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._send_json(
+                415, {"ok": False, "error": "Content-Type 必须是 application/json"}
+            )
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length <= 0 or length > 64 * 1024:
+            self._send_json(400, {"ok": False, "error": "请求体为空或过大"})
+            return
+        try:
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._send_json(400, {"ok": False, "error": "JSON 解析失败"})
+            return
+        if not isinstance(body, dict):
+            self._send_json(400, {"ok": False, "error": "请求体必须是 JSON 对象"})
+            return
+        if path == "/api/proxy/switch":
+            self._switch_node()
+            return
+        source = str(body.get("source") or "").strip() or None
+        key = str(body.get("key") or "").strip() or None
+        scope = str(body.get("scope") or "").strip() or None
+        if source and source not in DOWNLOAD_SCRIPTS:
+            self._send_json(400, {"ok": False, "error": f"未知来源：{source}"})
+            return
+        if key and not source:
+            self._send_json(400, {"ok": False, "error": "按条目重试时必须提供 source"})
+            return
+        if not key and scope != "failed":
+            self._send_json(
+                400, {"ok": False, "error": "请提供 source+key，或 scope=failed"}
+            )
+            return
+        try:
+            result = retry_entries(
+                PATHS,
+                source=source,
+                key=key,
+                scope=scope,
+                start=bool(body.get("start", True)),
+            )
+            SNAPSHOT.cache = None            # 下次轮询立刻反映新状态
+            self._send_json(200 if result.get("ok") else 409, result)
+        except TimeoutError as exc:
+            self._send_json(409, {"ok": False, "error": str(exc)})
+        except Exception as exc:  # noqa: BLE001 - 看板不能因重试失败而挂掉
+            log.exception("重试失败：%s", exc)
+            self._send_json(500, {"ok": False, "error": str(exc)})
+
+    def _switch_node(self) -> None:
+        """通过 Clash 控制接口切到一个能访问 GameBanana / arca 的节点。"""
+        try:
+            from gamebanana_watcher.clash import (
+                current_selection,
+                switch_to_working_node,
+            )
+
+            proxy = _configured_proxy(PATHS)
+            result = switch_to_working_node(
+                ["https://gamebanana.com/", "https://arca.live/"],
+                proxy_url=proxy,
+                timeout_ms=5000,
+                max_try=4,
+            )
+            result["proxy"] = proxy
+            if result.get("ok"):
+                try:
+                    result["selection"] = current_selection()
+                except Exception:  # noqa: BLE001 - 附加信息失败不影响结果
+                    pass
+            self._send_json(200 if result.get("ok") else 409, result)
+        except Exception as exc:  # noqa: BLE001 - 看板不能因换节点失败而挂掉
+            log.exception("切换节点失败：%s", exc)
+            self._send_json(500, {"ok": False, "error": str(exc)})
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         path = urlsplit(self.path).path
@@ -736,10 +1309,12 @@ td.title{max-width:430px}
 .empty{padding:26px 16px;text-align:center;color:var(--muted)}
 .parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
 .part{padding:14px 16px}
+.part .ph{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .part .pt{font-weight:600;word-break:break-word}
 .part .pm{font-size:12px;color:var(--muted);margin-top:3px}
 .part .pbar{height:7px;border-radius:999px;background:var(--gray-soft);overflow:hidden;margin-top:10px;position:relative}
 .part .pbar::after{content:"";position:absolute;inset:0;width:40%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:sweep 1.4s infinite}
+.part .pbar.idle::after{display:none}
 @keyframes sweep{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
 .part .pv{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums}
 .manual-list{display:flex;flex-direction:column}
@@ -759,6 +1334,12 @@ pre.log{max-height:380px;overflow:auto;background:#0d1117;color:#d6deeb;border-r
 .src-table td,.src-table th{padding:9px 12px}
 .banner{display:none;background:var(--red-soft);border:1px solid color-mix(in srgb,var(--red) 30%,transparent);color:var(--red);padding:10px 14px;border-radius:12px;margin-bottom:14px;font-size:13px}
 .banner.show{display:block}
+.banner.warn{background:var(--amber-soft);border-color:color-mix(in srgb,var(--amber) 30%,transparent);color:var(--amber)}
+.banner.ok{background:var(--green-soft);border-color:color-mix(in srgb,var(--green) 30%,transparent);color:var(--green)}
+.banner ul{margin:0;padding-left:18px}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.retry{border-color:color-mix(in srgb,var(--red) 30%,transparent);color:var(--red)}
+.btn.retry:hover{border-color:var(--red);color:var(--red)}
 .footer{color:var(--muted);font-size:11.5px;margin-top:22px;text-align:center}
 .legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:11.5px;margin-top:6px}
 @media (max-width:760px){
@@ -779,16 +1360,19 @@ pre.log{max-height:380px;overflow:auto;background:#0d1117;color:#d6deeb;border-r
     </div>
     <div class="controls">
       <label class="toggle"><input type="checkbox" id="auto" checked> 每 5 秒自动刷新</label>
+      <button class="btn" id="switchNode"
+        title="通过 Clash 控制接口切到一个能访问 GameBanana / arca 的节点">自动换节点</button>
       <button class="btn" id="refresh">立即刷新</button>
     </div>
   </header>
 
   <div class="banner" id="banner"></div>
+  <div class="banner warn" id="notices"></div>
 
   <div class="cards" id="cards"></div>
 
   <section id="partsSection" style="display:none">
-    <h2>正在下载 <span class="count" id="partsCount"></span></h2>
+    <h2>下载进度 <span class="count" id="partsCount"></span></h2>
     <div class="parts" id="parts"></div>
   </section>
 
@@ -801,6 +1385,8 @@ pre.log{max-height:380px;overflow:auto;background:#0d1117;color:#d6deeb;border-r
         <option value="GameBanana">GameBanana</option>
       </select>
       <select id="day"><option value="all">全部日期</option></select>
+      <button class="btn retry" id="retryFailed"
+        title="把失败/卡住的条目重新放回队列，并立即开始下载">重试全部失败</button>
       <div class="chips" id="chips">
         <span class="chip on" data-st="all">全部</span>
         <span class="chip" data-st="active">下载中</span>
@@ -816,7 +1402,7 @@ pre.log{max-height:380px;overflow:auto;background:#0d1117;color:#d6deeb;border-r
           <th style="width:92px">状态</th><th style="width:104px">来源</th><th>标题</th>
           <th style="width:104px">下载日</th><th style="width:190px">进度</th>
           <th style="width:150px">已下载</th><th style="width:60px">尝试</th>
-          <th>说明 / 错误</th><th style="width:96px">操作</th>
+          <th>说明 / 错误</th><th style="width:156px">操作</th>
         </tr></thead>
         <tbody id="tbody"></tbody>
       </table>
@@ -861,6 +1447,7 @@ let FILTER = {status: "all", q: "", source: "all", day: "all"};
 let LOG_TAB = "arca";
 let DETAILED = new Set();
 let timer = null;
+let BANNER_KIND = "";
 
 const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, c => (
   {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -877,7 +1464,11 @@ const ST_LABEL = {queued:"排队中", pending:"待下载", partial:"续传中", 
 const stLabel = (s) => ST_LABEL[s] || s;
 const stClass = (s) => s === "done" ? "done" : s === "partial" || s === "pending" ? "active"
   : s === "manual" ? "manual" : s === "failed" ? "failed" : "queued";
-const stBadge = (s, label) => `<span class="badge b-${stClass(s)}"><i class="dot"></i>${esc(label || s)}</span>`;
+const stBadge = (s, label, cls) => `<span class="badge b-${cls || stClass(s)}"><i class="dot"></i>${esc(label || s)}</span>`;
+const fmtTime = (iso) => {
+  const t = Date.parse(iso);
+  return isNaN(t) ? iso : new Date(t).toLocaleString("zh-CN", {hour12: false});
+};
 const relTime = (iso) => {
   if (!iso) return "—";
   const t = Date.parse(iso); if (isNaN(t)) return iso;
@@ -929,9 +1520,16 @@ function progressCell(e) {
 
 function sizeCell(e) {
   const total = e.bytes_total ? fmtBytes(e.bytes_total) : "—";
-  const missing = e.status === "done" && !e.bytes_done && e.bytes_total;
-  return `<div class="num">${fmtBytes(e.bytes_done)} <span style="color:var(--muted)">/ ${total}</span></div>
-    ${missing ? `<div class="ts" title="文件已不在队列记录的日期目录里，通常是手动重命名/移动过">原路径已无文件</div>` : ""}`;
+  // 已完成但原路径少了文件：通常是用户重命名/搬到日期目录顶层了。
+  // 部分缺失也要提示（今天出现过「36 个文件只剩 1 个」却仍显示已完成）。
+  const moved = e.status === "done" && e.total > 0 && e.on_disk < e.total;
+  const allGone = moved && e.on_disk === 0;
+  const hint = !moved
+    ? ""
+    : allGone
+      ? `<div class="ts" title="文件已不在队列记录的日期目录里，通常是手动重命名/移动过">原路径已无文件</div>`
+      : `<div class="ts" title="原路径下还有 ${e.on_disk}/${e.total} 项，其余可能被重命名或移走">部分文件已移走（${e.on_disk}/${e.total}）</div>`;
+  return `<div class="num">${fmtBytes(e.bytes_done)} <span style="color:var(--muted)">/ ${total}</span></div>${hint}`;
 }
 
 function detailRow(e) {
@@ -974,8 +1572,13 @@ function renderTable() {
     const id = `${e.source}:${e.key}`;
     const open = DETAILED.has(id);
     const note = e.last_error || ((e.manual && e.manual[0]) ? e.manual[0].reason : "");
+    const retryNote = e.retry_after && e.status === "failed"
+      ? `<div class="ts">下次自动重试：${esc(fmtTime(e.retry_after))}${e.retry_exhausted ? "（已用尽）" : ""}</div>`
+      : e.retry_exhausted && e.status === "failed"
+        ? `<div class="ts">自动重试已用尽，请点「重试」</div>`
+        : "";
     return `<tr data-id="${esc(id)}">
-      <td>${stBadge(e.status, e.status_label)}</td>
+      <td>${stBadge(e.status, e.status_label, e.status_class)}</td>
       <td><span class="src">${esc(e.source)}</span></td>
       <td class="title"><div class="tt">${esc(e.title)}</div>
         <div class="ts">${e.day ? `下载日 ${esc(e.day)}` : ""}${e.publish_date ? ` · 发布 ${esc(e.publish_date)}` : ""}${e.kind ? ` · ${esc(e.kind)}` : ""}</div></td>
@@ -983,9 +1586,10 @@ function renderTable() {
       <td>${progressCell(e)}</td>
       <td>${sizeCell(e)}</td>
       <td class="num">${e.attempts || 0}</td>
-      <td class="err" title="${esc(note)}">${esc(note)}</td>
+      <td class="err" title="${esc(note)}">${esc(note)}${retryNote}</td>
       <td class="actions">
         <button class="btn linkbtn" data-toggle="${esc(id)}">${open ? "收起" : "详情"}</button>
+        ${e.can_retry ? `<button class="btn linkbtn retry" data-retry="${esc(id)}" title="重新入队并立即开始下载">重试</button>` : ""}
         ${e.page_url ? `<a class="linkbtn" href="${esc(safeUrl(e.page_url))}" target="_blank" rel="noreferrer">原帖</a>` : ""}
       </td>
     </tr>${open ? detailRow(e) : ""}`;
@@ -1001,7 +1605,9 @@ function renderCards() {
     ["active", "待处理 / 续传", s.active, ""],
     ["queued", "排队", s.queued, ""],
     ["manual", "需手动", s.manual, `${(DATA.manual || []).length} 个链接`],
-    ["failed", "失败", s.failed, ""],
+    ["failed", "失败", s.failed,
+      s.auto_retry ? `${s.auto_retry} 条将自动重试`
+        : s.failed_items ? `${s.failed_items} 个文件待重试` : ""],
     ["bytes", "已下载", fmtBytes(s.bytes_done), `计划 ${fmtBytes(s.bytes_total)}`],
     ["disk", "磁盘剩余", DATA.disk.free_gb + " GB", `共 ${DATA.disk.total_gb} GB`],
   ];
@@ -1015,16 +1621,30 @@ function renderParts() {
   const sec = $("#partsSection");
   if (!list.length) { sec.style.display = "none"; return; }
   sec.style.display = "";
-  $("#partsCount").textContent = `${list.length} 个 .part 正在写盘`;
-  $("#parts").innerHTML = list.map(p => `
+  const live = list.filter(p => p.active).length;
+  $("#partsCount").textContent = live
+    ? `${live} 个正在写盘 · 共 ${list.length} 个未完成`
+    : `${list.length} 个未完成 .part · 当前没有下载进程在写盘`;
+  $("#parts").innerHTML = list.map(p => {
+    // 失败条目留下的残片不会再自动续传，必须和「等待下轮」区分开
+    const st = p.entry_status === "failed" ? "failed" : p.active ? "active" : "queued";
+    const tag = p.entry_status === "failed"
+      ? (p.auto_retry ? "失败·将自动重试" : "条目已失败，可点重试")
+      : p.active ? "正在写盘" : (p.can_retry ? "等待重试" : "等待下轮续传");
+    const retryBtn = p.can_retry && p.entry_key
+      ? `<button class="btn linkbtn retry" data-retry="${esc(p.source + ":" + p.entry_key)}">重试</button>`
+      : "";
+    return `
     <div class="card part">
-      <div class="pt">${esc(p.title)}</div>
+      <div class="ph"><div class="pt">${esc(p.title)}</div>
+        <div style="display:flex;gap:6px;align-items:center">${retryBtn}${stBadge(st, tag)}</div></div>
       <div class="pm">${esc(p.name)}</div>
-      <div class="pbar"></div>
+      <div class="pbar${p.active ? "" : " idle"}"></div>
       <div class="pv"><span>${esc(p.source)} · ${esc(p.day || "—")}</span>
         <span>已写 ${fmtBytes(p.size)}${p.entry_total ? ` · ${p.entry_done}/${p.entry_total}` : ""}
         · ${relTime(p.mtime)}</span></div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 }
 
 function renderManual() {
@@ -1067,8 +1687,14 @@ function renderMeta() {
   const bits = [];
   bits.push(`数据目录 <span style="font-family:var(--mono)">${esc(DATA.dest_root)}</span>`);
   bits.push(`更新于 ${new Date().toLocaleTimeString("zh-CN", {hour12:false})}`);
-  if (p.arca) bits.push(`<span class="badge b-active" style="font-size:11px"><i class="dot"></i>下载进程运行中 · PID ${p.pid}</span>`);
-  else bits.push(`下载进程未运行（下轮计划任务会自动拉起）`);
+  const running = [];
+  if (p.arca) running.push(`arca PID ${p.pid}`);
+  if (p.gb) running.push(`GB PID ${p.gb_pid}`);
+  if (running.length) {
+    bits.push(`<span class="badge b-active" style="font-size:11px"><i class="dot"></i>下载进程运行中 · ${running.join(" / ")}</span>`);
+  } else {
+    bits.push(`下载进程未运行（下轮计划任务会自动拉起）`);
+  }
   $("#subline").innerHTML = bits.join(" · ");
   $("#footer").textContent = `最后生成：${DATA.generated_at} · 日志活动：arca ${relTime(p.log_mtimes && p.log_mtimes.arca)} / GB ${relTime(p.log_mtimes && p.log_mtimes.gb)}`;
 }
@@ -1086,12 +1712,19 @@ function updateDayOptions() {
   }
 }
 
+function renderNotices() {
+  const list = DATA.notices || [];
+  const el = $("#notices");
+  if (!list.length) { el.classList.remove("show"); el.innerHTML = ""; return; }
+  el.innerHTML = `<ul>${list.map(n => `<li>${esc(n)}</li>`).join("")}</ul>`;
+  el.classList.add("show");
+}
+
 function renderAll() {
   if (!DATA) return;
-  hideBanner();
   updateDayOptions();
   renderMeta(); renderCards(); renderParts(); renderTable();
-  renderManual(); renderSources(); renderLog();
+  renderManual(); renderSources(); renderLog(); renderNotices();
 }
 
 async function load() {
@@ -1100,15 +1733,45 @@ async function load() {
     if (!r.ok) throw new Error("HTTP " + r.status);
     DATA = await r.json();
     renderAll();
+    if (BANNER_KIND !== "ok") hideBanner();   // 保留重试成功的提示
   } catch (e) {
     showBanner("读取状态失败：" + e.message + "（服务器是否还在运行？）");
   }
 }
 
-function showBanner(msg) {
-  const b = $("#banner"); b.textContent = msg; b.classList.add("show");
+function showBanner(msg, kind) {
+  const b = $("#banner");
+  BANNER_KIND = kind || "error";
+  b.textContent = msg;
+  b.classList.remove("ok", "warn");
+  if (kind) b.classList.add(kind);
+  b.classList.add("show");
+  if (kind === "ok") {
+    setTimeout(() => { if (BANNER_KIND === "ok") hideBanner(); }, 10000);
+  }
 }
-function hideBanner(){ $("#banner").classList.remove("show"); }
+function hideBanner(){ BANNER_KIND = ""; $("#banner").classList.remove("show", "ok", "warn"); }
+
+async function postRetry(payload, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch("/api/retry", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.ok) throw new Error(data.error || ("HTTP " + r.status));
+    const count = data.updated ? `（${data.updated} 条）` : "";
+    showBanner(data.message + count, "ok");
+    setTimeout(load, 600);
+    return data;
+  } catch (e) {
+    showBanner("重试失败：" + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
 
 function setAuto(on) {
   if (timer) { clearInterval(timer); timer = null; }
@@ -1117,6 +1780,27 @@ function setAuto(on) {
 
 $("#auto").addEventListener("change", (e) => setAuto(e.target.checked));
 $("#refresh").addEventListener("click", load);
+$("#switchNode").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  btn.textContent = "切换中…";
+  try {
+    const r = await fetch("/api/proxy/switch", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: "{}",
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) throw new Error(d.error || ("HTTP " + r.status));
+    const delay = d.delay ? `（${d.delay}ms）` : "";
+    showBanner(`已自动切换节点：${d.previous || "—"} → ${d.node}${delay}`, "ok");
+  } catch (err) {
+    showBanner("换节点失败：" + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "自动换节点";
+  }
+});
 $("#q").addEventListener("input", (e) => { FILTER.q = e.target.value.trim(); renderTable(); });
 $("#source").addEventListener("change", (e) => { FILTER.source = e.target.value; renderTable(); });
 $("#day").addEventListener("change", (e) => { FILTER.day = e.target.value; renderTable(); });
@@ -1130,6 +1814,22 @@ $("#tbody").addEventListener("click", (e) => {
   const id = btn.dataset.toggle;
   if (DETAILED.has(id)) DETAILED.delete(id); else DETAILED.add(id);
   renderTable();
+});
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-retry]");
+  if (!btn) return;
+  e.preventDefault();
+  const raw = btn.dataset.retry || "";
+  const cut = raw.indexOf(":");
+  if (cut < 0) return;
+  postRetry({source: raw.slice(0, cut), key: raw.slice(cut + 1)}, btn);
+});
+$("#retryFailed").addEventListener("click", async (e) => {
+  const retryable = (DATA && DATA.entries || []).filter(
+    x => x.can_retry && x.status !== "manual"
+  ).length;
+  if (retryable && !confirm(`把 ${retryable} 条失败/卡住的条目重新入队并立即开始下载？`)) return;
+  await postRetry({scope: "failed"}, e.currentTarget);
 });
 document.querySelectorAll("[data-log]").forEach(btn => btn.addEventListener("click", () => {
   LOG_TAB = btn.dataset.log;
@@ -1170,7 +1870,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default="127.0.0.1", help="监听地址，默认仅本机")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="起始端口")
     parser.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
+    parser.add_argument(
+        "--allow-remote-retry", action="store_true",
+        help="允许局域网内其他机器点「重试」（默认只允许本机）",
+    )
     args = parser.parse_args(argv)
+
+    global ALLOW_REMOTE_RETRY
+    ALLOW_REMOTE_RETRY = args.allow_remote_retry
 
     server = None
     port = args.port

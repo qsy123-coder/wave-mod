@@ -8,7 +8,7 @@
 | **可可站** www.mowink.org（原 kekehxl.org，2026-10-20 迁站） | 首尔服务器 | WordPress/WooCommerce REST API，纯 HTTP |
 | **arca.live** `/b/thingzyoa` | 首尔服务器（采集）/ 本机（下载） | Cloudflare 反爬，采集需真实浏览器 + xvfb；kio.ac / nahida.live 走纯 HTTP |
 | **NexusMods** | 首尔服务器 | 官方 API v1，纯 HTTP（需免费 API key） |
-| **GameBanana** | **本机 Windows** | apiv11 接口，纯 HTTP **直连**（服务器 IP 被封） |
+| **GameBanana** | **本机 Windows** | apiv13 接口，纯 HTTP **直连**（服务器 IP 被封） |
 | **Patreon** | 首尔服务器 | `api.patreon.com` JSON:API + `session_id` 登录态，纯 HTTP（**发现源**，无下载链） |
 | **爱发电** afdian.com | 首尔服务器 | 站点自己的 `/api/*` 接口，纯 HTTP **匿名可用**（**发现源**，无下载链） |
 
@@ -51,7 +51,7 @@
 │    └─ scp 拉取 A_每日更新\_Mod每日汇总\<来源名>\            │
 │                                                            │
 │  计划任务 GameBananaModWatch (每 15 分钟)                   │
-│    └─ apiv11（自动走 Clash）→直接写 _Mod每日汇总\GameBanana\│
+│    └─ apiv13（自动走 Clash）→直接写 _Mod每日汇总\GameBanana\│
 │       （本机跑，不经过服务器）                              │
 │                                                            │
 │  计划任务 GameBananaModDownload (每 30 分钟 / 入队即触发)   │
@@ -70,7 +70,7 @@
 
 | | 可可站 | arca.live | NexusMods | GameBanana | Patreon | 爱发电 |
 |---|---|---|---|---|---|---|
-| 数据接口 | REST API | 无 API，抓 HTML | 官方 API v1 | apiv11 API | `api.patreon.com` JSON:API | 站点 `/api/*`（非官方） |
+| 数据接口 | REST API | 无 API，抓 HTML | 官方 API v1 | apiv13 API | `api.patreon.com` JSON:API | 站点 `/api/*`（非官方） |
 | 反爬 | 首尔 IP 无验证码 | Cloudflare（无可用 cookie） | 网页被 CF 拦，**API 不拦** | Cloudflare + 封机房 IP | 主站被 CF 拦，**`api.` 子域不拦** | 无（纯 SPA） |
 | 需要浏览器 | ❌ 纯 HTTP | ✅ 每次都要 | ❌ 纯 HTTP | ✅ | ❌ 纯 HTTP | ❌ 纯 HTTP |
 | 需要登录凭据 | ❌ API key | ❌ | ❌ API key | ❌ | ✅ **`session_id`**（仅为了预览图不糊，见下） | ❌ 匿名 |
@@ -208,10 +208,16 @@ A_每日更新/W-2026.11.01/
 | 链接类型 | 处理方式 |
 |---|---|
 | `kio.ac/c/<id>` | 走 `api.kio.ac/v0/...`（CBOR）：`collection/get` 用密码换 `Kiosk-CAT`，`directory/get` 列目录，`file/gets` 拿 16MiB 分段的 CDN 预签名 URL。密码用频道公告帖写死的 **`Eldwh`**（`[download] password` 可改） |
-| `nahida.live/akasha/mod/<id>` | `GET api.nahida.live/akasha/mod/<id>?password=<base64url>`，响应头 `x-token` 后续列目录/取 S3 预签名直链。**不需要浏览器**；需要积分的模组跳过 |
-| `nahida.live/akasha/link/<id>` | POST 必须带 Cloudflare Turnstile 的 `cftoken`；真实 Chrome 实测也是 `access_denied`，写进「需手动下载」清单 |
+| `nahida.live/akasha/mod/<id>` | `GET api.nahida.live/akasha/mod/<id>?password=<base64url>`，响应头 `x-token` 后续列目录/取 S3 预签名直链。一般不需要浏览器，API 被 Cloudflare 挑战时自动借用 Chrome 的 `cf_clearance`；需要积分的模组跳过 |
+| `nahida.live/akasha/link/<id>` | 2026-11-01 起自动下载：真实 Chrome（屏幕外窗口，**不能用 headless**）打开分享页，页面自己的 Turnstile 十几秒自动通过；带密码的链接自动填 `[download] password`（`Eldwh`）。拿到 12 小时有效的 `nhd-link-token` 后，列目录/下载都走 `api.nahida.live`。CDN 文件可能是 zstd/gzip 压缩，下载后自动解压 |
+| 「챈방주 내닉폴더에 있음」（频道 Mod 方舟） | 正文不挂外链、只写文件在方舟里时，用 `[download] ark_link`（频道公共方舟的 nahida 分享链接）拿 token，按作者昵称定位 `명조/작가별(Creator)/[공용)챈 업로더/]<作者>`，再下载发帖日期前后一天内新建/更新的子目录（同一天有多个更新且标题对不上时记为待手动）。2026-11-02 起支持 |
 | GameBanana / 其他站外链接 | 前者交给 GameBanana 任务；后者记录为待手动 |
 
+> 帖子页本身也受 Cloudflare 保护：纯 HTTP 返回 403「Just a moment...」时，
+> 自动改用真实 Chrome（屏幕外窗口，与 nahida 分享链接共用同一个进程）打开，
+> 正文图片仍走 `ac-o.arca.live` CDN。`api.nahida.live` 被挑战时同理，
+> 会把浏览器的 `cf_clearance` 同步给 requests 会话（UA 也同步成浏览器的真实 UA）。
+>
 > **日期取下载执行日**，与 GameBanana 一致：关机期间发的帖在开机下载那天归档。
 > 首次运行按 `[download] backfill_days`（默认 7 天）回填，之后只跟新帖；
 > 回填起点会写进 state 的 `enqueue_since`，想再往前补只能手动改这个日期
@@ -220,6 +226,8 @@ A_每日更新/W-2026.11.01/
 > `.part` 保留已下字节，按段内偏移 `Range` 续传。
 > nahida 的预签名接口限流 **5 次 / 10 秒**，程序主动按 2.1 秒/次限速，
 > 遇到 429 还会按 `retryAfter` 自动等待重试。
+> `[download] skip_categories` 默认是 **`엔드필드 모드,enFielMd`**：终末地 Mod
+> 仍然会被采集进 CSV/看板，但不会入队下载（状态显示「已跳过」）。想下载就把它清空。
 
 ---
 
@@ -239,17 +247,40 @@ A_每日更新/W-2026.11.01/
 | 预览图 | 本地路径（**发现当下就下载**） |
 | mod_id | mod ID（去重键） |
 
-**关机不丢数据**：接口支持 `_sSort=new`（最新优先），程序从最新往前翻页，
-翻到"整页都见过"就停。所以电脑关机期间站点更新的 mod，**开机后会自动全部补齐**，
-只是通知延迟到开机时 —— 这一点与可可站/arca.live 不同（那两个靠时间窗口，会漏）。
+**新增 + 更新都抓**（2026-11-09 起，对齐 JASM 的调法）：每轮同时翻三路排序 ——
+`default`（最近活动，和 JASM 商店首页一致，能抓到只改页面的更新）、`new`（兜底
+冷门新提交）、`updated`。判断「更新」用的是 **`_tsDateModified`**（不是
+`_tsDateUpdated`：后者很多 Mod 是 0，只改页面的更新根本不会出现在 updated 排序里）。
+
+- 状态文件 `state.gb.json` 里的 `mod_meta` 记录每个 Mod 的修改时间基线；
+  修改时间变大 = 更新。
+- 更新单独写 `_Mod每日汇总/GameBanana/更新记录.csv`（同一个 mod_id 会反复出现，
+  不能走每日表的 id 去重）。
+- 拉了 `DownloadPage` 比对文件链接：只有文件真的变了才重新下载；只改描述/封面
+  的标为「页面更新」，不重复下载。
+- 更新重新入队时，新版本落到**下载执行日**的 `W-<日期>/GameBanana/`，旧版本文件
+  留在原日期文件夹，不覆盖。
+
+**关机不丢数据**：`new`/`updated` 按时间倒序，翻到时间窗外就停；`default` 是
+活跃度排序，按固定页数翻。电脑关机期间站点的新增和更新，**开机后会自动补齐**。
 
 **只抓 `Mod` 类型**：GameBanana 的 Subfeed 混着 `Question`/`Tutorial`/`Tool` 等非 mod 内容
 （实测一页 15 条里只有 7 条是 Mod）。由 `config.gb.ini` 的 `model_types` 控制，默认 `Mod`。
+
+**一次性补抓**：`python backfill_gb.py --since 2026-11-03`（先加 `--dry-run` 盘点），
+按同样的口径回溯指定日期之后的新增和更新，补进 CSV/更新记录并重新入队。
 
 #### 原图 + 附件本地化（2026-10-24 上线）
 
 采集任务只把新 Mod **写入队列**（`state.gb_downloads.json`），真正下载由独立计划任务
 `GameBananaModDownload` 执行 —— 采集任务有 10 分钟执行上限，大附件会被强杀。
+
+**下载加速（2026-11-09）**：GameBanana 的 filecache 单连接只有 40–120KB/s，
+所以 **≥4MB** 的附件自动开 4 条连接分段（原阈值 32MB，导致 12MB 的文件只开 1 条连接）。
+另外**延迟低 ≠ 下载快**：下载任务启动前会先测当前节点的真实吞吐（2MB Range），
+低于 300KB/s 就按延迟顺序试几个候选节点，挑最快的。实测香港节点 120ms 但只有
+~50KB/s，切到新加坡节点后 4 连接能到 3MB/s。配置项：`auto_switch_slow` /
+`slow_threshold_kbps`。
 
 ```
 A_每日更新/
@@ -280,12 +311,24 @@ A_每日更新/
 | 多附件 | **全部下载**（含不同版本/可选补丁） |
 | 磁盘保护 | 剩余空间低于 `min_free_gb`（默认 3GB）暂停并推送，同一天只提醒一次 |
 | 去重 / 续传 | 已完成文件跳过；附件用 `.part` + HTTP Range 断点续传，任务被强杀也能接着下 |
+| 自动重试 | 连续失败 `retry`（默认 3）次后标记 failed 并推送提醒，但会继续自动重试 `auto_retry_rounds`（默认 5）轮；间隔 15 → 30 → 60 … 分钟，封顶 240 分钟。用尽后在看板点「重试」 |
 
 **⚠️ 走本机梯子快约 8 倍**：直连实测 20~80 KB/s，走 Clash 约 450~620 KB/s，API 也没被封。
 默认 `[net] proxy = auto`：读系统代理 + 探测 7897/7890/10809 等端口；
 `autostart = true` 时探测不到端口会**自动拉起 Clash Verge**（`app_path` 可指定路径，
 留空则找常见安装位置）并等 `autostart_wait` 秒让端口就绪，无人值守也不会退回慢速直连。
-代理中途挂掉会自动降级直连，不会中断下载。
+
+**端口通 ≠ 节点可用**：2026-11-07 出现过 Clash 节点掉线但 7897 仍在监听的情况，
+`tcp_alive()` 判定「代理已就绪」，实际所有 HTTPS 都在 TLS 握手阶段失败。
+现在每轮开始会发一个极小的 HTTPS 探活请求；节点不可用时会通过 Clash Verge 的
+命名管道 `\\.\pipe\verge-mihomo` **自动切到一个能访问目标站点的节点**
+（用目标站点本身测延迟，切完再用代理实测一次）。只有换节点也失败、且直连可用时
+才降级直连；代理中途挂掉（`ProxyError` / `SSLError`）同样先尝试换节点。
+配置项：`[net] auto_switch_node = true`。
+
+Clash Verge 默认只开命名管道、不监听 TCP 9090/9097，所以这里用 ctypes 直接读写
+管道；实现见 `gamebanana_watcher/clash.py`。换节点只影响当前运行的 GLOBAL /
+规则链选中的策略组，不会改订阅文件。
 
 **入队即下载**：采集任务把新 Mod 写进队列后会立刻 `schtasks /Run GameBananaModDownload`，
 不必等下载任务下一个 30 分钟周期（任务设置了 `IgnoreNew`，重复触发无副作用）。
@@ -710,15 +753,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "local\install_arca_download
 ## Web 下载看板（2026-11-01 上线）
 
 本机双击 **`local\run_status_server.bat`**，浏览器会自动打开
-**http://127.0.0.1:8765/**。页面每 5 秒自动刷新，只读，不会修改队列或触发下载。
+**http://127.0.0.1:8765/**。页面每 5 秒自动刷新；除了看状态，还能对失败/卡住的条目**点「重试」**
+（重新入队并立即拉起对应下载器），或点右上角**「自动换节点」**让 Clash 立刻切到一个
+能访问 GameBanana / arca 的节点。
 
 | 区域 | 内容 |
 |---|---|
-| 顶部卡片 | 总条目 / 已完成 / 待处理·续传 / 排队 / 需手动 / 失败 / 已下载大小 / 磁盘剩余 |
-| 正在下载 | 当前正在写盘的 `.part` 文件、已写字节、所属模组；没有 `.part` 时自动隐藏 |
-| 队列表格 | arca.live + GameBanana 两条队列：状态、来源、标题、下载日、图片/文件进度、大小、尝试次数、失败原因；点**详情**看每个文件 |
+| 顶部卡片 | 总条目 / 已完成 / 待处理·续传 / 排队 / 需手动 / 失败 / 已下载大小 / 磁盘剩余。失败卡片会显示「N 个文件待重试 / N 条将自动重试」 |
+| 环境提示 | Clash 最近 15 分钟出现 `dial ... i/o timeout` 时直接提示「节点可能掉线」；下载日志 2 小时没更新时提示计划任务可能没跑 |
+| 自动换节点 | 右上角按钮：读取 GLOBAL / 规则链策略组，用目标站点测延迟，切到可用节点并实测验证；下载任务开始和中断时也会自动执行 |
+| 下载进度 | 未完成的 `.part`、已写字节、所属模组；按文件 mtime 区分「正在写盘 / 等待重试 / 等待下轮续传 / 失败·将自动重试」，没有 `.part` 时自动隐藏 |
+| 队列表格 | arca.live + GameBanana 两条队列：状态、来源、标题、下载日、图片/文件进度、大小、尝试次数、失败原因；失败/卡住的条目带**重试**按钮，点**详情**看每个文件 |
+| 重试 | 单条「重试」或工具栏「重试全部失败」。重置 attempts / last_error / retry_after，保留已完成的文件；如果下载进程正在跑会拒绝，避免覆盖它收尾时的状态 |
 | 筛选 | 标题/链接/文件名搜索、来源、下载日、状态（下载中/排队/已完成/需手动/失败） |
-| 需手动下载 | `nahida.live/akasha/link` 等 Turnstile 链接，点击直接打开；可一键复制全部链接 |
+| 需手动下载 | 链接失效、密码不对、站外网盘等确实无法自动下载的项，点击直接打开；可一键复制全部链接。nahida 分享链接已于 2026-11-01 支持自动下载，不再出现在这里 |
 | 采集源累计 | 可可站 / arca.live / NexusMods / GameBanana / Patreon / 爱发电 的累计条数、最近发现、每日表、预览图数 |
 | 日志尾部 | `arca_download.log` / `gamebanana_download.log` 最近 200 行，可切换 |
 
@@ -728,6 +776,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "local\install_arca_download
 ```powershell
 python web_status.py --host 0.0.0.0 --port 8765
 ```
+
+> 写接口 `POST /api/retry` 和 `POST /api/proxy/switch` 默认只接受本机请求
+> （带 `Content-Type: application/json`）。局域网模式下确实需要远程操作，
+> 再加 `--allow-remote-retry`。
 
 > 注意：页面会显示模组标题、原帖链接和待手动链接。局域网开放前先确认可接受。
 
@@ -770,6 +822,7 @@ python web_status.py --host 0.0.0.0 --port 8765
 | `download.images` / `download.files` | GameBanana：分别控制是否下原图 / 附件 |
 | `download.min_free_gb` | GameBanana：剩余空间低于该值暂停下载（默认 3） |
 | `download.image_workers` | GameBanana：原图并发线程数（默认 4） |
+| `download.read_timeout` / `download_workers` / `image_workers` / `segment_workers` | arca.live：下载读超时（默认 30s，卡住即换节点）、文件并发（4）、图片并发（2，图床 4 并发会回 429）、kio 分段并发（4） |
 | `download.max_run_minutes` | GameBanana：每轮最多跑多久（默认 120，任务时限 180） |
 
 > **推送通道**：PushPlus 为主（微信，免费实名用户 200 次/天），Server酱 只作兜底
