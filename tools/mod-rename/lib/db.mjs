@@ -36,8 +36,10 @@ async function loadRegisteredCharacters() {
   if (registeredCharacters !== undefined) return registeredCharacters;
 
   try {
-    const mod = await import("../../../src/lib/constants/character-images.ts");
-    registeredCharacters = new Set(Object.keys(mod.characterImageMap ?? {}));
+    // 唯一源头：src/lib/constants/character-registry.ts 的 CHARACTER_AVATARS。
+    // 加角色只改那一个文件，工坊 / 后台 / 前台全部自动跟随。
+    const mod = await import("../../../src/lib/constants/character-registry.ts");
+    registeredCharacters = new Set(Object.keys(mod.CHARACTER_AVATARS ?? {}));
   } catch (err) {
     registeredCharacters = null;
     console.warn(

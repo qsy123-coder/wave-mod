@@ -173,6 +173,20 @@ export async function getCharacterSuggestions(gameKey = defaultGameKey) {
 }
 
 /**
+ * **后台写入口**的唯一角色白名单：库内 distinct ∪ 站内已登记角色。
+ *
+ * 为什么后台不能用 `getAvailableCharacters`（纯库内 distinct）：新角色的第一条 mod
+ * 还没入库 ⇒ 不在 distinct 里 ⇒ 前台输入框标红「库内无此角色」、服务端也拒绝提交，
+ * 于是永远进不了库（鸡生蛋）。2026-11-12 莉莉就这么卡住。
+ *
+ * 与命名工坊 `tools/mod-rename/lib/character-allowlist.mjs` 同一口径：
+ * 任一侧认识就算合法。区别是那边走 psql 直连、这边走 Next 的 pg 连接与缓存。
+ */
+export async function getCharacterAllowlist(gameKey = defaultGameKey): Promise<string[]> {
+  return getCharacterSuggestions(gameKey);
+}
+
+/**
  * 服务端行为选项（**不是**用户筛选条件，所以不塞进 `PublicModsFilters`）。
  *
  * `relaxQuery`：多关键词严格取交集一个都没中时，是否放宽成「命中任一关键词」。

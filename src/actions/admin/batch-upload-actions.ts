@@ -12,6 +12,7 @@ import { xxmiInstallGuideText } from "@/lib/constants/install-guide";
 import { queryRows, withTransaction } from "@/lib/db/query";
 import { revalidatePublicModCaches } from "@/lib/mod-cache";
 import { logger } from "@/lib/logger";
+import { getCharacterAllowlist } from "@/lib/mods-domain/public";
 
 import { dedupKey } from "../../../scripts/daily-classify.mjs";
 
@@ -57,16 +58,16 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
   }
 
   try {
-    const [characterRows, existingRows] = await Promise.all([
-      queryRows<{ character: string }>(
-        "select distinct character from public.mods where character is not null",
-      ),
+    const [allowedCharacterList, existingRows] = await Promise.all([
+      // 与页面同一个口径：库内 distinct ∪ 站内已登记角色。原来只取 distinct，
+      // 会让新角色的第一条 mod 在服务端被拒（前端放过也没用）。
+      getCharacterAllowlist(GAME_KEY),
       queryRows<ExistingModRow>(
         "select id, character, title, created_at from public.mods",
       ),
     ]);
 
-    const allowedCharacters = new Set(characterRows.map((row) => row.character));
+    const allowedCharacters = new Set(allowedCharacterList);
     const existingByKey = new Map(
       existingRows.map((row) => [dedupKey(row.character, row.title), row]),
     );

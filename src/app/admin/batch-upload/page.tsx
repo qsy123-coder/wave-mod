@@ -1,22 +1,22 @@
 import { BatchUploadClient } from "@/components/features/admin/batch-upload/batch-upload-client";
 import { MotionReveal } from "@/components/layout/motion-reveal";
 import { queryRows } from "@/lib/db/query";
+import { getCharacterAllowlist } from "@/lib/mods";
 
 import { dedupKey } from "../../../../scripts/daily-classify.mjs";
 
 export const dynamic = "force-dynamic";
 
 export default async function BatchUploadPage() {
-  const [characterRows, modRows] = await Promise.all([
-    queryRows<{ character: string }>(
-      "select distinct character from public.mods where character is not null order by character",
-    ),
+  // 角色清单走 getCharacterAllowlist（库内 distinct ∪ 站内已登记角色），
+  // **不是**纯 distinct —— 否则新角色的第一条 mod 永远提交不了（见该函数注释）。
+  const [characters, modRows] = await Promise.all([
+    getCharacterAllowlist(),
     queryRows<{ character: string; title: string }>(
       "select character, title from public.mods",
     ),
   ]);
 
-  const characters = characterRows.map((row) => row.character);
   const existingKeys = modRows.map((row) => dedupKey(row.character, row.title));
 
   return (

@@ -1,68 +1,12 @@
-/** 全部角色名单，即使数据库中没有该角色的资源，也会在侧栏显示（数量为 0） */
-export const characters = [
-  "秋水",
-  "奥古斯塔",
-  "白芷",
-  "布兰特",
-  "卜灵",
-  "卡卡罗",
-  "椿",
-  "坎特蕾拉",
-  "珂莱塔",
-  "卡提希娅",
-  "长离",
-  "千咲",
-  "炽霞",
-  "夏空",
-  "丹瑾",
-  "安可",
-  "绯雪",
-  "嘉贝莉娜",
-  "爱弥斯",
-  "尤诺",
-  "鉴心",
-  "今汐",
-  "忌炎",
-  "凌阳",
-  "洛瑟菈",
-  "露西",
-  "灯灯",
-  "露帕",
-  "路赫斯",
-  "琳奈",
-  "莫宁",
-  "莫特斐",
-  "菲比",
-  "弗洛洛",
-  "仇远",
-  "丽贝卡",
-  "洛可可",
-  "男漂",
-  "女漂",
-  "散华",
-  "守岸人",
-  "西格莉卡",
-  "桃祈",
-  "维里奈",
-  "相里要",
-  "玄翎",
-  "秧秧",
-  "吟霖",
-  "釉瑚",
-  "渊武",
-  "赞妮",
-  "折枝",
-  "景燃",
-  "清宵",
-  "穗穗",
-  "锁暝",
-  "心月狐",
-  // 莉莉（Lily）：3.8「Lilies in a Dying Dream」上半的新五星（2026-11-12 开池）。
-  // 2026-11-12 按用户要求登记为站内分类，头像先用占位图（见 character-images.ts）。
-  "莉莉",
-] as const;
-
-export const defaultCharacterSuggestions = [...characters] as string[];
-
-export const defaultModVersion = "未标注";
-export const defaultGameVersion = "未标注";
+/**
+ * 角色名单的旧入口（转发到 `character-registry.ts`）。
+ *
+ * 真正的清单在 `character-registry.ts` —— 加角色改那里，不要在这里加。
+ * 保留本文件名是因为 6 个文件按这个路径 import；合并成单一源头后它们自动跟随。
+ */
+export {
+  characters,
+  defaultCharacterSuggestions,
+  defaultModVersion,
+  defaultGameVersion,
+} from "@/lib/constants/character-registry";

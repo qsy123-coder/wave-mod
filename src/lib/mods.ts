@@ -7,6 +7,7 @@ export { getPublicModById } from "@/lib/mods-domain/detail";
 export { mapMod, publicModColumns } from "@/lib/mods-domain/mappers";
 export {
   getAvailableCharacters,
+  getCharacterAllowlist,
   getCharacterSuggestions,
   getFeaturedMods,
   getLatestMods,

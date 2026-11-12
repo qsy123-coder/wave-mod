@@ -84,10 +84,36 @@ src/
    - 忽略现有架构原则
    - 生成不带注释的复杂逻辑
    - **未经用户明确允许，新建角色分类（character 值）**：站内角色分类由 `src/lib/mods-domain/public.ts` 的 `getAvailableCharacters` 从数据库 distinct `character` 动态生成——新增任何一个 character 值，前台角色分类页就会自动冒出新的分类。因此：
-     - 上传/写入任何 mod 前，`character` 必须归一化到站内已有的标准角色清单（`src/lib/constants/character-images.ts` 的 `characterImageMap`），不得直接采用文件名里带修饰的词（如 `千咲皮肤[蜜桃冰]` → `千咲`）。
-     - 标准角色名与别名映射见 `src/lib/mods-domain/sorting.ts` 的 `normalizeCharacterName`（`CHARACTER_ALIASES`）。新增映射必须先查库里/`characterImageMap` 是否已有该角色，**绝不能凭空新建**。
+     - 上传/写入任何 mod 前，`character` 必须归一化到站内已有的标准角色清单（`src/lib/constants/character-registry.ts` 的 `CHARACTER_AVATARS`），不得直接采用文件名里带修饰的词（如 `千咲皮肤[蜜桃冰]` → `千咲`）。
+     - 标准角色名与别名映射见 `src/lib/mods-domain/sorting.ts` 的 `normalizeCharacterName`（`CHARACTER_ALIASES`）。新增映射必须先查库里/`CHARACTER_AVATARS` 是否已有该角色，**绝不能凭空新建**。
      - 已有标准归类示例：`科考摩托` → `滑翔翼,翱翔翼,科考摩托`；`千咲皮肤[XX]` → `千咲`；`反虚化，ui界面，场景，葫芦，特效等` → `UI`。
      - 若某 mod 的标题无法确定对应哪个已有角色，先列出候选并询问用户，确认后才写入。
+
+### 新增角色：只改一个文件（2026-11-12 重构后）
+
+角色清单**唯一源头**是 `src/lib/constants/character-registry.ts` 的 `CHARACTER_AVATARS`。
+它既是头像映射、也是角色名单，`characters` / `defaultCharacterSuggestions` 全部从它派生。
+
+加一个角色只需要两步：
+
+1. 在 `CHARACTER_AVATARS` 加一行：`"新角色": "/character-imgs/新角色.webp"`。
+   **头像文件不存在也能先加** —— 前台会走「首字色块」兜底，之后补图不用改代码。
+   再跑 `node scripts/upload-character-avatars-to-cos.mjs` 把图传到 COS。
+2. 在 `scripts/daily-classify.mjs` 的 `CHARACTER_PREFIX_MAP` 加前缀（node 侧读不到 TS，
+   只能手动同步）。漏了这步不会报错，但上传时 `character` 会被解析成文件名首段。
+
+**以下地方不用改**，它们都自动跟随：
+
+| 地方 | 怎么跟 | 说明 |
+|---|---|---|
+| 前台角色分类页 | `getAvailableCharacters` 库内 distinct ∪ `defaultCharacterSuggestions` | 上架第一条后就有真实计数 |
+| 后台 `/admin/mods` 侧栏 | `defaultCharacterSuggestions` | 0 条也显示 |
+| 后台 `/admin/upload` 单条 | `getCharacterSuggestions()` | 同上 |
+| 后台 `/admin/batch-upload` 批量 | `getCharacterAllowlist()`（页面 + Server Action 两处） | 2026-11-12 前这里只认库内 distinct，新角色第一条永远提交不了 |
+| 命名工坊 | `tools/mod-rename/lib/db.mjs` 动态 import `character-registry.ts` | `character-allowlist.mjs` 做并集，有单测 |
+
+⚠️ **不要**再按名字长度过滤角色清单：「椿」是单字角色，写过 `length >= 2` 把它静默剔掉了。
+有单测盯着（`character-registry.test.ts`）。
 
 ## 每日 Mod 上传流程（必须遵守）
 
