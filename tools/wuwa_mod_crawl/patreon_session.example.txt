@@ -16,4 +16,4 @@
 #
 # 文件内容 = 裸值一行，不要写 session_id= 前缀（写了也能认，但没必要）。
 #
-0aOgJVNmJ79Y1RM_g4ngeV6HI21pRHKgcOOUy3B_6eU
+<paste-your-session_id-here>

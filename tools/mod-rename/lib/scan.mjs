@@ -1,7 +1,8 @@
 /**
  * 扫描层：只读 fs，把「日期目录里的来源文件夹」变成一串条目 + 原帖元数据。
  *
- * 元数据来自爬虫仓库（默认 `<A_每日更新>/../wuwa_mod_crawl`）：
+ * 元数据来自爬虫仓库（默认本仓库的 `tools/wuwa_mod_crawl`，可用
+ * `WAVE_MOD_CRAWL_DIR` 覆盖；旧布局 `<A_每日更新>/../wuwa_mod_crawl` 仍作为兜底）：
  *   - `state.arca_downloads.json` / `state.gb_downloads.json` 里记着**每个本地文件对应哪篇帖**，
  *     这是唯一可靠的「文件 → 标题/作者」映射，别靠文件名猜；
  *   - GameBanana 的作者/子分类在 `_Mod每日汇总/GameBanana/*.csv` 里，按 mod_id join。

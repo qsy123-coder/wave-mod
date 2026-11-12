@@ -36,6 +36,14 @@ src/
 ├── lib/ # 工具库（含 db/ 数据访问层）
 └── types/ # 全局类型定义（含 db.ts 数据库类型）
 
+> **本机工具**都在 `tools/`，不参与 Next 构建：
+> - `tools/mod-rename/` — 命名工坊（`npm run rename-ui`，只绑 127.0.0.1）
+> - `tools/wuwa_mod_crawl/` — 爬虫 + 下载器 + 下载面板（Python；2026-11-12 从
+>   独立仓库并入）。运行方式、计划任务、密钥策略见 `docs/local-tools.md`。
+>
+> 数据产物目录 `A_每日更新` 仍在百度网盘盘位上（`F:\BaiduNetdiskDownload\...`），
+> 不在本仓库内。
+
 ## 编码规范
 
 - **TypeScript**：严格模式，`strict: true`，避免 `any`

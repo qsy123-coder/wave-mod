@@ -41,7 +41,13 @@ loadEnvFiles([join(REPO, ".env.local"), join(REPO, ".env")]);
 const BASE =
   process.env.WAVE_MOD_DAILY_BASE?.trim() ||
   String.raw`F:\BaiduNetdiskDownload\MC-MOD整合包\wMOD全集-每日更新\A_每日更新`;
-const CRAWL_DIR = process.env.WAVE_MOD_CRAWL_DIR?.trim() || resolve(BASE, "..", "wuwa_mod_crawl");
+// 爬虫仓库 2026-11-12 已并入本仓库；优先用新位置的 tools/wuwa_mod_crawl，
+// 旧布局（数据目录旁边的 wuwa_mod_crawl）留作兜底，方便旧的本地配置继续用。
+const CRAWL_DIR =
+  process.env.WAVE_MOD_CRAWL_DIR?.trim() ||
+  (existsSync(resolve(REPO, "tools", "wuwa_mod_crawl"))
+    ? resolve(REPO, "tools", "wuwa_mod_crawl")
+    : resolve(BASE, "..", "wuwa_mod_crawl"));
 const SUMMARY_DIR = join(BASE, "_Mod每日汇总");
 
 const argPort = process.argv.slice(2).find((a) => a.startsWith("--port="));

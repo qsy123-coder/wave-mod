@@ -1,5 +1,9 @@
 # 多来源 Mod 更新监测系统
 
+> **2026-11-12 起本仓库已并入 `wave-mod`，路径为 `tools/wuwa_mod_crawl`。**
+> 旧的独立仓库 `qsy123-coder/wuwa_mod_crawl` 保留作历史档案，不再更新。
+> 本机工具总览见 [`docs/local-tools.md`](../../docs/local-tools.md)。
+
 监测多个《鸣潮》Mod 站点，发现更新后 **10~15 分钟内** 通过微信推送，
 并自动归档为按来源、按日期分类的 CSV。
 
