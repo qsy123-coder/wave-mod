@@ -1,0 +1,12 @@
+[Unit]
+Description=每天早 8 点跑一次 Mod 监测健康巡检
+
+[Timer]
+# 刻意避开整点：不做 08:00:00 那一秒的千万分之一
+OnCalendar=*-*-* 08:07:00
+Persistent=true
+# 加一点随机抖动，避免与其它定时任务挤在一起
+RandomizedDelaySec=180
+
+[Install]
+WantedBy=timers.target

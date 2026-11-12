@@ -1,0 +1,19 @@
+# Patreon session_id —— 把这一行换成真值，然后把本文件改名为 patreon_session.txt
+#
+# 获取方式（Chrome / Edge）：
+#   1. 登录 patreon.com
+#   2. F12 → Application 标签 → Storage → Cookies → https://www.patreon.com
+#   3. 找 Name = session_id，复制 Value
+#   ⚠️ session_id 是 HttpOnly，Console 里敲 document.cookie 看不到它，必须走上面这个面板
+#
+# 或者（更稳）：F12 → Network → 刷新页面 → 点任意一条发往 api.patreon.com 的请求
+#   → Headers → Request Headers → 整行 cookie: 复制过来也行
+#
+# 部署到服务器后务必：chmod 600 patreon_session.txt
+#
+# ⚠️ 这个值等同账号登录凭据，拿到就能以你的身份操作 Patreon。
+#    别提交进版本库、别贴到聊天里。要作废就去 Patreon「退出所有设备」。
+#
+# 文件内容 = 裸值一行，不要写 session_id= 前缀（写了也能认，但没必要）。
+#
+0aOgJVNmJ79Y1RM_g4ngeV6HI21pRHKgcOOUy3B_6eU
