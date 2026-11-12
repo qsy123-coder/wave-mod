@@ -35,6 +35,7 @@ import {
   resolveCharacterAndTitle,
   stripRenameSuffix,
 } from "../../../../../scripts/daily-classify.mjs";
+import { looseImageKey } from "../../../../../scripts/image-name-match.mjs";
 import { parseQuarkCsvText } from "../../../../../scripts/quark-csv-parse.mjs";
 import { parseXunleiTxt, withXunleiPwd } from "../../../../../scripts/xunlei-txt-parse.mjs";
 
@@ -104,6 +105,10 @@ function rowStatus(
 
 function buildImageIndex(files: File[]): Map<string, ImageEntry[]> {
   const index = new Map<string, ImageEntry[]>();
+  // 命名工坊给同帖第二个附件加的版本后缀（`（Free）` / `-2`）不在分享名里，
+  // 精确匹配会全落空。宽松键单独收集，最后只补在「没有精确同名图」的键上，
+  // 保证不会盖过正常的精确匹配。
+  const loose = new Map<string, ImageEntry[]>();
 
   for (const file of files) {
     if (!/^image\//i.test(file.type) && !/\.(png|jpe?g|webp|gif)$/i.test(file.name)) continue;
@@ -130,6 +135,17 @@ function buildImageIndex(files: File[]): Map<string, ImageEntry[]> {
       list.push({ file, order });
       index.set(key, list);
     }
+
+    const looseKey = looseImageKey(baseKey);
+    if (looseKey) {
+      const list = loose.get(looseKey) ?? [];
+      list.push({ file, order });
+      loose.set(looseKey, list);
+    }
+  }
+
+  for (const [key, list] of loose) {
+    if (!index.has(key)) index.set(key, list);
   }
 
   for (const list of index.values()) {
@@ -145,12 +161,17 @@ function lookupImages(
   canonicalKey: string,
   title: string,
 ): File[] {
+  // 先精确、后宽松：宽松键会去掉 `（Free）` / `-2` 这类版本后缀，可能把同一帖子的
+  // 多个变体并到同一个键，所以只能作为精确匹配全部落空时的兜底。
   const candidates = [
     canonicalKey,
     sourceKey,
     title,
     stripRenameSuffix(canonicalKey),
     stripRenameSuffix(sourceKey),
+    looseImageKey(canonicalKey),
+    looseImageKey(sourceKey),
+    looseImageKey(title),
   ];
 
   for (const candidate of candidates) {

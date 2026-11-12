@@ -313,6 +313,35 @@ describe("同一帖子的分组元数据", () => {
     expect(res.rows[0].title).toBe("Champion of Sunlight by Alunoop3D");
     expect(res.rows[1].title).toBe("Champion of Sunlight（Thicc NSFW） by Alunoop3D");
   });
+
+  it("解压目录和它的压缩包是同一个附件，不加版本后缀", () => {
+    const url = "https://gamebanana.com/mods/736909";
+    const meta = { url, title: "Hsin: Kitsune no Tsuki", author: "Ceeji" };
+    const res = planAll({
+      items: [
+        item("Hsin_ Kitsune no Tsuki", { isDir: true, meta }),
+        item("Hsin_ Kitsune no Tsuki.zip", { meta: { ...meta, src: "hsin_kitsune_no_tsuki_freemium_20.zip" } }),
+      ],
+      suggestions: {
+        "Hsin_ Kitsune no Tsuki": sug(["心月狐"], "狐之月", { author: "Ceeji" }),
+        "Hsin_ Kitsune no Tsuki.zip": sug(["心月狐"], "狐之月", { author: "Ceeji" }),
+      },
+      knownCharacters: new Set(["心月狐"]),
+      existingDedup: new Set(),
+      glossary,
+    });
+
+    // 两个条目的名字都必须是基础名（不能有 `（Free）` / `-2`），
+    // 否则挂在压缩包上的预览图和分享导出名对不上。
+    expect(res.rows.map((row) => row.to)).toEqual([
+      "心月狐-狐之月 by Ceeji",
+      "心月狐-狐之月 by Ceeji",
+    ]);
+    expect(res.rows.map((row) => row.title)).toEqual(["狐之月 by Ceeji", "狐之月 by Ceeji"]);
+    expect(res.rows.every((row) => row.applicable)).toBe(true);
+    // 只有一个附件 → 不写 .mod-groups.json 变体
+    expect(res.rows.filter((row) => row.variantLabel)).toHaveLength(0);
+  });
 });
 
 describe("markBatchConflicts", () => {

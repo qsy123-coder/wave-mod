@@ -156,12 +156,18 @@ export function applyPostVariantLabels(rows) {
     if (row?.kind === "image") continue;
     const postUrl = normalizeGameBananaUrl(row?.url);
     if (!postUrl) continue;
-    const identity = row.src || row.name || row.from || "";
+    // 目录 + 同名压缩包/打包 exe 是同一个附件（解压/打包出来的），按本地 base 去重；
+    // 不这么做会把压缩包当成第二个变体、给它和挂在它下面的预览图加 `-2`/`（Free）`
+    // 后缀，导致分享导出（基础名）和图片名对不上。其余情况退回原始文件名。
+    const identityOf = (item) =>
+      String(item?.base ?? "").toLowerCase() || item?.src || item?.name || item?.from || "";
+    const identity = identityOf(row);
     const list = groups.get(postUrl) ?? [];
+    const existing = list.findIndex((item) => identityOf(item) === identity);
     // 爬虫有时把同一条链接下两遍：同一原始文件名只算一个变体
-    if (!list.some((item) => (item.src || item.name || item.from || "") === identity)) {
-      list.push(row);
-    }
+    if (existing === -1) list.push(row);
+    // 同一附件优先保留带 `src` 的行（压缩包），变体标签和 sourceName 才能取到原始文件名
+    else if (!list[existing].src && row.src) list[existing] = row;
     groups.set(postUrl, list);
   }
 

@@ -150,6 +150,9 @@ export function planItem({ item, suggestion, knownCharacters, existingDedup, exi
 
   return {
     from: item.name,
+    // 去掉扩展名的本地名：目录和它的压缩包/打包 exe 共用同一个 base，
+    // 同一帖子分组时靠它认出「这是同一个附件」而不是两个版本。
+    base: item.base,
     source: item.source,
     // 多附件分组时用来排除「没有主文件的孤儿预览图」，它们不是帖子附件
     kind: item.kind,
@@ -260,18 +263,39 @@ export function applySamePostSuffixes(rows) {
     if (group.length < 2) continue;
     const used = new Set();
     const srcOwner = new Map();   // 原始文件名 → 第一次出现的行
-    group.forEach((row, i) => {
-      if (i === 0) {
-        if (row.src) srcOwner.set(row.src, row);
-        return;
-      }
+    const baseOwner = new Map();  // 本地 base → 第一次出现的行
+    const claimedTargets = new Set(); // 组内已占用的目标名
+    let variantIndex = 0;         // 实际版本序号（跳过目录/压缩包这类重复项）
+    group.forEach((row) => {
       // 同一个原始文件出现两次 = 爬虫把同一条链接下了两遍，留给 markBatchConflicts 拦重复
       if (row.src && srcOwner.has(row.src)) return;
       if (row.src) srcOwner.set(row.src, row);
-      let suffix = variantSuffix(row.src) || `-${i + 1}`;
-      if (used.has(suffix)) suffix = `${suffix}-${i + 1}`;
+
+      // 目录 + 同名压缩包/打包 exe 是**同一个附件**（解压/打包出来的），不是两个版本。
+      // 以前这里会把它当第二版本加 `-2`/`（Free）` 后缀，挂在压缩包上的预览图
+      // 也跟着改名，于是和分享名对不上。base 相同的行直接算同一个版本。
+      const baseKey = String(row.base ?? "").toLowerCase();
+      if (baseKey && baseOwner.has(baseKey)) {
+        // 虽然它和上一个附件是同一份，目标名（`X.zip`）仍要占住，后面的行才不会再撞
+        for (const t of row.targets ?? []) claimedTargets.add(t.to);
+        return;
+      }
+      if (baseKey) baseOwner.set(baseKey, row);
+
+      const currentIndex = variantIndex++;
+      const targets = (row.targets ?? []).map((t) => t.to);
+      const collides = targets.some((to) => claimedTargets.has(to));
+      if (!collides) {
+        for (const to of targets) claimedTargets.add(to);
+        return;
+      }
+
+      // 只有目标名真的撞了（同帖多附件但建议名一样）才加后缀区分。
+      let suffix = variantSuffix(row.src) || `-${currentIndex + 1}`;
+      if (used.has(suffix)) suffix = `${suffix}-${currentIndex + 1}`;
       used.add(suffix);
       suffixRow(row, suffix);
+      for (const t of row.targets ?? []) claimedTargets.add(t.to);
     });
   }
   return rows;

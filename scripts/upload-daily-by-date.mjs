@@ -52,6 +52,7 @@ import {
   resolveCharacterAndTitle,
   stripRenameSuffix,
 } from "./daily-classify.mjs";
+import { looseImageKey } from "./image-name-match.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
 import { readModGroupsFile } from "./mod-groups.mjs";
 import { matchRecordsToGroups, normalizeGroupKey } from "./mod-groups-pure.mjs";
@@ -397,6 +398,41 @@ function buildImageIndex(dir) {
 }
 
 /**
+ * 精确名找不到时的兜底：按「去版本后缀、去作者」的宽松键再找一组图。
+ *
+ * 命名工坊把同一 GameBanana 帖子的第 2 个附件连同预览图改名成
+ * `角色-名称（Free） by 作者` / `角色-名称-2 by 作者`，而分享导出仍是基础名，
+ * 精确匹配会全部落空（2026-11-12 的 W-2026.11.12 就是这样）。
+ * 只在前面的精确匹配失败后才走这里。
+ */
+function looseImages(byBase, key) {
+  const target = looseImageKey(key);
+  if (!target) return [];
+
+  const orderOf = (base) => {
+    const m = /[-_](\d{1,3})$/.exec(base);
+    return m ? Number(m[1]) : 0;
+  };
+
+  const seen = new Set();
+  const found = [];
+  for (const [base, list] of byBase) {
+    if (looseImageKey(base) !== target) continue;
+    for (const entry of list) {
+      if (seen.has(entry.file)) continue;
+      seen.add(entry.file);
+      found.push({ entry, order: orderOf(base) });
+    }
+  }
+  found.sort(
+    (a, b) =>
+      a.order - b.order ||
+      PREFERRED_EXTS.indexOf(a.entry.ext) - PREFERRED_EXTS.indexOf(b.entry.ext),
+  );
+  return found.map(({ entry }) => entry);
+}
+
+/**
  * 取某个 mod 的全部预览图，**首图在前**。
  *
  * 顺序规则（用户 2026-10-22 定的）：主图（不带编号后缀的那张）是首图，也是站内
@@ -405,13 +441,13 @@ function buildImageIndex(dir) {
  *
  * 返回 [{ file, ext }]，无图时返回 []。
  */
-function lookupImages({ primary }, key) {
+function lookupImages({ primary, byBase }, key) {
   const stripped = stripRenameSuffix(key);
   const mainBase = primary.has(key) ? key : primary.has(stripped) ? stripped : null;
   if (!mainBase) {
     // 没有主图：看有没有 <key>-1 / <key>_1 这一组
     const hasNumbered = [`${key}-1`, `${stripped}-1`, `${key}_1`, `${stripped}_1`].some((k) => primary.has(k));
-    if (!hasNumbered) return [];
+    if (!hasNumbered) return looseImages(byBase, key);
   }
   const base = mainBase ?? (primary.has(`${key}-1`) ? key : stripped);
 
