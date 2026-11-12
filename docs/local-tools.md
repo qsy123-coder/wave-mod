@@ -129,5 +129,8 @@ git ls-files tools/wuwa_mod_crawl | grep -Ei 'config\.[a-z]+\.ini$|state\..*\.js
 5. 命名工坊默认爬虫目录改为 `tools/wuwa_mod_crawl`（旧位置保留兜底）
 6. 从新位置重跑 4 个 `install_*_task.ps1`，任务状态 `Ready`
 7. 更新桌面「下载面板」快捷方式指向新路径
-8. 验证：面板 `/api/status` 正常、命名工坊扫描元数据与搬迁前一致
-9. 删除旧目录 `...\wMOD全集-每日更新\wuwa_mod_crawl`
+8. 验证：面板 `/api/status` 正常、命名工坊扫描元数据与搬迁前一致、计划任务
+   `LastTaskResult=0`（四次任务都实际跑过）
+9. 清空旧目录 `...\wMOD全集-每日更新\wuwa_mod_crawl`。若当时还有程序把该目录
+   当工作目录（例如正在运行的 Claude Code 会话），空目录会暂时删不掉；
+   关掉占用它的程序后再 `rmdir` 即可，里面已经没有任何文件
