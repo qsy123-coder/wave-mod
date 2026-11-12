@@ -7,6 +7,10 @@ import type {
   BatchUploadInputRow,
   BatchUploadResult,
 } from "@/lib/admin/batch-upload-types";
+import {
+  hasRealImages,
+  shouldUpdateVariantImages,
+} from "@/lib/admin/batch-upload-merge";
 import { batchUploadSchema } from "@/lib/admin/batch-upload-schema";
 import { xxmiInstallGuideText } from "@/lib/constants/install-guide";
 import { queryRows, withTransaction } from "@/lib/db/query";
@@ -119,7 +123,9 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
     await withTransaction(async (client) => {
       for (const [key, row] of merged) {
         const existing = existingByKey.get(key);
-        const images = row.images.length > 0 ? row.images : [PLACEHOLDER_IMAGE_URL];
+        // 空数组**必须先保留为空**再进分支：更新时它代表「用户没选新图，别动库里的图」，
+        // 一旦提前补成占位图，`hasRealImages()` 就会判成「有图」。新建那条路径才补占位图。
+        const images = row.images;
         const variantImages = row.variantImages ?? {};
         const edited = new Set(row.editedFields);
         const nextCreatedAt = createdAt;
@@ -127,21 +133,59 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
         if (existing) {
           const isLater = new Date(existing.created_at).getTime() < new Date(nextCreatedAt).getTime();
 
+          /**
+           * ── 覆盖更新的三条硬规则（2026-11-13 修的数据丢失 bug）───────────
+           *
+           * 1. `drive_links` **按平台合并**，不是整体替换。原来的 `= $1::jsonb` 会让
+           *    本次 CSV 没提供的平台（迅雷 / 百度）链接**全部消失** —— 实测跑一次
+           *    覆盖更新就把迅雷链接丢了。合并用 SQL 的 jsonb 数组做：旧链接里
+           *    本次没提供的 `variant|platform` 组合键原样保留，其余用新值覆盖。
+           *    规则与 `batch-upload-merge.ts` 的 mergeDriveLinksByPlatform 一致，
+           *    那边有单测；这里因为要按行取旧值，只能写成 SQL。
+           *
+           * 2. `images` 只在**真有新图**时才覆盖。判据不能是 `cardinality(...) > 0`：
+           *    前端没选图时会塞 `[占位图]`，长度也是 1，于是恒为真、把库里真图全换成
+           *    占位图。现在由 `hasRealImages()` 在调用前算好 `updateImages` 布尔值。
+           *
+           * 3. `variant_images` 同理，空对象或只有占位图时保留原值。
+           */
+          const updateImages = hasRealImages(images);
+          const updateVariantImages = shouldUpdateVariantImages(variantImages);
+
           await client.query(
-            `update public.mods set
-               drive_links = $1::jsonb,
-               images = case when cardinality($2::text[]) > 0 then $2::text[] else images end,
-               variant_images = case when $12::jsonb <> '{}'::jsonb then $12::jsonb else variant_images end,
-               created_at = case when created_at < $3::timestamptz then $3::timestamptz else created_at end,
+            `update public.mods m set
+               drive_links = (
+                 select coalesce(jsonb_agg(link), '[]'::jsonb)
+                 from (
+                   -- 旧链接里、本次没提供的 variant|platform 组合键原样保留
+                   select link
+                   from jsonb_array_elements(coalesce(m.drive_links, '[]'::jsonb)) as old(link)
+                   where not exists (
+                     select 1
+                     from jsonb_array_elements($1::jsonb) as inc(value)
+                     where coalesce(inc.value->>'variant', '') = coalesce(old.link->>'variant', '')
+                       and inc.value->>'platform' = old.link->>'platform'
+                   )
+                   union all
+                   -- 本次提供的链接覆盖旧值
+                   select value from jsonb_array_elements($1::jsonb) as inc(value)
+                 ) merged
+               ),
+               images = case when $2::boolean then $3::text[] else m.images end,
+               variant_images = case when $4::boolean then $5::jsonb else m.variant_images end,
+               created_at = case when m.created_at < $6::timestamptz then $6::timestamptz else m.created_at end,
                updated_at = now(),
-               description = case when $4::boolean then $5 else description end,
-               version = case when $6::boolean then $7 else version end,
-               game_version = case when $8::boolean then $9 else game_version end,
-               nsfw = case when $10::boolean then $11 else nsfw end
-             where id = $13`,
+               description = case when $7::boolean then $8 else m.description end,
+               version = case when $9::boolean then $10 else m.version end,
+               game_version = case when $11::boolean then $12 else m.game_version end,
+               nsfw = case when $13::boolean then $14 else m.nsfw end
+             where m.id = $15`,
             [
               JSON.stringify(row.driveLinks),
+              updateImages,
               images,
+              updateVariantImages,
+              JSON.stringify(variantImages),
               nextCreatedAt,
               edited.has("description"),
               row.description,
@@ -151,7 +195,6 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
               row.gameVersion,
               edited.has("nsfw"),
               row.nsfw,
-              JSON.stringify(variantImages),
               existing.id,
             ],
           );
@@ -159,6 +202,9 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
           updated++;
           if (isLater) reshelved++;
         } else {
+          // 新建：没选图时必须给一张占位图，否则前台卡片是空白。
+          const insertImages = hasRealImages(images) ? images : [PLACEHOLDER_IMAGE_URL];
+
           await client.query(
             `insert into public.mods
                (title, character, version, game_version, description, images, drive_links,
@@ -170,7 +216,7 @@ export async function batchUploadModsAction(input: unknown): Promise<BatchUpload
               row.version,
               row.gameVersion,
               row.description,
-              images,
+              insertImages,
               JSON.stringify(row.driveLinks),
               JSON.stringify(variantImages),
               row.nsfw,

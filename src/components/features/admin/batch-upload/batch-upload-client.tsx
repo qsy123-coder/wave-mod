@@ -51,9 +51,14 @@ import { CensorDialog } from "./censor-dialog";
 import { CensorImageThumbs } from "./censor-image-thumbs";
 import { SingleModForm } from "./single-mod-form";
 
-const PLACEHOLDER_IMAGE_URL =
-  "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/placeholder/mod-placeholder.webp";
-
+/**
+ * 前端**不再**自己塞占位图。
+ *
+ * 历史上这里有个常量，没选图时传 `[占位图]`，而服务端按数组长度判断要不要覆盖
+ * ⇒ 覆盖更新会把库里真图换成占位图（2026-11-13 修）。现在前端传空数组，
+ * 「新建时补占位图」由服务端 insert 分支兜底，判据统一见
+ * `lib/admin/batch-upload-merge.ts` 的 hasRealImages。
+ */
 const DEFAULT_GAME_VERSION = "未标注";
 const UPLOAD_CONCURRENCY = 3;
 
@@ -597,6 +602,14 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
         .map((row) => {
           const labels = row.variantImages ? Object.keys(row.variantImages) : [];
 
+          /**
+           * 没选图时传**空数组**，传占位图是不行的。
+           *
+           * 服务端按「有没有真图」决定要不要覆盖 images：空数组 ⇒ 保留库里原图；
+           * 传 `[占位图]` 虽然现在也会被 `hasRealImages()` 判成「没选图」，
+           * 但空数组语义更直白，也不会在日志/回显里出现一张假的图。
+           * 新建那条路径由服务端兜底：`images` 为空 ⇒ 写占位图（见 insert 分支）。
+           */
           if (labels.length === 0) {
             const images = uploadedGallery(row, null);
             return {
@@ -607,7 +620,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
               description: row.description,
               nsfw: row.nsfw,
               driveLinks: row.driveLinks,
-              images: images.length > 0 ? images : [PLACEHOLDER_IMAGE_URL],
+              images,
               editedFields: row.editedFields,
             };
           }
@@ -627,7 +640,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
             description: row.description,
             nsfw: row.nsfw,
             driveLinks: row.driveLinks,
-            images: cover.length > 0 ? cover : [PLACEHOLDER_IMAGE_URL],
+            images: cover,
             variantImages,
             editedFields: row.editedFields,
           };
@@ -1091,7 +1104,10 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
         <p>· CSV：夸克「分享结果导出」原文件，第 2 列是分享名，分享内容里带 pan.quark.cn 链接。</p>
         <p>· txt：迅雷「分享文件 / 链接 / 提取码」三行格式，或「标题 + 链接」一行格式。</p>
         <p>· 预览图：文件名 = 标题；`标题-1.png`、`标题-2.png` 是副图，主图无编号。</p>
-        <p>· 已存在的 mod 会更新网盘/图片并重新上架；简介/版本只在您改过时覆盖。</p>
+        <p>
+          · 已存在的 mod 会重新上架；<strong>网盘链接按平台合并</strong>
+          （本次没给的平台保留旧链接），预览图只在您选了新图时才替换；简介/版本只在您改过时覆盖。
+        </p>
       </section>
         </>
       ) : (
