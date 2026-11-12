@@ -75,6 +75,24 @@ describe("buildMergeDriveLinksSql", () => {
     expect(sql).toContain("https://pan.quark.cn/s/nsfw");
     expect(sql).toContain(row.id);
   });
+
+  it("把旧的无标签链接归到基变体，并丢掉与新链接完全相同的残留", () => {
+    const sql = buildMergeDriveLinksSql([
+      { id: row.id, createdAt: row.created_at, driveLinks, baseLabel: "Slim SFW" },
+    ]);
+
+    // 旧链接加 variant 后，前台不会多出「默认」分组
+    expect(sql).toContain("link || jsonb_build_object('variant', i.base_label)");
+    // 同平台同 URL 的旧条目不再保留（否则与基变体的新链接重复）
+    expect(sql).toContain("inc->>'platform' = link->>'platform' and inc->>'url' = link->>'url'");
+    expect(sql).toContain("Slim SFW");
+  });
+
+  it("没有 baseLabel 时保持旧行为（不动无标签链接）", () => {
+    const sql = buildMergeDriveLinksSql([{ id: row.id, createdAt: row.created_at, driveLinks }]);
+
+    expect(sql).toContain("i.base_label is null");
+  });
 });
 
 describe("buildUnpublishSql", () => {

@@ -379,8 +379,15 @@ function buildImageIndex(dir) {
   indexFilesInto(byBase, join(dir, "预览图"));
   // 爬虫把附件预览图放在来源子目录（GameBanana/arca.live），只扫顶层会一律落到占位图。
   // 放在最后扫：同 base 时顶层/预览图的条目排在前面，保持「顶层优先」。
+  // 再往里一层是同名的附件目录（`GameBanana/<改名后的名字>/`）：用户把改名结果和
+  // 预览图一起放在这一层时，只扫来源目录顶层同样找不到（2026-11-12 女漂那批即如此）。
   for (const source of ["GameBanana", "arca.live"]) {
-    indexFilesInto(byBase, join(dir, source));
+    const sourceDir = join(dir, source);
+    indexFilesInto(byBase, sourceDir);
+    if (!existsSync(sourceDir)) continue;
+    for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) indexFilesInto(byBase, join(sourceDir, entry.name));
+    }
   }
   // 用户临时把改名好的包放进「新建文件夹」等暂存目录时，预览图也在那一层。
   // 只扫一级（不递归进包内），且放在最后，保证正式目录的同名图优先。
@@ -1086,7 +1093,10 @@ where game_key = ${dollarQuote(GAME_KEY)};
       if (existingSet.has(gm.baseKey)) {
         // 基础行已在库：链接求并集、created_at 只前进；不再重复插一条
         const existingRow = existingByKey.get(gm.baseKey);
-        mergedUpdates.push({ id: existingRow.id, createdAt: created_at, driveLinks });
+        // 旧行若原本是「后台批量上传」留下的单版本卡，它的链接没有 variant 字段；
+        // 合并/自动修复时把这些链接归到基变体，否则前台会多出一个「默认」分组。
+        const baseLabel = orderedItems[0]?.hit.variant.label ?? "";
+        mergedUpdates.push({ id: existingRow.id, createdAt: created_at, driveLinks, baseLabel });
         // --refresh-images 或自动合并当天拆分行：把每个变体这一轮传上去的图写回
         if ((refreshImages || gm.autoHeal) && Object.keys(variantImages).length > 0) {
           imageUpdates.push({ id: existingRow.id, images: coverImages, variantImages });

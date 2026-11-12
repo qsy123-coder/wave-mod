@@ -142,11 +142,41 @@ select json_build_object('updated', (select count(*) from upd))::text;
  * - `created_at` 只前进，保持「重新上架」语义。
  */
 export function buildMergeDriveLinksSql(batch) {
-  const rows = batch.map((r) => ({ id: r.id, created_at: r.createdAt, drive_links: r.driveLinks }));
+  const rows = batch.map((r) => ({
+    id: r.id,
+    created_at: r.createdAt,
+    drive_links: r.driveLinks ?? [],
+    base_label: r.baseLabel ?? "",
+  }));
   return `
 with incoming as (
-  select j.id, j.created_at, coalesce(j.drive_links, '[]'::jsonb) as drive_links
-  from jsonb_populate_recordset(null::mods, ${dollarQuote(JSON.stringify(rows))}::jsonb) j
+  select x.id, x.created_at,
+         coalesce(x.drive_links, '[]'::jsonb) as drive_links,
+         nullif(x.base_label, '') as base_label
+  from jsonb_to_recordset(${dollarQuote(JSON.stringify(rows))}::jsonb)
+       as x(id uuid, created_at timestamptz, drive_links jsonb, base_label text)
+),
+-- 旧行里没有 variant 的链接（合并前那张单版本卡）归到基变体；
+-- 与新链接完全相同的（同平台同 URL）直接丢掉，否则前台会多出一个「默认」分组。
+existing as (
+  select i.id,
+         coalesce((
+           select jsonb_agg(
+                    case
+                      when link->>'variant' is null and i.base_label is not null
+                        then link || jsonb_build_object('variant', i.base_label)
+                      else link
+                    end
+                  )
+           from jsonb_array_elements(coalesce(m.drive_links, '[]'::jsonb)) as link
+           where i.base_label is null
+              or not exists (
+                   select 1 from jsonb_array_elements(i.drive_links) as inc
+                   where inc->>'platform' = link->>'platform' and inc->>'url' = link->>'url'
+                 )
+         ), '[]'::jsonb) as drive_links
+  from incoming i
+  join mods m on m.id = i.id
 ),
 upd as (
   update mods m
@@ -160,10 +190,12 @@ upd as (
                  sort_key
           from (
             select value as link, 0 as dedupe_ord, 1000000 + idx as sort_key
-            from jsonb_array_elements(coalesce(m.drive_links, '[]'::jsonb)) with ordinality as e(value, idx)
+            from existing e, jsonb_array_elements(e.drive_links) with ordinality as t(value, idx)
+            where e.id = m.id
             union all
             select value as link, ord as dedupe_ord, ord as sort_key
-            from jsonb_array_elements(i.drive_links) with ordinality as t(value, ord)
+            from incoming i, jsonb_array_elements(i.drive_links) with ordinality as t(value, ord)
+            where i.id = m.id
           ) candidates
           order by coalesce(link->>'variant', ''), link->>'platform', dedupe_ord desc
         ) picked
