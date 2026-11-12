@@ -85,6 +85,11 @@ export const characterImageMap: Record<string, string> = {
   "穗穗": "/character-imgs/穗穗.webp",
   "锁暝": "/character-imgs/锁暝.webp",
   "心月狐": "/character-imgs/心月狐.webp",
+  // 莉莉（Lily）—— 2026-11-12 随 3.8「Lilies in a Dying Dream」开池上线，
+  // 五星衍射配枪。当天 GameBanana 的 `Lily Wartime`（分类 Lily）就是她。
+  // 头像是**占位图**（用户 2026-11-12 要求先用占位）：近白底 + 黑色「莉」字，
+  // 与「皮肤.png / 其他.png」同一套风格，128×128 webp。等有专属立绘再换同名文件。
+  "莉莉": "/character-imgs/莉莉.webp",
 } as const;
 
 /**

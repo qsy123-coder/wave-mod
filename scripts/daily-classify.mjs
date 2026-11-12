@@ -20,6 +20,10 @@ export const CHARACTER_PREFIX_MAP = [
   { prefix: "玄翎", character: "玄翎" },
   { prefix: "洛瑟菈", character: "洛瑟菈" },
   { prefix: "穗穗", character: "穗穗" },
+  // 莉莉（Lily，3.8 上半新角色，2026-11-12 开池）。「莉莉皮肤」写在前面 ——
+  // 与「千咲皮肤 / 琳奈皮肤 / 女漂皮肤」同一套：皮肤类 title 保留完整 key（文件名原样）。
+  { prefix: "莉莉皮肤", character: "莉莉" },
+  { prefix: "莉莉", character: "莉莉" },
   { prefix: "相里要", character: "相里要" },
   { prefix: "达妮娅", character: "达妮娅" },
   { prefix: "女漂皮肤", character: "女漂" },

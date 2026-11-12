@@ -57,6 +57,9 @@ export const characters = [
   "穗穗",
   "锁暝",
   "心月狐",
+  // 莉莉（Lily）：3.8「Lilies in a Dying Dream」上半的新五星（2026-11-12 开池）。
+  // 2026-11-12 按用户要求登记为站内分类，头像先用占位图（见 character-images.ts）。
+  "莉莉",
 ] as const;
 
 export const defaultCharacterSuggestions = [...characters] as string[];

@@ -72,6 +72,9 @@ const CHARACTER_PREFIX_MAP = [
   { prefix: "穗穗", character: "穗穗" },
   { prefix: "相里要", character: "相里要" },
   { prefix: "达妮娅", character: "达妮娅" },
+  // 2026-11-12 补入：与 daily-classify.mjs 同步（莉莉 = 3.8 上半新角色）。
+  { prefix: "莉莉皮肤", character: "莉莉" },
+  { prefix: "莉莉", character: "莉莉" },
   { prefix: "女漂皮肤", character: "女漂" },
   { prefix: "琳奈皮肤", character: "琳奈" },
   { prefix: "千咲皮肤", character: "千咲" },

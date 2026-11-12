@@ -92,6 +92,22 @@ describe("resolveCharacterAndTitle", () => {
       title: "锁暝-特效更改-深黑",
     });
   });
+
+  // 莉莉是 3.8 上半新角色（2026-11-12 开池）。没这条前缀时默认分支会把
+  // title 连同「莉莉-」一起留下 —— 展示上不是文件名，去重键也跟着错位。
+  it("莉莉-：前缀表命中，title 去前缀", () => {
+    expect(resolveCharacterAndTitle("莉莉-战时套装 by bicolexpress")).toEqual({
+      character: "莉莉",
+      title: "战时套装 by bicolexpress",
+    });
+  });
+
+  it("莉莉皮肤：与千咲皮肤同口径，title 保留完整 key", () => {
+    expect(resolveCharacterAndTitle("莉莉皮肤[白日]")).toEqual({
+      character: "莉莉",
+      title: "莉莉皮肤[白日]",
+    });
+  });
 });
 
 describe("dedupKey", () => {
