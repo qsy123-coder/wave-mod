@@ -63,6 +63,36 @@ describe("mergeVariantRows（无清单，按名字推断）", () => {
     expect(merged.find((item) => item.driveLinks[0].url.includes("SomeoneElse"))).toBeTruthy();
   });
 
+  // 2026-11-13：真实 W-2026.11.11 目录（奥古斯塔/莫宁/琳奈）暴露的三处推断缺陷。
+  it("编号后面还带版本括号时，基变体仍是「1」，顺序按编号升序", () => {
+    const rows = [
+      row("奥古斯塔-日光冠军 4（Thicc NSFW） by Alunoop"),
+      row("奥古斯塔-日光冠军 1 by Alunoop"),
+      row("奥古斯塔-日光冠军 3（Thicc SFW） by Alunoop"),
+      row("奥古斯塔-日光冠军 2（NSFW） by Alunoop"),
+    ];
+    const [card] = mergeVariantRows(rows, null);
+
+    expect(card.title).toBe("奥古斯塔-日光冠军 1 by Alunoop");
+    expect(card.driveLinks.map((link) => link.variant)).toEqual([
+      "1",
+      "2（NSFW）",
+      "3（Thicc SFW）",
+      "4（Thicc NSFW）",
+    ]);
+  });
+
+  it("分享名继承了画廊编号（`… 3（NSFW）-4`）时，标签不带那个 -4", () => {
+    const rows = [
+      row("莫宁-月光幻影 1 by Alunoop", [img("1.jpg")]),
+      row("莫宁-月光幻影 3（NSFW）-4 by Alunoop", [img("3.jpg")]),
+    ];
+    const [card] = mergeVariantRows(rows, null);
+
+    expect(Object.keys(card.variantImages)).toEqual(["1", "3（NSFW）"]);
+    expect(card.driveLinks.map((link) => link.variant)).toEqual(["1", "3（NSFW）"]);
+  });
+
   it("没有作者的名字不合并（`夏空-校服-粉` 这类可能是不同 mod）", () => {
     const rows = [row("夏空-校服-粉", [img("1.png")]), row("夏空-校服-蓝", [img("2.png")])];
     expect(mergeVariantRows(rows, null)).toHaveLength(2);

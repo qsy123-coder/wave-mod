@@ -33,6 +33,22 @@ describe("looseImageKey", () => {
       looseImageKey("UI-通用油亮质感贴图 mod_2.exe"),
     );
   });
+
+  // 2026-11-13：分享名没有扩展名，标题里的版本号小数被 `/\\.[^.]+$/` 当成扩展名削掉，
+  // 键变成「洛瑟菈-酒与花 3」，postGalleryKey 随即返回 null ⇒ 后台永远推断不出同帖分组，
+  // 只能靠上传 .mod-groups.json 才能合并。
+  it("标题里的小数版本号不会被当成扩展名", () => {
+    expect(looseImageKey("洛瑟菈-酒与花 3.6 贴图修正 by PebbleRox")).toBe("洛瑟菈-酒与花 3.6 贴图修正");
+    expect(looseImageKey("绯雪-Hiyuki-Pure Serenade_绯雪-清光虔愿（3.5 texture fixed） by PebbleRox")).toBe(
+      "绯雪-hiyuki-pure serenade_绯雪-清光虔愿（3.5 texture fixed）",
+    );
+  });
+
+  it("分享名与它的预览图落到同一个键（有没有扩展名都行）", () => {
+    expect(looseImageKey("洛瑟菈-酒与花 3.6 贴图修正 by PebbleRox")).toBe(
+      looseImageKey("洛瑟菈-酒与花 3.6 贴图修正-2 by PebbleRox-1.jpg"),
+    );
+  });
 });
 
 describe("postGalleryKey", () => {
@@ -61,6 +77,21 @@ describe("postGalleryKey", () => {
   it("作者不同的同名图不会并到一起", () => {
     expect(postGalleryKey("女漂-星界调制器 1 by Alunoop.jpg")).not.toBe(
       postGalleryKey("女漂-星界调制器 1 by SomeoneElse.jpg"),
+    );
+  });
+
+  it("标题里带小数版本号的分享名也能推成同一个键", () => {
+    const bare = "洛瑟菈-酒与花 3.6 贴图修正 by PebbleRox";
+    const image = "洛瑟菈-酒与花 3.6 贴图修正 by PebbleRox-1.jpg";
+    const expected = "洛瑟菈-酒与花 3.6 贴图修正 :: pebblerox";
+
+    expect(postGalleryKey(bare)).toBe(expected);
+    expect(postGalleryKey(image)).toBe(expected);
+  });
+
+  it("画廊编号 + 变体编号连着时一起削掉（mod_1 / mod_2-2 同组）", () => {
+    expect(postGalleryKey("UI-通用油亮质感贴图 mod_1 by neerajksah.exe")).toBe(
+      postGalleryKey("UI-通用油亮质感贴图 mod_2-2 by neerajksah.exe"),
     );
   });
 

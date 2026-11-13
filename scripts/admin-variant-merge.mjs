@@ -61,15 +61,29 @@ function bucketFor(row, hits) {
   return { key: `gallery::${galleryKey}`, hit: null, inferred: true };
 }
 
-/** 变体标签（推断模式）：相对帖子基础名的差异部分 */
+/** 存放于名字末尾的画廊编号（`X 3（NSFW）-4 by 作者` 里那个 `-4`） */
+const GALLERY_NUMBER_TAIL_RE = /[-_]\d{1,3}$/;
+
+/**
+ * 变体标签（推断模式）：相对帖子基础名的差异部分。
+ *
+ * 先削掉末尾的画廊编号：命名工坊会把同一帖子的附加图命名成 `…-4`，分享名可能
+ * 继承成 `莫宁-月光幻影 3（NSFW）-4`。只有削完还剩东西时才削，否则
+ * `UI-通用油亮质感贴图 mod_1` 这类名字会整个变成「默认」。
+ */
 function inferredVariantLabel(name, galleryKey) {
   const [stem = ""] = String(galleryKey ?? "").split(" :: ");
-  let text = String(name ?? "").trim().replace(/\.(?:exe|zip|7z|rar)$/i, "");
+  let text = String(name ?? "").trim().replace(/\.[a-z0-9]{2,5}$/i, "");
   const authorAt = /\s+by\s+[^()（）]+$/i.exec(text);
   if (authorAt) text = text.slice(0, authorAt.index);
   if (stem && text.toLowerCase().startsWith(stem.toLowerCase())) {
     text = text.slice(stem.length);
   }
+  text = text.replace(/^[\s\-–—_:：·]+|[\s\-–—_:：·]+$/g, "").trim();
+
+  const withoutGallery = text.replace(GALLERY_NUMBER_TAIL_RE, "").trim();
+  if (withoutGallery) text = withoutGallery;
+
   text = text.replace(/^[\s\-–—_:：·]+|[\s\-–—_:：·]+$/g, "").trim();
   return text || "默认";
 }
@@ -87,15 +101,45 @@ function uniqueLabel(label, used) {
   return next;
 }
 
-/** 名字末尾的变体编号：` 1` / `-2` / `_3`。用于推断模式挑基变体、排顺序 */
+/** 结尾的版本括号：`（NSFW）` / `(Thicc SFW)` / `（NSFW）-4` */
+const TRAILING_PAREN_RE = /[（(][^()（）]*[)）]$/;
+
+/**
+ * 名字末尾的变体编号：` 1` / `-2` / `_3` / ` 3（NSFW）`。用于推断模式挑基变体、排顺序。
+ *
+ * 编号后面可能还跟着版本括号（`奥古斯塔-日光冠军 3（Thicc SFW）`），
+ * 所以先把括号和画廊编号剥掉再取数字，否则这些行一律算「无编号」排到基变体前面。
+ */
 function trailingVariantNumber(name) {
   let text = String(name ?? "").trim().replace(/\.(?:exe|zip|7z|rar|jpe?g|png|webp|gif)$/i, "");
   // 编号在 ` by 作者` 前面：先去掉作者再找末尾编号
   const authorAt = /\s+by\s+[^()（）]+$/i.exec(text);
   if (authorAt) text = text.slice(0, authorAt.index);
+
+  for (;;) {
+    const next = text
+      .replace(GALLERY_NUMBER_TAIL_RE, "")
+      .replace(TRAILING_PAREN_RE, "")
+      .trim();
+    if (next === text) break;
+    text = next;
+  }
+
   const match = /^(.*?)(?:\s+(\d{1,3})|[-_](\d{1,3}))$/.exec(text);
   if (!match) return null;
   return { stem: match[1].trim(), order: Number(match[2] ?? match[3]) };
+}
+
+/** 行名（去扩展名、去作者）和帖子键里的基础名是否完全一致 */
+function isBaseNamedRow(row, galleryKey) {
+  const [stem = ""] = String(galleryKey ?? "").split(" :: ");
+  if (!stem) return false;
+  let text = String(row.sourceKey ?? row.title ?? "")
+    .trim()
+    .replace(/\.(?:exe|zip|7z|rar)$/i, "");
+  const authorAt = /\s+by\s+[^()（）]+$/i.exec(text);
+  if (authorAt) text = text.slice(0, authorAt.index);
+  return text.trim().toLowerCase() === stem.trim().toLowerCase();
 }
 
 /**
@@ -167,6 +211,12 @@ function orderBucketRows(bucket, hits) {
       const labelB = hitForRow(b, hits)?.variant?.label;
       return (rank.get(labelA) ?? Number.MAX_SAFE_INTEGER) - (rank.get(labelB) ?? Number.MAX_SAFE_INTEGER);
     }
+    // 基变体优先：名字完全等于帖子基础名的那一行（`X by 作者`，没有编号）
+    const galleryKey = bucket.key.replace(/^gallery::/, "");
+    const baseA = isBaseNamedRow(a, galleryKey);
+    const baseB = isBaseNamedRow(b, galleryKey);
+    if (baseA !== baseB) return baseA ? -1 : 1;
+
     const infoA = trailingVariantNumber(a.sourceKey ?? a.title);
     const infoB = trailingVariantNumber(b.sourceKey ?? b.title);
     if (!infoA && infoB) return -1;

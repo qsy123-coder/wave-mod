@@ -294,6 +294,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
   const txtInputRef = useRef<HTMLInputElement>(null);
   const imagesInputRef = useRef<HTMLInputElement>(null);
   const manifestInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const [quarkRecords, setQuarkRecords] = useState<QuarkRecord[]>([]);
   const [txtRecords, setTxtRecords] = useState<TxtRecord[]>([]);
@@ -304,6 +305,7 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
   const [imageFileCount, setImageFileCount] = useState(0);
   const [manifest, setManifest] = useState<unknown>(null);
   const [manifestName, setManifestName] = useState("");
+  const [folderName, setFolderName] = useState("");
 
   const [rows, setRows] = useState<BatchUploadRow[]>([]);
   const [date, setDate] = useState(todayShanghai);
@@ -386,6 +388,107 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
     // 用户在表里改过的字段要按行 id 带回来，否则重选图片会把改动抹掉。
     setRows((previous) =>
       carryRowEdits(buildRows(quarkRecords, txtRecords, index, characterSet, existingSet, manifest), previous),
+    );
+  };
+
+  /**
+   * 选一整个日期目录（`W-YYYY.M.D`），一次把 CSV / txt / 预览图 / `.mod-groups.json` 全吃进来。
+   *
+   * 之前每个输入框各选一次，分组清单还藏在「可选」里 —— 漏选就静默退化成逐条入库。
+   * 这里不复用 `handleCsv` / `handleImages`：它们各自 `rebuild()` 用的是**上一次渲染**的
+   * state，连着调会把先解析好的记录覆盖掉。一次性算完再落 state。
+   */
+  const handleFolder = async (files: FileList | null) => {
+    const list = Array.from(files ?? []);
+    if (list.length === 0) return;
+
+    setParseError("");
+    setResult(null);
+
+    const csvFiles = list.filter((f) => /\.csv$/i.test(f.name));
+    const txtFiles = list.filter((f) => /\.txt$/i.test(f.name));
+    const imageFiles = list.filter((f) => /^image\//i.test(f.type) || /\.(png|jpe?g|webp|gif)$/i.test(f.name));
+    // 目录里可能有多份（历史遗留 / 备份），取修改时间最新的那份
+    const manifestFiles = list
+      .filter((f) => f.name.toLowerCase() === ".mod-groups.json" || /\.mod-groups\.json$/i.test(f.name))
+      .sort((a, b) => b.lastModified - a.lastModified);
+
+    // 目录名：webkitRelativePath = "W-2026.11.13/分享结果导出-xxx.csv"
+    const relative = list.find((f) => f.webkitRelativePath)?.webkitRelativePath ?? "";
+    setFolderName(relative.split("/")[0] ?? "");
+
+    // 同一天可能导出好几批（2026-11-12 就有 5 份 CSV），全部读进来再去重，
+    // 与 `upload-daily-by-date.mjs` 的口径一致；只读第一份会静默漏掉当天大半的 mod。
+    const quarkByKey = new Map<string, QuarkRecord>();
+    let csvError = "";
+    for (const file of csvFiles) {
+      try {
+        const records = parseQuarkCsvText(await readFileText(file)) as QuarkRecord[];
+        for (const record of records) {
+          if (!quarkByKey.has(record.key)) quarkByKey.set(record.key, record);
+        }
+      } catch (error) {
+        csvError = error instanceof Error ? error.message : "CSV 解析失败";
+      }
+    }
+    const nextQuark: QuarkRecord[] = [...quarkByKey.values()];
+    if (nextQuark.length === 0 && csvError) setParseError(csvError);
+
+    // txt 同样可能有多份（导出批次 + 手工整理），按「先到先得」合并成一个列表
+    const txtByName = new Map<string, TxtRecord>();
+    for (const file of txtFiles) {
+      try {
+        const text = await file.text();
+        let parsed = parseXunleiTxt(text) as TxtRecord[];
+        if (parsed.length === 0) parsed = parseLooseXunleiTxt(text);
+        // GBK 导出的 txt 会被读成乱码，解析不出记录再换编码试一次
+        if (parsed.length === 0) {
+          const buffer = await file.arrayBuffer();
+          try {
+            parsed = parseXunleiTxt(new TextDecoder("gbk").decode(buffer)) as TxtRecord[];
+          } catch {
+            parsed = [];
+          }
+        }
+        if (parsed.length === 0) parsed = parseLooseXunleiTxt(text);
+        for (const record of parsed) {
+          if (!txtByName.has(record.name)) txtByName.set(record.name, record);
+        }
+      } catch {
+        /* 单份坏 txt 不影响 CSV */
+      }
+    }
+    const nextTxt: TxtRecord[] = [...txtByName.values()];
+
+    const nextImages = buildImageIndex(imageFiles);
+    let nextManifest: unknown = null;
+    let nextManifestName = "";
+    if (manifestFiles[0]) {
+      try {
+        const parsed = normalizeManifest(JSON.parse(await manifestFiles[0].text()) as unknown);
+        if (parsed) {
+          nextManifest = parsed;
+          nextManifestName = manifestFiles[0].name;
+        }
+      } catch {
+        /* 清单坏掉就退回按名字推断，不阻断上传 */
+      }
+    }
+
+    setQuarkRecords(nextQuark);
+    setTxtRecords(nextTxt);
+    setImageIndex(nextImages);
+    setImageFileCount(imageFiles.length);
+    setManifest(nextManifest);
+    setManifestName(nextManifestName);
+    setRows(buildRows(nextQuark, nextTxt, nextImages, characterSet, existingSet, nextManifest));
+
+    const groupCount = nextManifest
+      ? Object.keys((nextManifest as { groups?: Record<string, unknown> }).groups ?? {}).length
+      : 0;
+    toast.success(
+      `已读入目录：CSV ${nextQuark.length} 条、迅雷 ${nextTxt.length} 条、图片 ${imageFiles.length} 张` +
+        (groupCount > 0 ? `、分组 ${groupCount} 个` : "（无分组清单，按名字推断）"),
     );
   };
 
@@ -733,6 +836,35 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
       {mode === "batch" ? (
         <>
       <section className="neo-card-lg bg-[var(--neo-panel)] p-5 text-black">
+        {/* 一键读目录：CSV / txt / 预览图 / .mod-groups.json 都在日期目录里，不用分四次选 */}
+        <div className="mb-4 border-4 border-black bg-[#d8f5c8] p-4 shadow-[5px_5px_0px_0px_#000]">
+          <p className="mb-2 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em]">
+            <FolderOpen className="size-4" /> 一键读入日期目录（推荐）
+          </p>
+          <input
+            ref={folderInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+            onChange={(event) => {
+              void handleFolder(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            className="neo-button-outline w-full px-3 py-2.5 text-sm font-black"
+            onClick={() => folderInputRef.current?.click()}
+          >
+            {folderName ? `已读入 ${folderName}，重新选择` : "选择 W-YYYY.M.D 日期目录"}
+          </button>
+          <p className="mt-1 text-[10px] font-bold text-black/60">
+            自动识别 `分享结果导出-*.csv`、迅雷 txt、全部预览图，以及 `.mod-groups.json`
+            —— 有多附件帖子的日期目录会自己合并成一张卡，不需要单独上传清单。
+          </p>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="border-4 border-black bg-white p-4 shadow-[5px_5px_0px_0px_#000]">
             <p className="mb-2 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em]">
@@ -824,7 +956,8 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
               {manifestName ? `已载入 ${manifestName}，重新选择` : "选择 .mod-groups.json"}
             </button>
             <p className="mt-1 text-[10px] font-bold text-black/55">
-              传了清单才能拿到 `Base SFW` 这类准确版本名；不传则按名字推断
+              可不传：选「一键读入日期目录」会自动找同目录的 `.mod-groups.json`；都没有就按名字推断，
+              同帖多版本照样合并，只是版本名会是 `1` / `2（NSFW）` 这种
             </p>
           </div>
 

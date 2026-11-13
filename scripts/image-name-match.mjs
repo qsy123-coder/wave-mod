@@ -28,10 +28,20 @@ const VARIANT_PAREN_RE = new RegExp(
 /** 没有版本词时的兜底后缀：`-2`、`–3` */
 const VARIANT_NUMBER_RE = /[-–]\d{1,3}\s*$/;
 
+/**
+ * 只削**已知的文件扩展名**，不能用 `/\\.[^.]+$/` 这种「最后一个点之后全削」的写法。
+ *
+ * 2026-11-13 踩到的坑：分享名没有扩展名，但标题里有版本号小数（
+ * `洛瑟菈-酒与花 3.6 贴图修正 by PebbleRox`）—— 旧正则把 `.6 贴图修正 by PebbleRox`
+ * 整段当扩展名削掉，键变成 `洛瑟菈-酒与花 3`，于是 `postGalleryKey` 直接返回 null
+ * （找不到 ` by 作者`），同帖的多个变体永远推断不成一组，后台只能靠传 JSON 合并。
+ */
+const FILE_EXT_RE = /\.(?:exe|zip|7z|rar|jpe?g|png|webp|gif|jfif|avif|bmp|mp4|mov|webm)$/i;
+
 export function looseImageKey(value) {
   let text = String(value ?? "").trim();
   // 扩展名
-  text = text.replace(/\.[^./\\]+$/, "");
+  text = text.replace(FILE_EXT_RE, "");
   // 作者：` by xxx`（作者名里可能有括号，所以只在结尾匹配）
   text = text.replace(/\s+by\s+[^()（）]+$/i, "");
   // 版本后缀可能连着出现（`X（Free）-2`），循环削到不再变化
@@ -67,7 +77,7 @@ const POST_VARIANT_SPACE_NUMBER_RE = /\s+\d{1,3}\s*$/;
  */
 export function postGalleryKey(value) {
   let text = String(value ?? "").trim();
-  text = text.replace(/\.[^./\\]+$/, "");
+  text = text.replace(FILE_EXT_RE, "");
   // 作者名里可能有括号，所以只在结尾匹配
   const authorMatch = /\s+by\s+([^()（）]+)$/i.exec(text);
   if (!authorMatch) return null;
@@ -75,10 +85,12 @@ export function postGalleryKey(value) {
   // 画廊编号有时挂在作者后面（`by Alunoop-7`），不属于作者名
   const author = authorMatch[1].replace(POST_GALLERY_NUMBER_RE, "").trim().toLowerCase();
   if (!author) return null;
-  let stem = text.slice(0, authorMatch.index).replace(POST_GALLERY_NUMBER_RE, "");
-  // 版本后缀可能连着出现（`X（Free）-2 by 作者`），循环削到不再变化
+  let stem = text.slice(0, authorMatch.index);
+  // 后缀会连着出现（`X（Free）-2`、`mod_2-2`），循环削到不再变化。
+  // 画廊编号必须放进循环：`mod_2-2` 只削一刀会剩 `mod_2`，和 `mod_1` 分成两个键。
   for (;;) {
     const next = stem
+      .replace(POST_GALLERY_NUMBER_RE, "")
       .replace(VARIANT_NUMBER_RE, "")
       .replace(POST_VARIANT_SPACE_NUMBER_RE, "")
       .replace(VARIANT_PAREN_RE, "");
