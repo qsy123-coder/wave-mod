@@ -405,13 +405,26 @@ export function BatchUploadClient({ characters, existingKeys }: Props) {
     setParseError("");
     setResult(null);
 
-    const csvFiles = list.filter((f) => /\.csv$/i.test(f.name));
-    const txtFiles = list.filter((f) => /\.txt$/i.test(f.name));
+    // 相对路径深度：`W-2026.11.13/GameBanana/x.csv` 的顶层是深度 1
+    const depthOf = (f: File) => (f.webkitRelativePath || f.name).split("/").length - 1;
+
+    // CSV / txt 优先只取日期目录**顶层**的：子目录里的往往是历史批次的残留或另一天的
+    // 备份（W-2026.11.12 的「新建文件夹」里就躺着别的批次导出）。
+    // 只有顶层一份都没有时才下探子目录 —— W-2026.11.13 把导出放在 `GameBanana/` 里。
+    const pickTopLevel = (files: File[]) => {
+      const top = files.filter((f) => depthOf(f) === 0);
+      return top.length > 0 ? top : files;
+    };
+
+    const csvFiles = pickTopLevel(list.filter((f) => /\.csv$/i.test(f.name)));
+    const txtFiles = pickTopLevel(list.filter((f) => /\.txt$/i.test(f.name)));
     const imageFiles = list.filter((f) => /^image\//i.test(f.type) || /\.(png|jpe?g|webp|gif)$/i.test(f.name));
-    // 目录里可能有多份（历史遗留 / 备份），取修改时间最新的那份
-    const manifestFiles = list
-      .filter((f) => f.name.toLowerCase() === ".mod-groups.json" || /\.mod-groups\.json$/i.test(f.name))
-      .sort((a, b) => b.lastModified - a.lastModified);
+    // 分组清单同理：顶层那份才是这次命名的结果
+    const manifestFiles = pickTopLevel(
+      list
+        .filter((f) => f.name.toLowerCase() === ".mod-groups.json")
+        .sort((a, b) => b.lastModified - a.lastModified),
+    );
 
     // 目录名：webkitRelativePath = "W-2026.11.13/分享结果导出-xxx.csv"
     const relative = list.find((f) => f.webkitRelativePath)?.webkitRelativePath ?? "";
