@@ -112,6 +112,65 @@ describe("mergeVariantRows（无清单，按名字推断）", () => {
   });
 });
 
+describe("mergeVariantRows（夸克导出把作者摘掉）", () => {
+  // 2026-11-13 W-2026.11.13 真实事故：CSV 里是 `男漂-联动灵感服装_1`（无作者），
+  // 清单里是 `男漂-联动灵感服装_1 by Quzmick`。旧逻辑用 normalizeGroupKey 比对，
+  // 两边都带作者/都不带、且末尾 `_1` 被削掉，条条落空 ⇒ 18 条全部逐条入库。
+  const manifest = {
+    version: 1,
+    groups: {
+      "https://gamebanana.com/mods/596145": {
+        postUrl: "https://gamebanana.com/mods/596145",
+        character: "男漂",
+        title: "男漂-联动灵感服装_1 by Quzmick",
+        baseName: "男漂-联动灵感服装_1 by Quzmick",
+        variants: [
+          { label: "Rovercollab 3-8 V0", name: "男漂-联动灵感服装_1 by Quzmick", localName: "Rover - Collab Inspired Outfit_1.zip", sourceName: "rovercollab_3-8_v0.zip" },
+          { label: "Rovercollab 3-7-v2", name: "男漂-联动灵感服装_2 by Quzmick", localName: "Rover - Collab Inspired Outfit_2.zip", sourceName: "rovercollab_3-7-v2.zip" },
+        ],
+      },
+    },
+  };
+
+  it("无作者的分享名能匹配上带作者的清单，并合并成一张卡", () => {
+    const rows = [row("男漂-联动灵感服装_1"), row("男漂-联动灵感服装_2")];
+    const merged = mergeVariantRows(rows, manifest);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].driveLinks.map((link) => link.variant)).toEqual([
+      "Rovercollab 3-8 V0",
+      "Rovercollab 3-7-v2",
+    ]);
+    // 标题取清单的基础名（带作者），与每日脚写入库的口径一致
+    expect(merged[0].title).toBe("男漂-联动灵感服装_1 by Quzmick");
+  });
+
+  it("没有清单时也能按序号兜底分组（标签退化成 1 / 2）", () => {
+    const rows = [row("男漂-联动灵感服装_1"), row("男漂-联动灵感服装_2")];
+    const merged = mergeVariantRows(rows, null);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].driveLinks.map((link) => link.variant)).toEqual(["1", "2"]);
+  });
+
+  it("只带序号、名字不相干的不会被并进来", () => {
+    const rows = [row("男漂-联动灵感服装_1"), row("男漂-新联邦士兵_1")];
+    expect(mergeVariantRows(rows, null)).toHaveLength(2);
+  });
+
+  it("序号顺序按数字升序，不是字符串顺序", () => {
+    const rows = [
+      row("男漂-联动灵感服装_10"),
+      row("男漂-联动灵感服装_2"),
+      row("男漂-联动灵感服装_1"),
+    ];
+    const merged = mergeVariantRows(rows, null);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].driveLinks.map((link) => link.variant)).toEqual(["1", "2", "10"]);
+  });
+});
+
 describe("mergeVariantRows（带 .mod-groups.json）", () => {
   const manifest = {
     version: 1,

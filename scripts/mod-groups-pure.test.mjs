@@ -242,4 +242,58 @@ describe("matchRecordsToGroups", () => {
     expect(matchRecordsToGroups([], null)).toMatchObject({ groups: [], unmatched: [] });
     expect(matchRecordsToGroups([], { version: 99 })).toMatchObject({ groups: [] });
   });
+
+  // 2026-11-13 W-2026.11.13：夸克导出把分享名里的 ` by 作者` 摘掉了，
+  // 清单里却是带作者的写法。老口径条条落空 ⇒ 18 条全部逐条入库。
+  describe("分享名被摘掉作者时仍能匹配", () => {
+    const authorlessManifest = {
+      version: 1,
+      groups: {
+        "https://gamebanana.com/mods/596145": {
+          postUrl: "https://gamebanana.com/mods/596145",
+          character: "男漂",
+          title: "男漂-联动灵感服装_1 by Quzmick",
+          baseName: "男漂-联动灵感服装_1 by Quzmick",
+          variants: [
+            {
+              label: "Rovercollab 3-8 V0",
+              name: "男漂-联动灵感服装_1 by Quzmick",
+              localName: "Rover - Collab Inspired Outfit_1.zip",
+              sourceName: "rovercollab_3-8_v0.zip",
+            },
+            {
+              label: "Rovercollab 3-7-v2",
+              name: "男漂-联动灵感服装_2 by Quzmick",
+              localName: "Rover - Collab Inspired Outfit_2.zip",
+              sourceName: "rovercollab_3-7-v2.zip",
+            },
+          ],
+        },
+      },
+    };
+
+    it("`X_1` 能对上清单里的 `X_1 by 作者`", () => {
+      const records = [
+        { key: "男漂-联动灵感服装_1", url: "https://pan.quark.cn/s/1" },
+        { key: "男漂-联动灵感服装_2", url: "https://pan.quark.cn/s/2" },
+      ];
+
+      const result = matchRecordsToGroups(records, authorlessManifest);
+
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0].matches.map((m) => m.variant.label)).toEqual([
+        "Rovercollab 3-8 V0",
+        "Rovercollab 3-7-v2",
+      ]);
+    });
+
+    it("编号不同的两条不会被并到同一个变体", () => {
+      const records = [{ key: "男漂-联动灵感服装_2", url: "https://pan.quark.cn/s/2" }];
+      const result = matchRecordsToGroups(records, authorlessManifest);
+
+      // 只有一个变体命中，不构成合并；命中的是 _2 那条
+      expect(result.groups).toHaveLength(0);
+      expect(result.recordHits.size).toBe(0);
+    });
+  });
 });

@@ -51,6 +51,40 @@ export function normalizeGroupKey(value) {
     .toLowerCase();
 }
 
+/** 名字末尾的 ` by 作者`（作者名里可能有括号，只在结尾匹配） */
+export function stripAuthorTag(value) {
+  return String(value ?? "")
+    .replace(ARCHIVE_EXT_RE, "")
+    .replace(/\s+by\s+[^()（）]+$/i, "")
+    .trim();
+}
+
+/**
+ * **严格**变体键：只统一大小写 / 括号 / 空白，**保留** `_1` `-2` 这类版本编号。
+ *
+ * 为什么要它（2026-11-13 W-2026.11.13）：夸克导出会把分享名里的 ` by 作者` 去掉，
+ * 目录里是 `男漂-联动灵感服装_1`，而命名工坊写进清单的是
+ * `男漂-联动灵感服装_1 by Quzmick`。`normalizeGroupKey` 会再把末尾 `_1` 也削掉，
+ * 于是 `_1` / `_2` / `_3` 全塌成同一个键 —— 既匹配不上清单，也没法区分变体。
+ * 这里保留编号，把作者摘掉后逐字比对，才能一一对上。
+ */
+export function strictVariantKey(value) {
+  return String(value ?? "")
+    .replace(/[\\/]+$/, "")
+    .replace(ARCHIVE_EXT_RE, "")
+    .replace(/[(（]\d+[)）]\s*$/, "")
+    .replace(/（/g, "(")
+    .replace(/）/g, ")")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/** 作者无关的严格键：`X_1 by 作者` 与 `X_1` 落到同一个键 */
+export function authorlessVariantKey(value) {
+  return strictVariantKey(stripAuthorTag(value));
+}
+
 /** 转义正则里的字面量；帖子标题里常带 `(` `)` `+` 等 */
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -327,34 +361,62 @@ export function matchRecordsToGroups(records, manifest) {
   const empty = { groups: [], recordHits: new Map(), unmatched: [] };
   if (!normalized) return empty;
 
+  /**
+   * 两级索引。`strict` 摘掉作者、**保留** `_1`/`-2` 版本编号后逐字比对；
+   * `loose` 是老口径（连末尾编号一起削）。
+   *
+   * 2026-11-13 W-2026.11.13：夸克导出把分享名里的 ` by 作者` 去掉了
+   * （`男漂-联动灵感服装_1`），而清单里是 `男漂-联动灵感服装_1 by Quzmick`。
+   * 老口径两侧都对不上 ⇒ 整批 18 条全部逐条入库。strict 先兜住这种情况；
+   * loose 保持原行为，用来兼容历史上「清单名和分享名只差编号」的老数据。
+   */
+  const strictIndex = new Map();
   const index = new Map();
+  const strictConflicts = new Set();
   const order = new Map(); // postUrl → 变体顺序（用于挑首图）
+
+  const remember = (key, value, onConflict) => {
+    if (!key) return;
+    if (strictIndex.has(key) && strictIndex.get(key) !== value) onConflict(key);
+    else strictIndex.set(key, value);
+  };
+
   for (const group of Object.values(normalized.groups)) {
     group.variants.forEach((variant, variantIndex) => {
       order.set(`${group.postUrl}|${variant.label}`, variantIndex);
+      const value = { group, variant };
       for (const raw of [variant.name, variant.localName, variant.sourceName]) {
+        remember(authorlessVariantKey(raw), value, (key) => strictConflicts.add(key));
         const key = normalizeGroupKey(raw);
         if (!key) continue;
         // 同一分享名对应多个变体时无法判断，保留第一个并让日志暴露（不在这里吞掉）
-        if (!index.has(key)) index.set(key, { group, variant });
+        if (!index.has(key)) index.set(key, value);
       }
     });
   }
+  // 同一个严格键命中多个不同变体 = 真的分不清，不能猜
+  for (const key of strictConflicts) strictIndex.delete(key);
 
   const hits = new Map(); // record → {group, variant}
   for (const record of records) {
-    const candidates = new Set([
-      normalizeGroupKey(record?.key),
-      normalizeGroupKey(resolveCanonicalKey(String(record?.key ?? ""))),
-      normalizeGroupKey(stripRenameSuffix(String(record?.key ?? ""))),
-    ]);
-    for (const key of candidates) {
-      const hit = key ? index.get(key) : null;
-      if (hit) {
-        if (!hits.has(record)) hits.set(record, hit);
-        break;
+    const rawKeys = [
+      record?.key,
+      resolveCanonicalKey(String(record?.key ?? "")),
+      stripRenameSuffix(String(record?.key ?? "")),
+    ];
+
+    let hit = null;
+    for (const raw of rawKeys) {
+      hit = strictIndex.get(authorlessVariantKey(raw)) ?? null;
+      if (hit) break;
+    }
+    if (!hit) {
+      for (const raw of rawKeys) {
+        hit = index.get(normalizeGroupKey(raw)) ?? null;
+        if (hit) break;
       }
     }
+    if (hit) hits.set(record, hit);
   }
 
   const perGroup = new Map();

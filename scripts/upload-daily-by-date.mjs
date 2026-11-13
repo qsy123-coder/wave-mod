@@ -372,6 +372,35 @@ function indexFilesInto(byBase, dir) {
  */
 const GALLERY_SUFFIX_RE = /^[-_](\d{1,3})$/;
 
+/** 日期目录里可能放 CSV 的位置：顶层优先，其次来源子目录 */
+const CSV_SOURCE_DIRS = ["", "GameBanana", "arca.live", "预览图"];
+
+/**
+ * 收集该日期目录要解析的 CSV，返回相对目录的路径列表。
+ *
+ * 顶层只要有一份就只用顶层（与「目录内去重」的老行为一致）；顶层没有才下探
+ * 来源子目录。W-2026.11.13 把导出放在了 `GameBanana/` 下，老逻辑直接判「无 CSV」
+ * 整批跳过 —— 用户看到的「今天的还是没合并」实际上是整批没上传。
+ */
+function collectDailyCsvs(dirPath) {
+  const top = readdirSync(dirPath).filter((fn) => fn.toLowerCase().endsWith(".csv"));
+  if (top.length > 0) return top;
+
+  const fromSources = [];
+  for (const source of CSV_SOURCE_DIRS) {
+    if (!source) continue;
+    const sourceDir = join(dirPath, source);
+    if (!existsSync(sourceDir)) continue;
+    for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.toLowerCase().endsWith(".csv")) {
+        fromSources.push(join(source, entry.name));
+      }
+    }
+    if (fromSources.length > 0) break; // 找到一批就停，别把多个来源混起来
+  }
+  return fromSources;
+}
+
 function buildImageIndex(dir) {
   const byBase = new Map();
   // 先扫顶层，再扫「预览图」子目录（子目录可能被顶层同名覆盖，需顶层优先）
@@ -684,7 +713,9 @@ where game_key = ${dollarQuote(GAME_KEY)};
     console.log(`===== ${dir.name} (created_at=${created_at}) =====`);
 
     // 3a. 解析该目录内 CSV
-    const csvs = readdirSync(dirPath).filter((fn) => fn.endsWith(".csv"));
+    // 顶层优先；顶层一份都没有时才下探来源子目录（W-2026.11.13 把导出放在了
+    // `GameBanana/` 里，只扫顶层会整批跳过并打印「无 CSV」）。
+    const csvs = collectDailyCsvs(dirPath);
     if (csvs.length === 0) {
       console.log(`   ⚠️ 无 CSV，跳过`);
       continue;
