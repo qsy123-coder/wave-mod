@@ -152,7 +152,14 @@ export function translate(rawBase, glossary, meta = {}) {
  * 版本号按 CLAUDE.md 的要求留在名称里（紧贴名称，在切换键与作者之前）。
  */
 export function composeKey({ characters = [], name = "", hotkeys = "", author = "" }) {
-  const chars = characters.map((c) => String(c).trim()).filter(Boolean).join(",");
+  // 角色段也要 sanitize：站内特殊分类 `Other/Misc` 带半角斜杠，直接拼进文件名会被
+  // journal 的 assertSafeName 拒掉（整批改名失败），Windows 本身也不允许。
+  // 统一走 sanitizeName（`/` → 全角 `／`），读取侧由 daily-classify 的
+  // `Other／Misc` 前缀规则还原成 `Other/Misc`，去重键不受影响。
+  const chars = characters
+    .map((c) => sanitizeName(c))
+    .filter(Boolean)
+    .join(",");
   const cleanName = sanitizeName(canonicalParens(name));
   const cleanHotkeys = sanitizeName(hotkeys).replace(/^（|）$/g, "");
   const cleanAuthor = sanitizeName(author).replace(/^by\s+/i, "");

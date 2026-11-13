@@ -71,4 +71,11 @@ describe("辅助函数", () => {
       "锁暝-特效更改（890）"
     );
   });
+
+  it("composeKey 对角色段也 sanitize：Other/Misc 的半角斜杠换成全角", () => {
+    // 2026-11-13：角色段原来原样拼接，`Other/Misc` 让整批改名卡在 assertSafeName
+    expect(
+      composeKey({ characters: ["Other/Misc"], name: "移除葫芦（WWMI）", hotkeys: "", author: "wakening" })
+    ).toBe("Other／Misc-移除葫芦（WWMI） by wakening");
+  });
 });

@@ -414,6 +414,9 @@ export function normalizeCharacterName(value: string) {
     // 而非裸「心」，全等别名匹配不到 ⇒ 前台多出假分类。与「心-大招状态-…」是同一角色
     // 的同一套东西，归一回去。括号形状有全角/半角/混排多种写法，由 canonicalizeParens 折叠。
     "心(含大招)": "心月狐",
+    // 文件名里只能写全角斜杠（Windows 不允许 `/`），读回来统一归到库内标准值。
+    // 与 scripts/daily-classify.mjs 的 CHARACTER_ALIASES 同步。
+    "Other／Misc": "Other/Misc",
   };
   const trimmed = value.trim();
   return CHARACTER_ALIASES[trimmed] ?? CHARACTER_ALIASES[canonicalizeParens(trimmed)] ?? trimmed;

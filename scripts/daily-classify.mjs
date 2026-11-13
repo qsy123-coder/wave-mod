@@ -62,6 +62,8 @@ export const CHARACTER_ALIASES = {
   "背包 编队 商城 用户界面": "UI",
   "心(含大招)": "心月狐",
   "爱弥斯饰品[雪绒豹豹]": "爱弥斯",
+  // 文件名里只能写全角斜杠（Windows 不允许 `/`），读回来统一归到库内标准值
+  "Other／Misc": "Other/Misc",
 };
 
 /** 前缀 → UI 分类（如「索拉指南-长离动态nsfw」整包皮肤归 UI，title 去前缀） */
@@ -134,6 +136,14 @@ export function resolveCharacterAndTitle(key) {
   if (key.startsWith("尤诺的月环")) {
     return { character: "尤诺", title: key.slice("尤诺".length) };
   }
+
+  // 站内特殊分类 `Other/Misc`：半角 `/` 是 Windows 非法字符，日期目录里的文件名
+  // 只能写全角 `／`（命名工坊 composeKey 统一 sanitize 出来的形状）。这里还原成库内
+  // 标准值，title 保留完整 key（同莫宁 / 周本），去重键仍是 `Other/Misc|<文件名>`。
+  // 不做这个还原，文件名里的 `Other／Misc` 会原样当成角色 ⇒ 前台凭空多一个分类。
+  if (key.startsWith("Other／Misc")) return { character: "Other/Misc", title: key };
+  // 半角写法在 Windows 上落不了盘，但旧数据 / 手工文件里可能出现，一并认掉
+  if (key.startsWith("Other/Misc")) return { character: "Other/Misc", title: key };
 
   const reshare = resolveReshareAlias(key);
   if (reshare) return reshare;

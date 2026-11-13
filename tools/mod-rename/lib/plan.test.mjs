@@ -181,6 +181,21 @@ describe("planItem", () => {
     expect(row.issues.map((i) => i.code)).toContain("endfield");
   });
 
+  it("特殊分类 Other/Misc：文件名写全角斜杠，仍解析回 Other/Misc，不判 parse-mismatch", () => {
+    const row = planItem({
+      item: item("Remove Gourd (WWMI)_3.jpg", { kind: "image", images: [] }),
+      suggestion: sug(["Other/Misc"], "移除葫芦（WWMI）", { author: "wakening" }),
+      knownCharacters: new Set(["Other/Misc"]),
+      existingDedup: new Set(),
+      existingNames: new Set(),
+      glossary,
+    });
+    expect(row.applicable).toBe(true);
+    expect(row.to).toBe("Other／Misc-移除葫芦（WWMI） by wakening");
+    expect(row.character).toBe("Other/Misc");
+    expect(row.issues.map((i) => i.code)).not.toContain("parse-mismatch");
+  });
+
   it("拿不到库时降级：不因为连不上库就卡死改名", () => {
     const row = planItem({
       item: item("x"),

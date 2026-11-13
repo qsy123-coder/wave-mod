@@ -108,6 +108,18 @@ describe("resolveCharacterAndTitle", () => {
       title: "莉莉皮肤[白日]",
     });
   });
+
+  // 2026-11-13：Other/Misc 带半角斜杠，Windows 文件名只能写全角 `／`。
+  // 不还原的话文件名里的 `Other／Misc` 会被当成新角色，前台凭空多一个分类。
+  it("Other／Misc（Windows 写法）还原成库内标准值，title 保留完整 key", () => {
+    const key = "Other／Misc-移除葫芦（WWMI） by wakening";
+    expect(resolveCharacterAndTitle(key)).toEqual({ character: "Other/Misc", title: key });
+    // 半角写法在 Windows 落不了盘，但旧数据里可能有，同样认掉
+    expect(resolveCharacterAndTitle("Other/Misc-移除葫芦")).toEqual({
+      character: "Other/Misc",
+      title: "Other/Misc-移除葫芦",
+    });
+  });
 });
 
 describe("dedupKey", () => {

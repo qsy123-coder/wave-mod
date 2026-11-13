@@ -1,6 +1,7 @@
 /**
  * 重命名后的分类自检：把日期目录里的 mod 名跑一遍 `resolveCharacterAndTitle`，
- * 打印「角色 / 标题 / 去重键」，并标出**库里没有的角色**（上传后会凭空多一个分类）。
+ * 打印「角色 / 标题 / 去重键」，并标出**库内 distinct 与站内角色表里都没有的角色**
+ * （上传后会凭空多一个分类）。
  *
  * 为什么要独立成脚本：改名的风险全在分类上 —— 文件名写成什么样，`character` 就解析成
  * 什么样；写错一个前缀前台就多一个分类，而且不报错（见 CLAUDE.md「Mod 重命名」）。
@@ -16,6 +17,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
 
+import { normalizeCharacter } from "./daily-classify.mjs";
 import { dedupKey, resolveCharacterAndTitle } from "./upload-daily-by-date.mjs";
 import { psqlJson } from "./psql-db.mjs";
 
@@ -110,21 +112,44 @@ const rows = keys.map((k) => {
   return { key: k, character: r.character, title: r.title, dedup: dedupKey(r.character, r.title) };
 });
 
-// 库内已有角色（拿不到库就跳过这项，不影响其余输出）
+/**
+ * 站内已登记的角色（`character-registry.ts` 的 CHARACTER_AVATARS）。
+ *
+ * 只看库内 distinct 会把「刚建好、还没上架第一条」的分类误报成假分类：
+ * `Other/Misc` 库里 0 条，但它在 `CHARACTER_AVATARS` 里是合法分类，命名工坊
+ * 也把它算进白名单（见 tools/mod-rename/lib/db.mjs 的同口径并集）。
+ * 读不到 TS 就退化成「只用库内 distinct」，不阻塞自检。
+ */
+async function loadRegisteredCharacters() {
+  try {
+    const mod = await import("../src/lib/constants/character-registry.ts");
+    return new Set(Object.keys(mod.CHARACTER_AVATARS ?? {}));
+  } catch {
+    return null;
+  }
+}
+
+// 库内已有角色 ∪ 站内已登记角色（拿不到库就跳过这项，不影响其余输出）
 let known = null;
 try {
   const res = await Promise.race([
     psqlJson(`select coalesce(json_agg(distinct character), '[]'::json)::text from mods;`),
     new Promise((_, reject) => setTimeout(() => reject(new Error("连接超时")), 15000)),
   ]);
-  if (Array.isArray(res)) known = new Set(res);
+  if (Array.isArray(res)) {
+    known = new Set(res.map((c) => normalizeCharacter(String(c ?? "").trim())));
+  }
 } catch (err) {
   console.warn(`⚠️  跳过「库内角色」校验：${err.message}`);
+}
+const registered = await loadRegisteredCharacters();
+if (registered) {
+  known = new Set([...(known ?? []), ...registered].map((c) => normalizeCharacter(c)));
 }
 
 console.log(`目录：${dir}\n`);
 for (const r of rows) {
-  const flag = known && !known.has(r.character) ? " ⚠️ 库内无此角色" : "";
+  const flag = known && !known.has(r.character) ? " ⚠️ 库内/站内清单都没有这个角色" : "";
   console.log(`${r.key}`);
   console.log(`   角色=${r.character}${flag}`);
   console.log(`   标题=${r.title}`);
@@ -133,9 +158,9 @@ for (const r of rows) {
 
 const fresh = known ? rows.filter((r) => !known.has(r.character)) : [];
 if (fresh.length) {
-  console.warn(`\n⚠️  以下角色在库里不存在，上传后会凭空多出分类（先归一或加前缀规则）：`);
+  console.warn(`\n⚠️  以下角色在库内 distinct 与站内角色表里都没有，上传后会凭空多出分类（先归一或加前缀规则）：`);
   for (const r of fresh) console.warn(`   ${r.character}  ←  ${r.key}`);
   process.exitCode = 1;
 } else {
-  console.log(`\n✅ 共 ${rows.length} 条，全部落在库内已有分类`);
+  console.log(`\n✅ 共 ${rows.length} 条，全部落在库内/站内已有分类`);
 }
