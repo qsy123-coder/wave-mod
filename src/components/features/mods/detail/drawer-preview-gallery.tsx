@@ -5,10 +5,8 @@ import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
-  COS_IMG_HERO,
-  COS_IMG_SRCSET,
   COS_IMG_THUMB,
-  cosImageSrcSet,
+  cosImageHeroAttrs,
   withCosImageTransform,
 } from "@/lib/cos/shared";
 import { isExternalStorageUrl } from "@/lib/storage/shared";
@@ -117,6 +115,22 @@ export function DrawerPreviewGallery({
   const activeRatio = ratio ?? FALLBACK_RATIO;
   const isPortrait = activeRatio < 1;
 
+  // preload / 可见图共用同一组 src+srcSet+sizes，浏览器才会挑到同一个候选 URL
+  const targetAttrs = cosImageHeroAttrs(target);
+  const shownAttrs = cosImageHeroAttrs(shownSrc);
+
+  /**
+   * 预取下一张：多图帖（20+ 张）逐张点箭头时，每张都要等一次 CDN 冷变换（实测
+   * 1.5–4s）。当前这张显示出来后顺手把下一张下好，点「下一张」就是秒开。
+   * 只预取 1 张（不是 ±1），避免一次性多下两张图。
+   */
+  const nextPreview = count > 1 ? images[(safeIndex + 1) % count] : null;
+  // 只在**当前这张已经显示出来之后**才预取下一张：否则会和正在等的目标图抢带宽
+  const warmAttrs =
+    nextPreview && shown !== null && shown === target && nextPreview !== shownSrc
+      ? cosImageHeroAttrs(nextPreview)
+      : null;
+
   // hooks 之后才能早退：count 变化会改变 hook 数量，必须放在所有 use* 下面
   if (count === 0) {
     return (
@@ -150,12 +164,16 @@ export function DrawerPreviewGallery({
 
   return (
     <div data-slot="drawer-preview-gallery" className="space-y-2">
-      {/* 目标图的预加载：透明、不参与布局，只为了拿到真实比例 */}
-      {needsPreload ? (
+      {/* 目标图的预加载：透明、不参与布局，只为了拿到真实比例。
+          srcSet/sizes 必须与下面可见的 <img> 完全一致 —— 否则浏览器会在两组候选里
+          各挑一个 URL，preload 之下完还要再下一遍，切换就慢成「两段等待」。 */}
+      {needsPreload && targetAttrs ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           key={`preload-${target}`}
-          src={withCosImageTransform(target, COS_IMG_HERO) ?? target}
+          src={targetAttrs.src}
+          srcSet={targetAttrs.srcSet}
+          sizes={targetAttrs.sizes}
           alt=""
           aria-hidden
           className="hidden"
@@ -163,6 +181,20 @@ export function DrawerPreviewGallery({
             if (img && img.complete) handleLoaded(img, target);
           }}
           onLoad={(e) => handleLoaded(e.currentTarget, target)}
+        />
+      ) : null}
+
+      {/* 下一张的预取：多图帖点「下一张」不再等冷启动。和上面一样走同一组候选。 */}
+      {warmAttrs ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={`warm-${nextPreview}`}
+          src={warmAttrs.src}
+          srcSet={warmAttrs.srcSet}
+          sizes={warmAttrs.sizes}
+          alt=""
+          aria-hidden
+          className="hidden"
         />
       ) : null}
 
@@ -186,9 +218,9 @@ export function DrawerPreviewGallery({
               {/* 原生 <img>：站点要自定义 COS srcset，而 next/image 会丢掉自定义 srcSet */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={withCosImageTransform(shownSrc, COS_IMG_HERO) ?? shownSrc}
-                srcSet={cosImageSrcSet(shownSrc, COS_IMG_SRCSET)}
-                sizes="(max-width: 640px) 100vw, 720px"
+                src={shownAttrs?.src ?? shownSrc}
+                srcSet={shownAttrs?.srcSet}
+                sizes={shownAttrs?.sizes}
                 alt={`${title} 预览 ${shownIndex + 1}`}
                 className="absolute inset-0 h-full w-full object-contain"
               />

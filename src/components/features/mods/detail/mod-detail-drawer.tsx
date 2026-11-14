@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Share2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { withCosPublicHost } from "@/lib/cos/shared";
 import { reportView } from "@/lib/engagement/client";
 import { isDownloadBaseFromZero } from "@/lib/engagement/downloads-policy";
 import { useEngagement } from "@/lib/engagement/use-engagement";
@@ -225,6 +226,31 @@ export function ModDetailDrawer({
       setPreviewIndex((prev) => (prev + 1) % galleryImages.length);
     }
   }, [galleryImages]);
+
+  /**
+   * 灯箱里真正展示的地址。
+   *
+   * ⚠️ 必须过 `withCosPublicHost`：库里存的是 COS **源站**域名
+   * （`*.cos.ap-guangzhou.myqcloud.com`），直接 `<img src>` 会绕过 CDN ——
+   * 走源站 HTTP/1.1（每域 6 并发）+ 无边缓存，多图来回翻时每张都要等源站回源。
+   */
+  const lightboxSrc = withCosPublicHost(galleryImages[previewIndex] ?? galleryImages[0] ?? "");
+
+  /** 灯箱翻页预取前后各一张（同一 CDN 地址），多图帖左右翻不再逐张等回源 */
+  useEffect(() => {
+    if (!lightboxOpen || galleryImages.length < 2) return;
+
+    const neighbors = [
+      galleryImages[(previewIndex + 1) % galleryImages.length],
+      galleryImages[(previewIndex - 1 + galleryImages.length) % galleryImages.length],
+    ];
+    for (const url of neighbors) {
+      if (!url) continue;
+      const img = new Image();
+      img.decoding = "async";
+      img.src = withCosPublicHost(url);
+    }
+  }, [galleryImages, lightboxOpen, previewIndex]);
 
   // Keyboard nav for lightbox
   useEffect(() => {
@@ -520,8 +546,10 @@ export function ModDetailDrawer({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={galleryImages[previewIndex] ?? galleryImages[0]}
+              src={lightboxSrc}
               alt={`${displayTitle} 预览 ${previewIndex + 1}`}
+              loading="eager"
+              decoding="async"
               className="max-h-[85vh] max-w-[90vw] border-4 border-black object-contain shadow-[10px_10px_0px_0px_#000]"
             />
           </div>

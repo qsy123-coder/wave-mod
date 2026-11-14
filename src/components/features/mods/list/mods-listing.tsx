@@ -4,7 +4,8 @@ import { buildLayoutHints } from "@/components/features/mods/list/masonry-packin
 import { ModsListingView } from "@/components/features/mods/list/mods-listing-view";
 import { ModsUrlDriven } from "@/components/features/mods/list/mods-url-driven";
 import { BodyScrollLock } from "@/components/layout/body-scroll-lock";
-import { COS_IMG_HERO, withCosImageTransform } from "@/lib/cos/shared";
+import { cosImageHeroAttrs } from "@/lib/cos/shared";
+import { groupDriveLinksByVariant } from "@/lib/mods-domain/variants";
 import { sortCharactersByRelease } from "@/lib/constants/character-release";
 import { getCharacterSuggestions, getPublicMods, normalizeCharacterName, paginateMods } from "@/lib/mods";
 import { DEFAULT_MODS_FILTERS, MODS_PAGE_SIZE } from "@/lib/mods-domain/filter-params";
@@ -80,15 +81,21 @@ export async function ModsListing({ openModId }: ModsListingProps) {
    * 2026-10-19 实测冷启动下首图 4.3s 才开始下载、5.3s 才到。这条 preload 走浏览器的
    * 预加载扫描器，HTML 一解析就开始下，把这段等待整个省掉。
    *
-   * URL 必须与 `drawer-preview-gallery.tsx` 完全一致（images[0] + COS_IMG_HERO），
-   * 否则浏览器会当成两个资源、各下一遍。`allMods` 就是抽屉接口用的同一份 mapMod
-   * 结果（见下方注释），这里直接复用，不额外查库。
+   * src/srcSet/sizes 必须与 `drawer-preview-gallery.tsx` 完全一致（都从
+   * `cosImageHeroAttrs` 取），否则浏览器会按两组候选各挑一个 URL、各下一遍 ——
+   * 2026-11-14 之前这里固定 1280、抽屉里按 DPR 挑 960/1920，预载完全白费。
+   * `allMods` 就是抽屉接口用的同一份 mapMod 结果（见下方注释），直接复用，不额外查库。
    */
   const openMod = openModId ? allMods.find((mod) => mod.id === openModId) : undefined;
-  const openModPreview =
-    openMod && openMod.images.length > 0
-      ? withCosImageTransform(openMod.images[0], COS_IMG_HERO)
-      : undefined;
+  // 抽屉默认展示**第一个版本**的图（见 mod-detail-drawer 的 effectiveVariant），
+  // 预载也要用同一张，否则多版本帖子的预载下的是另一套图、真正要显示的仍要现下。
+  const openModHeroImage = (() => {
+    if (!openMod) return null;
+    const firstVariant = groupDriveLinksByVariant(openMod.driveLinks).groups[0]?.label ?? null;
+    const variantImage = firstVariant ? openMod.variantImages?.[firstVariant]?.[0] : undefined;
+    return variantImage ?? openMod.images[0] ?? null;
+  })();
+  const openModPreview = openModHeroImage ? cosImageHeroAttrs(openModHeroImage) : null;
 
   const defaultView = (
     <ModsListingView
@@ -103,9 +110,18 @@ export async function ModsListing({ openModId }: ModsListingProps) {
 
   return (
     <>
-      {/* React 19 会把这条 <link> 提到 <head>，HTML 解析阶段就开始下载详情头图 */}
+      {/* React 19 会把这条 <link> 提到 <head>，HTML 解析阶段就开始下载详情头图。
+          带 imageSrcSet/imageSizes 让预加载器按与抽屉相同的规则挑档，DTD 1x 与 2x
+          屏幕都能命中抽屉真正会请求的那个 URL。 */}
       {openModPreview ? (
-        <link rel="preload" as="image" href={openModPreview} fetchPriority="high" />
+        <link
+          rel="preload"
+          as="image"
+          href={openModPreview.src}
+          imageSrcSet={openModPreview.srcSet}
+          imageSizes={openModPreview.sizes}
+          fetchPriority="high"
+        />
       ) : null}
       {/* 骨架屏阶段也锁定 body 滚动，避免加载时仍可滑动 */}
       <BodyScrollLock />

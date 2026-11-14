@@ -162,6 +162,38 @@ export function cosImageSrcSet<T extends string | null | undefined>(
 }
 
 /**
+ * 详情抽屉大图的 `sizes`（抽屉桌面端约 45% 宽、图片位约 720 CSS px）。
+ *
+ * ⚠️ **preload 与真正渲染的 `<img>` 必须共用这份描述**：浏览器按 `sizes × DPR`
+ * 从 srcset 里挑一个候选 URL，两边写得不一致就会挑到两个资源 —— preload 白下一遍，
+ * 图片还要再下一次，切换时表现为「先等 2 秒，再等 2 秒，然后图才出来」。
+ * 2026-11-14 用户反馈「多图预览加载很慢」就是这么来的：preload 固定 1280，
+ * 实际显示按 DPR 挑的是 960 / 1920。
+ */
+export const DRAWER_HERO_SIZES = "(max-width: 640px) 100vw, 720px";
+
+/**
+ * 抽屉大图的 `src` / `srcSet` / `sizes` 三元组。
+ *
+ * preload（`<link rel=preload>`、隐藏的测量图）与可见的 `<img>` 都从这里取，
+ * 禁止各处自己拼一份 —— 见 `DRAWER_HERO_SIZES` 的说明。
+ */
+export function cosImageHeroAttrs(url: string | null | undefined): {
+  src: string;
+  srcSet?: string;
+  sizes: string;
+} | null {
+  if (!url) return null;
+
+  return {
+    // 1280 是「没有 srcset 时的兜底」；支持 srcset 的浏览器按 sizes 自己挑
+    src: withCosImageTransform(url, COS_IMG_HERO),
+    srcSet: cosImageSrcSet(url, COS_IMG_SRCSET),
+    sizes: DRAWER_HERO_SIZES,
+  };
+}
+
+/**
  * 构建 COS 对象路径（与 Supabase Storage 路径结构保持一致）。
  * 格式：mods/{safe-char}/{modId}/{filename}
  */

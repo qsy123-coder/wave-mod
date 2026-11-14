@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { COS_IMG_CARD, COS_IMG_HERO, COS_IMG_SRCSET, COS_IMG_THUMB, cosImageSrcSet, withCosImageTransform } from "./shared";
+import {
+  COS_IMG_CARD,
+  COS_IMG_HERO,
+  COS_IMG_SRCSET,
+  COS_IMG_THUMB,
+  DRAWER_HERO_SIZES,
+  cosImageHeroAttrs,
+  cosImageSrcSet,
+  withCosImageTransform,
+} from "./shared";
 
 const COS_IMAGE =
   "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/mods/%E8%8A%99%E9%9C%B2/id/preview.webp";
@@ -81,5 +90,29 @@ describe("cosImageSrcSet", () => {
     expect(cosImageSrcSet("/character-imgs/jinxi.webp")).toBeUndefined();
     expect(cosImageSrcSet(null)).toBeUndefined();
     expect(cosImageSrcSet(undefined)).toBeUndefined();
+  });
+});
+
+describe("cosImageHeroAttrs（抽屉大图 preload 与 <img> 共用）", () => {
+  it("src / srcSet / sizes 一次给全，preload 与可见图不会再挑到两个 URL", () => {
+    const attrs = cosImageHeroAttrs(COS_IMAGE)!;
+    expect(attrs.src).toContain("thumbnail/1280x%3E");
+    expect(attrs.sizes).toBe(DRAWER_HERO_SIZES);
+    // srcSet 里必须包含 1280 这一档，且每档都是同一个对象的变换地址
+    expect(attrs.srcSet).toContain("thumbnail/1280x%3E");
+    expect(attrs.srcSet).toContain(" 1280w");
+  });
+
+  it("非 COS 地址没有 srcSet（浏览器回落到 src），但仍有 sizes", () => {
+    const attrs = cosImageHeroAttrs("https://images.unsplash.com/photo-1")!;
+    expect(attrs.src).toBe("https://images.unsplash.com/photo-1");
+    expect(attrs.srcSet).toBeUndefined();
+    expect(attrs.sizes).toBe(DRAWER_HERO_SIZES);
+  });
+
+  it("空值返回 null，调用方直接不渲染", () => {
+    expect(cosImageHeroAttrs(null)).toBeNull();
+    expect(cosImageHeroAttrs(undefined)).toBeNull();
+    expect(cosImageHeroAttrs("")).toBeNull();
   });
 });
