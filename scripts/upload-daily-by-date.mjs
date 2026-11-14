@@ -415,7 +415,10 @@ function buildImageIndex(dir) {
     indexFilesInto(byBase, sourceDir);
     if (!existsSync(sourceDir)) continue;
     for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
-      if (entry.isDirectory()) indexFilesInto(byBase, join(sourceDir, entry.name));
+      if (!entry.isDirectory()) continue;
+      // 爬虫给「老 Mod 更新」留的子目录，里面的图属于已上架的卡，不是当天的预览图
+      if (entry.name === "更新") continue;
+      indexFilesInto(byBase, join(sourceDir, entry.name));
     }
   }
   // 用户临时把改名好的包放进「新建文件夹」等暂存目录时，预览图也在那一层。

@@ -1,6 +1,10 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { buildRows, stripNumberSuffix } from "./scan.mjs";
+import { buildRows, scanDateDir, stripNumberSuffix } from "./scan.mjs";
 
 const entry = (name, kind, extra = {}) => {
   const isDir = kind === "dir";
@@ -57,5 +61,25 @@ describe("stripNumberSuffix", () => {
   it("剥掉爬虫的 _1 / -2 编号", () => {
     expect(stripNumberSuffix("套装_1")).toBe("套装");
     expect(stripNumberSuffix("套装-12")).toBe("套装");
+  });
+});
+
+describe("scanDateDir", () => {
+  it("来源目录下的「更新」子目录不算待命名的 Mod", () => {
+    const root = mkdtempSync(join(tmpdir(), "scan-"));
+    try {
+      const gb = join(root, "GameBanana");
+      mkdirSync(gb, { recursive: true });
+      writeFileSync(join(gb, "NewMod.zip"), "x");
+      const upd = join(gb, "更新", "OldMod");
+      mkdirSync(upd, { recursive: true });
+      writeFileSync(join(upd, "OldMod.zip"), "x");
+
+      const { sources } = scanDateDir(root);
+      const gbSource = sources.find((s) => s.name === "GameBanana");
+      expect(gbSource.items.map((r) => r.name)).toEqual(["NewMod.zip"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

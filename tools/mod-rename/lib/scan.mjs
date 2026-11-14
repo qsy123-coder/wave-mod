@@ -17,6 +17,12 @@ export const IMG_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 /** 来源目录里这些前缀不是待处理的 mod：`_合集原包`、`_Endfield`、`arca_需手动下载.txt` */
 const SKIP_PREFIX = ["_", "arca_需手动下载"];
 
+/**
+ * 爬虫给「老 Mod 更新」留的子目录（`GameBanana/更新/`）。里面是已上架 Mod 的新版本
+ * 附件，不是当天新增的 Mod —— 当成条目列出来只会被再命名/再上传一遍。
+ */
+export const UPDATE_DIR = "更新";
+
 /** 日期目录顶层也算一个来源：整理好/搬上去的包仍要能改名（见 listDateRoot） */
 export const ROOT_SOURCE = "根目录";
 const ROOT_SKIP = new Set(["arca.live", "GameBanana", "预览图"]);
@@ -167,6 +173,7 @@ function listEntries(dir, skipNames = null) {
   return readdirSync(dir, { withFileTypes: true })
     .filter((e) => !SKIP_PREFIX.some((p) => e.name.startsWith(p)))
     .filter((e) => !skipNames?.has(e.name))
+    .filter((e) => !(e.isDirectory() && e.name === UPDATE_DIR))
     .filter((e) => !e.isSymbolicLink())
     .map((e) => {
       const full = join(dir, e.name);
