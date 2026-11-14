@@ -84,6 +84,7 @@ from kekehxl_watcher.notify import Notifier
 
 from .browser import CF_MARKERS
 from .nahida_link import (
+    BrowserResponse,
     ChromeLinkResolver,
     LinkApiError,
     LinkResolveError,
@@ -281,6 +282,11 @@ def _fetch_post(
         return resolver.fetch_html(url, timeout)
     resp.raise_for_status()
     return resp.text
+
+
+def _has_article_body(page: str) -> bool:
+    """页面里是否真的渲染出了正文容器（而不是只剩验证页/顶栏）。"""
+    return 'class="article-body"' in page or "article-body" in page
 
 
 def _article_body_html(page: str) -> str:
@@ -507,11 +513,26 @@ class NahidaClient:
         self.timeout = timeout
         self.resolver = resolver
         self._last_call = 0.0
+        # 一旦确认 requests 会被 Cloudflare 拦（TLS 指纹），后续请求直接走 Chrome，
+        # 不再每个文件都先浪费一次必然失败的 HTTP 请求。
+        self._browser_only = False
         self._headers = {
             "Origin": "https://nahida.live",
             "Referer": "https://nahida.live/",
             "Accept": "application/json",
         }
+
+    def _browser_get(self, url: str, headers: dict[str, str]) -> BrowserResponse:
+        if self.resolver is None:
+            raise TransientError("没有可用的 Chrome，无法直连 nahida 接口")
+        try:
+            return self.resolver.api_fetch(
+                url, headers=headers, timeout=self.timeout,
+            )
+        except LinkResolveError as exc:
+            # Chrome 起不来 / 页面超时都是可恢复的，下一轮再试，
+            # 不要写成永久「需手动」。
+            raise TransientError(f"Chrome 直连 nahida 接口失败：{exc}") from exc
 
     def _get(
         self,
@@ -520,9 +541,11 @@ class NahidaClient:
         headers: dict[str, str] | None = None,
         params: dict[str, str] | None = None,
         min_gap: float = 0.5,
-    ) -> requests.Response:
+    ) -> BrowserResponse | requests.Response:
         """429 是常态（单模组 200+ 个文件，逐个取预签名会触发限流），按 retryAfter 等待重试。"""
         resp = None
+        full = requests.Request("GET", url, params=params).prepare().url or url
+        hdrs = headers or self._headers
         for attempt in range(8):
             # 预签名端点是独立的 **5 次 / 10 秒** 令牌桶（实测 0.6s、1.2s 都会 429，
             # 2.0s 连续 12 次全过）；目录/鉴权接口按全局 60 次 / 10 秒，0.5s 足够。
@@ -530,25 +553,23 @@ class NahidaClient:
             if gap > 0:
                 time.sleep(gap)
             self._last_call = time.monotonic()
-            resp = self.sess.get(
-                url, headers=headers or self._headers, params=params,
-                timeout=(20, self.timeout),
-            )
-            if (
-                resp.status_code in (401, 403, 503)
-                and self.resolver is not None
-                and _is_cf_challenge(resp.text)
-            ):
-                log.info("nahida API 被 Cloudflare 拦截，同步 Chrome clearance 后重试")
-                try:
-                    self.resolver.ensure_clearance()
-                except Exception as exc:  # noqa: BLE001 - 拿不到就按原响应处理
-                    log.warning("同步 Chrome clearance 失败：%s", exc)
-                else:
-                    resp = self.sess.get(
-                        url, headers=headers or self._headers, params=params,
-                        timeout=(20, self.timeout),
-                    )
+            if self._browser_only:
+                resp = self._browser_get(full, hdrs)
+            else:
+                resp = self.sess.get(
+                    url, headers=hdrs, params=params,
+                    timeout=(20, self.timeout),
+                )
+                if (
+                    resp.status_code in (401, 403, 503)
+                    and self.resolver is not None
+                    and _is_cf_challenge(resp.text)
+                ):
+                    # 2026-11-14：Cloudflare 现在同时看 TLS 指纹，浏览器 cookie
+                    # 拷进 requests 也照样 403；直接在 Chrome 页面里发同一个 GET。
+                    log.info("nahida API 被 Cloudflare 拦截，后续改在 Chrome 里请求")
+                    self._browser_only = True
+                    resp = self._browser_get(full, hdrs)
             if resp.status_code != 429 and resp.status_code < 500:
                 return resp
             retry_after = 0
@@ -1089,8 +1110,14 @@ def _plan_entry(
     body = _article_body_html(page)
     text = _post_text(body)
 
-    # 帖子正文里可能还有 CSV 没记录到的链接（历史条目尤其常见）
-    links = list(dict.fromkeys(list(entry.get("links") or []) + _extract_links(text)))
+    # 帖子正文里可能还有 CSV 没记录到的链接（历史条目尤其常见）。
+    # 但正文真的取到时就以正文为准：作者改帖换掉贴错的链接后，旧链接若继续
+    # 从 state 合并进来，会永远卡在「需手动」并反复下载错的东西。
+    fresh = _extract_links(text)
+    if fresh or _has_article_body(page):
+        links = fresh
+    else:
+        links = list(dict.fromkeys(list(entry.get("links") or []) + fresh))
     entry["links"] = links
     buckets = _classify(links, settings.password)
 
@@ -1173,8 +1200,21 @@ def _plan_entry(
                     {"link": url, "reason": "需要积分，未自动下载"}
                 )
                 continue
+            # 共享模组页通常按角色分 collection（例如「챗지피티 명조 모딩 작업본」
+            # 一个页面挂了 6 个角色、近 3GB）。正文里点名了「파수인 폴더」这种
+            # 目录名时只下那个 collection，否则会把整页的角色全拖下来。
+            all_colls = list(info.get("collections") or [])
+            named = [
+                c for c in all_colls
+                if str(c.get("name") or "").strip()
+                and str(c.get("name")).strip() in text
+            ]
+            if named:
+                log.info("模组页 %s 按正文只取 collection：%s",
+                         mod_id, "、".join(str(c.get("name")) for c in named))
+                all_colls = named
             collections = []
-            for coll in info.get("collections") or []:
+            for coll in all_colls:
                 if coll.get("pointAmount") and not coll.get("paid"):
                     entry.setdefault("manual", []).append(
                         {"link": url, "reason": f"collection「{coll.get('name')}」需要积分"}

@@ -79,6 +79,25 @@ class LinkToken:
     expires_at: float          # epoch 秒
 
 
+class BrowserResponse:
+    """真实 Chrome 里 ``fetch`` 的响应，字段与 ``requests.Response`` 对齐。
+
+    Cloudflare 现在会同时校验 TLS/HTTP2 指纹和 ``cf_clearance``：把浏览器
+    的 cookie 拷进 requests 也照样 403（2026-11-14 实测）。所以被拦时改在
+    浏览器页面里发同一个请求，再把状态码 / 响应头 / 正文包装成这个对象，
+    上层 ``NahidaClient`` / ``NahidaLinkClient`` 完全不用改调用方式。
+    """
+
+    def __init__(self, status: int, headers: dict[str, str], text: str) -> None:
+        self.status_code = int(status)
+        self.headers = requests.structures.CaseInsensitiveDict(headers or {})
+        self.text = text or ""
+        self.content = self.text.encode("utf-8", "replace")
+
+    def json(self) -> Any:
+        return json.loads(self.text)
+
+
 def find_chrome(explicit: str = "") -> str:
     """按显式配置 → PATH → 常见安装位置 找 Chrome，最后退回 Edge。"""
     candidates: list[str] = []
@@ -332,6 +351,62 @@ class ChromeLinkResolver:
         self.fetch_html("https://nahida.live/", timeout=max(60, self.per_link_timeout))
         return self._sync_clearance()
 
+    # ------------------------------------------------------------ 浏览器内接口请求
+    def _page_origin(self) -> str:
+        try:
+            return str(self._eval("location.origin") or "")
+        except Exception:  # noqa: BLE001 - 页面还没加载好
+            return ""
+
+    def _ensure_nahida_origin(self) -> None:
+        """API 用页面内 fetch：跨域只放行 https://nahida.live 自身，先回到这个源。"""
+        if self._page_origin() == "https://nahida.live":
+            return
+        self.fetch_html("https://nahida.live/", timeout=max(60, self.per_link_timeout))
+
+    def api_fetch(
+        self,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        timeout: int = 60,
+    ) -> BrowserResponse:
+        """在真实 Chrome 的 nahida.live 页面里 GET 接口，绕过 Cloudflare。
+
+        ``headers`` 里与浏览器/跨域相关的头（Origin、Referer、User-Agent 等）
+        会被丢掉：浏览器自己会填正确的值，手动设置反而会被 fetch 拒绝。
+        """
+        try:
+            self._start()
+        except ChromeLaunchError as exc:
+            raise LinkResolveError("chrome", str(exc)) from exc
+        self._ensure_nahida_origin()
+        assert self._ws is not None
+        self._ws.settimeout(max(30, timeout))
+        safe = {
+            k: v for k, v in (headers or {}).items()
+            if k.lower() not in _FORBIDDEN_HEADERS
+        }
+        expr = _JS_API_FETCH % (json.dumps(url), json.dumps(safe))
+        try:
+            raw = self._eval(expr)
+        except Exception as exc:  # noqa: BLE001 - CDP 中途挂掉
+            self.close()
+            raise LinkResolveError("timeout", f"Chrome 接口请求失败：{exc}") from exc
+        if not isinstance(raw, str) or not raw:
+            raise LinkResolveError("timeout", f"Chrome 接口请求无返回：{url}")
+        if raw.startswith("ERR:"):
+            raise LinkResolveError("timeout", f"Chrome 接口请求失败：{raw[4:]}（{url}）")
+        try:
+            data = json.loads(raw)
+            return BrowserResponse(
+                int(data.get("status") or 0),
+                dict(data.get("headers") or {}),
+                str(data.get("text") or ""),
+            )
+        except (ValueError, TypeError) as exc:
+            raise LinkResolveError("timeout", f"Chrome 接口响应无法解析：{raw[:120]}") from exc
+
     def invalidate(self, link_id: str) -> None:
         self._cache.pop(link_id, None)
 
@@ -443,6 +518,31 @@ _JS_CLICK = r"""
 })()
 """
 
+# 浏览器 fetch 不允许脚本设置的头（会被静默丢弃或直接报错）。
+_FORBIDDEN_HEADERS = {
+    "origin", "referer", "user-agent", "accept-encoding", "content-length",
+    "host", "connection", "cookie", "sec-fetch-mode", "sec-fetch-site",
+}
+
+# 在 nahida.live 页面里发 GET：%s = URL(JSON)，%s = headers(JSON)。
+# 响应头只回传需要的几个（其余对 Cookie 域外的调用方本来就不可见）。
+_JS_API_FETCH = r"""
+(async () => {
+  try {
+    const resp = await fetch(%s, {credentials: 'include', headers: %s});
+    const text = await resp.text();
+    const out = {};
+    for (const name of ['x-token', 'content-type', 'retry-after']) {
+      const v = resp.headers.get(name);
+      if (v !== null) out[name] = v;
+    }
+    return JSON.stringify({status: resp.status, headers: out, text: text});
+  } catch (e) {
+    return 'ERR:' + (e && (e.message || e));
+  }
+})()
+"""
+
 
 # ---------------------------------------------------------------- API 客户端
 
@@ -460,6 +560,13 @@ class NahidaLinkClient:
         self.timeout = timeout
         self.resolver = resolver
         self._last_call = 0.0
+        # 同 NahidaClient：确认 requests 会被 Cloudflare 拦后就不再白试。
+        self._browser_only = False
+
+    def _browser_get(self, url: str, headers: dict[str, str]) -> BrowserResponse:
+        if self.resolver is None:
+            raise LinkApiError("link_no_browser", "没有可用的 Chrome，无法直连 nahida 接口")
+        return self.resolver.api_fetch(url, headers=headers, timeout=self.timeout)
 
     def _get(
         self,
@@ -468,13 +575,14 @@ class NahidaLinkClient:
         params: dict[str, Any] | None = None,
         token: str,
         min_gap: float = 0.5,
-    ) -> requests.Response:
+    ) -> BrowserResponse | requests.Response:
         headers = {
             "Origin": "https://nahida.live",
             "Referer": "https://nahida.live/",
             "Accept": "application/json",
             "nhd-link-token": token,
         }
+        full = _full_url(url, params)
         resp = None
         for attempt in range(8):
             gap = min_gap - (time.monotonic() - self._last_call)
@@ -482,24 +590,20 @@ class NahidaLinkClient:
                 time.sleep(gap)
             self._last_call = time.monotonic()
             try:
-                resp = self.sess.get(
-                    url, params=params, headers=headers, timeout=(20, self.timeout)
-                )
-                if (
-                    resp.status_code in (401, 403, 503)
-                    and self.resolver is not None
-                    and any(m in resp.text[:8000] for m in _CF_MARKERS)
-                ):
-                    log.info("nahida API 被 Cloudflare 拦截，同步 Chrome clearance 后重试")
-                    try:
-                        self.resolver.ensure_clearance()
-                    except Exception as exc:  # noqa: BLE001 - 拿不到就按原响应处理
-                        log.warning("同步 Chrome clearance 失败：%s", exc)
-                    else:
-                        resp = self.sess.get(
-                            url, params=params, headers=headers,
-                            timeout=(20, self.timeout),
-                        )
+                if self._browser_only:
+                    resp = self._browser_get(full, headers)
+                else:
+                    resp = self.sess.get(
+                        url, params=params, headers=headers, timeout=(20, self.timeout)
+                    )
+                    if (
+                        resp.status_code in (401, 403, 503)
+                        and self.resolver is not None
+                        and any(m in resp.text[:8000] for m in _CF_MARKERS)
+                    ):
+                        log.info("nahida API 被 Cloudflare 拦截，后续改在 Chrome 里请求")
+                        self._browser_only = True
+                        resp = self._browser_get(full, headers)
             except (requests.ConnectionError, requests.Timeout) as exc:
                 # 梯子节点抽风（SSL EOF / RemoteDisconnected）是常态，退避重试
                 if attempt >= 5:
@@ -738,6 +842,13 @@ def _decompress_gzip(src: Path, dst: Path) -> None:
 
     with gzip.open(str(src), "rb") as fin, dst.open("wb") as fout:
         shutil.copyfileobj(fin, fout, CHUNK)
+
+
+def _full_url(url: str, params: dict[str, Any] | None) -> str:
+    """把 query 参数拼进 URL（浏览器 fetch 没有 params 参数）。"""
+    if not params:
+        return url
+    return requests.Request("GET", url, params=params).prepare().url or url
 
 
 def split_link(url: str) -> tuple[str, str] | None:

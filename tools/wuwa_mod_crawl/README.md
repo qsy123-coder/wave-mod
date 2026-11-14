@@ -212,15 +212,19 @@ A_每日更新/W-2026.11.01/
 | 链接类型 | 处理方式 |
 |---|---|
 | `kio.ac/c/<id>` | 走 `api.kio.ac/v0/...`（CBOR）：`collection/get` 用密码换 `Kiosk-CAT`，`directory/get` 列目录，`file/gets` 拿 16MiB 分段的 CDN 预签名 URL。密码用频道公告帖写死的 **`Eldwh`**（`[download] password` 可改） |
-| `nahida.live/akasha/mod/<id>` | `GET api.nahida.live/akasha/mod/<id>?password=<base64url>`，响应头 `x-token` 后续列目录/取 S3 预签名直链。一般不需要浏览器，API 被 Cloudflare 挑战时自动借用 Chrome 的 `cf_clearance`；需要积分的模组跳过 |
+| `nahida.live/akasha/mod/<id>` | `GET api.nahida.live/akasha/mod/<id>?password=<base64url>`，响应头 `x-token` 后续列目录/取 S3 预签名直链。**2026-11-14 起**：Cloudflare 会连 TLS 指纹一起校验，把浏览器的 `cf_clearance` 拷进 requests 仍然是 403，所以被挑战时改为在真实 Chrome 的 `nahida.live` 页面里 `fetch` 同一个 URL；首次探测到拦截后整轮都直接走 Chrome，不再白试 HTTP。共享模组页（一个页面挂多个角色 collection）会按正文点名的目录（如「파수인 폴더」）只下对应 collection；需要积分的模组跳过 |
 | `nahida.live/akasha/link/<id>` | 2026-11-01 起自动下载：真实 Chrome（屏幕外窗口，**不能用 headless**）打开分享页，页面自己的 Turnstile 十几秒自动通过；带密码的链接自动填 `[download] password`（`Eldwh`）。拿到 12 小时有效的 `nhd-link-token` 后，列目录/下载都走 `api.nahida.live`。CDN 文件可能是 zstd/gzip 压缩，下载后自动解压 |
 | 「챈방주 내닉폴더에 있음」（频道 Mod 方舟） | 正文不挂外链、只写文件在方舟里时，用 `[download] ark_link`（频道公共方舟的 nahida 分享链接）拿 token，按作者昵称定位 `명조/작가별(Creator)/[공용)챈 업로더/]<作者>`，再下载发帖日期前后一天内新建/更新的子目录（同一天有多个更新且标题对不上时记为待手动）。2026-11-02 起支持 |
 | GameBanana / 其他站外链接 | 前者交给 GameBanana 任务；后者记录为待手动 |
 
 > 帖子页本身也受 Cloudflare 保护：纯 HTTP 返回 403「Just a moment...」时，
 > 自动改用真实 Chrome（屏幕外窗口，与 nahida 分享链接共用同一个进程）打开，
-> 正文图片仍走 `ac-o.arca.live` CDN。`api.nahida.live` 被挑战时同理，
-> 会把浏览器的 `cf_clearance` 同步给 requests 会话（UA 也同步成浏览器的真实 UA）。
+> 正文图片仍走 `ac-o.arca.live` CDN。`api.nahida.live` 被挑战时同理——但
+> **不要再用「同步 cf_clearance 给 requests」的老办法**（2026-11-14 实测无效），
+> 必须在浏览器页面里 `fetch`（见 `ChromeLinkResolver.api_fetch`）。
+>
+> 重新规划时正文链接以**当前页面**为准：作者改帖换掉贴错的链接后，旧链接不会
+> 再从 state 合并回来，否则会永远卡在「需手动」并反复下载错的东西。
 >
 > **日期取下载执行日**，与 GameBanana 一致：关机期间发的帖在开机下载那天归档。
 > 首次运行按 `[download] backfill_days`（默认 7 天）回填，之后只跟新帖；
@@ -262,8 +266,12 @@ A_每日更新/W-2026.11.01/
   不能走每日表的 id 去重）。
 - 拉了 `DownloadPage` 比对文件链接：只有文件真的变了才重新下载；只改描述/封面
   的标为「页面更新」，不重复下载。
-- 更新重新入队时，新版本落到**下载执行日**的 `W-<日期>/GameBanana/`，旧版本文件
-  留在原日期文件夹，不覆盖。
+- 更新重新入队时**只补增量**（2026-11-14 起）：旧规划里已经下完的图片/附件按 URL
+  记进 `prev_images` / `prev_files`，同一个 URL 直接复用、不再下载（这正是
+  「今天又下一遍昨天那套图」的根源）；只有真正新增的文件才下载，落到
+  `W-<日期>/GameBanana/更新/` 子目录，不会混进新增 Mod 那一层。
+  旧版本文件留在原日期文件夹，不覆盖。留空 `[download] update_subdir` 可退回
+  旧行为（更新和新增同居一层，容易把更新当成新 Mod 再上传一次）。
 
 **关机不丢数据**：`new`/`updated` 按时间倒序，翻到时间窗外就停；`default` 是
 活跃度排序，按固定页数翻。电脑关机期间站点的新增和更新，**开机后会自动补齐**。
