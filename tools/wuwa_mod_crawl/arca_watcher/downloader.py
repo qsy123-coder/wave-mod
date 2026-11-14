@@ -115,6 +115,10 @@ _RE_NAHIDA = re.compile(
     r"https?://nahida\.live/akasha/(mod|link)/([A-Za-z0-9_-]{4,})", re.I
 )
 _RE_GAMEBANANA = re.compile(r"https?://(?:www\.)?gamebanana\.com/mods/\d+", re.I)
+# 站内帖子引用（更新通知常写「원본글 가서 다시 받아줘」+ 原帖链接）
+_RE_ARCA_POST = re.compile(
+    r"https?://arca\.live/b/([A-Za-z0-9_]+)/(\d+)(?:\?[^\s\"'<>]*)?", re.I
+)
 
 # Kiosk 的自定义 22 字符 UUID 编码（不是标准 base64url，字符表顺序不同）
 _KIO_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
@@ -1118,8 +1122,37 @@ def _plan_entry(
         links = fresh
     else:
         links = list(dict.fromkeys(list(entry.get("links") or []) + fresh))
-    entry["links"] = links
+
+    # 更新通知帖：正文没有自己的下载链接，只写「원본글 가서 다시 받아줘」+ 站内
+    # 原帖链接。作者通常是把修好的文件更新在原帖里（换新的 kio 链接），所以必须
+    # 跟过去取最新链接；否则这一帖只有预览图，今天的文件夹里看不到更新。
     buckets = _classify(links, settings.password)
+    if settings.files and not (
+        buckets["kio"] or buckets["nahida_mod"] or buckets["nahida_link"]
+    ):
+        refs = list(dict.fromkeys(
+            (board, pid) for board, pid in _RE_ARCA_POST.findall(text) if pid != aid
+        ))
+        if len(refs) == 1:
+            board, ref = refs[0]
+            ref_url = f"https://arca.live/b/{board}/{ref}"
+            try:
+                ref_page = _fetch_post(
+                    sess, ref_url, settings.request_timeout, link_resolver
+                )
+                extra = _extract_links(_post_text(_article_body_html(ref_page)))
+            except Exception as exc:  # noqa: BLE001 - 跟不过去就按纯图帖处理
+                log.warning("帖子 %s 跟随原帖 %s 失败：%s", aid, ref, exc)
+            else:
+                if extra:
+                    log.info(
+                        "帖子 %s 无直接外链，跟随原帖 %s 取到 %d 个链接",
+                        aid, ref, len(extra),
+                    )
+                    links = list(dict.fromkeys(links + extra))
+                    entry["via_post"] = ref
+                    buckets = _classify(links, settings.password)
+    entry["links"] = links
 
     images: list[dict[str, Any]] = []
     if settings.images:
