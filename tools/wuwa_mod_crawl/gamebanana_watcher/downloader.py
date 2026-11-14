@@ -328,17 +328,22 @@ def requeue_updates(mod_ids: Iterable[str], state_path: str | Path) -> list[str]
             entry = state["items"].get(mid)
             if entry is None:
                 continue
-            # 只复用「真的下完过」的项；failed/pending 的下一轮照常重试
-            entry["prev_images"] = [
+            # 只复用「真的下完过」的项；failed/pending 的下一轮照常重试。
+            # 已经排进更新队列、计划被清空的条目重复触发 requeue 时，不能把
+            # 上一轮记下的复用清单清掉，否则又会整包重下。
+            prev_images = [
                 {"url": x.get("url"), "file": x.get("file"), "size": x.get("size") or 0}
                 for x in (entry.get("images") or [])
                 if x.get("status") == "done" and x.get("url")
             ]
-            entry["prev_files"] = [
+            prev_files = [
                 {"url": x.get("url"), "file": x.get("file"), "size": x.get("size") or 0}
                 for x in (entry.get("files") or [])
                 if x.get("status") == "done" and x.get("url")
             ]
+            if prev_images or prev_files or not entry.get("is_update"):
+                entry["prev_images"] = prev_images
+                entry["prev_files"] = prev_files
             entry["is_update"] = True
             entry["update_of"] = str(entry.get("day") or entry.get("date") or "")
             entry["status"] = "queued"
