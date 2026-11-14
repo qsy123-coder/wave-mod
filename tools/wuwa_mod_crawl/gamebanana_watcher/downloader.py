@@ -84,6 +84,9 @@ class DownloadSettings:
     folder_prefix: str = "W-"           # 日期文件夹前缀，与手工整理的 W-2026.10.30 一致
     images: bool = True
     files: bool = True
+    # 老 Mod 发现新文件时的落盘子目录（相对当天的来源文件夹）。
+    # 留空 = 和新增 Mod 混在同一层（旧行为，会把更新当成新 Mod 重复下载）。
+    update_subdir: str = "更新"
     min_free_gb: float = 3.0
     request_timeout: int = 120
     retry: int = 3
@@ -117,6 +120,7 @@ def load_settings(cfg) -> DownloadSettings:
         folder_prefix=sec.get("folder_prefix", "W-").strip(),
         images=sec.getboolean("images", True),
         files=sec.getboolean("files", True),
+        update_subdir=sec.get("update_subdir", "更新").strip(),
         min_free_gb=sec.getfloat("min_free_gb", 3.0),
         request_timeout=sec.getint("request_timeout", 120),
         retry=max(1, sec.getint("retry", 3)),
@@ -306,6 +310,11 @@ def requeue_updates(mod_ids: Iterable[str], state_path: str | Path) -> list[str]
 
     与 enqueue_rows 的区别：这些 mod_id 已经在队列里，不能因为"已存在"跳过。
     重新规划会重建文件列表，旧版本文件留在原来的日期文件夹里，不覆盖、不删除。
+
+    **只补增量**（2026-11-14 起）：旧规划里已经下完的图片/附件按 URL 记进
+    `prev_images` / `prev_files`，重规划时同一个 URL 直接复用、不再下载；
+    真正新增的项落到当天的 `<来源>/更新/` 子目录，不会混进新增 Mod 那一层
+    （那是重复下载和「同一条 Mod 出两张卡」的根源）。
     """
     state_path = Path(state_path)
     ids = [str(x) for x in mod_ids if x]
@@ -319,8 +328,20 @@ def requeue_updates(mod_ids: Iterable[str], state_path: str | Path) -> list[str]
             entry = state["items"].get(mid)
             if entry is None:
                 continue
+            # 只复用「真的下完过」的项；failed/pending 的下一轮照常重试
+            entry["prev_images"] = [
+                {"url": x.get("url"), "file": x.get("file"), "size": x.get("size") or 0}
+                for x in (entry.get("images") or [])
+                if x.get("status") == "done" and x.get("url")
+            ]
+            entry["prev_files"] = [
+                {"url": x.get("url"), "file": x.get("file"), "size": x.get("size") or 0}
+                for x in (entry.get("files") or [])
+                if x.get("status") == "done" and x.get("url")
+            ]
+            entry["is_update"] = True
+            entry["update_of"] = str(entry.get("day") or entry.get("date") or "")
             entry["status"] = "queued"
-            entry["planned"] = False
             entry["attempts"] = 0
             entry["last_error"] = ""
             entry["day"] = day
@@ -704,6 +725,34 @@ def _image_url(img: dict[str, Any]) -> tuple[str, str]:
     return f"{base}/{safe}", name
 
 
+def _reuse_previous(
+    entry: dict[str, Any],
+    images: list[dict[str, Any]],
+    files: list[dict[str, Any]],
+) -> int:
+    """老 Mod 更新：URL 没变的项直接沿用旧文件名并标 done，不再下载。
+
+    返回复用的项数。复用的项在磁盘上仍是旧版本那份，因此只写状态、不建文件。
+    """
+    prev_images = {
+        str(x.get("url")): x for x in (entry.get("prev_images") or []) if x.get("url")
+    }
+    prev_files = {
+        str(x.get("url")): x for x in (entry.get("prev_files") or []) if x.get("url")
+    }
+    reused = 0
+    for items, prev in ((images, prev_images), (files, prev_files)):
+        for x in items:
+            old = prev.get(str(x.get("url") or ""))
+            if not old:
+                continue
+            x["status"] = "done"
+            x["file"] = old.get("file") or ""
+            x["reused"] = True
+            reused += 1
+    return reused
+
+
 def _plan_item(
     client: GameBananaClient,
     entry: dict[str, Any],
@@ -749,34 +798,51 @@ def _plan_item(
     img_dir = day_dir
     file_dir = day_dir
 
-    if images:
-        n = len(images)
-        suffix_len = 0 if n == 1 else len(f"_{n}")
-        base = sanitize_name(entry["name"], _budget_for(img_dir, suffix_len))
-        base = _unique_base(base, mid, taken_img)
-        taken_img.add(base)
-        entry["image_base"] = base
-        for idx, img in enumerate(images):
-            ext = _ext_of(img["src"], ".jpg")
-            suffix = "" if n == 1 else f"_{idx + 1}"
-            img["file"] = f"{base}{suffix}{ext}"
+    # 更新条目：URL 没变的图片/附件沿用旧文件名，只下载真正新增的项。
+    reused = _reuse_previous(entry, images, files)
 
-    if files:
-        n = len(files)
+    def _name_pending(
+        items: list[dict[str, Any]],
+        target_dir: Path,
+        taken: set[str],
+        default_ext: str,
+    ) -> str:
+        """给「还没下过」的项起名；返回本次使用的 base（没有待下载项时为空）。"""
+        pend = [x for x in items if x.get("status") != "done"]
+        if not pend:
+            return ""
+        # 复用项已经占着旧文件名（例如 X_1.zip / X_2.zip），新文件不能和它们重名
+        reused_names = {
+            str(x.get("file"))
+            for x in items
+            if x.get("reused") and x.get("file")
+        }
+        n = len(pend)
         suffix_len = 0 if n == 1 else len(f"_{n}")
-        base = sanitize_name(entry["name"], _budget_for(file_dir, suffix_len))
-        base = _unique_base(base, mid, taken_file)
-        taken_file.add(base)
-        entry["file_base"] = base
-        for idx, f in enumerate(files):
-            ext = _ext_of(f["src"], ".bin")
+        base = sanitize_name(entry["name"], _budget_for(target_dir, suffix_len))
+        base = _unique_base(base, mid, taken)
+        taken.add(base)
+        for idx, item in enumerate(pend):
+            ext = _ext_of(item.get("src") or "", default_ext)
             suffix = "" if n == 1 else f"_{idx + 1}"
-            f["file"] = f"{base}{suffix}{ext}"
+            name = f"{base}{suffix}{ext}"
+            if name in reused_names:
+                name = f"{base} (mod {mid}){suffix}{ext}"
+            item["file"] = name
+        return base
+
+    img_base = _name_pending(images, img_dir, taken_img, ".jpg")
+    if img_base:
+        entry["image_base"] = img_base
+    file_base = _name_pending(files, file_dir, taken_file, ".bin")
+    if file_base:
+        entry["file_base"] = file_base
 
     entry["images"] = images
     entry["files"] = files
+    entry["reused"] = reused
     entry["planned"] = True
-    entry["status"] = "pending" if (images or files) else "done"
+    entry["status"] = "pending" if (img_base or file_base) else "done"
 
 
 def _apply_state(path: Path, mid: str, entry: dict[str, Any], fn) -> None:
@@ -1051,7 +1117,12 @@ def _process_queue_inner(
         day_dir = dest_root / day_folder(day_key, settings.folder_prefix)
         if source_dir:
             day_dir = day_dir / source_dir
-        img_dir = file_dir = day_dir
+        # 老 Mod 的更新单独落一个子目录：每天新增的 Mod 平铺在 <来源>/ 下，
+        # 更新混进去会被当成新 Mod 再整理/再上传一遍（重复下载 + 重复卡片）。
+        item_dir = day_dir
+        if entry.get("is_update") and settings.update_subdir:
+            item_dir = day_dir / settings.update_subdir
+        img_dir = file_dir = item_dir
 
         # 规划（拉 ProfilePage 拿原图/附件清单）
         if not entry.get("planned"):
@@ -1059,10 +1130,25 @@ def _process_queue_inner(
                 slot = taken.setdefault(day_key, {"img": set(), "file": set()})
                 slot["img"].discard(entry.get("image_base") or "")
                 slot["file"].discard(entry.get("file_base") or "")
-                _plan_item(client, entry, day_dir, slot["img"], slot["file"], settings)
+                _plan_item(client, entry, item_dir, slot["img"], slot["file"], settings)
                 _clear_retry(entry)
                 stats["planned"] += 1
                 _apply_state(state_path, mid, entry, lambda e: None)
+                if entry.get("is_update"):
+                    pend_imgs = sum(
+                        1 for x in (entry.get("images") or [])
+                        if x.get("status") != "done"
+                    )
+                    pend_files = sum(
+                        1 for x in (entry.get("files") or [])
+                        if x.get("status") != "done"
+                    )
+                    log.info(
+                        "Mod %s 是更新（原版本在 %s）：复用 %d 项，需下载 图 %d / 附件 %d → %s",
+                        mid, entry.get("update_of") or "?",
+                        int(entry.get("reused") or 0), pend_imgs, pend_files,
+                        item_dir,
+                    )
                 time.sleep(settings.delay_seconds)
             except LowDisk:
                 low_disk = True
@@ -1087,11 +1173,16 @@ def _process_queue_inner(
                 continue
 
         if entry.get("status") in ("done", "skipped"):
+            if entry.get("is_update") and entry.get("status") == "done":
+                log.info(
+                    "Mod %s 更新没有新文件（%d 项全是已下载过的内容），跳过",
+                    mid, int(entry.get("reused") or 0),
+                )
             continue
 
         # 真有东西要下才建文件夹（下架/隐藏的 Mod 不会留下空目录）；
         # 当天目录已存在时 exist_ok 直接复用，与手工整理的文件夹共存。
-        day_dir.mkdir(parents=True, exist_ok=True)
+        item_dir.mkdir(parents=True, exist_ok=True)
 
         # 下载图片：多线程。本机到 GameBanana 直连实测单线程只有 20~80KB/s，
         # 一个 Mod 动辄十几二十张图，串行会把整轮拖到几十分钟。
