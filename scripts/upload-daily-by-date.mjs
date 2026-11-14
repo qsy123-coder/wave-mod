@@ -54,6 +54,7 @@ import {
 } from "./daily-classify.mjs";
 import { looseImageKey } from "./image-name-match.mjs";
 import { SNAPSHOT_REL_PATH, notifyRevalidate, publishSnapshotToCos } from "./mods-snapshot-export.mjs";
+import { buildWarmUrls, cdnCredentialsFromEnv, warmUrls } from "./tencent-cdn.mjs";
 import { readModGroupsFile } from "./mod-groups.mjs";
 import { matchRecordsToGroups, normalizeGroupKey } from "./mod-groups-pure.mjs";
 import { buildImageUpdateSql, buildInsertSql, buildMergeDriveLinksSql, buildRedateSql, buildUnpublishSql } from "./mod-upload-sql.mjs";
@@ -1300,6 +1301,33 @@ where game_key = ${dollarQuote(GAME_KEY)};
   }
   if (uniqueUnpublishIds.length) {
     console.log(`🧹 下架重复拆分行: 成功 ${unpublished}/${uniqueUnpublishIds.length} 条`);
+  }
+
+  // ── CDN 预热：详情页真正会请求的 imageMogr2 档位 ────────────────────────
+  // 不预热的话，每张图第一次被看到都要等 CDN 回源 COS 现场转码（实测 1.5–4s）；
+  // 20 多张图的帖子就是 20 多次冷转码（2026-11-14 用户反馈「多图预览很慢」）。
+  // 这里只提交异步预热任务（几十毫秒），预热在腾讯云侧跑；失败不影响上传结果。
+  if (inserted > 0 || reDated > 0 || mergedUpdated > 0 || imagesUpdated > 0) {
+    try {
+      const credentials = cdnCredentialsFromEnv();
+      if (!credentials.secretId) {
+        console.log("🔥 跳过 CDN 预热：.env.local 缺少 COS_SECRET_ID / COS_SECRET_KEY");
+      } else {
+        // 占位图不预热；WARM_MAX_URLS 防「全量重跑」把当天配额一次刷爆
+        const warmLimit = Number(process.env.WARM_MAX_URLS ?? 500) || 500;
+        const warmCandidates = results.map((r) => ({
+          images: (r.images ?? []).filter((url) => url && url !== PLACEHOLDER_IMAGE_URL),
+          variant_images: r.variant_images ?? {},
+        }));
+        const warmList = buildWarmUrls(warmCandidates).slice(0, warmLimit);
+        if (warmList.length) {
+          const taskIds = await warmUrls(warmList, { credentials });
+          console.log(`🔥 CDN 预热: 提交 ${warmList.length} 条（${taskIds.length} 个任务）`);
+        }
+      }
+    } catch (err) {
+      console.warn(`⚠️  CDN 预热失败（不影响上传）: ${err.message}`);
+    }
   }
 
   const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);

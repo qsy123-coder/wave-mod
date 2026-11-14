@@ -252,6 +252,30 @@ node scripts/upload-daily-by-date.mjs                               # 全部日�
 验证用 `https://www.wave-mod.top/api/updates` 查对应日期分组的 `driveLinks`。
 （终端里中文显示乱码是控制台代码页问题，不是数据坏了。）
 
+### CDN 图片档位预热（脚本已内置，失败不影响上传）
+
+站内图片是 COS 原图 + 数据万象按需缩放，CDN 第一次收到某个 `?imageMogr2/thumbnail/...`
+档位地址时要回源 COS 现场转码（实测冷 1.5–4s、热 130–190ms）。20 多张图的帖子首次浏览
+就是 20 多次冷转码 —— 用户 2026-11-14 反馈的「多图预览很慢」。
+
+`upload-daily-by-date.mjs` 写库成功后会**自动**提交预热任务（`scripts/tencent-cdn.mjs`，
+腾讯云 CDN `PushUrlsCache`，Area=overseas）：首图/变体首图预热 320/640/960/1280/1920，
+其余图只预热 320（缩略图条）。缺 `COS_SECRET_ID`/`COS_SECRET_KEY` 或 API 报错只打一行
+警告，绝不改变上传结果。单次上限 `WARM_MAX_URLS=500`，防全量重跑把当天配额刷爆。
+
+手工补跑（默认 dry-run，加 `--apply` 才提交）：
+
+```bash
+node scripts/warm-cdn-images.mjs --date=2026.11.13
+node scripts/warm-cdn-images.mjs --date=2026.11.13 --apply
+node scripts/warm-cdn-images.mjs --ids=<uuid>,<uuid> --apply
+node scripts/warm-cdn-images.mjs --since-days=3 --max=300 --apply
+```
+
+可调：`--widths=320,640,960,1280,1920`、`--thumb=320`、`--max=800`、`--area=overseas`。
+⚠️ 该域名是**境外加速**（`DescribeDomains` 的 `Area=overseas`），`--area` 别改 mainland，
+否则 API 报「加速区域不匹配」。
+
 ### ⚠️ 事后改 `character` 会让去重失效
 
 去重键是 `character|title`。**事后把某批 mod 迁移到新分类，日期目录里的 key 没变，
