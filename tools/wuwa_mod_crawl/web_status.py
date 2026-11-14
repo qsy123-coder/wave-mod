@@ -184,11 +184,20 @@ def _status(value: str) -> str:
 
 
 def _resolve_file(base_dir: Path | None, source: str, name: str) -> Path | None:
-    """新布局 <day>/<来源>/<name>；兼容旧的 <day>/<name> 平铺布局。"""
+    """新布局 <day>/<来源>/<name>；兼容旧的 <day>/<name> 平铺布局。
+
+    老 Mod 的更新落在 `<day>/<来源>/更新/<name>`（下载器 [download] update_subdir），
+    也要能定位到，否则看板会把它们显示成「没落盘」。
+    """
     if not base_dir or not name:
         return None
     new = base_dir / source / name
-    if not new.exists() and (base_dir / name).exists():
+    if new.exists():
+        return new
+    upd = base_dir / source / "更新" / name
+    if upd.exists():
+        return upd
+    if (base_dir / name).exists():
         return base_dir / name
     return new
 
