@@ -399,6 +399,19 @@ def _https_ok(proxy_url: str, url: str, timeout: float = 10.0,
         sess.close()
 
 
+def node_reaches(proxy_url: str, urls: str | Iterable[str]) -> bool:
+    """当前代理是否能真实访问这些地址（不切换节点，只做判定）。
+
+    看板点「自动换节点」时，如果策略组里没有更好的节点、但**现在这个节点本来就通**，
+    就应当直接告诉用户「无需切换」，而不是抛一个红色的 409 失败横幅。
+    """
+    probe = [urls] if isinstance(urls, str) else list(urls)
+    probe = [u for u in probe if u]
+    if not probe:
+        return False
+    return all(_https_ok(proxy_url, u, max_status=_url_limit(u)) for u in probe)
+
+
 def select_node(group: str, name: str) -> None:
     _request_json(
         f"/proxies/{urllib.parse.quote(group, safe='')}",

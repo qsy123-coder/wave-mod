@@ -568,6 +568,14 @@ def _log_tail(path: Path, lines: int = 200) -> list[str]:
     return out[-lines:]
 
 
+# 只有这些域名超时才和「下载」有关。Clash 日志里还会有迅雷、QQ 心跳、Google
+# 等无关流量的 dial timeout，拿它们报警会让看板长期挂一条假告警（用户看到的
+# 「面板又出错了」就是这个），所以按域名过滤。
+_NOTICE_HOSTS = ("gamebanana.com", "arca.live", "kio.ac", "nahida.live")
+_NOTICE_HOST_ANY = tuple("." + h for h in _NOTICE_HOSTS)   # 子域：files.gamebanana.com
+_NOTICE_DIAL_HOST = re.compile(r"-->\s*([A-Za-z0-9._-]+)")
+
+
 def _clash_proxy_notice() -> str:
     """Clash 节点掉线时，sidecar 日志会刷 `dial ... i/o timeout`。
 
@@ -599,13 +607,19 @@ def _clash_proxy_notice() -> str:
             continue
         if now - ts > 900:
             break
+        host_m = _NOTICE_DIAL_HOST.search(line)
+        if not host_m:
+            continue
+        host = host_m.group(1).lower()
+        if host not in _NOTICE_HOSTS and not host.endswith(_NOTICE_HOST_ANY):
+            continue          # 迅雷 / QQ / Google 的心跳超时与下载无关
         low = line.lower()
         if "dial" in low and (
             "i/o timeout" in low or "connection refused" in low
             or "failed to create session" in low
         ):
             return (
-                "Clash 最近出现出站连接超时（节点可能掉线）；"
+                "Clash 最近访问 GameBanana / arca 出现出站超时（节点可能掉线）；"
                 "下载任务会自动换节点，也可以点右上角「自动换节点」。"
             )
     return ""
@@ -1175,17 +1189,33 @@ class Handler(BaseHTTPRequestHandler):
         try:
             from gamebanana_watcher.clash import (
                 current_selection,
+                node_reaches,
                 switch_to_working_node,
             )
 
             proxy = _configured_proxy(PATHS)
+            probes = ["https://gamebanana.com/", "https://arca.live/"]
             result = switch_to_working_node(
-                ["https://gamebanana.com/", "https://arca.live/"],
+                probes,
                 proxy_url=proxy,
-                timeout_ms=5000,
-                max_try=4,
+                timeout_ms=6000,
+                max_try=5,
             )
             result["proxy"] = proxy
+            if not result.get("ok"):
+                # 策略组里没有「更好」的节点，不代表现在上不了网：实测当前节点
+                # 能访问目标站时就别报错，避免看板弹出无意义的「换节点失败」。
+                try:
+                    node = (current_selection() or {}).get("node") or ""
+                    if node and node_reaches(proxy, probes):
+                        result.update({
+                            "ok": True,
+                            "node": node,
+                            "delay": None,
+                            "message": f"当前节点 {node} 可以访问 GameBanana / arca，无需切换",
+                        })
+                except Exception as exc:  # noqa: BLE001 - 判定失败就按原错误返回
+                    log.info("当前节点复验失败：%s", exc)
             if result.get("ok"):
                 try:
                     result["selection"] = current_selection()
@@ -1802,7 +1832,7 @@ $("#switchNode").addEventListener("click", async (e) => {
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.ok) throw new Error(d.error || ("HTTP " + r.status));
     const delay = d.delay ? `（${d.delay}ms）` : "";
-    showBanner(`已自动切换节点：${d.previous || "—"} → ${d.node}${delay}`, "ok");
+    showBanner(d.message || `已自动切换节点：${d.previous || "—"} → ${d.node}${delay}`, "ok");
   } catch (err) {
     showBanner("换节点失败：" + err.message);
   } finally {
