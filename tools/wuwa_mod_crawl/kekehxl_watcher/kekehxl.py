@@ -99,6 +99,14 @@ class KekehxlClient:
         # requests **根本不带这个 cookie**（实测 `Cookie: None`），插件于是报
         # 「Cookies are blocked or not supported」—— 这个假错误会把真正的失败原因
         # （密码不对）一起盖住，非常难查。先 GET 登录页后，该错误立刻消失。
+        # ⚠️ 先扔掉旧的会话 cookie 再登录。
+        # 实测（2026-11-18 事故）：站点方换了签名密钥后，jar 里那条过期的
+        # `bid_1_password_protected_auth` 会让插件「看到已有 cookie」直接把密码表单
+        # 原样返回 —— 密码其实是对的，扣掉旧 cookie 换干净会话立刻能登进去
+        # （同机同密码复现：带旧 jar 失败、空 jar 成功）。服务是常驻进程，这条
+        # 旧 cookie 在内存里不会自己消失，于是连续 175 轮（≈29 小时）全失败。
+        self.session.cookies.pop("bid_1_password_protected_auth", None)
+
         try:
             self.session.get(login_url, timeout=self.timeout)
         except requests.RequestException as exc:

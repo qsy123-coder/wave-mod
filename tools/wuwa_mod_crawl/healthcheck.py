@@ -47,6 +47,7 @@ SERVER_SOURCES = [
 GB_STATUS = BASE_DIR / "status" / "gb_status.json"
 
 STALE_DAYS = 7           # 超过这么多天没新 mod 就告警
+POLL_STALE_HOURS = 2     # last_poll 超过这么多小时没更新 → 服务卡死或登录失效（轮询间隔最长 60 分钟）
 GB_STALE_HOURS = 6       # GameBanana 状态文件超过这么多小时没更新 → 本机没开机
 
 
@@ -191,12 +192,24 @@ def check_source(name: str, cfg_path: Path, service: str) -> list[str]:
         problems.append(f"{len(missing_index)} 个单元无 index.html")
     if csvs and not thumbs:
         problems.append("无预览图")
-    files = "✅" if not problems else "❌ " + "、".join(problems)
 
     # 数据新鲜度：last_poll（服务是否在跑）+ last_new_at（站点是否在出货）
     state_file = BASE_DIR / cfg["storage"].get("state_file", "state.json")
     st = _read_states(state_file)
     fresh = _freshness(st)
+
+    # ⚠️ 轮询停摆必须计入 problems，不能只当行尾的装饰性 ⚠️。
+    # 2026-11-18 可可站登录失效，last_poll 停在 07:48，日报照样写
+    # 「✅ 可可站 · 24.3 小时前轮询过 ⚠️」，`problems` 只算了另外两项 ——
+    # 29 小时没采到任何东西，看板上却是绿的。这里按轮询间隔（最长 60 分钟）
+    # 留一倍余量，超过就算故障。
+    poll_h = _hours_since(st.get("last_poll"))
+    if poll_h is None:
+        problems.append("无轮询记录")
+    elif poll_h > POLL_STALE_HOURS:
+        problems.append(f"已 {_age_text(poll_h)}未轮询")
+
+    files = "✅" if not problems else "❌ " + "、".join(problems)
 
     total = 0
     for u in units:
