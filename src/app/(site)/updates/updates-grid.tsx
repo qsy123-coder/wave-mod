@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 
 import { ModCard } from "@/components/common/mod-card";
 import { CardDownloadAction } from "@/components/features/mods/detail/card-download-action";
+import { DayBatchExportButton } from "@/components/features/mods/detail/day-batch-export-button";
 import { useGuestViewer as useSession } from "@/lib/viewer/guest-viewer";
 import { ModDetailDrawer } from "@/components/features/mods/detail/mod-detail-drawer";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -52,6 +53,7 @@ export function UpdatesGrid({ days }: UpdatesGridProps) {
                 <span className="shrink-0 border-4 border-black bg-[var(--neo-muted)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-black shadow-[4px_4px_0px_0px_#000]">
                   +{day.count}
                 </span>
+                <DayBatchExportButton mods={day.mods} dateKey={day.date} />
               </div>
 
               <div className="grid w-full gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

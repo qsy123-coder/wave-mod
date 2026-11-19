@@ -1,51 +1,16 @@
 "use client";
 
-import { Component, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Image from "next/image";
-import dynamic from "next/dynamic";
-import { Copy, Share2, X } from "lucide-react";
+import { Copy, Download, LoaderCircle, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { copyToClipboard } from "@/lib/clipboard";
-import { COS_IMG_CARD, withCosImageTransform } from "@/lib/cos/shared";
-import { isExternalStorageUrl } from "@/lib/storage/shared";
+import { downloadDataUrl } from "@/lib/download";
+import { sanitizeFileName } from "@/lib/share-export-filename";
 import { cn } from "@/lib/utils";
 
-/**
- * 二维码库**动态加载**：`/mods` 是站内最重的页面之一，qrcode.react 只应该在
- * 用户真正打开分享面板时下载（memory: client-bundle-leaks-zod-framer-motion）。
- * `ssr: false` 是因为它只在浏览器里用 —— 详情抽屉本身就是客户端按 id 拉数据填的。
- */
-const QRCodeSVG = dynamic(() => import("qrcode.react").then((mod) => mod.QRCodeSVG), {
-  ssr: false,
-  loading: () => <div className="size-full animate-pulse bg-white" aria-hidden />,
-});
-
-/**
- * 二维码分包加载失败（弱网、发布时 chunk 换名）不能让整个分享面板崩掉 ——
- * 链接和复制按钮本身不依赖它，必须继续可用。
- */
-class QrErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  render() {
-    if (this.state.failed) {
-      return (
-        <div className="flex size-full items-center justify-center bg-white px-4 text-center text-xs font-black leading-5 text-black/60">
-          二维码加载失败
-          <br />
-          请直接复制下方链接
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+import { ShareModCardContent } from "./share-mod-card";
 
 type ShareModDialogProps = {
   open: boolean;
@@ -61,14 +26,15 @@ type ShareModDialogProps = {
 const SHARE_BUTTON_CLASS =
   "inline-flex size-8 shrink-0 items-center justify-center border-[3px] border-black bg-white text-lg font-black leading-none shadow-[3px_3px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none";
 
+/** 面板里的操作按钮在导出 PNG 时被隐藏，只留内容本身（见 handleExport） */
+const EXPORT_EXCLUDE = "data-export-exclude";
+
 export function ShareModDialog({ open, onClose, url, title, imageUrl }: ShareModDialogProps) {
   const [copied, setCopied] = useState(false);
-  /**
-   * 预览图方向。记的是「哪张图 + 它的方向」而不是布尔值：换一个 MOD 时 src 变了，
-   * 旧结论自动失效，不必在 effect 里 setState（会被 react-hooks/set-state-in-effect 拦下）。
-   * 首图加载完成前按横屏（上下排列）渲染。
-   */
-  const [coverInfo, setCoverInfo] = useState<{ src: string; ratio: number } | null>(null);
+  const [exporting, setExporting] = useState(false);
+  /** 导出截图目标：卡片内容（不含按钮 —— 按钮在导出时按 data-export-exclude 隐藏） */
+  const cardRef = useRef<HTMLDivElement>(null);
+  /** 无障碍外壳：接收焦点、承载 Esc/Tab 循环 */
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -123,12 +89,6 @@ export function ShareModDialog({ open, onClose, url, title, imageUrl }: ShareMod
 
   if (!open) return null;
 
-  // 与详情页预览同口径：COS 图按 800px 卡片档取，别直接拉原图
-  const coverSrc = imageUrl ? withCosImageTransform(imageUrl, COS_IMG_CARD) : null;
-  // 宽高比只在加载完成后才知道；方框宽度随之收缩，不再固定占满整行
-  const coverRatio = coverSrc && coverInfo?.src === coverSrc ? coverInfo.ratio : null;
-  const isPortrait = Boolean(coverRatio && coverRatio < 1);
-
   const handleCopy = async () => {
     const ok = await copyToClipboard(url);
     if (!ok) {
@@ -142,44 +102,43 @@ export function ShareModDialog({ open, onClose, url, title, imageUrl }: ShareMod
   };
 
   /**
-   * 完整显示，不裁切：object-contain + 固定高度的盒子。
-   * 竖图放左侧与二维码并排，横图放上方、二维码在下方；
-   * 两种排法下二维码盒与预览图盒都取行上的 `--share-cover-h`，永远等高。
+   * 导出当前分享面板为 PNG。用 html-to-image 对卡片节点截图：
+   * - `data-export-exclude` 标记的操作按钮（关闭/复制/导出）截图前临时隐藏，截完恢复，
+   *   这样导出图 = 面板内容（标题 + 封面 + 二维码 + 提示语 + 链接），不含按钮。
+   * - `pixelRatio: 2` 保证高分屏/转发后仍清晰；`backgroundColor` 保留奶油底色。
+   * 库走动态 import，和 qrcode.react 一样不进 /mods 首屏 bundle。
    */
-  const coverElement = coverSrc ? (
-    <Image
-      src={coverSrc}
-      alt={title ? `${title} 预览图` : "外观资源预览图"}
-      width={800}
-      height={450}
-      unoptimized={isExternalStorageUrl(imageUrl ?? "")}
-      sizes="(max-width: 384px) 60vw, 240px"
-      onLoad={(event) => {
-        const img = event.currentTarget;
-        if (!img.naturalWidth || !img.naturalHeight) return;
-        setCoverInfo({ src: coverSrc, ratio: img.naturalWidth / img.naturalHeight });
-      }}
-      className="h-full w-full object-contain"
-    />
-  ) : null;
+  const handleExport = async () => {
+    const node = cardRef.current;
+    if (!node || exporting) return;
 
-  const qrElement = (
-    <QrErrorBoundary>
-      <QRCodeSVG
-        value={url}
-        size={224}
-        level="M"
-        marginSize={2}
-        bgColor="#ffffff"
-        fgColor="#000000"
-        title={`打开分享链接：${url}`}
-        // 边长完全由外层方框决定（size={224} 只是未加载时的固有尺寸兜底），
-        // 方框高度跟着预览图走，二维码就跟着缩放
-        className="block size-full"
-        data-qr-code
-      />
-    </QrErrorBoundary>
-  );
+    setExporting(true);
+
+    const excludes = Array.from(node.querySelectorAll<HTMLElement>(`[${EXPORT_EXCLUDE}]`));
+    const prev = excludes.map((el) => el.style.visibility);
+    excludes.forEach((el) => {
+      el.style.visibility = "hidden";
+    });
+
+    let dataUrl: string | null = null;
+    try {
+      const { toPng } = await import("html-to-image");
+      dataUrl = await toPng(node, { pixelRatio: 2, backgroundColor: "#fff8ef" });
+    } catch {
+      toast.error("导出失败，请重试");
+    } finally {
+      excludes.forEach((el, index) => {
+        el.style.visibility = prev[index];
+      });
+      setExporting(false);
+    }
+
+    if (dataUrl) {
+      const base = title ? sanitizeFileName(title) : "资源";
+      downloadDataUrl(dataUrl, `分享-${base}.png`);
+      toast.success("分享图已保存");
+    }
+  };
 
   /**
    * 必须 portal 到 body：详情抽屉（SheetContent）是带 `translate-x-*` 的 fixed 元素，
@@ -187,98 +146,61 @@ export function ShareModDialog({ open, onClose, url, title, imageUrl }: ShareMod
    */
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4">
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-hidden
-      />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+      {/* 无障碍外壳：focus / Esc / Tab 循环都在这个节点上；截图目标是里面的卡片 */}
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="share-mod-dialog-title"
         tabIndex={-1}
-        className="relative max-h-[calc(100vh-1.5rem)] w-full max-w-xl overflow-y-auto border-4 border-black bg-[#fff8ef] p-4 text-black shadow-[8px_8px_0px_0px_#000] outline-none sm:max-h-[calc(100vh-2rem)] sm:p-5"
+        className="outline-none"
       >
-        <button type="button" onClick={onClose} className={cn(SHARE_BUTTON_CLASS, "absolute top-3 right-3")} aria-label="关闭分享面板">
-          <X className="size-4" strokeWidth={3} />
-        </button>
-
-        <div className="flex items-center gap-2 pr-10">
-          <span className="inline-flex size-8 items-center justify-center border-[3px] border-black bg-[#ffd84f] shadow-[3px_3px_0px_0px_#000]">
-            <Share2 className="size-4" strokeWidth={3} />
-          </span>
-          <div className="min-w-0">
-            <h2 id="share-mod-dialog-title" className="text-lg font-black uppercase tracking-[0.04em]">
-              分享这个资源
-            </h2>
-            {title && <p className="truncate text-xs font-bold text-black/55">{title}</p>}
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "mt-4 flex",
-            // 预览图与二维码共用一个高度（--share-cover-h）：两个盒子都读它，永远等高。
-            // 二维码是正方形，宽度=高度，所以并排时整行宽度 ≈ 盒高 ×(1+宽高比)，
-            // 竖图档位的盒高要留够（桌面 18rem 时 ≤ 4:5 的竖图都放得下）。
-            isPortrait
-              ? "items-center justify-center gap-2 [--share-cover-h:10rem] sm:gap-4 sm:[--share-cover-h:18rem]"
-              : "flex-col items-center gap-4 [--share-cover-h:12rem] sm:[--share-cover-h:16rem]",
-          )}
-        >
-          {coverSrc && (
-            <div
-              className={cn(
-                "flex h-[var(--share-cover-h)] min-w-0 items-center justify-center overflow-hidden border-4 border-black bg-white p-1 shadow-[5px_5px_0px_0px_#000]",
-                // 方框宽度 = 高度 × 图片宽高比，不留左右白边
-                coverRatio ? "max-w-full" : "w-full",
-              )}
-              style={coverRatio ? { width: `calc(var(--share-cover-h) * ${coverRatio})` } : undefined}
-              data-share-cover-box
+        <ShareModCardContent
+          ref={cardRef}
+          url={url}
+          title={title}
+          imageUrl={imageUrl}
+          titleId="share-mod-dialog-title"
+          topRight={
+            <button
+              type="button"
+              onClick={onClose}
+              {...{ [EXPORT_EXCLUDE]: "" }}
+              className={cn(SHARE_BUTTON_CLASS, "absolute top-3 right-3")}
+              aria-label="关闭分享面板"
             >
-              {coverElement}
+              <X className="size-4" strokeWidth={3} />
+            </button>
+          }
+          footer={
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={handleCopy}
+                {...{ [EXPORT_EXCLUDE]: "" }}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 border-4 border-black bg-[#ffd84f] px-3 text-xs font-black uppercase tracking-[0.1em] shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <Copy className="size-4" strokeWidth={3} />
+                {copied ? "已复制" : "复制链接"}
+              </button>
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exporting}
+                {...{ [EXPORT_EXCLUDE]: "" }}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 border-4 border-black bg-[#C4B5FD] px-3 text-xs font-black uppercase tracking-[0.1em] shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {exporting ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" strokeWidth={3} />
+                )}
+                {exporting ? "导出中" : "导出 PNG"}
+              </button>
             </div>
-          )}
-
-          <div className={cn(isPortrait ? "shrink-0" : "flex w-full justify-center")}>
-            {/*
-              二维码框：竖图并排时是正方形（宽=高）；横图上下排列时**宽度与预览图框一致**
-              （同样按 --share-cover-h × 宽高比算，图片还没加载出比例前先占满整行）。
-              二维码本身保持正方形、在框里居中 —— 拉伸成矩形就扫不出来了。
-            */}
-            <div
-              className={cn(
-                "flex items-center justify-center border-4 border-black bg-white p-3 shadow-[5px_5px_0px_0px_#000]",
-                isPortrait ? "size-[var(--share-cover-h)]" : "h-[var(--share-cover-h)] w-full",
-              )}
-              style={
-                !isPortrait && coverRatio
-                  ? { width: `calc(var(--share-cover-h) * ${coverRatio})` }
-                  : undefined
-              }
-            >
-              {qrElement}
-            </div>
-          </div>
-        </div>
-
-        <p className="mt-3 text-center text-[11px] font-bold leading-5 text-black/55">
-          微信「扫一扫」或相机扫码打开
-        </p>
-
-        <div className="mt-3 border-[3px] border-black bg-white px-3 py-2 shadow-[3px_3px_0px_0px_#000]">
-          <p className="select-all break-all text-xs font-bold leading-5 text-black/80">{url}</p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 border-4 border-black bg-[#ffd84f] px-4 text-xs font-black uppercase tracking-[0.14em] shadow-[4px_4px_0px_0px_#000] transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-        >
-          <Copy className="size-4" strokeWidth={3} />
-          {copied ? "已复制" : "复制链接"}
-        </button>
+          }
+        />
       </div>
     </div>,
     document.body,
