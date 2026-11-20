@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-19T10:59:07.567Z",
+  "generatedAt": "2026-11-20T10:46:41.587Z",
   "source": {
     "projectRef": "db",
     "cosBucket": "wave-mod-preview-1327973389",
@@ -8,12 +8,12 @@
   },
   "db": {
     "mode": "release",
-    "file": "db/wavemod-20261119-105744.dump",
-    "sha256": "683c69e6abcb8c56ce9cef67bd15fc5f0450a72d74d228cd0f696f67b4df2123",
-    "sizeBytes": 1215658,
-    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261119-105744",
+    "file": "db/wavemod-20261120-104534.dump",
+    "sha256": "780893a6133b4c74e4a83e85edcdcb735223442ab6cd8329b48e65af4879689f",
+    "sizeBytes": 1217363,
+    "releaseUrl": "https://github.com/qsy123-coder/wave-mod/releases/tag/db-20261120-104534",
     "tableCounts": {
-      "mods": 5813,
+      "mods": 5823,
       "profiles": 136,
       "favorites": 34,
       "likes": 10,
@@ -28,15 +28,15 @@
   },
   "snapshot": {
     "file": "data/mods-snapshot.json.gz",
-    "publishedRows": 5709,
+    "publishedRows": 5719,
     "refreshedThisRun": true,
     "cosKey": "snapshots/mods-snapshot.json.gz",
     "cosUrl": "https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/snapshots/mods-snapshot.json.gz"
   },
   "images": {
-    "remoteCount": 7969,
-    "totalBytes": 562670048,
-    "downloadedThisRun": 80,
+    "remoteCount": 7995,
+    "totalBytes": 564504874,
+    "downloadedThisRun": 26,
     "failedThisRun": 7,
     "failures": [
       {
@@ -44,11 +44,11 @@
         "error": "The specified key is unavailable due to content illegal."
       },
       {
-        "key": "mods/mod/20005b1a-4b9c-474b-bc90-e9dcaa0db480/preview-7.webp",
+        "key": "mods/mod/20005b1a-4b9c-474b-bc90-e9dcaa0db480/preview-8.webp",
         "error": "The specified key is unavailable due to content illegal."
       },
       {
-        "key": "mods/mod/20005b1a-4b9c-474b-bc90-e9dcaa0db480/preview-8.webp",
+        "key": "mods/mod/20005b1a-4b9c-474b-bc90-e9dcaa0db480/preview-7.webp",
         "error": "The specified key is unavailable due to content illegal."
       },
       {
@@ -56,11 +56,11 @@
         "error": "The specified key is unavailable due to content illegal."
       },
       {
-        "key": "mods/mod/ddcec9a9-fba6-454f-90af-945ccaaa8e7c/preview-8.webp",
+        "key": "mods/mod/ddcec9a9-fba6-454f-90af-945ccaaa8e7c/preview-7.webp",
         "error": "The specified key is unavailable due to content illegal."
       },
       {
-        "key": "mods/mod/ddcec9a9-fba6-454f-90af-945ccaaa8e7c/preview-7.webp",
+        "key": "mods/mod/ddcec9a9-fba6-454f-90af-945ccaaa8e7c/preview-8.webp",
         "error": "The specified key is unavailable due to content illegal."
       },
       {
@@ -8681,6 +8681,18 @@
         "etag": "\"0cb1fd308fae2794b6c55be80cb2ee07\""
       },
       {
+        "key": "mods/mod/06ac2ced-20f6-4b93-8983-1b887230180d/preview-2.webp",
+        "file": "images/mods/mod/06ac2ced-20f6-4b93-8983-1b887230180d/preview-2.webp",
+        "size": 45556,
+        "etag": "\"44a58ea2827b9c4dba816ca8c3884820\""
+      },
+      {
+        "key": "mods/mod/06ac2ced-20f6-4b93-8983-1b887230180d/preview.webp",
+        "file": "images/mods/mod/06ac2ced-20f6-4b93-8983-1b887230180d/preview.webp",
+        "size": 46016,
+        "etag": "\"925f8e8d48c472a7a46ede1d5c469658\""
+      },
+      {
         "key": "mods/mod/06cb9b19-7d01-45c1-a2db-4e7bd59c79f9/preview.webp",
         "file": "images/mods/mod/06cb9b19-7d01-45c1-a2db-4e7bd59c79f9/preview.webp",
         "size": 88626,
@@ -9539,6 +9551,12 @@
         "etag": "\"339640e53bd2ac20f4a7e975fc304413\""
       },
       {
+        "key": "mods/mod/213d7fd1-9b52-47cf-879e-1c0c01d9ba69/preview.webp",
+        "file": "images/mods/mod/213d7fd1-9b52-47cf-879e-1c0c01d9ba69/preview.webp",
+        "size": 37506,
+        "etag": "\"aaca304e165f6f97a454dfa9a41efe78\""
+      },
+      {
         "key": "mods/mod/2192d5c0-3cf7-4b94-9165-345b5ff0f4e5/preview-2.webp",
         "file": "images/mods/mod/2192d5c0-3cf7-4b94-9165-345b5ff0f4e5/preview-2.webp",
         "size": 93454,
@@ -9651,6 +9669,12 @@
         "file": "images/mods/mod/27a99aff-497d-486e-a4ce-d3125d4418da/preview.webp",
         "size": 90994,
         "etag": "\"7042b661776b65e600f9605412445a22\""
+      },
+      {
+        "key": "mods/mod/280a48ba-0614-4df9-acbd-658bf7c732a7/preview.webp",
+        "file": "images/mods/mod/280a48ba-0614-4df9-acbd-658bf7c732a7/preview.webp",
+        "size": 46994,
+        "etag": "\"f10954fc4b909ecfcd74f09dabbda530\""
       },
       {
         "key": "mods/mod/28cf639d-9838-40b5-ac26-751ddd3d476f/preview-2.webp",
@@ -10247,6 +10271,24 @@
         "etag": "\"35ac4c62c86c6d60b458dcf78da6b6e8\""
       },
       {
+        "key": "mods/mod/3ba086e2-980d-4d59-8ae3-a50aa44212e9/preview-2.webp",
+        "file": "images/mods/mod/3ba086e2-980d-4d59-8ae3-a50aa44212e9/preview-2.webp",
+        "size": 77182,
+        "etag": "\"01bfb691c903c5c27ac6ce932fd936ab\""
+      },
+      {
+        "key": "mods/mod/3ba086e2-980d-4d59-8ae3-a50aa44212e9/preview-3.webp",
+        "file": "images/mods/mod/3ba086e2-980d-4d59-8ae3-a50aa44212e9/preview-3.webp",
+        "size": 77182,
+        "etag": "\"01bfb691c903c5c27ac6ce932fd936ab\""
+      },
+      {
+        "key": "mods/mod/3ba086e2-980d-4d59-8ae3-a50aa44212e9/preview.webp",
+        "file": "images/mods/mod/3ba086e2-980d-4d59-8ae3-a50aa44212e9/preview.webp",
+        "size": 50402,
+        "etag": "\"fcc42ce001e79f6a60d768ff14f431e8\""
+      },
+      {
         "key": "mods/mod/3bc917ae-2334-4123-9de0-1f63a96eddb9/1.webp",
         "file": "images/mods/mod/3bc917ae-2334-4123-9de0-1f63a96eddb9/1.webp",
         "size": 23580,
@@ -10769,6 +10811,18 @@
         "etag": "\"f896dd22115e2d37466dc2a77346e78b\""
       },
       {
+        "key": "mods/mod/5513a93e-b9f1-4672-92ae-d95c4f7c3f75/preview-2.webp",
+        "file": "images/mods/mod/5513a93e-b9f1-4672-92ae-d95c4f7c3f75/preview-2.webp",
+        "size": 155660,
+        "etag": "\"2fdc05b1c86b8fa74384c50979bf65be\""
+      },
+      {
+        "key": "mods/mod/5513a93e-b9f1-4672-92ae-d95c4f7c3f75/preview.webp",
+        "file": "images/mods/mod/5513a93e-b9f1-4672-92ae-d95c4f7c3f75/preview.webp",
+        "size": 72984,
+        "etag": "\"e9e4a124c6f53e92aa893bd5aa03697d\""
+      },
+      {
         "key": "mods/mod/586bae74-0f68-4c1c-8050-de32ca3b7c0e/preview.webp",
         "file": "images/mods/mod/586bae74-0f68-4c1c-8050-de32ca3b7c0e/preview.webp",
         "size": 128652,
@@ -10875,6 +10929,12 @@
         "file": "images/mods/mod/5c604230-01a4-47c7-b046-2a5954245d45/preview.webp",
         "size": 37246,
         "etag": "\"ef2ccde9362dfe4b1dc7d0cb6f7ad4e7\""
+      },
+      {
+        "key": "mods/mod/5cb5f587-0804-41ca-bb60-d7a05be579aa/preview-2.webp",
+        "file": "images/mods/mod/5cb5f587-0804-41ca-bb60-d7a05be579aa/preview-2.webp",
+        "size": 52724,
+        "etag": "\"5bb02dadf22a84bfb0b962122b88e239\""
       },
       {
         "key": "mods/mod/5e588f11-9836-4e3f-a718-09be49b0f647/2-0-og.webp",
@@ -11651,6 +11711,18 @@
         "etag": "\"a6ca0779d51d1fe8789d56b607887dd7\""
       },
       {
+        "key": "mods/mod/6df7be79-836c-48a0-b03c-6adbf7f20cb7/preview-2.webp",
+        "file": "images/mods/mod/6df7be79-836c-48a0-b03c-6adbf7f20cb7/preview-2.webp",
+        "size": 80316,
+        "etag": "\"5f6c91a73526e8bf8a976242e7fe6b43\""
+      },
+      {
+        "key": "mods/mod/6df7be79-836c-48a0-b03c-6adbf7f20cb7/preview.webp",
+        "file": "images/mods/mod/6df7be79-836c-48a0-b03c-6adbf7f20cb7/preview.webp",
+        "size": 363478,
+        "etag": "\"1da1e65162853719c33a6ee1c3b5558b\""
+      },
+      {
         "key": "mods/mod/6e9b2c1f-2c2b-45ea-9656-ddb69cb3fbba/preview-2.webp",
         "file": "images/mods/mod/6e9b2c1f-2c2b-45ea-9656-ddb69cb3fbba/preview-2.webp",
         "size": 55442,
@@ -11823,6 +11895,18 @@
         "file": "images/mods/mod/72200704-45db-465f-94c3-e9fc1ea6e468/preview.webp",
         "size": 364430,
         "etag": "\"2d6dc110752ca18e0d10827c33a15661\""
+      },
+      {
+        "key": "mods/mod/7242753c-aa79-4da4-ac4e-9574a88f4023/preview-2.webp",
+        "file": "images/mods/mod/7242753c-aa79-4da4-ac4e-9574a88f4023/preview-2.webp",
+        "size": 34962,
+        "etag": "\"566c9a09b651c3476a52220ee1fb30a1\""
+      },
+      {
+        "key": "mods/mod/7242753c-aa79-4da4-ac4e-9574a88f4023/preview.webp",
+        "file": "images/mods/mod/7242753c-aa79-4da4-ac4e-9574a88f4023/preview.webp",
+        "size": 142708,
+        "etag": "\"7685b6c35899b37c7e5f3e84fb4c5193\""
       },
       {
         "key": "mods/mod/72497fdd-ad02-4655-9ad7-0c06b09a4a4f/preview.webp",
@@ -12405,6 +12489,12 @@
         "file": "images/mods/mod/8889b46d-507a-43a4-a61d-85e0d15703f9/preview.webp",
         "size": 60124,
         "etag": "\"e6a1b0ca980ea4ab34f1b1b48fc07f8c\""
+      },
+      {
+        "key": "mods/mod/88ff859b-4c10-4ee7-aba0-4b63484f0fdb/preview.webp",
+        "file": "images/mods/mod/88ff859b-4c10-4ee7-aba0-4b63484f0fdb/preview.webp",
+        "size": 35662,
+        "etag": "\"acfd4c50667df834b55d26af5e9a4d8f\""
       },
       {
         "key": "mods/mod/898134f3-bd5e-4abd-87ae-c79ae5b814dd/preview-2.webp",
@@ -13223,6 +13313,12 @@
         "etag": "\"65de2cfb3dcd2bab48ebe76411755614\""
       },
       {
+        "key": "mods/mod/b5eb91b3-1854-4060-98f1-aeacc61e0b94/preview.webp",
+        "file": "images/mods/mod/b5eb91b3-1854-4060-98f1-aeacc61e0b94/preview.webp",
+        "size": 65804,
+        "etag": "\"e9b4ba576bd2c5fed11de5d77226093c\""
+      },
+      {
         "key": "mods/mod/b6c0d560-cefd-4555-87f7-e663af4db1db/preview.webp",
         "file": "images/mods/mod/b6c0d560-cefd-4555-87f7-e663af4db1db/preview.webp",
         "size": 64808,
@@ -13469,6 +13565,12 @@
         "etag": "\"dafe8760793f5be30b3d157b098060de\""
       },
       {
+        "key": "mods/mod/bc3f6819-0ec1-45f6-9368-530ca12ba826/preview.webp",
+        "file": "images/mods/mod/bc3f6819-0ec1-45f6-9368-530ca12ba826/preview.webp",
+        "size": 45252,
+        "etag": "\"1818286240bcfe6b68d69431b7d8790b\""
+      },
+      {
         "key": "mods/mod/bcc5edad-9655-4488-9ae4-29b913aa938d/alt-1-7.webp",
         "file": "images/mods/mod/bcc5edad-9655-4488-9ae4-29b913aa938d/alt-1-7.webp",
         "size": 35604,
@@ -13503,6 +13605,54 @@
         "file": "images/mods/mod/bf5323cb-9e22-4583-bf76-d106ca0bbe6b/preview-10.webp",
         "size": 104398,
         "etag": "\"dcc5c53c8a3ff65106e2590c2b058256\""
+      },
+      {
+        "key": "mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-2.webp",
+        "file": "images/mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-2.webp",
+        "size": 50212,
+        "etag": "\"81e70d0f7a96aef900ca21e7f66aeea4\""
+      },
+      {
+        "key": "mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-3.webp",
+        "file": "images/mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-3.webp",
+        "size": 45352,
+        "etag": "\"0b79a1466013c61fac3d00b0c248d31a\""
+      },
+      {
+        "key": "mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-4.webp",
+        "file": "images/mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-4.webp",
+        "size": 40160,
+        "etag": "\"0db597396afa55ea2b50a6b6d508efa4\""
+      },
+      {
+        "key": "mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-5.webp",
+        "file": "images/mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-5.webp",
+        "size": 38874,
+        "etag": "\"b4c61cb355a226c8ce4b64b867dda18a\""
+      },
+      {
+        "key": "mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-6.webp",
+        "file": "images/mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-6.webp",
+        "size": 38012,
+        "etag": "\"6c7f6021b286c0fbb932edaef0139ed9\""
+      },
+      {
+        "key": "mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-7.webp",
+        "file": "images/mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-7.webp",
+        "size": 23122,
+        "etag": "\"d023c22c25c60060c532d8c5d6ecb1f9\""
+      },
+      {
+        "key": "mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-8.webp",
+        "file": "images/mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview-8.webp",
+        "size": 65162,
+        "etag": "\"b192a825089cc2269b010c49b6d27e40\""
+      },
+      {
+        "key": "mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview.webp",
+        "file": "images/mods/mod/bfb47555-48e7-4808-b8af-0a701e1af4d9/preview.webp",
+        "size": 100626,
+        "etag": "\"2f9f238d35d5febf119b7edcfd7b7061\""
       },
       {
         "key": "mods/mod/c027ea2a-ffa2-4af0-b1f7-b9a06c4a54ed/by-woju-0.webp",
@@ -16347,6 +16497,12 @@
         "file": "images/mods/ui/f6bbc72d-ccad-4122-9472-36aa1af8532f/preview.webp",
         "size": 64548,
         "etag": "\"2f9f6013ff57987a63daa237fd7f5129\""
+      },
+      {
+        "key": "mods/ui/f843acd2-f17b-429c-8189-d416fad8122a/preview.webp",
+        "file": "images/mods/ui/f843acd2-f17b-429c-8189-d416fad8122a/preview.webp",
+        "size": 2918,
+        "etag": "\"2c93b689be7f6de5d6a19b8e1b341c53\""
       },
       {
         "key": "mods/ui/f930b9f0-6268-4ee2-a7f9-bb20b854f660/preview.webp",
