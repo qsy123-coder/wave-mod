@@ -4,7 +4,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { replaceModImageAction } from "@/actions/admin/mod-image-actions";
+import { replaceModImageAction, replaceVariantImageAction } from "@/actions/admin/mod-image-actions";
 import { ModCard } from "@/components/common/mod-card";
 import { CensorDialog } from "@/components/features/admin/batch-upload/censor-dialog";
 import { MotionReveal } from "@/components/layout/motion-reveal";
@@ -41,9 +41,9 @@ export function AdminModsListClient({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // 预览图管理：先选择这条 MOD 的哪一张图，再打开打码弹窗
   const [imagesMod, setImagesMod] = useState<AdminMod | null>(null);
-  const [censorTarget, setCensorTarget] = useState<{ mod: AdminMod; index: number } | null>(null);
+  const [censorTarget, setCensorTarget] = useState<{ mod: AdminMod; index: number; variant?: string } | null>(null);
   const [censorFile, setCensorFile] = useState<File | null>(null);
-  const [censorLoadingIndex, setCensorLoadingIndex] = useState<number | null>(null);
+  const [censorLoadingKey, setCensorLoadingKey] = useState<string | null>(null);
   const [censorSaving, setCensorSaving] = useState(false);
 
   // 勾选框直接点击：按 checked 值精确设置（勾选框内部 stopPropagation，不会触发卡片点击）
@@ -84,10 +84,14 @@ export function AdminModsListClient({
   }, []);
 
   const openImages = (mod: AdminMod) => {
-    if (censorLoadingIndex !== null || censorSaving) return;
+    if (censorLoadingKey !== null || censorSaving) return;
 
     const images = mod.images ?? [];
-    const hasAny = images.length > 0 || Boolean(mod.coverImage);
+    const variantImages = mod.variantImages ?? {};
+    const hasAny =
+      images.length > 0 ||
+      Boolean(mod.coverImage) ||
+      Object.values(variantImages).some((urls) => (urls ?? []).length > 0);
 
     if (!hasAny) {
       toast.error("这条 MOD 没有预览图，无法打码。");
@@ -97,20 +101,22 @@ export function AdminModsListClient({
     setImagesMod(mod);
   };
 
-  /** 从预览图管理里选一张读取原图，读取成功后打开打码弹窗 */
-  const startCensor = async (index: number) => {
-    if (!imagesMod || censorLoadingIndex !== null || censorSaving) return;
+  /** 从预览图管理里选一张读取原图，读取成功后打开打码弹窗；variant 为空读主图 images */
+  const startCensor = async (index: number, variant?: string) => {
+    if (!imagesMod || censorLoadingKey !== null || censorSaving) return;
 
-    const images = imagesMod.images ?? [];
-    const imageUrl = images.length > 0 ? images[index] : index === 0 ? imagesMod.coverImage : undefined;
+    const imageUrl = variant
+      ? imagesMod.variantImages?.[variant]?.[index]
+      : ((imagesMod.images ?? [])[index] ?? (index === 0 ? imagesMod.coverImage : undefined));
 
     if (!imageUrl || !isCosStorageUrl(imageUrl)) {
       toast.error("这张预览图不在 COS（旧图或占位图），无法打码。");
       return;
     }
 
+    const loadingKey = variant ? `variant:${variant}:${index}` : `main:${index}`;
     const loadingToast = toast.loading("正在读取预览图…");
-    setCensorLoadingIndex(index);
+    setCensorLoadingKey(loadingKey);
 
     try {
       // 优先浏览器直连 COS：Vercel hkg1 → 广州 COS 有已知超时问题（见 hk-proxy-runbook 7.1），
@@ -138,7 +144,7 @@ export function AdminModsListClient({
         blob = await response.blob();
       }
 
-      setCensorTarget({ mod: imagesMod, index });
+      setCensorTarget({ mod: imagesMod, index, variant });
       setCensorFile(
         new File([blob], `${imagesMod.id}-preview-${index + 1}.webp`, {
           type: blob.type || "image/webp",
@@ -148,14 +154,14 @@ export function AdminModsListClient({
       toast.error(error instanceof Error ? error.message : "读取预览图失败");
     } finally {
       toast.dismiss(loadingToast);
-      setCensorLoadingIndex(null);
+      setCensorLoadingKey(null);
     }
   };
 
   const applyCensoredImage = async (file: File) => {
     if (!censorTarget || censorSaving) return;
 
-    const { mod, index } = censorTarget;
+    const { mod, index, variant } = censorTarget;
     const savingToast = toast.loading("正在上传打码图…");
     setCensorSaving(true);
 
@@ -169,11 +175,9 @@ export function AdminModsListClient({
         draftId: crypto.randomUUID(),
       });
 
-      const result = await replaceModImageAction({
-        modId: mod.id,
-        imageIndex: index,
-        imageUrl,
-      });
+      const result = variant
+        ? await replaceVariantImageAction({ modId: mod.id, variant, imageIndex: index, imageUrl })
+        : await replaceModImageAction({ modId: mod.id, imageIndex: index, imageUrl });
 
       if (!result.ok) {
         throw new Error(result.error ?? "更新图片失败");
@@ -183,11 +187,16 @@ export function AdminModsListClient({
 
       // 管理弹窗还开着：立刻换成新 URL，可以接着处理同一批图，不用关掉重来
       if (nextImages) {
-        setImagesMod((current) =>
-          current && current.id === mod.id
-            ? { ...current, images: nextImages, coverImage: nextImages[0] ?? current.coverImage }
-            : current,
-        );
+        setImagesMod((current) => {
+          if (!current || current.id !== mod.id) return current;
+          if (variant) {
+            return {
+              ...current,
+              variantImages: { ...(current.variantImages ?? {}), [variant]: nextImages },
+            };
+          }
+          return { ...current, images: nextImages, coverImage: nextImages[0] ?? current.coverImage };
+        });
       }
 
       toast.success(index === 0 ? "封面已打码并更新。" : `第 ${index + 1} 张预览图已打码并更新。`);
@@ -287,11 +296,11 @@ export function AdminModsListClient({
 
       <ModImagesDialog
         mod={imagesMod}
-        loadingIndex={censorLoadingIndex}
+        loadingKey={censorLoadingKey}
         onOpenChange={(open) => {
           if (!open) setImagesMod(null);
         }}
-        onCensor={(index) => void startCensor(index)}
+        onCensor={(index, variant) => void startCensor(index, variant)}
       />
 
       <CensorDialog
