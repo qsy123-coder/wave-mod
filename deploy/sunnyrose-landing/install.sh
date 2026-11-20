@@ -53,16 +53,32 @@ log "已 reload"
 
 log "冒烟（本机 Host 头）"
 fail=0
-check() {
-  local host=$1 path=$2 want=$3
+expect() {  # host path want extra_curl_args...
+  local host=$1 path=$2 want=$3; shift 3
   local code
-  code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $host" "http://127.0.0.1${path}")
-  printf '    %-28s %-16s %s\n' "$host" "$path" "$code"
+  code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $host" "$@" "http://127.0.0.1${path}" 2>/dev/null)
+  printf '    %-26s %-30s %s\n' "$host" "$path" "$code"
   [[ "$code" == "$want" ]] || fail=1
 }
-check sunnyrose.xyz / 200
-check www.sunnyrose.xyz / 200
-check sunnyrose.xyz /.well-known/acme-challenge/ 404
+expect_https() {
+  local host=$1 path=$2 want=$3
+  local code
+  code=$(curl -sk -o /dev/null -w '%{http_code}' -H "Host: $host" "https://127.0.0.1${path}")
+  printf '    %-26s %-30s %s (https)\n' "$host" "$path" "$code"
+  [[ "$code" == "$want" ]] || fail=1
+}
+
+# 80 只做跳转，200 永远来自 443
+expect sunnyrose.xyz     / 301
+expect www.sunnyrose.xyz / 301
+expect_https sunnyrose.xyz     / 200
+expect_https www.sunnyrose.xyz / 200
+
+# ACME 路径必须可达（HTTP-01 兜底；60 天后续期失败会在这里暴露）
+mkdir -p /var/www/letsencrypt/.well-known/acme-challenge
+echo acme-probe > /var/www/letsencrypt/.well-known/acme-challenge/probe.txt
+expect sunnyrose.xyz /.well-known/acme-challenge/probe.txt 200
+rm -f /var/www/letsencrypt/.well-known/acme-challenge/probe.txt
 
 echo
 if [ $fail -ne 0 ]; then
