@@ -1,18 +1,14 @@
 ## Q1 · 有弹窗显示软件包下载失败？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image1.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image1.jpeg)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image2.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image2.jpeg)
 
 **解决方法**
 
 1. 挂梯子更新即可。
 
-[梯子推荐](https://wwww.qumianq.xyz/#/register?code=OHpLpXgg)
-
-> 复制该链接到 Edge 浏览器即可打开。
-
-2. 也可以看本站“先看我”页面的教程视频（不需要梯子也可以更新）。
+2. 也可以看本站「先看我」页面的教程视频（不需要梯子也可以更新）。
 
 ---
 
@@ -20,31 +16,31 @@
 
 **解决方法**
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image3.webp)
+1. 按本站的解压教程操作：[解压教程](https://go.sunnyrose.xyz/guide)。
 
-> 根据图片指示做即可，用到的解压工具：[go.sunnyrose.xyz/guide](https://go.sunnyrose.xyz/guide)。
+> 解压工具、批量解压的方法都在里面，照着做即可。
 
 ---
 
 ## Q3 · 安装 XXMI 时弹出"缺少 C++"的弹窗？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image4.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image48.jpeg)
 
 **解决方法**
 
-1. 复制下方链接去浏览器，转存下载里面的程序，双击安装即可。
+1. 安装微软官方的 VC++ 运行库（x64），下载后双击安装即可。
 
-[程序链接](https://pan.baidu.com/s/1k3uLs1pFV4jgDEQK4spcIQ?pwd=keke)
+[vcredist x64 下载](https://aka.ms/vs/17/release/vc_redist.x64.exe)
 
-> 提取码：keke
+2. 装完仍然弹窗的，先在「应用和功能」里卸载旧的 Microsoft Visual C++ 2015-2022 Redistributable，再重新安装一次，然后重启电脑。
 
 ---
 
 ## Q4 · 安装 XXMI 时出现安装失败的弹窗？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image5.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image49.jpeg)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image6.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image50.jpeg)
 
 **解决方法**
 

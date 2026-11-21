@@ -6,7 +6,7 @@ import { TroubleshootingContent } from "@/features/troubleshooting/components/tr
 export const metadata = {
   title: "问题解答 — 常见问题排查指南",
   description:
-    "安装失败、闪退、贴图错误、资源不生效？查看常见问题解答，35 个常见问题及解决方法，持续更新。",
+    "安装失败、闪退、贴图错误、资源不生效？查看常见问题解答，36 个常见问题及解决方法，持续更新。",
 };
 
 /** Read a markdown file from content/troubleshooting/ */

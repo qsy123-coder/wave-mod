@@ -22,7 +22,7 @@ export const troubleshootingConfig: TroubleshootingConfig = troubleshootingConfi
   categories: [
     { key: "installation", label: "安装与更新", mdFile: "01-installation.md", order: 1, questionCount: 4 },
     { key: "crashes", label: "启动与闪退", mdFile: "02-crashes.md", order: 2, questionCount: 6 },
-    { key: "models", label: "模型与贴图", mdFile: "03-models.md", order: 3, questionCount: 9 },
+    { key: "models", label: "模型与贴图", mdFile: "03-models.md", order: 3, questionCount: 10 },
     { key: "loading", label: "资源加载与生效", mdFile: "04-loading.md", order: 4, questionCount: 5 },
     { key: "management", label: "资源管理与配置", mdFile: "05-management.md", order: 5, questionCount: 8 },
     { key: "performance", label: "性能与其他", mdFile: "06-performance.md", order: 6, questionCount: 3 },

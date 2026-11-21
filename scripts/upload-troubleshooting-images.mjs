@@ -4,6 +4,14 @@
  * 用法:
  *   node scripts/upload-troubleshooting-images.mjs
  *   node scripts/upload-troubleshooting-images.mjs --dry-run
+ *   node scripts/upload-troubleshooting-images.mjs --dir=<本地目录> --prefix=troubleshooting/v239
+ *
+ * 说明:
+ *   --dir     本地图片目录，默认 content/troubleshooting/images
+ *   --prefix  COS 对象前缀，默认 troubleshooting
+ *
+ *   换一版截图时**别覆盖旧前缀**：COS 同名对象换了内容，CDN 可能还在发旧图，
+ *   表现为「文档改了、图还是老的」。新版本用一个新前缀（如 v239），旧对象留着不影响。
  *
  * 环境变量:
  *   COS_SECRET_ID, COS_SECRET_KEY, COS_BUCKET, COS_REGION
@@ -23,6 +31,13 @@ config({ path: path.resolve(process.cwd(), ".env.local"), override: true });
 const args = process.argv.slice(2);
 const isDryRun = args.includes("--dry-run");
 
+function readArg(name, fallback) {
+  const hit = args.find((a) => a.startsWith(`--${name}=`));
+  return hit ? hit.slice(name.length + 3).trim() || fallback : fallback;
+}
+
+const cosPrefix = readArg("prefix", "troubleshooting").replace(/^\/+|\/+$/g, "");
+
 // ── COS 初始化 ──
 const cosSecretId = process.env.COS_SECRET_ID?.trim();
 const cosSecretKey = process.env.COS_SECRET_KEY?.trim();
@@ -39,7 +54,10 @@ const cos = new COS({
   SecretKey: cosSecretKey,
 });
 
-const imagesDir = path.resolve(process.cwd(), "content", "troubleshooting", "images");
+const imagesDir = path.resolve(
+  process.cwd(),
+  readArg("dir", path.join("content", "troubleshooting", "images")),
+);
 
 function buildCosUrl(objectKey) {
   return `https://${cosBucket}.cos.${cosRegion}.myqcloud.com/${objectKey}`;
@@ -90,12 +108,14 @@ async function main() {
       return numA - numB;
     });
 
-  console.log(`📊 共找到 ${files.length} 张图片\n`);
+  console.log(`📊 共找到 ${files.length} 张图片`);
+  console.log(`📁 本地目录: ${imagesDir}`);
+  console.log(`🪣 COS 前缀: ${cosPrefix}/\n`);
 
   if (isDryRun) {
     console.log("🔍 DRY-RUN 模式：仅预览，不实际上传。\n");
     for (const f of files) {
-      const objectKey = `troubleshooting/${f}`;
+      const objectKey = `${cosPrefix}/${f}`;
       console.log(`  ${f} → ${buildCosUrl(objectKey)}`);
     }
     console.log(`\n💡 去掉 --dry-run 参数可执行实际上传。`);
@@ -109,7 +129,7 @@ async function main() {
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     const filePath = path.join(imagesDir, f);
-    const objectKey = `troubleshooting/${f}`;
+    const objectKey = `${cosPrefix}/${f}`;
     const ext = path.extname(f);
     const contentType = getContentType(ext);
 

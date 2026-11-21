@@ -10,7 +10,7 @@
 
 **解决方法**
 
-> 装资源本身会带来一定的帧率降低，以下方法只能缓解。
+> 装资源本身就会带来一定的帧率降低，以下方法只能缓解。
 
 1. 降低画质游玩。
 
@@ -26,16 +26,16 @@
 
 ## Q35 · 游戏内左上角有红字报错怎么办？
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image56.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image44.png)
 
 **解决方法**
 
 1. 打开 XXMI 右上角「设置」→「WWMI」→ 勾选「静音报错」。
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image57.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image45.png)
 
 ---
 
 ## 附录 · 关于本文档
 
-本文档由 **可可HXL** 独立编写与维护，旨在为外观资源玩家提供全面的问题解答。
+内容整理自《鸣潮 Mod 问题解答 v2.3.9》，供外观资源玩家排查问题使用。

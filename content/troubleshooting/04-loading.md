@@ -2,13 +2,13 @@
 
 **解决方法**
 
-1. 确保反虚化资源是最新版本（可在整合包中找到最新版）。
+1. 确保反虚化资源是最新版本（整合包里可以找到最新版）。
 
-2. 反虚化资源有开关键，按 `\` 键切换（位置在 Enter 键上方，Backspace 键下方）。
+2. 反虚化资源是有开关键的，就是 `\` 键（位置大概在 Enter 键上面、Backspace 键下面）。
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image35.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image26.jpeg)
 
-3. 如果发光效果不生效，去整合包下载「发光前置修复工具」修复。
+3. 如果是发光效果不生效，去整合包里下载「发光前置修复工具」修复一下。
 
 ---
 
@@ -16,55 +16,55 @@
 
 **解决方法**
 
-1. 部分角色（如珂莱塔、露帕、赞妮）比较特殊：可操控实机、角色界面和剧情里分别使用不同模型。
+1. 部分角色（比如珂莱塔、露帕、赞妮）比较特殊：可操控的实机人物模型、角色界面和剧情里的模型（包括账户主页的角色展示）分别用的是不同模型，其他角色是同一套。
 
-2. 部分资源可以全场景同时生效，有些不行，具体看资源作者的说明。
+2. 部分资源可以剧情、角色界面和大世界实机同时生效，因为这些资源同时做了好几套模型。
 
 ---
 
-## Q22 · 资源完全不生效（非贴图错误）？
+## Q22 · 资源完全不生效（不是贴图错误）？
 
 **解决方法**
 
-1. 如果你按教程加载进入游戏但所有资源完全不生效，按 F10 左上角也没绿色字符：点击 XXMI 右上角「设置」→「高级」→ 勾选「自定义启动」→ 将注入方式改为「Inject」。
+1. 加载后进游戏按 F10，左上角没有出现绿色字符：打开英伟达 App（没有就装一个）→「图形」→「程序设置」→ 点击鸣潮图标 → 关闭「AI 插帧」。
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image36.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image38.png)
 
-如果还不行，打开 NVIDIA App →「图形」→「程序设置」→ 选择游戏本体 → 关闭「AI 插帧」。
+> 点击鸣潮图标一片空白的话，点其他的再点回来刷新几次，可能要刷十几次。
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image37.webp)
+2. XXMI 的资源需要解压成**文件夹**后放进 Mods 才能生效，不要把压缩包或 exe 直接丢进去，JASM 管理器同理。
 
-2. XXMI 加载器的资源需要解压成文件夹后放入 Mods 才能生效，不要直接放压缩包或 exe 文件。
+> 按 Q2 的方式解压，解压方式不对会导致资源缺文件而失效。不断打开资源文件夹检查，直到出现 ini 文件为止。
 
-> 请按 Q2 的方式正确解压。不断打开资源文件夹检查，直到出现 ini 文件为止。
+3. 版本更新可能导致部分资源失效，去整合包拿最新版修复工具修一下。
 
-3. 版本更新可能导致部分资源失效，用最新版修复工具修复。
+4. 检查不生效的资源文件名是否有 DISABLED 或 disabled 前缀。这个前缀会让资源不生效（管理器的原理就是这个），删掉前缀即可。
 
-4. 检查不生效的资源文件名是否有 DISABLED 或 disabled 前缀，有的话删除该前缀。
+5. 搭配 JASM 管理器时，确保 JASM 绑定的 WWMI 文件夹和 XXMI 绑定的 WWMI 文件夹是同一个。JASM 左下角「设置」里看绑定的 WWMI 路径，XXMI 右上角「设置」→「WWMI」页看路径，对照一下。
 
-5. 如果搭配 JASM 管理器，确保 JASM 绑定的 WWMI 路径与 XXMI 绑定的 WWMI 路径是同一个文件夹。
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image39.png)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image38.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image40.png)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image39.webp)
+> 路径不一致时，XXMI 直接点路径右边的「浏览」重新选；JASM 改路径方法见 Q31。
 
-> XXMI 可直接点路径右边「浏览」改路径；JASM 改路径方法见 Q31。
+6. 打开单个资源文件夹，看看里面的文件占用是不是 0KB。是的话一般是解压出问题，重新解压；还不行就换个解压软件（见 Q2）。
 
-6. 检查资源文件夹内的文件占用是否为 0KB，如果是则解压有问题，重新解压。
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image41.png)
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image40.webp)
+7. **UI 类资源不生效**：先按一下切换键；还不行就算了。部分 UI 类资源因分辨率不同导致不生效，也可能是坏了。
 
-7. **UI 类资源不生效**：尝试按切换键，还不行就算了。部分 UI 类资源因分辨率不同导致不生效，也可能是坏了。
+8. **角色皮肤类资源**（如今汐皮肤 [桃夭灼灼]）：请先获得该皮肤并装备上。
 
-8. **角色皮肤类资源**（如今汐 [桃夭灼灼]）：请先获得该皮肤并装备上。
+9. 部分作者会保留原模型，按一下切换键即可切换成资源。
 
-9. 部分作者保留原模型，按一下切换键即可切换成资源。
+10. 不要乱改文件代码，除了教程让你改的，其他都别动。
 
-10. 不要乱改文件代码，除了教程让你改的之外都不要动。
+11. 按 F6 会隐藏资源，检查一下是不是不小心按到了。
 
-11. 检查是否误按了 F6（F6 会隐藏资源）。
+12. 试试同时按 Alt + F12 开启兼容模式。
 
-12. 尝试同时按 Alt+F12 开启兼容模式。
+13. 如果是某个角色的全部资源都不生效，建议 Mods 里只保留这一个资源试试。只留它就生效，说明是之前某个资源冲突导致的。
 
 ---
 
@@ -72,11 +72,11 @@
 
 **解决方法**
 
-1. 先看 Q25（修改资源切换键），对切换键有个基础了解。
+1. 先看 Q25（怎么修改资源的切换键），对切换键有个基础了解。
 
-2. 打开资源文件夹的 ini 配置文件，查看里面的切换键，尝试修改一下。
+2. 打开资源的 ini 配置文件，看看里面的切换键，试着改一下。
 
-3. 如果还不行，情况比较复杂，就当这个切换键不存在吧。
+3. 还不行的话，情况有很多种，就当这个资源的这个切换键不存在吧。
 
 ---
 
@@ -84,6 +84,8 @@
 
 **解决方法**
 
-1. 打开 NVIDIA App →「图形」→「程序设置」→ 选择游戏本体 → 关闭「AI 插帧」。
+1. 打开英伟达 App →「图形」→「程序设置」→ 点击鸣潮图标 → 关闭「AI 插帧」。
 
-![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/image37.webp)
+![](https://wave-mod-preview-1327973389.cos.ap-guangzhou.myqcloud.com/troubleshooting/v239/image38.png)
+
+> 点击鸣潮图标一片空白的话，点其他的再点回来刷新几次。
