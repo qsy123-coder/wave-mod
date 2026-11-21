@@ -147,6 +147,51 @@ def _run_pid(state_path: Path) -> int:
     return pid if _pid_alive(pid) else 0
 
 
+STUCK_MINUTES = 20          # 下载进程还活着、日志却这么久没动 → 视为卡死（代理抖动时分段重试会卡在这里）
+LOG_FILES = {"arca": "arca_download.log", "gb": "gamebanana_download.log"}
+
+
+def _log_age_seconds(source: str) -> float:
+    try:
+        return max(0.0, time.time() - (BASE_DIR / LOG_FILES[source]).stat().st_mtime)
+    except (OSError, KeyError):
+        return float("inf")
+
+
+def _kill_downloader(pid: int) -> bool:
+    """强杀守着队列的下载进程，并等它真的退出。
+
+    为什么要杀：下载器单线程按来源跑，分段重试卡住时代理已经换好节点，但那一轮
+    还在 15 分钟退避里打转；`retry_entries` 见到 run.lock 就拒绝重试，看板上点
+    「重试」只会弹一句「请等本轮结束后再重试」—— 2026-11-21 用户就是这么卡住的。
+    """
+    if not pid:
+        return True
+    try:
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                capture_output=True, timeout=20,
+            )
+        else:
+            os.kill(pid, 9)
+    except Exception as exc:  # noqa: BLE001 - 杀不掉也要往下走，由锁判定兜底
+        log.warning("强杀下载进程 %s 失败：%s", pid, exc)
+    for _ in range(50):                    # 最多等 5 秒
+        if not _pid_alive(pid):
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def _drop_run_lock(state_path: Path) -> None:
+    lock = state_path.with_suffix(state_path.suffix + ".run.lock")
+    try:
+        lock.unlink()
+    except OSError:
+        pass
+
+
 def _safe_size(path: Path) -> int:
     try:
         return path.stat().st_size
@@ -799,13 +844,24 @@ class Snapshot:
                     f"{label} 下载日志已超过 2 小时没有更新，计划任务可能没在运行。"
                 )
 
+        # 进程还在、日志却不动 → 卡死（代理抖动时分段重试会一直打转）。
+        # 这类状态以前看板上完全没有提示，用户只看到「重试」没反应。
+        stuck = {"arca": False, "gb": False}
+        for key, label in (("arca", "arca.live"), ("gb", "GameBanana")):
+            if running.get(key) and log_ages.get(key, 0) > STUCK_MINUTES * 60:
+                stuck[key] = True
+                notices.append(
+                    f"{label} 下载进程还在（PID {running.get('pid' if key == 'arca' else 'gb_pid')}），"
+                    f"但日志已 {log_ages[key] / 60:.0f} 分钟没动——点「强制重跑」会杀掉它并重新排队。"
+                )
+
         sources = _sources(paths.dest_root / "_Mod每日汇总")
 
         return {
             "generated_at": datetime.now().isoformat(timespec="seconds"),
             "dest_root": str(paths.dest_root),
             "disk": disk,
-            "process": {**running, "log_mtimes": log_mtimes},
+            "process": {**running, "log_mtimes": log_mtimes, "stuck": stuck},
             "summary": {**counts, "bytes_done": bytes_done, "bytes_total": bytes_total},
             "entries": entries,
             "parts": parts,
@@ -1025,8 +1081,13 @@ def retry_entries(
     key: str | None = None,
     scope: str | None = None,
     start: bool = True,
+    force: bool = False,
 ) -> dict[str, Any]:
-    """把失败/卡住的条目重新放回队列，并按需拉起下载器。"""
+    """把失败/卡住的条目重新放回队列，并按需拉起下载器。
+
+    `force=True`（或检测到下载进程日志超过 STUCK_MINUTES 没动）时先杀掉那一轮
+    再重排 —— 代理抖动后分段重试会把整个队列按来源堵住，只等它自己是等不来的。
+    """
     specs = [
         ("GameBanana", paths.gb_state, _reset_gb_entry),
         ("arca.live", paths.arca_state, _reset_arca_entry),
@@ -1034,12 +1095,20 @@ def retry_entries(
     # 下载进程还在跑时改同一条队列，可能被它收尾时用旧 entry 覆盖。
     # 单条重试直接拒绝；批量重试跳过正在跑的来源、处理另一个来源。
     blocked: dict[str, int] = {}
+    killed: list[str] = []
     for name, state_path, _reset in specs:
         if source and name != source:
             continue
         pid = _run_pid(state_path)
-        if pid:
-            blocked[name] = pid
+        if not pid:
+            continue
+        age = _log_age_seconds("gb" if name == "GameBanana" else "arca")
+        if force or age > STUCK_MINUTES * 60:
+            if _kill_downloader(pid):
+                _drop_run_lock(state_path)
+                killed.append(f"{name}（PID {pid}，日志已 {age / 60:.0f} 分钟没动）")
+                continue
+        blocked[name] = pid
     if source and blocked.get(source):
         return {
             "ok": False,
@@ -1072,6 +1141,8 @@ def retry_entries(
     started = False
     pid = 0
     messages: list[str] = []
+    if killed:
+        messages.append("已终止卡住的下载进程：" + "、".join(killed))
     for name in skipped_running:
         messages.append(f"{name} 下载进程正在运行，已跳过")
     if updated and start:
@@ -1175,6 +1246,7 @@ class Handler(BaseHTTPRequestHandler):
                 key=key,
                 scope=scope,
                 start=bool(body.get("start", True)),
+                force=bool(body.get("force", False)),
             )
             SNAPSHOT.cache = None            # 下次轮询立刻反映新状态
             self._send_json(200 if result.get("ok") else 409, result)
@@ -1426,6 +1498,8 @@ pre.log{max-height:380px;overflow:auto;background:#0d1117;color:#d6deeb;border-r
       <select id="day"><option value="all">全部日期</option></select>
       <button class="btn retry" id="retryFailed"
         title="把失败/卡住的条目重新放回队列，并立即开始下载">重试全部失败</button>
+      <button class="btn retry" id="forceRetry"
+        title="先杀掉守着队列的下载进程再重新排队 —— 卡住（日志 20 分钟不动）时用它">强制重跑</button>
       <div class="chips" id="chips">
         <span class="chip on" data-st="all">全部</span>
         <span class="chip" data-st="active">下载中</span>
@@ -1869,6 +1943,13 @@ $("#retryFailed").addEventListener("click", async (e) => {
   ).length;
   if (retryable && !confirm(`把 ${retryable} 条失败/卡住的条目重新入队并立即开始下载？`)) return;
   await postRetry({scope: "failed"}, e.currentTarget);
+});
+$("#forceRetry").addEventListener("click", async (e) => {
+  const stuck = DATA && DATA.process && DATA.process.stuck || {};
+  const names = Object.keys(stuck).filter(k => stuck[k]);
+  const who = names.length ? names.join("、") : "全部来源";
+  if (!confirm(`强制重跑：杀掉 ${who} 正在跑的下载进程，把失败/卡住的条目重新入队？`)) return;
+  await postRetry({scope: "failed", force: true}, e.currentTarget);
 });
 document.querySelectorAll("[data-log]").forEach(btn => btn.addEventListener("click", () => {
   LOG_TAB = btn.dataset.log;

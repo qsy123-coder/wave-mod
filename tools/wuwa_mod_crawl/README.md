@@ -902,6 +902,7 @@ python web_status.py --host 0.0.0.0 --port 8765
 | `.bat` 报「不是内部或外部命令」乱码 | `.bat` 里写了中文注释 | **`.bat` 必须纯 ASCII**（cmd 按 GBK 解码会拆坏行） |
 | arca.live 日志频繁「验证码未通过」 | Cloudflare 升级风控 / 出口 IP 被标记 | 调大 `poll.cf_wait_seconds`；仍不行则需换出口 |
 | 可可站日志连续「登录后仍返回密码表单」 | `cookies.json` 里残留过期的 `bid_1_password_protected_auth`：站点换了签名密钥后，插件看到旧 cookie 就把密码表单原样返回（密码其实是对的）；常驻进程内存里的旧 cookie 不会自己消失 —— 2026-11-18 07:55 起因此连续 29 小时一条都没采到 | `login()` 现在会先扣掉这条 cookie 再登录（已验证带旧 jar 也能登上）；线上仍复现就 `rm cookies.json && sudo systemctl restart kekehxl-watcher` |
+| 下载看板「重试」点了没反应 | 下载器那一轮还活着（`state.*.downloads.json.run.lock`），分段重试卡在代理抖动的退避里；旧的 `retry_entries` 见到锁就直接拒绝，只回一句「请等本轮结束后再重试」 | 看板工具栏点**「强制重跑」**（`POST /api/retry {"scope":"failed","force":true}`）：先 `taskkill /T /F` 杀掉守着队列的进程、删 run.lock，再重排＋重新拉起。进程活着但日志 20 分钟不动时，看板顶部也会自带这条提示 |
 | arca-watcher 被 systemd 重启 | 触及 `MemoryMax=900M` | 正常自愈；若频繁则调大间隔或换更大内存的机器 |
 | 服务器内存吃紧 | Chromium 峰值 | 先 `systemctl stop arca-watcher` 让出内存，再排查 |
 | 同步日志**只有「开始」没有「结束」**，且之后每轮都被跳过 | 有来源目录名**含空格**：`sync.ps1` 把路径以变量传给 `scp.exe`，PowerShell 的引号规则会把它拆坏，整轮静默中断；接着计划任务的 `IgnoreNew` 把后续轮次全部跳过 | 改该来源 `config.*.ini` 的 `source_name` 去掉空格（改完要同步改服务器上的 `out/` 目录名）。`sync.ps1` 现在会提前剔除含空格的路径并记一条日志 |
