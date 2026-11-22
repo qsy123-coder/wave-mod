@@ -355,8 +355,19 @@ def _extract_media(body: str, *, include_video: bool) -> list[str]:
     return urls
 
 
+_RE_BLOCK_TAG = re.compile(
+    r"</?(?:p|div|li|ul|ol|tr|td|th|h[1-6]|blockquote|pre|figure|figcaption)\b[^>]*>",
+    re.I,
+)
+
+
 def _post_text(body: str) -> str:
-    text = re.sub(r"<br\s*/?>", "\n", body)
+    # 块级标签必须当换行处理：作者常把 base64 下载链接单独放一段，下一段紧跟
+    # 「1주일」这种正文。只处理 <br> 时两段会被拼成 `…Nmli1주일`，贪婪的
+    # base64 正则把下一段首字符吃进来，长度变成 4k+1 直接解码失败
+    # （2026-11-22 帖子 189953854 就是这么只下到 4 张图、0 个文件的）。
+    text = _RE_BLOCK_TAG.sub("\n", body)
+    text = re.sub(r"<br\s*/?>", "\n", text)
     text = re.sub(r"<[^>]+>", "", text)
     return html_mod.unescape(text)
 
@@ -373,7 +384,13 @@ def _decode_base64_urls(text: str) -> list[str]:
     out: list[str] = []
     for m in _RE_B64.finditer(text):
         token = m.group(0)
-        for cand in (token, token.rstrip("=")):
+        # 正则的字符集和 base64 一样，紧跟在后面的正文会被一起吞进来
+        # （`…Nmli1주일` 里的 `1`）。逐个裁掉尾部 0–3 个字符重试，
+        # 用「解出来必须是以 http(s) 开头的可打印文本」做命中判定。
+        for cut in range(4):
+            cand = (token[: len(token) - cut] if cut else token).rstrip("=")
+            if len(cand) < 16:
+                break
             pad = "=" * (-len(cand) % 4)
             try:
                 dec = base64.b64decode(cand + pad, validate=True).decode("utf-8")
@@ -1118,10 +1135,18 @@ def _plan_entry(
     # 但正文真的取到时就以正文为准：作者改帖换掉贴错的链接后，旧链接若继续
     # 从 state 合并进来，会永远卡在「需手动」并反复下载错的东西。
     fresh = _extract_links(text)
-    if fresh or _has_article_body(page):
+    if fresh:
         links = fresh
     else:
+        # 正文解析不出链接时守住 CSV 里的结果：入队时服务器浏览器已经把正文
+        # 里的外链抽过一遍，直接丢掉会让整帖只剩预览图
+        # （2026-11-22 帖子 189953854：base64 被段落拼接截断 → fresh=[] → 0 个文件）。
         links = list(dict.fromkeys(list(entry.get("links") or []) + fresh))
+        if links and _has_article_body(page):
+            log.warning(
+                "帖子 %s 正文未解析到外链，沿用 CSV 里的 %d 个链接",
+                aid, len(links),
+            )
 
     # 更新通知帖：正文没有自己的下载链接，只写「원본글 가서 다시 받아줘」+ 站内
     # 原帖链接。作者通常是把修好的文件更新在原帖里（换新的 kio 链接），所以必须
