@@ -20,7 +20,7 @@ export const troubleshootingConfig: TroubleshootingConfig = troubleshootingConfi
   title: "问题解答",
   subtitle: "常见问题排查指南",
   categories: [
-    { key: "installation", label: "安装与更新", mdFile: "01-installation.md", order: 1, questionCount: 4 },
+    { key: "installation", label: "安装与更新", mdFile: "01-installation.md", order: 1, questionCount: 5 },
     { key: "crashes", label: "启动与闪退", mdFile: "02-crashes.md", order: 2, questionCount: 6 },
     { key: "models", label: "模型与贴图", mdFile: "03-models.md", order: 3, questionCount: 10 },
     { key: "loading", label: "资源加载与生效", mdFile: "04-loading.md", order: 4, questionCount: 5 },
