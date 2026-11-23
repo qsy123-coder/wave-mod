@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Share2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 
 import { COS_IMG_HERO, withCosImageTransform } from "@/lib/cos/shared";
+import {
+  buildQuestionShareUrl,
+  parseQuestionHash,
+  questionHash,
+} from "@/features/troubleshooting/question-anchor";
 
 type CategoryContent = {
   key: string;
@@ -137,7 +142,7 @@ const markdownComponents: Partial<Components> = {
 };
 
 export function TroubleshootingContent({ categories }: Props) {
-  const qaRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const qaRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const categoryRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -161,6 +166,16 @@ export function TroubleshootingContent({ categories }: Props) {
   const [activeCategory, setActiveCategory] = useState(categories[0]?.key ?? "");
   // TOC: which categories have their Q&A list expanded (default all)
   const [tocExpanded, setTocExpanded] = useState<Set<string>>(() => new Set());
+  // 刚复制过分享链接的条目，按钮短暂显示「已复制」
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copiedTimer = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) window.clearTimeout(copiedTimer.current);
+    },
+    [],
+  );
 
   const toggleQA = useCallback((id: string) => {
     setExpanded((prev) => {
@@ -215,9 +230,98 @@ export function TroubleshootingContent({ categories }: Props) {
     }
   }, []);
 
-  const scrollToQA = useCallback((qaId: string) => {
-    const el = qaRefs.current.get(qaId);
-    if (el) {
+  /** 复制该条 Q&A 的分享链接，并把地址栏同步到对应锚点 */
+  const shareQa = useCallback(async (qaId: string) => {
+    const url = buildQuestionShareUrl(window.location.origin, window.location.pathname, qaId);
+
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // 非安全上下文没有 Clipboard API，退回 textarea + execCommand
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+
+    window.history.replaceState(null, "", questionHash(qaId));
+    setExpanded((prev) => {
+      if (prev.has(qaId)) return prev;
+      const next = new Set(prev);
+      next.add(qaId);
+      return next;
+    });
+    setCopiedId(qaId);
+    if (copiedTimer.current) window.clearTimeout(copiedTimer.current);
+    copiedTimer.current = window.setTimeout(() => setCopiedId(null), 1600);
+  }, []);
+
+  // 滚动对齐的补正定时器：正文图片是 loading="lazy" 且没有固定高度，
+  // 跳转后上方图片陆续撑开会把目标推走，所以对齐后的一小段时间内再滚几次。
+  const alignTimers = useRef<number[]>([]);
+
+  const clearAlignTimers = useCallback(() => {
+    alignTimers.current.forEach((timer) => window.clearTimeout(timer));
+    alignTimers.current = [];
+  }, []);
+
+  const alignToQa = useCallback(
+    (el: HTMLElement, behavior: ScrollBehavior) => {
+      clearAlignTimers();
+      el.scrollIntoView({ behavior, block: "start" });
+      alignTimers.current = [150, 400, 900, 1600, 2600].map((delay) =>
+        window.setTimeout(() => {
+          el.scrollIntoView({ block: "start" });
+        }, delay),
+      );
+    },
+    [clearAlignTimers],
+  );
+
+  // 用户自己开始滚动后，停止补正，避免把页面抢回去
+  useEffect(() => {
+    const cancelAlign = () => clearAlignTimers();
+    window.addEventListener("wheel", cancelAlign, { passive: true });
+    window.addEventListener("touchstart", cancelAlign, { passive: true });
+    window.addEventListener("keydown", cancelAlign);
+    return () => {
+      window.removeEventListener("wheel", cancelAlign);
+      window.removeEventListener("touchstart", cancelAlign);
+      window.removeEventListener("keydown", cancelAlign);
+      clearAlignTimers();
+    };
+  }, [clearAlignTimers]);
+
+  // 分享链接直达：#q37 打开后展开该条并滚到它
+  useEffect(() => {
+    const jumpToHash = () => {
+      const qaId = parseQuestionHash(window.location.hash);
+      if (!qaId) return;
+      const el = qaRefs.current.get(qaId);
+      if (!el) return;
+      setExpanded((prev) => {
+        if (prev.has(qaId)) return prev;
+        const next = new Set(prev);
+        next.add(qaId);
+        return next;
+      });
+      window.requestAnimationFrame(() => alignToQa(el, "auto"));
+    };
+
+    jumpToHash();
+    window.addEventListener("hashchange", jumpToHash);
+    return () => window.removeEventListener("hashchange", jumpToHash);
+  }, [alignToQa]);
+
+  const scrollToQA = useCallback(
+    (qaId: string) => {
+      const el = qaRefs.current.get(qaId);
+      if (!el) return;
       // Expand the Q&A if it's collapsed
       setExpanded((prev) => {
         if (prev.has(qaId)) return prev;
@@ -225,9 +329,10 @@ export function TroubleshootingContent({ categories }: Props) {
         next.add(qaId);
         return next;
       });
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, []);
+      alignToQa(el, "smooth");
+    },
+    [alignToQa],
+  );
 
   // Expand / collapse all
   const allExpanded = expanded.size === allIds.length;
@@ -417,25 +522,50 @@ export function TroubleshootingContent({ categories }: Props) {
                 {cat.questions.map((qa) => {
                   const isOpen = expanded.has(qa.id);
                   return (
-                    <div key={qa.id}>
-                      {/* Q&A header — click to toggle */}
-                      <button
-                        ref={(el) => {
-                          if (el) qaRefs.current.set(qa.id, el);
-                        }}
-                        type="button"
-                        onClick={() => toggleQA(qa.id)}
-                        className="flex w-full items-center gap-2 py-2 text-left transition hover:bg-black/5"
-                      >
-                        <ChevronDown
-                          className={`size-3.5 shrink-0 text-black/50 transition-transform ${
-                            isOpen ? "rotate-0" : "-rotate-90"
+                    <div
+                      key={qa.id}
+                      id={questionHash(qa.id).slice(1)}
+                      ref={(el) => {
+                        if (el) qaRefs.current.set(qa.id, el);
+                      }}
+                      className="scroll-mt-28"
+                    >
+                      {/* Q&A header — 点标题展开/折叠，右侧按钮复制直达链接 */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleQA(qa.id)}
+                          aria-expanded={isOpen}
+                          className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left transition hover:bg-black/5"
+                        >
+                          <ChevronDown
+                            className={`size-3.5 shrink-0 text-black/50 transition-transform ${
+                              isOpen ? "rotate-0" : "-rotate-90"
+                            }`}
+                          />
+                          <span className="text-sm font-black text-black">
+                            {qa.id} · {qa.title}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void shareQa(qa.id)}
+                          aria-label={`复制 ${qa.id} 的分享链接`}
+                          title="复制这一条的分享链接"
+                          className={`inline-flex shrink-0 items-center gap-1 border-[2px] border-black px-1.5 py-0.5 text-[10px] font-black text-black transition hover:bg-[var(--neo-accent)] ${
+                            copiedId === qa.id
+                              ? "bg-[var(--neo-accent)]"
+                              : "bg-white"
                           }`}
-                        />
-                        <span className="text-sm font-black text-black">
-                          {qa.id} · {qa.title}
-                        </span>
-                      </button>
+                        >
+                          {copiedId === qa.id ? (
+                            <Check className="size-3" />
+                          ) : (
+                            <Share2 className="size-3" />
+                          )}
+                          {copiedId === qa.id ? "已复制" : "分享"}
+                        </button>
+                      </div>
 
                       {/* Q&A body — collapsible */}
                       {isOpen && (
