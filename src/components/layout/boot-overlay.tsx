@@ -6,17 +6,10 @@ import CubeLoader from "@/components/ui/cube-loader";
 import {
   BOOT_OVERLAY_ATTR,
   BOOT_OVERLAY_MAX_MS,
+  BOOT_OVERLAY_MIN_VISIBLE_MS,
   BOOT_OVERLAY_STARTED_AT_ATTR,
   buildBootOverlayScript,
 } from "@/lib/boot/boot-overlay";
-
-/**
- * 动画至少完整露一次面。
- *
- * 冷启动时 HTML 与 JS 可能只差 200ms 到齐，水合完成就立刻撤掉会出现「闪一下」，
- * 比不显示更难受；这里让它至少播满这么久。
- */
-const MIN_VISIBLE_MS = 700;
 
 /**
  * 首页的冷启动加载动画（页面确实慢：Vercel 冷启动 / 首页缓存回源）。
@@ -41,8 +34,9 @@ export function BootOverlay() {
       if (root.getAttribute(BOOT_OVERLAY_ATTR) === "on") root.setAttribute(BOOT_OVERLAY_ATTR, "off");
     };
     const shownAt = Number(root.getAttribute(BOOT_OVERLAY_STARTED_AT_ATTR) ?? "");
-    const elapsed = Number.isFinite(shownAt) && shownAt > 0 ? performance.now() - shownAt : MIN_VISIBLE_MS;
-    const minWait = Math.max(0, MIN_VISIBLE_MS - elapsed);
+    const elapsed =
+      Number.isFinite(shownAt) && shownAt > 0 ? performance.now() - shownAt : BOOT_OVERLAY_MIN_VISIBLE_MS;
+    const minWait = Math.max(0, BOOT_OVERLAY_MIN_VISIBLE_MS - elapsed);
 
     /**
      * 等**整页**加载完再撤，而不是等 React 水合。

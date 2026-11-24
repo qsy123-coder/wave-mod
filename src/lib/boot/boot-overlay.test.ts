@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   BOOT_OVERLAY_ATTR,
+  BOOT_OVERLAY_MIN_VISIBLE_MS,
   BOOT_OVERLAY_SLOW_MS,
   BOOT_OVERLAY_STARTED_AT_ATTR,
   buildBootOverlayScript,
@@ -25,6 +26,18 @@ describe("shouldShowBootOverlay：只有「确实慢」才显示", () => {
 
   it("elapsed 不是有限数 → 不显示", () => {
     expect(shouldShowBootOverlay({ elapsedMs: Number.NaN })).toBe(false);
+  });
+});
+
+describe("最短停留时长", () => {
+  // 2026-11-24 图片改回 COS 源站后 window.load 提前，原来 700ms 的停留会变成「闪一下」。
+  // 用户要求动画完整播一次，这里钉住下限，防止以后又被人调回去。
+  it("至少 1.2s，且明显长于旧的 700ms", () => {
+    expect(BOOT_OVERLAY_MIN_VISIBLE_MS).toBeGreaterThanOrEqual(1200);
+  });
+
+  it("必须短于硬上限，兜底逻辑才有意义", () => {
+    expect(BOOT_OVERLAY_MIN_VISIBLE_MS).toBeLessThan(12_000);
   });
 });
 

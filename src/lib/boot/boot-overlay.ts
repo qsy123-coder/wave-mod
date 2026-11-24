@@ -28,6 +28,16 @@ export const BOOT_OVERLAY_STARTED_AT_ATTR = "data-boot-at";
 export const BOOT_OVERLAY_SLOW_MS = 800;
 
 /**
+ * 遮罩至少完整露面的时长。
+ *
+ * 组件在 `window.load`（图片等子资源全部落地）后才收遮罩。2026-11-24 把图片从
+ * 境外 CDN 换到 COS 广州源站后，`load` 提前了很多 —— 原来靠「图片慢」自然撑住的
+ * 好几秒展示，会缩成只闪一下。用户要求动画「完整播一次」，所以最短停留提到 1.2s：
+ * 页面本身快时也就多挡这一小段，慢的时候仍然等 load 完立刻收。
+ */
+export const BOOT_OVERLAY_MIN_VISIBLE_MS = 1200;
+
+/**
  * 硬上限：遮罩最多挡这么久。
  *
  * 兜底的是「JS 加载失败 / React 水合挂了」这种情形 —— 此时组件里的隐藏逻辑永远不会跑，
