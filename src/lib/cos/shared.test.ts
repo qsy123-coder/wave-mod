@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   COS_IMG_CARD,
   COS_IMG_HERO,
   COS_IMG_SRCSET,
   COS_IMG_THUMB,
+  COS_IMG_THUMB_SMALL,
   DRAWER_HERO_SIZES,
   cosImageHeroAttrs,
   cosImageSrcSet,
@@ -114,5 +115,75 @@ describe("cosImageHeroAttrs（抽屉大图 preload 与 <img> 共用）", () => {
     expect(cosImageHeroAttrs(null)).toBeNull();
     expect(cosImageHeroAttrs(undefined)).toBeNull();
     expect(cosImageHeroAttrs("")).toBeNull();
+  });
+});
+
+/**
+ * 图片 / 视频两套基址必须能分别配置：
+ * 2026-11-24 实测境外 CDN 对大陆访客 2.1–7.9s（COS 广州源站 0.36s），图片要能
+ * 独立切回源站；视频则必须留在 CDN（源站响应带 force-download，Safari 会当下载）。
+ * 这两个模块级常量在 import 时求值，所以每条用例都要 resetModules 后重新 import。
+ */
+describe("图片 / 视频取流域名（NEXT_PUBLIC_COS_IMAGE_BASE / NEXT_PUBLIC_COS_VIDEO_BASE）", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  async function loadShared() {
+    vi.resetModules();
+    return import("./shared");
+  }
+
+  it("图片基址只作用于 withCosImageTransform / withCosImageHost", async () => {
+    vi.stubEnv("NEXT_PUBLIC_COS_IMAGE_BASE", "https://img.example.com");
+    vi.stubEnv("NEXT_PUBLIC_COS_VIDEO_BASE", "https://video.example.com");
+    const shared = await loadShared();
+
+    expect(shared.withCosImageTransform(COS_IMAGE, COS_IMG_CARD)).toBe(
+      `https://img.example.com/mods/%E8%8A%99%E9%9C%B2/id/preview.webp?imageMogr2/thumbnail/800x%3E/format/webp`,
+    );
+    expect(shared.withCosImageHost(COS_IMAGE)).toBe(
+      "https://img.example.com/mods/%E8%8A%99%E9%9C%B2/id/preview.webp",
+    );
+    expect(shared.getCosPublicBaseUrl()).toBe("https://img.example.com");
+  });
+
+  it("视频基址与图片互不影响（视频必须留在 CDN）", async () => {
+    vi.stubEnv("NEXT_PUBLIC_COS_IMAGE_BASE", "https://img.example.com");
+    vi.stubEnv("NEXT_PUBLIC_COS_VIDEO_BASE", "https://cdn.example.com");
+    const shared = await loadShared();
+
+    expect(shared.withCosVideoHost(COS_IMAGE)).toBe(
+      "https://cdn.example.com/mods/%E8%8A%99%E9%9C%B2/id/preview.webp",
+    );
+    expect(shared.getCosVideoBaseUrl()).toBe("https://cdn.example.com");
+    // 历史别名现在语义是视频，不能再把图片带到 CDN 上
+    expect(shared.withCosPublicHost).toBe(shared.withCosVideoHost);
+  });
+
+  it("两个变量都没配时原样返回 COS 源站（大陆直连更快）", async () => {
+    const shared = await loadShared();
+
+    expect(shared.withCosImageHost(COS_IMAGE)).toBe(COS_IMAGE);
+    expect(shared.withCosVideoHost(COS_IMAGE)).toBe(COS_IMAGE);
+    expect(shared.getCosPublicBaseUrl()).toBeNull();
+    expect(shared.getCosVideoBaseUrl()).toBeNull();
+  });
+
+  it("只配图片基址时，视频不会被误改写到图片域", async () => {
+    vi.stubEnv("NEXT_PUBLIC_COS_IMAGE_BASE", "https://img.example.com");
+    const shared = await loadShared();
+
+    expect(shared.withCosImageHost(COS_IMAGE)).toContain("img.example.com");
+    expect(shared.withCosVideoHost(COS_IMAGE)).toBe(COS_IMAGE);
+  });
+});
+
+describe("缩略图档位", () => {
+  it("抽屉缩略图条用 160 档，避免 20+ 图一次下 500KB", () => {
+    expect(COS_IMG_THUMB_SMALL).toBe(160);
+    expect(COS_IMG_THUMB_SMALL).toBeLessThan(COS_IMG_THUMB);
+    expect(withCosImageTransform(COS_IMAGE, COS_IMG_THUMB_SMALL)).toContain("thumbnail/160x%3E");
   });
 });

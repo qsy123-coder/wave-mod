@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
-  COS_IMG_THUMB,
+  COS_IMG_THUMB_SMALL,
   cosImageHeroAttrs,
   withCosImageTransform,
 } from "@/lib/cos/shared";
@@ -194,6 +194,7 @@ export function DrawerPreviewGallery({
           sizes={warmAttrs.sizes}
           alt=""
           aria-hidden
+          fetchPriority="low"
           className="hidden"
         />
       ) : null}
@@ -222,6 +223,10 @@ export function DrawerPreviewGallery({
                 srcSet={shownAttrs?.srcSet}
                 sizes={shownAttrs?.sizes}
                 alt={`${title} 预览 ${shownIndex + 1}`}
+                // 首图由页面里的 <link rel=preload> 提前拉，命中缓存后立即上屏；
+                // 其余图切换时也已经在预取，所以这里保持高优先级。
+                fetchPriority="high"
+                decoding="async"
                 className="absolute inset-0 h-full w-full object-contain"
               />
             </button>
@@ -282,7 +287,7 @@ export function DrawerPreviewGallery({
                 )}
               >
                 <Image
-                  src={withCosImageTransform(src, COS_IMG_THUMB)}
+                  src={withCosImageTransform(src, COS_IMG_THUMB_SMALL)}
                   alt=""
                   fill
                   sizes="56px"

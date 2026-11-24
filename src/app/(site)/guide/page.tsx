@@ -6,7 +6,7 @@ import {
   resolveDefaultVersion,
 } from "@/actions/tutorial/tutorial-actions";
 import { toCompanionVideo } from "@/features/tutorial/companion-video";
-import { getCosPublicBaseUrl, withCosPublicHost } from "@/lib/cos/shared";
+import { getCosVideoBaseUrl, withCosVideoHost } from "@/lib/cos/shared";
 import { getCosPublicHost } from "@/lib/cos/server-config";
 import type { Chapter, TutorialVersionMeta, VideoConfig } from "@/features/tutorial/types";
 import type { TutorialFullData, TutorialChapterFull } from "@/features/tutorial-admin/types";
@@ -22,8 +22,8 @@ import type { TutorialFullData, TutorialChapterFull } from "@/features/tutorial-
 function toPublicVideo(video: VideoConfig | undefined): VideoConfig | undefined {
   if (!video) return undefined;
   return {
-    src: withCosPublicHost(video.src),
-    poster: withCosPublicHost(video.poster),
+    src: withCosVideoHost(video.src),
+    poster: withCosVideoHost(video.poster),
   };
 }
 
@@ -160,7 +160,7 @@ export default async function GuidePage({
   // React 19 会把 <link rel="preconnect"> 提升进 <head>。
   // 不加 crossOrigin：<img>/<video> 发的是 no-cors 请求，加了会另开一条用不上的连接。
   const rawCosHost = getCosPublicHost();
-  const cosOrigin = getCosPublicBaseUrl() ?? (rawCosHost ? `https://${rawCosHost}` : null);
+  const cosOrigin = getCosVideoBaseUrl() ?? (rawCosHost ? `https://${rawCosHost}` : null);
   const cosHost = publicVideo ? cosOrigin : null;
 
   return (

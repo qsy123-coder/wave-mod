@@ -111,9 +111,16 @@ export async function pushUrlsCache(urls, { credentials, userAgent = "wavemod-wa
 
 // ─────────────────────── 图片档位预热 ───────────────────────
 
-/** 站内图片对外基址（CDN）。可用 `NEXT_PUBLIC_COS_IMAGE_BASE` 覆盖。 */
+/**
+ * CDN 的图片基址（**仅用于预热任务**）。
+ *
+ * ⚠️ 不要把 `NEXT_PUBLIC_COS_IMAGE_BASE` 拿来当默认值：2026-11-24 起站点图片
+ * 默认直连 COS 广州源站（境外 CDN 对大陆访客 2.1–7.9s），而预热 API 只接受
+ * CDN 域名。这里取的是「视频/封面用的那个 CDN 域」。
+ */
 export const CDN_IMAGE_BASE_DEFAULT =
-  (process.env.NEXT_PUBLIC_COS_IMAGE_BASE ?? "").trim().replace(/\/+$/, "") || "https://cdn.sunnyrose.xyz";
+  (process.env.NEXT_PUBLIC_COS_VIDEO_BASE ?? process.env.CDN_IMAGE_BASE ?? "").trim().replace(/\/+$/, "") ||
+  "https://cdn.sunnyrose.xyz";
 
 /**
  * 详情页实际会请求的档位：

@@ -274,6 +274,8 @@ export function ModsPageClient({
           masonryColumns={masonryColumns}
           layoutHint={layoutHint}
           layoutShift={layoutShift}
+          // 抽屉（详情）打开时列表整块被盖住：卡片图降级，把首屏带宽让给抽屉首图。
+          suppressImagePriority={drawerModId !== null}
           onCardClick={openDrawer}
           onStatusChange={handleStatusChange}
         />

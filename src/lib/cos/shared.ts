@@ -59,6 +59,14 @@ export function isCosStorageUrl(url: string): boolean {
  * 分档按「那个位的实际显示宽度」取，不按组件名取。宁可先量一眼再填。
  */
 export const COS_IMG_THUMB = 320;
+/**
+ * 抽屉缩略图条用的档位。
+ *
+ * 缩略图位只有 56 CSS px，3x 屏也只要 168 设备像素；原来统一用 320 档，
+ * 一张约 25KB，20 多图的帖子光缩略图条就要下 500KB，和首图抢带宽。
+ * 160 档约 8–10KB，肉眼在 56px 的方框里分辨不出差别。
+ */
+export const COS_IMG_THUMB_SMALL = 160;
 export const COS_IMG_CARD = 800;
 export const COS_IMG_HERO = 1280;
 
@@ -76,32 +84,48 @@ export const COS_IMG_HERO = 1280;
 export const COS_IMG_SRCSET = [640, 960, 1280, 1920] as const;
 
 /**
- * COS 图片的对外基址。默认空 = 直接用 COS 源站域名（HTTP/1.1）。
+ * COS 图片的对外基址。默认空 = 直接用 COS 源站域名（广州，HTTP/1.1）。
  *
- * 配好腾讯云 CDN 后，把 `NEXT_PUBLIC_COS_IMAGE_BASE` 设成 CDN 域名（如
- * `https://cdn.sunnyrose.xyz`），所有 COS 图片 URL 会自动改写到 CDN：
- * 浏览器↔CDN 走 HTTP/2，边缘缓存命中后不再受 COS 默认域名 6 条并发的限制。
+ * ## 为什么默认不再指向境外 CDN（2026-11-24 实测）
+ *
+ * 2026-10-19 曾把 `NEXT_PUBLIC_COS_IMAGE_BASE` 设成 `https://cdn.sunnyrose.xyz`
+ * （腾讯云**境外**加速，域名未备案只能选境外节点），目的是绕开 COS 默认域名
+ * 6 条并发限制。但境外节点对大陆访客是绕路：
+ *
+ *   同一张 960 档图（125KB），大陆直连实测
+ *     COS 广州源站：connect 0.08s / ttfb 0.30s / total 0.36s
+ *     境外 CDN 各节点：connect 0.47–1.75s / ttfb 1.4–5.0s / total 2.1–7.9s
+ *     （43.175.44.11 直接 15s 不可用；且 CDN 实际回的是 HTTP/1.1，并没有 h2）
+ *
+ * 详情页首图 / 多图切换 / 列表卡片图全走这个域名，2–8 秒的首图延迟就是
+ * 「预览图加载很慢」的来源。所以图片默认回源站；需要时仍可用这个变量覆盖
+ * （换成备案后的境内 CDN 即可，代码不用改）。
  *
  * 必须是 NEXT_PUBLIC_*：卡片图、头像、预览图都会在客户端拼 URL。
  */
 const COS_PUBLIC_IMAGE_BASE = process.env.NEXT_PUBLIC_COS_IMAGE_BASE?.trim().replace(/\/+$/, "") ?? "";
 
 /**
- * 把 COS 源站 URL 改写到 CDN 基址（保留对象路径与原有查询串）。
- * 未配置 CDN 时原样返回。
+ * 视频/封面的对外基址，**与图片分开配置**。
  *
- * 视频也用这个：COS 源站给 `tutorial/` 下的对象回了
- * `Content-Disposition: attachment` + `x-cos-force-download: true`，
- * Chrome/Edge 在 <video> 里忽略它，**Safari / iOS / 微信内置浏览器会当成下载**，
- * 表现为「教程视频播放不了」。CDN 域名不透传这两个头（实测 206 + Content-Range），
- * 所以视频/封面统一走 CDN 既修播放、也顺带提速。
+ * COS 源站给 `tutorial/` 下的对象回了 `Content-Disposition: attachment` +
+ * `x-cos-force-download: true`：Chrome/Edge 在 <video> 里忽略它，
+ * **Safari / iOS / 微信内置浏览器会当成下载**，表现为「教程视频播放不了」。
+ * CDN 域名不透传这两个头（实测 206 + Content-Range），所以视频必须留在 CDN 上，
+ * 即使图片已经改回源站。
+ *
+ * 默认空 = 不改写（本地/CI 没有视频素材）；生产在 `.env.production` 里设成
+ * `https://cdn.sunnyrose.xyz`。
  */
-export function withCosPublicHost<T extends string | null | undefined>(url: T): T {
-  if (!url || !COS_PUBLIC_IMAGE_BASE || !isCosStorageUrl(url)) return url;
+const COS_PUBLIC_VIDEO_BASE = process.env.NEXT_PUBLIC_COS_VIDEO_BASE?.trim().replace(/\/+$/, "") ?? "";
+
+/** 把 COS 源站 URL 改写到指定基址（保留对象路径与原有查询串）。基址为空时原样返回。 */
+function rewriteToBase<T extends string | null | undefined>(url: T, baseUrl: string): T {
+  if (!url || !baseUrl || !isCosStorageUrl(url)) return url;
 
   try {
     const parsed = new URL(url);
-    const base = new URL(COS_PUBLIC_IMAGE_BASE);
+    const base = new URL(baseUrl);
     const prefix = base.pathname.replace(/\/+$/, "");
     return `${base.origin}${prefix}${parsed.pathname}${parsed.search}` as T;
   } catch {
@@ -109,13 +133,42 @@ export function withCosPublicHost<T extends string | null | undefined>(url: T): 
   }
 }
 
-/** 已配置的 COS 对外基址（CDN 域名）；未配置返回 null。用于 SSR 的 preconnect。 */
+/**
+ * 把 COS 图片 URL 改写到图片基址（`NEXT_PUBLIC_COS_IMAGE_BASE`）。
+ * 未配置时原样返回（= 直接用 COS 源站）。
+ */
+export function withCosImageHost<T extends string | null | undefined>(url: T): T {
+  return rewriteToBase(url, COS_PUBLIC_IMAGE_BASE);
+}
+
+/**
+ * 把 COS 视频/封面 URL 改写到视频基址（`NEXT_PUBLIC_COS_VIDEO_BASE`）。
+ * 未配置时原样返回。
+ */
+export function withCosVideoHost<T extends string | null | undefined>(url: T): T {
+  return rewriteToBase(url, COS_PUBLIC_VIDEO_BASE);
+}
+
+/**
+ * 历史名字：以前图片和视频共用一个 CDN 基址。
+ * 现在语义是「视频/封面」，图片请用 `withCosImageHost`。
+ *
+ * @deprecated 用 `withCosImageHost` / `withCosVideoHost`
+ */
+export const withCosPublicHost = withCosVideoHost;
+
+/** 已配置的图片基址；未配置返回 null（= COS 源站）。用于 SSR 的 preconnect。 */
 export function getCosPublicBaseUrl(): string | null {
   return COS_PUBLIC_IMAGE_BASE || null;
 }
 
+/** 已配置的视频基址；未配置返回 null。用于教程页的 preconnect。 */
+export function getCosVideoBaseUrl(): string | null {
+  return COS_PUBLIC_VIDEO_BASE || null;
+}
+
 /**
- * 给 COS 图片 URL 拼上「缩到 width 宽」的处理参数；配置了 CDN 时先把 host 换到 CDN。
+ * 给 COS 图片 URL 拼上「缩到 width 宽」的处理参数；配置了图片基址时先把 host 换过去。
  *
  * ⚠️ **只在渲染层用，不要把结果写回数据库。** 库里 `images` 的值被好几处按精确字符串比较：
  * `isPlaceholderImage` 的 `===`（src/lib/mods-domain/preview-image.ts）、
@@ -129,10 +182,10 @@ export function getCosPublicBaseUrl(): string | null {
  */
 export function withCosImageTransform<T extends string | null | undefined>(url: T, width: number): T {
   if (!url || !isCosStorageUrl(url) || url.includes("imageMogr2")) {
-    return withCosPublicHost(url);
+    return withCosImageHost(url);
   }
 
-  const source = withCosPublicHost(url);
+  const source = withCosImageHost(url);
 
   // 已有的查询串要留着（比如 mod-card 失败重试拼的 `_retry=`）：实测
   // `?imageMogr2/thumbnail/800x&_retry=123` 与调换顺序的结果完全一致，COS 只挑自己认识的参数。

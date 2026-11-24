@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Eye, ImageIcon, PlayCircle, X } from "lucide-react";
 
-import { COS_IMG_CARD, COS_IMG_HERO, withCosImageTransform, withCosPublicHost } from "@/lib/cos/shared";
+import { COS_IMG_CARD, COS_IMG_HERO, withCosImageHost, withCosImageTransform } from "@/lib/cos/shared";
 import { cn } from "@/lib/utils";
 
 type PreviewItem =
@@ -235,10 +235,10 @@ export function ModPreviewGallery({ images, title, videoUrl }: ModPreviewGallery
           ) : null}
 
           <div className="absolute inset-0 z-[125] flex items-center justify-center px-6 py-20">
-            {/* 大图也要走 CDN：库里存的是 COS 源站域名，直连源站没有边缘缓存，
-                多图翻页时每张都要回源。 */}
+            {/* 大图统一走图片基址（与抽屉一致）：库里存的是 COS 源站域名，
+                配了境内 CDN 时由 withCosImageHost 改写。 */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={withCosPublicHost(activeItem.src)} alt={activeItem.alt} loading="eager" decoding="async" className="max-h-full max-w-full border-4 border-black object-contain shadow-[10px_10px_0px_0px_#000]" />
+            <img src={withCosImageHost(activeItem.src)} alt={activeItem.alt} loading="eager" decoding="async" className="max-h-full max-w-full border-4 border-black object-contain shadow-[10px_10px_0px_0px_#000]" />
           </div>
         </div>
       ) : null}

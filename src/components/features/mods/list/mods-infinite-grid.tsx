@@ -164,6 +164,18 @@ type ModsInfiniteGridProps = {
    * 这种版式，而手机首页/游戏分站复用的这个网格不要。
    */
   posterCards?: boolean;
+  /**
+   * 卡片图不抢首屏带宽。
+   *
+   * `/mods/<id>` 打开详情时，列表整块被抽屉盖住，但**首屏 16 张卡仍按 eager + high
+   * 渲染**：2026-11-24 实测该页面 HTML 里有 15 条 `<link rel=preload as=image>`
+   * （每条还带 srcset 的五档地址），全部和抽屉首图抢同一个域名的 6 条连接。
+   * 慢链路上这正是「点开详情，首图要等好几秒」的主因之一。
+   *
+   * 抽屉打开期间把卡片降成 `loading=lazy` + `fetchPriority=low`，图片仍在视口内、
+   * 仍会加载（不会闪），但不再抢预载优先级。
+   */
+  suppressImagePriority?: boolean;
 };
 
 /** 网格对外汇报的取数状态 */
@@ -179,7 +191,7 @@ export type ModsGridStatus = {
   effectiveColumns: MasonryColumns | null;
 };
 
-export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns, layoutHint = null, layoutShift = null, posterCards = false }: ModsInfiniteGridProps) {
+export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMods, initialTotalCount, preview = false, query, sort, onCardClick, onStatusChange, isLoggedIn = false, layoutMode = "masonry", masonryColumns, layoutHint = null, layoutShift = null, posterCards = false, suppressImagePriority = false }: ModsInfiniteGridProps) {
   // 哨兵节点用 callback ref 存进 state，而不是 useRef。
   //
   // 哨兵是**条件渲染**的（hasNextPage 为假时不渲染），节点会在挂载/卸载之间切换，
@@ -798,8 +810,8 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         imageAspectRatio={aspectRatio}
         // 只 eager 第一页：后面几页若也 eager，会和首屏可见图片抢带宽，
         // 反而让当前屏更慢。后面的页保持 lazy，进入视口前由 2000px 数据预取兜住。
-        imagePriority={idx < MODS_PAGE_SIZE}
-        imageFetchPriority={idx < 4 ? "high" : idx < MODS_PAGE_SIZE ? "auto" : "low"}
+        imagePriority={!suppressImagePriority && idx < MODS_PAGE_SIZE}
+        imageFetchPriority={suppressImagePriority ? "low" : idx < 4 ? "high" : idx < MODS_PAGE_SIZE ? "auto" : "low"}
         // 移动端是 2 列，单卡约 50vw；写 100vw 会让浏览器选 560 档，白花约一半字节。
         // 跨两列的横屏卡由调用方传入真实像素宽，见 DEFAULT_CARD_IMAGE_SIZES 的注释。
         imageSizes={imageSizes}
@@ -817,7 +829,7 @@ export function ModsInfiniteGrid({ character, direct = false, gameKey, initialMo
         mediaTopRightClassName="absolute right-2 top-2"
       />
     ),
-    [gameKey, onCardClick, isLoggedIn, isMasonry, handleImageRatioChange, posterCards, character],
+    [gameKey, onCardClick, isLoggedIn, isMasonry, handleImageRatioChange, posterCards, character, suppressImagePriority],
   );
 
   /**

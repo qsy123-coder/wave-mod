@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:preview": "node scripts/verify-preview-image-perf.mjs",
     "cf:build": "node scripts/cf-build.mjs",
     "cf:deploy": "npm run cf:build && npx wrangler deploy",
     "vc:deploy": "vercel deploy",
