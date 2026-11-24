@@ -88,8 +88,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 图片/视频实际取流的是 CDN 域名（配了 NEXT_PUBLIC_COS_IMAGE_BASE 时）；
-  // 没配才退回 COS 源站。未配 COS_BUCKET / COS_REGION 时为 null（本地开发），不输出预连接标签。
+  // 图片实际取流的是图片基址（`NEXT_PUBLIC_COS_IMAGE_BASE`，2026-11-24 起默认 = COS 广州源站）；
+  // 没配就按 COS_BUCKET / COS_REGION 推源站域名。两者都缺时为 null（本地开发），不输出预连接标签。
+  // 视频走的是另一个域名（NEXT_PUBLIC_COS_VIDEO_BASE），由教程页自己 preconnect。
   const rawCosHost = getCosPublicHost();
   const cosOrigin =
     getCosPublicBaseUrl() ?? (rawCosHost ? `https://${rawCosHost}` : null);

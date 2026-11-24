@@ -12,7 +12,7 @@ export const characterImageMap: Record<string, string> = CHARACTER_AVATARS;
 
 /**
  * 头像存储根地址。必须是 NEXT_PUBLIC_*，因为这个函数会被客户端组件调用；
- * 默认值就是当前公开预览桶（与卡片图同一个桶，浏览器可复用同一条 HTTP/2 连接）。
+ * 默认值就是当前公开预览桶，与卡片图同一个域名（连接可以复用）。
  */
 const CHARACTER_AVATAR_BASE =
   process.env.NEXT_PUBLIC_CHARACTER_AVATAR_BASE?.trim().replace(/\/+$/, "") ||
