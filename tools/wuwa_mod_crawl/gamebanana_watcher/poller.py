@@ -320,7 +320,8 @@ def collect_changes(
     新增 = id 不在 seen_ids；更新 = 已见但 `_tsDateModified` 比基线大。
     """
     seen = store.seen_ids
-    mod_meta = store.state.get("mod_meta") or {}
+    mod_meta = store.state.setdefault("mod_meta", {})
+    first_seen = _first_seen_map(store)
     model_types = meta["model_types"]
     now = time.time()
     window = meta["update_window_hours"] * 3600
@@ -357,10 +358,22 @@ def collect_changes(
                     handled.add(mid)
                     continue
 
-                # 已收录但还没有基线的 Mod（升级后的首轮）先当基线，不报更新，
-                # 否则会把它们当前的修改时间误当成「刚刚更新」。
+                # 已收录但还没有基线的 Mod（升级后的首轮 / 历史遗漏）：
+                # 用 all_mods.csv 的「首次发现时间」兜底当基线。收录之后才发生改动
+                # 的照样算更新；同时补写基线，否则这类条目每轮都因为「没有基线」
+                # 被跳过，永远不会再被判定为更新（2026-11-25 的
+                # Hiyuki / Hsin Chronopattern 两个帖就是这样漏掉的）。
                 prev = mod_meta.get(mid)
                 if prev is None:
+                    recorded_at = first_seen.get(mid, 0)
+                    if recorded_at and modified > recorded_at + 300:
+                        updated_records.append(rec)
+                        handled.add(mid)
+                    mod_meta[mid] = {
+                        "m": modified,
+                        "a": added,
+                        "v": str(rec.get("_sVersion") or ""),
+                    }
                     continue
                 if modified > int(prev.get("m") or 0):
                     updated_records.append(rec)

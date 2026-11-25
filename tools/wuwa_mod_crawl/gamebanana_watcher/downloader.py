@@ -239,6 +239,26 @@ def sanitize_name(name: str, budget: int = 100) -> str:
     return text or "未命名"
 
 
+_VERSION_LIKE = re.compile(r"^[vV]?\d")
+
+
+def _version_tag(raw: str) -> str:
+    """把 GameBanana 的 `_sVersion` 归一成文件名片段。
+
+    "0.9" -> "v0.9"；"V2.61" -> "V2.61"；"Base"/"NSFW" 这类非数字版本原样保留；
+    空 -> ""（不加版本）。注意不能直接交给 sanitize_name：它对空串会返回「未命名」。
+    """
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    text = sanitize_name(text, 24).strip(" .")
+    if not text:
+        return ""
+    if not _VERSION_LIKE.match(text):
+        return text
+    return text if text[:1].lower() == "v" else f"v{text}"
+
+
 def _ext_of(filename: str, default: str = "") -> str:
     base = str(filename or "").split("?")[0].rsplit("/", 1)[-1]
     if "." in base:
@@ -777,6 +797,8 @@ def _plan_item(
     name = (detail.get("_sName") or entry.get("name") or "").strip()
     entry["name"] = html_mod.unescape(name)
     entry["page_url"] = detail.get("_sProfileUrl") or entry.get("page_url") or ""
+    # 站点下载栏在文件自身没版本号时会显示 Mod 级版本（如 Hiyuki 的 fix 包显示 1.1）
+    mod_version = str(detail.get("_sVersion") or "").strip()
 
     images: list[dict[str, Any]] = []
     if settings.images:
@@ -796,6 +818,9 @@ def _plan_item(
             files.append({
                 "url": url,
                 "src": str(f.get("_sFile") or ""),
+                # 站点下载栏显示的那个版本号（0.9 / 1.2 …），落到文件名里；
+                # 文件没写就回退 Mod 级版本，跟网页显示一致。
+                "version": str(f.get("_sVersion") or "").strip() or mod_version,
                 "status": "pending",
                 "size": int(f.get("_nFilesize") or 0),
             })
@@ -824,13 +849,17 @@ def _plan_item(
         }
         n = len(pend)
         suffix_len = 0 if n == 1 else len(f"_{n}")
-        base = sanitize_name(entry["name"], _budget_for(target_dir, suffix_len))
+        # 版本号会拼在 base 后面，预留长度免得总路径超 MAX_PATH
+        ver_len = max((len(_version_tag(x.get("version"))) + 1 for x in pend), default=0)
+        base = sanitize_name(entry["name"], _budget_for(target_dir, suffix_len + ver_len))
         base = _unique_base(base, mid, taken)
         taken.add(base)
         for idx, item in enumerate(pend):
             ext = _ext_of(item.get("src") or "", default_ext)
             suffix = "" if n == 1 else f"_{idx + 1}"
-            name = f"{base}{suffix}{ext}"
+            # 附件带版本号（与站点「可下载文件」栏一致），图片没有版本就照旧
+            ver = _version_tag(item.get("version"))
+            name = f"{base}{suffix} {ver}{ext}" if ver else f"{base}{suffix}{ext}"
             if name in reused_names:
                 name = f"{base} (mod {mid}){suffix}{ext}"
             item["file"] = name
