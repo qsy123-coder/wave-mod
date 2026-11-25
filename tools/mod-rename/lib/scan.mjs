@@ -199,6 +199,47 @@ export function stripNumberSuffix(base) {
   return String(base).replace(/[-_]\d+$/, "");
 }
 
+/**
+ * 附件名里的版本号：` v0.9` / ` v1.2` / ` V2.61`。
+ *
+ * 2026-11-25 起爬虫把站点版本号写进附件名（`Hsin Chronopattern Legacy v0.9.rar`），
+ * 而预览图仍是不带版本的 `…_1.jpg`。不剥掉它，「图 → 主条目」就匹配不上，
+ * 图片会掉进孤儿组单独起名，版本号（以及原本跟着主条目走的标题）就丢了。
+ */
+export function stripVersionSuffix(base) {
+  return String(base).replace(/\s+v\d[\w.]*$/i, "");
+}
+
+/**
+ * 宽松归属键：去版本号 + 去末尾编号后小写。
+ *
+ * `X_1 v1.2` / `X v1.2` / `X_1` / `X` 都要归到同一个键。改名后版本号在
+ * ` by 作者` 前面（`心月狐-时空纹样·传承 v0.9 by Jessy`），而图片是
+ * `心月狐-时空纹样·传承_1 by Jessy`，所以先按作者标签拆开，只归一前半段。
+ */
+function looseBaseKey(base) {
+  // 先剥整串的末尾编号：`…_1 by 作者-1` 这类编号落在作者后面
+  const text = stripNumberSuffix(String(base ?? ""));
+  const m = /^(.*?)(\s+by\s+.*)$/i.exec(text);
+  const head = m ? m[1] : text;
+  const tail = m ? m[2] : "";
+  return (stripNumberSuffix(stripVersionSuffix(head)) + tail).toLowerCase();
+}
+
+/**
+ * 只归一「作者标签之前」的部分。
+ * 工坊会把附件描述并进标题（`琳琅 NSFW_1 基础版 by DaisyMeow`），而图片仍是
+ * `琳琅 NSFW_1 by DaisyMeow` —— 全键对不上，但前半段是前缀关系。
+ */
+function looseBaseHead(base) {
+  const text = stripNumberSuffix(String(base ?? ""));
+  const m = /^(.*?)(\s+by\s+.*)$/i.exec(text);
+  const head = m ? m[1] : text;
+  return stripNumberSuffix(stripVersionSuffix(head)).toLowerCase();
+}
+
+const urlOf = (metaMap, name, base) => metaMap.get(name)?.url ?? metaMap.get(base)?.url ?? "";
+
 /** 预览图编号：没有后缀的是封面（0），`-1`/`_1` 是第 1 张。 */
 function imageOrder(img) {
   const m = /[-_](\d+)$/.exec(img.base);
@@ -226,11 +267,44 @@ export function buildRows(entries, metaMap = new Map()) {
   const primaries = entries.filter((e) => e.kind !== "image");
   const primaryBases = new Set(primaries.map((p) => p.base));
 
+  // 附件名可能带版本号（`X_1 v1.2`），图片名不带（`X_1`）：
+  // 精确匹配失败时退到「去版本 + 去编号」的宽松键。同键多条（同帖多附件）时
+  // 只挂给第一条 —— 那正是主包，其余附件各自没有独立预览图。
+  // 宽松键有歧义（两个不同 mod 归一后同名）时，再用帖子 URL 区分。
+  const looseOwner = new Map();
+  for (const p of primaries) {
+    const key = looseBaseKey(p.base);
+    if (!looseOwner.has(key)) looseOwner.set(key, p);
+  }
+
   const attached = new Map();
   const orphans = new Map();
   for (const img of images) {
     const stripped = stripNumberSuffix(img.base);
-    const owner = primaryBases.has(img.base) ? img.base : primaryBases.has(stripped) ? stripped : null;
+    let owner = null;
+    if (primaryBases.has(img.base)) {
+      owner = img.base;
+    } else if (primaryBases.has(stripped)) {
+      owner = stripped;
+    } else {
+      const samePost = (p) => {
+        if (!p) return false;
+        const imgUrl = urlOf(metaMap, img.name, img.base);
+        const candUrl = urlOf(metaMap, p.name, p.base);
+        // 两边都拿得到帖子 URL 且不是同一个帖子 → 不是这个 mod 的图
+        return !imgUrl || !candUrl || imgUrl === candUrl;
+      };
+      let candidate = looseOwner.get(looseBaseKey(img.base));
+      if (!samePost(candidate)) {
+        // 标题被工坊补过词（`… NSFW_1 基础版 by 作者`）时用前缀兜底，仍要求同帖
+        const imgHead = looseBaseHead(img.base);
+        candidate = primaries.find((p) => {
+          const head = looseBaseHead(p.base);
+          return (head.startsWith(imgHead) || imgHead.startsWith(head)) && samePost(p);
+        });
+      }
+      if (samePost(candidate)) owner = candidate.base;
+    }
     const bucket = owner ? attached : orphans;
     const key = owner ?? stripped;
     if (!bucket.has(key)) bucket.set(key, []);
