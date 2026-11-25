@@ -1082,18 +1082,22 @@ where game_key = ${dollarQuote(GAME_KEY)};
           (variantRank.get(b.hit.variant.label) ?? Number.MAX_SAFE_INTEGER),
       );
       const baseItem = orderedItems.find((item) => item.hit.variant === gm.group.variants[0]) ?? orderedItems[0];
+      // 封面优先用基变体的图；基变体没图就退到任意一个有图的变体，再退占位图
+      const baseOwn = baseItem.imageUrls.filter((url) => url !== PLACEHOLDER_IMAGE_URL);
       // 帖子级预览图（不属于任何变体的孤儿组）并入每个版本的画廊
       const sharedUrls = !gm.skipImages || refreshImages ? await uploadSharedImages(gm) : [];
       const variantImages = Object.fromEntries(
         orderedItems
           .map((item) => {
             const own = item.imageUrls.filter((url) => url !== PLACEHOLDER_IMAGE_URL);
-            return [item.hit.variant.label, [...own, ...sharedUrls]];
+            // 同一帖子的多个附件通常共用一组截图，下载器也只下来一份。
+            // 没有自己图的变体（典型：`_2 NSFW`）退到基变体的图，
+            // 否则版本切换过去画廊是空的、卡片看着像没对上的 mod。
+            const fallback = own.length === 0 ? baseOwn : [];
+            return [item.hit.variant.label, [...own, ...fallback, ...sharedUrls]];
           })
           .filter(([, urls]) => urls.length > 0),
       );
-      // 封面优先用基变体的图；基变体没图就退到任意一个有图的变体，再退占位图
-      const baseOwn = baseItem.imageUrls.filter((url) => url !== PLACEHOLDER_IMAGE_URL);
       const coverImages = [...baseOwn, ...sharedUrls];
       if (coverImages.length === 0) coverImages.push(PLACEHOLDER_IMAGE_URL);
       const driveLinks = dedupeGroupLinks(orderedItems.flatMap((item) => item.driveLinks));
