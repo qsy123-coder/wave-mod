@@ -106,6 +106,9 @@ def build(cfg: configparser.ConfigParser) -> tuple[GameBananaClient, Store, Noti
         key=cfg["notify"].get("serverchan_key", ""),
         token=cfg["notify"].get("pushplus_token", ""),
         enabled=cfg["notify"].getboolean("enabled", True),
+        # 直连（含 DNS）挂掉时的兜底：走本机 Clash 混合端口，
+        # 否则代理刚启动、系统 DNS 未恢复时告警本身也会发不出去。
+        proxy=proxy or "",
     )
     download = load_settings(cfg)
     download.proxy = proxy

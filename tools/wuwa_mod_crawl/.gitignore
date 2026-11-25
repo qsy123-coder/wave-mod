@@ -11,6 +11,9 @@ patreon_session.txt
 local/sync.ps1
 local/install_sync_task.ps1
 
+# ===== 本机计划任务的 XML 备份 / 提权执行日志（机器特定）=====
+local/backups/
+
 # ===== 运行状态 / 下载队列 / 产物 =====
 state.*.json
 state.*.json.lock

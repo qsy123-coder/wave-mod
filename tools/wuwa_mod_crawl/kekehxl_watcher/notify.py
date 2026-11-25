@@ -8,6 +8,7 @@ PushPlus 免费实名用户每天 200 次，作为主通道；Server酱 只在 P
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 import requests
@@ -16,6 +17,9 @@ log = logging.getLogger("notify")
 
 PUSHPLUS = "https://www.pushplus.plus/send"
 SERVERCHAN = "https://sctapi.ftqq.com/{key}.send"
+# 直连失败后的兜底代理。本机 Clash Verge 混合端口固定 7897；
+# 只有直连（含 DNS）失败时才用，境内服务正常时不会碰它。
+DEFAULT_PROXY = "http://127.0.0.1:7897"
 
 
 class Notifier:
@@ -25,17 +29,54 @@ class Notifier:
         token: str = "",
         enabled: bool = True,
         timeout: int = 20,
+        proxy: str = "",
     ) -> None:
         self.key = (key or "").strip()
         self.token = (token or "").strip()
         self.enabled = enabled and bool(self.key or self.token)
         self.timeout = timeout
+        # 兜底代理：优先用调用方传进来的（[net] 探测结果），否则用本机默认端口
+        self.proxy = (proxy or "").strip() or DEFAULT_PROXY
         self.session = requests.Session()
         # 绕过系统代理：本机开着 Clash 等系统代理时，requests 会自动读取，
         # 而该代理往往连不通（Windows 注册表里 https 代理被写成 https:// 形式）。
         # PushPlus / Server酱 都是境内服务，直连即可。
         self.session.trust_env = False
         self.session.proxies = {}
+        self._proxied: requests.Session | None = None
+
+    def _proxied_session(self) -> requests.Session:
+        """直连不可用时的备用会话（懒创建）。"""
+        if self._proxied is None:
+            s = requests.Session()
+            s.trust_env = False
+            s.proxies = {"http": self.proxy, "https": self.proxy}
+            self._proxied = s
+        return self._proxied
+
+    def _post(self, url: str, **kwargs: Any) -> requests.Response:
+        """先直连（重试 2 次），仍失败再改走本地代理。
+
+        代理刚启动、系统 DNS 还没恢复时，直连会以 getaddrinfo failed 秒挂；
+        走代理由 Clash 自己解析，告警就能发出去。
+        """
+        last_exc: Exception | None = None
+        for attempt in (1, 2):
+            try:
+                return self.session.post(url, timeout=self.timeout, **kwargs)
+            except requests.RequestException as exc:
+                last_exc = exc
+                log.warning("通知直连失败（%d/2）：%s", attempt, exc)
+                if attempt == 1:
+                    time.sleep(1)
+        try:
+            log.warning("通知改走代理 %s 重试", self.proxy)
+            return self._proxied_session().post(url, timeout=self.timeout, **kwargs)
+        except requests.RequestException as exc:
+            log.error("通知走代理也失败：%s", exc)
+            if last_exc is not None:
+                raise exc from last_exc
+            raise
 
     def send(self, title: str, desp: str = "") -> bool:
         if not self.enabled:
@@ -51,7 +92,7 @@ class Notifier:
 
     def _send_pushplus(self, title: str, desp: str) -> bool:
         try:
-            resp = self.session.post(
+            resp = self._post(
                 PUSHPLUS,
                 json={
                     "token": self.token,
@@ -59,7 +100,6 @@ class Notifier:
                     "content": desp or title,
                     "template": "markdown",
                 },
-                timeout=self.timeout,
             )
             body: dict[str, Any] = resp.json()
             if body.get("code") == 200:
@@ -73,10 +113,9 @@ class Notifier:
 
     def _send_serverchan(self, title: str, desp: str) -> bool:
         try:
-            resp = self.session.post(
+            resp = self._post(
                 SERVERCHAN.format(key=self.key),
                 data={"title": title, "desp": desp},
-                timeout=self.timeout,
             )
             body: dict[str, Any] = resp.json()
             if body.get("code") == 0:
