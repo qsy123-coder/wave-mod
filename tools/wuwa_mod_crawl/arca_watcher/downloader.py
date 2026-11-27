@@ -438,6 +438,24 @@ def _is_transient(exc: Exception) -> bool:
     return False
 
 
+def _is_stale_kio_error(exc: Exception) -> bool:
+    """合集打不开是链接本身失效（作者改帖换了新码），而不是限流/断网。
+
+    2026-11-27 帖子 190464881（청초 에이메스 팬스 이식）：采集时抓到旧码，
+    作者 15:46 改帖换成新码，旧码随后对任何密码都回
+    ``collection:invalid_protector_config: invalid password``。下载器一直拿着
+    旧码重试，整帖卡在「需手动」，新码明明用频道密码就能打开。这类错误必须
+    重新抓正文换链接，而不是当成「密码不对」写进待手动清单。
+    """
+    if not isinstance(exc, _ApiError) or _is_transient(exc):
+        return False
+    code = exc.code.lower()
+    msg = (exc.message or "").lower()
+    if code.startswith("collection:"):
+        return True
+    return any(k in msg for k in ("invalid password", "not found", "expired", "deleted"))
+
+
 class KioClient:
     BASE = "https://api.kio.ac"
 
@@ -1120,6 +1138,12 @@ def _plan_entry(
 ) -> None:
     """拉帖子页 + 解析每个外链，写入 entry 的 images/kio/nahida/manual。"""
     owners = owners or {}
+    # 重新规划时记住已经下完的预览图：作者只改了下载链接的话，图不该重下一遍
+    done_images = {
+        str(img.get("src")): img
+        for img in (entry.get("images") or [])
+        if img.get("src") and img.get("status") == "done"
+    }
     # 重新规划（上一轮因限流失败）时先清空，避免 manual/images 累加重复
     entry["manual"] = []
     entry["images"] = []
@@ -1185,14 +1209,20 @@ def _plan_entry(
         count = len(media)
         for idx, url in enumerate(media):
             suffix = "" if count == 1 else f"_{idx + 1}"
-            images.append({
-                "src": urlsplit(url).path,     # 签名 URL 会过期，按路径重新匹配
+            src = urlsplit(url).path
+            item = {
+                "src": src,                    # 签名 URL 会过期，按路径重新匹配
                 # 直接存签名 URL（约 1 小时有效）：同一轮下载通常刚规划完，
                 # 复用它就不用为了刷新签名再开一次 Chrome 抓帖子页。
                 "url": url,
-                "file": f"{base}{suffix}{_ext_of(urlsplit(url).path, '.jpg')}",
+                "file": f"{base}{suffix}{_ext_of(src, '.jpg')}",
                 "status": "pending",
-            })
+            }
+            old = done_images.get(src)
+            if old:                            # 同一张图已经下过：保留完成状态
+                item["status"] = "done"
+                item["url"] = old.get("url") or url
+            images.append(item)
 
     kio_plans: list[dict[str, Any]] = []
     if settings.files:
@@ -1438,6 +1468,89 @@ def _plan_entry(
         (p.get("files") or p.get("collections")) for p in kio_plans
     )
     entry["status"] = "pending" if has_work else ("manual" if entry.get("manual") else "done")
+
+
+def _plan_with_base(
+    entry: dict[str, Any],
+    settings: ArcaDownloadSettings,
+    sess: requests.Session,
+    kio: KioClient,
+    nahida: NahidaClient,
+    link_client: NahidaLinkClient,
+    link_resolver: ChromeLinkResolver,
+    owners: dict[tuple[str, str], str],
+    taken: set[str],
+) -> None:
+    """按标题算 base（避开重名）并规划 entry，成功后登记合集归属。
+
+    首次规划和「作者改帖换链接后重新规划」都走这里，避免两处逻辑各自漂移。
+    """
+    slot = taken
+    # 同一帖子重新规划时，别把自己的旧 base 当成别人占用的名字
+    if entry.get("base"):
+        slot.discard(str(entry["base"]))
+    aid = entry["article_id"]
+    base = sanitize_name(entry.get("title") or f"arca-{aid}", 100)
+    base = _unique_base(base, aid, slot)
+    taken.add(base)
+    _plan_entry(
+        entry, base, settings, sess, kio, nahida, link_client, link_resolver, owners
+    )
+    for plan in entry.get("mods") or []:
+        if plan.get("type") == "kio" and plan.get("code"):
+            owners.setdefault(("kio", str(plan["code"])), aid)
+        elif plan.get("type") == "nahida" and plan.get("mod_id"):
+            owners.setdefault(("nahida", str(plan["mod_id"])), aid)
+        elif plan.get("type") == "nahida_link" and plan.get("link_id"):
+            if plan.get("ark"):
+                owners.setdefault(
+                    ("ark", str(plan.get("ark_folder_id") or plan["link_id"])),
+                    aid,
+                )
+            else:
+                owners.setdefault(("link", str(plan["link_id"])), aid)
+
+
+def _refresh_stale_kio(
+    entry: dict[str, Any],
+    settings: ArcaDownloadSettings,
+    sess: requests.Session,
+    kio: KioClient,
+    nahida: NahidaClient,
+    link_client: NahidaLinkClient,
+    link_resolver: ChromeLinkResolver,
+    owners: dict[tuple[str, str], str],
+    taken: set[str],
+) -> bool:
+    """下载前校验 kio 码；链接被作者换掉时重新抓正文规划一次。
+
+    返回 True 表示重新规划过，调用方要重新看 ``entry["status"]``。
+    """
+    if not settings.files:
+        return False
+    stale = False
+    for plan in entry.get("mods") or []:
+        if plan.get("type") != "kio" or not plan.get("code"):
+            continue
+        if not any(f.get("status") != "done" for f in plan.get("files") or []):
+            continue
+        try:
+            kio.resolve(str(plan["code"]), settings.password)
+        except Exception as exc:  # noqa: BLE001 - 校验失败交给下载阶段处理
+            if _is_transient(exc) or not _is_stale_kio_error(exc):
+                continue
+            stale = True
+            break
+    if not stale:
+        return False
+    log.info(
+        "帖子 %s 的 kio 链接已失效（作者改帖换了链接？），重新抓正文规划",
+        entry.get("article_id"),
+    )
+    _plan_with_base(
+        entry, settings, sess, kio, nahida, link_client, link_resolver, owners, taken
+    )
+    return True
 
 
 # ---------------------------------------------------------------- 下载
@@ -2361,31 +2474,11 @@ def _process_queue_inner(
         day_dir = out_root / day_folder(entry["day"], settings.folder_prefix) / source_dir
 
         if not entry.get("planned"):
-            slot = taken
-            # 同一帖子重新规划时，别把自己的旧 base 当成别人占用的名字
-            if entry.get("base"):
-                slot.discard(str(entry["base"]))
-            base = sanitize_name(entry.get("title") or f"arca-{aid}", 100)
-            base = _unique_base(base, aid, slot)
-            taken.add(base)
             try:
-                _plan_entry(
-                    entry, base, settings, sess, kio, nahida,
-                    link_client, link_resolver, owners,
+                _plan_with_base(
+                    entry, settings, sess, kio, nahida,
+                    link_client, link_resolver, owners, taken,
                 )
-                for plan in entry.get("mods") or []:
-                    if plan.get("type") == "kio" and plan.get("code"):
-                        owners.setdefault(("kio", str(plan["code"])), aid)
-                    elif plan.get("type") == "nahida" and plan.get("mod_id"):
-                        owners.setdefault(("nahida", str(plan["mod_id"])), aid)
-                    elif plan.get("type") == "nahida_link" and plan.get("link_id"):
-                        if plan.get("ark"):
-                            owners.setdefault(
-                                ("ark", str(plan.get("ark_folder_id") or plan["link_id"])),
-                                aid,
-                            )
-                        else:
-                            owners.setdefault(("link", str(plan["link_id"])), aid)
                 stats["planned"] += 1
                 _apply_state(state_path, aid, entry)
                 time.sleep(settings.delay_seconds)
@@ -2420,6 +2513,22 @@ def _process_queue_inner(
 
         if entry.get("status") in ("done", "manual", "skipped"):
             continue
+
+        # 作者改帖换掉 kio 链接后，state 里的旧码会一直报 invalid password，
+        # 整帖卡在「需手动」。下载前先校验一次：失效就重新抓正文规划。
+        try:
+            replanned = _refresh_stale_kio(
+                entry, settings, sess, kio, nahida,
+                link_client, link_resolver, owners, taken,
+            )
+        except Exception as exc:  # noqa: BLE001 - 校验失败不阻断本轮下载
+            log.warning("帖子 %s 校验 kio 链接失败：%s", aid, exc)
+            replanned = False
+        if replanned:
+            _apply_state(state_path, aid, entry)
+            if entry.get("status") in ("done", "manual", "skipped"):
+                touched.append(entry)
+                continue
 
         day_dir.mkdir(parents=True, exist_ok=True)
 
